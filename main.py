@@ -2,9 +2,7 @@ import requests
 import os
 import time
 
-# --------------------------------------
-# Load Secrets
-# --------------------------------------
+
 API_KEY = os.environ["API_KEY"]
 WEBHOOK_DAILY = os.environ["WEBHOOK_DAILY"]
 WEBHOOK_WEEKLY = os.environ["WEBHOOK_WEEKLY"]
@@ -12,33 +10,35 @@ WEBHOOK_MONTHLY = os.environ["WEBHOOK_MONTHLY"]
 
 BASE_URL = "https://api.twelvedata.com/time_series"
 
-# --------------------------------------
-# Asset list (Forex + Commodities + Indices + Crypto)
-# --------------------------------------
+
+# ---------------------------
+# Asset List
+# ---------------------------
 SYMBOLS = [
-    # --- FOREX ---
+    # FOREX
     "EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "NZD/USD",
     "USD/CHF", "USD/CAD", "EUR/JPY", "GBP/JPY", "CAD/JPY",
     "CHF/JPY", "AUD/JPY", "NZD/JPY", "EUR/GBP",
 
-    # --- COMMODITIES ---
-    "XAU/USD",     # Gold
-    "XAG/USD",     # Silver
-    "WTI/USD",     # Crude oil
+    # COMMODITIES
+    "XAU/USD",  # Gold
+    "XAG/USD",  # Silver
+    "WTI/USD",  # Oil
 
-    # --- INDICES ---
-    "NDX",         # NAS100
-    "DJI",         # US30
-    "SPX",         # S&P500
+    # INDICES
+    "NDX",  # NAS100
+    "DJI",  # US30
+    "SPX",  # S&P500
 
-    # --- CRYPTO ---
+    # CRYPTO
     "BTC/USD",
     "ETH/USD"
 ]
 
-# --------------------------------------
+
+# ---------------------------
 # Helpers
-# --------------------------------------
+# ---------------------------
 def candle_to_obj(c):
     return {
         "open": float(c["open"]),
@@ -47,14 +47,15 @@ def candle_to_obj(c):
         "close": float(c["close"])
     }
 
-# --------------------------------------
-# Fetch previous closed candles only
-# --------------------------------------
+
+# ---------------------------
+# FIXED: Correct previous-candle logic
+# ---------------------------
 def get_candles(symbol, interval):
     params = {
         "symbol": symbol,
         "interval": interval,
-        "outputsize": 3,
+        "outputsize": 10,
         "apikey": API_KEY
     }
 
@@ -66,41 +67,50 @@ def get_candles(symbol, interval):
 
     candles = r["values"]
 
-    # values[0] = current forming candle (ignore)
-    # values[1] = last completed candle (THIS is our signal candle)
-    # values[2] = the previous completed candle (comparison)
+    # Sort by datetime (oldest to newest)
+    candles = sorted(candles, key=lambda x: x["datetime"])
 
-    prev = candle_to_obj(candles[1])
-    prev2 = candle_to_obj(candles[2])
+    # Use last two COMPLETED candles
+    prev = candle_to_obj(candles[-1])
+    prev2 = candle_to_obj(candles[-2])
 
-    time.sleep(1.2)
+    time.sleep(1.2)  # rate limit protection
     return prev, prev2
 
-# --------------------------------------
-# STRAT Logic
-# --------------------------------------
+
+# ---------------------------
+# Strat Classification
+# ---------------------------
 def get_scenario(curr, prev):
     if curr["high"] < prev["high"] and curr["low"] > prev["low"]:
-        return "1"
+        return "1"  # inside bar
+
     if curr["high"] > prev["high"] and curr["low"] < prev["low"]:
-        return "3"
+        return "3"  # outside bar
+
     if curr["high"] > prev["high"]:
-        return "2U"
+        return "2U"  # directional 2-up
+
     if curr["low"] < prev["low"]:
-        return "2D"
+        return "2D"  # directional 2-down
+
     return None
+
 
 def failed_directional(candle, scenario):
     if scenario == "2U" and candle["close"] < candle["open"]:
         return "FAILED_2U"
+
     if scenario == "2D" and candle["close"] > candle["open"]:
         return "FAILED_2D"
+
     return None
 
-# --------------------------------------
-# Scan timeframe
-# --------------------------------------
-def scan_timeframe(tf_name, interval):
+
+# ---------------------------
+# Scan a timeframe
+# ---------------------------
+def scan_timeframe(interval):
     inside = []
     outside = []
     f2u = []
@@ -126,11 +136,11 @@ def scan_timeframe(tf_name, interval):
 
     return inside, outside, f2u, f2d
 
-# --------------------------------------
-# Send results to Discord
-# --------------------------------------
-def post_results(tf, inside, outside, f2u, f2d):
 
+# ---------------------------
+# Send to correct webhook
+# ---------------------------
+def post_results(tf, inside, outside, f2u, f2d):
     if tf == "Daily":
         webhook = WEBHOOK_DAILY
     elif tf == "Weekly":
@@ -141,34 +151,36 @@ def post_results(tf, inside, outside, f2u, f2d):
     msg = f"""
 📊 **{tf} Actionables**
 
-**Inside (1)**  
+**Inside (1)**
 {", ".join(inside) if inside else "None"}
 
-**Outside (3)**  
+**Outside (3)**
 {", ".join(outside) if outside else "None"}
 
-**Failed 2U**  
+**Failed 2U**
 {", ".join(f2u) if f2u else "None"}
 
-**Failed 2D**  
+**Failed 2D**
 {", ".join(f2d) if f2d else "None"}
 """
 
     requests.post(webhook, json={"content": msg})
 
-# --------------------------------------
-# Run all scans
-# --------------------------------------
+
+# ---------------------------
+# Run All Timeframes
+# ---------------------------
 def run_all():
     print("Running Daily...")
-    post_results("Daily", *scan_timeframe("Daily", "1day"))
+    post_results("Daily", *scan_timeframe("1day"))
 
     print("Running Weekly...")
-    post_results("Weekly", *scan_timeframe("Weekly", "1week"))
+    post_results("Weekly", *scan_timeframe("1week"))
 
     print("Running Monthly...")
-    post_results("Monthly", *scan_timeframe("Monthly", "1month"))
+    post_results("Monthly", *scan_timeframe("1month"))
 
-    print("\n✔ All messages sent.\n")
+    print("✔ All scans sent.")
+
 
 run_all()
