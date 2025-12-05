@@ -1,6 +1,7 @@
 import requests
 import os
 import datetime
+import time
 
 # ---------------------------
 #  CONFIG
@@ -11,8 +12,8 @@ API_KEY = os.environ["API_KEY"]
 BASE_URL = "https://api.twelvedata.com/time_series"
 
 FOREX_PAIRS = [
-    "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "NZDUSD", "USDCHF", "USDCAD",
-    "EURJPY", "GBPJPY", "CADJPY", "CHFJPY", "AUDJPY", "NZDJPY", "EURGBP"
+    "EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "NZD/USD", "USD/CHF", "USD/CAD",
+    "EUR/JPY", "GBP/JPY", "CAD/JPY", "CHF/JPY", "AUD/JPY", "NZD/JPY", "EUR/GBP"
 ]
 
 # ---------------------------
@@ -94,6 +95,8 @@ def scan_tf(interval_name, interval_code):
             failed_2u.append(pair)
         elif fail == "FAILED_2D":
             failed_2d.append(pair)
+
+        time.sleep(8)
 
     return inside, outside, failed_2u, failed_2d
 
