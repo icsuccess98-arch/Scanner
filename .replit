@@ -1,6 +1,8 @@
 modules = ["python-3.11"]
 [agent]
 expertMode = true
+[nix]
+channel = "stable-25_05"
 
 [workflows]
 runButton = "Project"
@@ -24,6 +26,3 @@ args = "python main.py"
 
 [workflows.workflow.metadata]
 outputType = "console"
-
-[nix]
-channel = "stable-25_05"
