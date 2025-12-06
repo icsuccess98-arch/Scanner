@@ -1,0 +1,244 @@
+import os
+import requests
+from datetime import datetime, timedelta
+
+API_KEY = os.environ["OANDA_API"]
+WEBHOOK_DAILY = os.environ["WEBHOOK_DAILY"]
+WEBHOOK_WEEKLY = os.environ["WEBHOOK_WEEKLY"]
+WEBHOOK_MONTHLY = os.environ["WEBHOOK_MONTHLY"]
+WEBHOOK_FTFC = os.environ["FAIL2_FTFC_WEBHOOK"]
+
+RUN_MODE = os.environ.get("RUN_MODE", "ALL").upper()
+
+# -------------------------------------------------------------
+# SYMBOL LIST
+# -------------------------------------------------------------
+SYMBOLS = [
+    # Majors
+    "EUR_USD", "GBP_USD", "USD_JPY", "AUD_USD", "NZD_USD",
+    "USD_CHF", "USD_CAD",
+
+    # Crosses
+    "EUR_JPY", "GBP_JPY", "CAD_JPY", "CHF_JPY",
+    "AUD_JPY", "NZD_JPY", "EUR_GBP",
+
+    # Metals & Oil
+    "XAU_USD", "XAG_USD", "WTICO_USD",
+
+    # Indices
+    "NAS100_USD", "US30_USD",
+
+    # Oanda Crypto
+    "BTC_USD", "ETH_USD"
+]
+
+# -------------------------------------------------------------
+# PRETTY PRINT FIXED (XAG/USD & WTICO/USD case corrected)
+# -------------------------------------------------------------
+def pretty(symbol):
+    symbol = symbol.upper()  # force uppercase
+    symbol = symbol.replace("_", "/")
+
+    overrides = {
+        "XAG/USD": "XAG/USD",
+        "XAU/USD": "XAU/USD",
+        "WTICO/USD": "WTICO/USD",
+        "BTC/USD": "BTC/USD",
+        "ETH/USD": "ETH/USD"
+    }
+
+    return overrides.get(symbol, symbol)
+
+# -------------------------------------------------------------
+# GET OANDA CANDLES
+# -------------------------------------------------------------
+def get_candles(symbol, gran):
+    url = (
+        f"https://api-fxpractice.oanda.com/v3/instruments/{symbol}/candles"
+        f"?granularity={gran}&count=3"
+    )
+    headers = {"Authorization": f"Bearer {API_KEY}"}
+    r = requests.get(url, headers=headers).json()
+
+    if "candles" not in r:
+        return None, None
+
+    closed = [c for c in r["candles"] if c["complete"]]
+    if len(closed) < 2:
+        return None, None
+
+    return candle(closed[-2]), candle(closed[-1])
+
+
+def candle(c):
+    return {
+        "open": float(c["mid"]["o"]),
+        "high": float(c["mid"]["h"]),
+        "low": float(c["mid"]["l"]),
+        "close": float(c["mid"]["c"])
+    }
+
+# -------------------------------------------------------------
+# THE STRAT CANDLE TYPE
+# -------------------------------------------------------------
+def strat_type(c):
+    if c["high"] > c["open"] and c["low"] < c["open"]:
+        return "3"
+
+    if c["close"] > c["open"]:
+        return "2U"
+
+    if c["close"] < c["open"]:
+        return "2D"
+
+    return "1"
+
+# -------------------------------------------------------------
+# FAILED 2 LOGIC
+# -------------------------------------------------------------
+def is_failed_2(previous_type, current_type):
+    return (
+        (previous_type == "2U" and current_type == "2D") or
+        (previous_type == "2D" and current_type == "2U")
+    )
+
+# -------------------------------------------------------------
+# FTFC ALIGNMENT
+# -------------------------------------------------------------
+def ftfc_alignment(prev_type, higher_time_type):
+    if prev_type == "2U" and higher_time_type in ["2U", "3"]:
+        return True
+    if prev_type == "2D" and higher_time_type in ["2D", "3"]:
+        return True
+    return False
+
+# -------------------------------------------------------------
+# MESSAGE BUILDER
+# -------------------------------------------------------------
+def build_message(title, inside, outside, f2u, f2d):
+    msg = f"📊 **{title} Actionables**\n"
+    added = False
+
+    if inside:
+        msg += f"\n**Inside (1)**\n"
+        for t in inside:
+            msg += f"• {t}\n"
+        added = True
+
+    if outside:
+        msg += f"\n**Outside (3)**\n"
+        for t in outside:
+            msg += f"• {t}\n"
+        added = True
+
+    if f2u:
+        msg += f"\n**Failed 2U**\n"
+        for t in f2u:
+            msg += f"• {t}\n"
+        added = True
+
+    if f2d:
+        msg += f"\n**Failed 2D**\n"
+        for t in f2d:
+            msg += f"• {t}\n"
+        added = True
+
+    if not added:
+        return None
+
+    return msg
+
+# -------------------------------------------------------------
+# FTFC MESSAGE
+# -------------------------------------------------------------
+def post_ftfc_results(f2u_list, f2d_list):
+    if not f2u_list and not f2d_list:
+        return
+
+    msg = ""
+
+    if f2u_list:
+        msg += "✳️ **FTFC Failed 2U (Continuation Down)**\n"
+        for t in f2u_list:
+            msg += f"• {t}\n"
+        msg += "\n"
+
+    if f2d_list:
+        msg += "✳️ **FTFC Failed 2D (Continuation Up)**\n"
+        for t in f2d_list:
+            msg += f"• {t}\n"
+        msg += "\n"
+
+    requests.post(WEBHOOK_FTFC, json={"content": msg})
+
+# -------------------------------------------------------------
+# SCAN FUNCTION
+# -------------------------------------------------------------
+def scan(title, gran):
+    inside = []
+    outside = []
+    f2u = []
+    f2d = []
+    ftfc_f2u = []
+    ftfc_f2d = []
+
+    for symbol in SYMBOLS:
+        prev, curr = get_candles(symbol, gran)
+        if not prev or not curr:
+            continue
+
+        prev_type = strat_type(prev)
+        curr_type = strat_type(curr)
+
+        # Inside
+        if curr_type == "1":
+            inside.append(pretty(symbol))
+
+        # Outside
+        if curr_type == "3":
+            outside.append(pretty(symbol))
+
+        # Failed 2
+        if is_failed_2(prev_type, curr_type):
+            if prev_type == "2U":
+                f2u.append(pretty(symbol))
+            else:
+                f2d.append(pretty(symbol))
+
+        # FTFC check (Daily → Weekly → Monthly)
+        ht_prev, _ = get_candles(symbol, "W" if gran == "D" else "M")
+        if ht_prev and is_failed_2(prev_type, curr_type):
+            if ftfc_alignment(prev_type, strat_type(ht_prev)):
+                if prev_type == "2U":
+                    ftfc_f2u.append(pretty(symbol))
+                else:
+                    ftfc_f2d.append(pretty(symbol))
+
+    # FTFC results
+    post_ftfc_results(ftfc_f2u, ftfc_f2d)
+
+    # Actionables
+    msg = build_message(title, inside, outside, f2u, f2d)
+    if not msg:
+        return
+
+    if title == "Daily":
+        requests.post(WEBHOOK_DAILY, json={"content": msg})
+    elif title == "Weekly":
+        requests.post(WEBHOOK_WEEKLY, json={"content": msg})
+    else:
+        requests.post(WEBHOOK_MONTHLY, json={"content": msg})
+
+# -------------------------------------------------------------
+# RUN MODE
+# -------------------------------------------------------------
+if RUN_MODE == "DAILY":
+    scan("Daily", "D")
+elif RUN_MODE == "WEEKLY":
+    scan("Weekly", "W")
+elif RUN_MODE == "MONTHLY":
+    scan("Monthly", "M")
+else:
+    scan("Daily", "D")
+    scan("Weekly", "W")
+    scan("Monthly", "M")
