@@ -20,3 +20,8 @@ author = "agent"
 
 [workflows.workflow.metadata]
 outputType = "console"
+
+[userenv]
+
+[userenv.shared]
+RUN_MODE = "FTFC"
