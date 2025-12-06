@@ -96,10 +96,11 @@ def compute_ftfc(d, dp, w, wp, m, mp, q, qp, y, yp):
     ]
 
     if None in seq:
-        return None
+        return None  # Something isn't 2U or 2D
 
+    # All must match
     if len(set(seq)) == 1:
-        return seq[0]
+        return seq[0]  # "2U" or "2D"
     
     return None
 
@@ -113,30 +114,34 @@ def ftfc_scan():
 
     for sym in SYMBOLS:
 
-        d = get_candles(sym, "D", 4)
-        if not d or len(d) < 3:
+        # --- Daily candles (needed for failed 2)
+        d = get_candles(sym, "D", 3)
+        if not d:
             continue
         dp, dc = d[-3], d[-2]
         daily_f2 = failed_2(dc, dp)
 
         if not daily_f2:
-            continue
+            continue  # must have failed 2 yesterday
 
-        w = get_candles(sym, "W", 4)
-        if not w or len(w) < 3:
+        # --- Weekly candles
+        w = get_candles(sym, "W", 3)
+        if not w:
             continue
         wp, wc = w[-3], w[-2]
 
-        m = get_candles(sym, "M", 4)
-        if not m or len(m) < 3:
+        # --- Monthly candles
+        m = get_candles(sym, "M", 3)
+        if not m:
             continue
         mp, mc = m[-3], m[-2]
 
-        q = get_candles(sym, "M", 6)
-        if not q or len(q) < 5:
+        # --- Quarterly candles (build synthetic)
+        q = get_candles(sym, "M", 5)
+        if not q:
             continue
-        q_prev = q[-5:-2]
-        q_curr = q[-4:-1]
+        q_prev = q[-5:-2]  # previous 3 months
+        q_curr = q[-4:-1]  # last 3 months
 
         qp = {
             "open": q_prev[0]["open"],
@@ -151,8 +156,9 @@ def ftfc_scan():
             "close": q_curr[-1]["close"],
         }
 
-        y = get_candles(sym, "M", 15)
-        if not y or len(y) < 14:
+        # --- Yearly candles
+        y = get_candles(sym, "M", 14)
+        if not y:
             continue
 
         yp = {
@@ -168,21 +174,29 @@ def ftfc_scan():
             "close": y[-1]["close"],
         }
 
+        # ============================
+        # FTFC Correct Evaluation
+        # ============================
         ftfc = compute_ftfc(dc, dp, wc, wp, mc, mp, qc, qp, yc, yp)
 
         if not ftfc:
-            continue
+            continue  # Not in FTFC
 
         name = fmt(sym)
 
+        # Failed 2D + FTFC = UP
         if daily_f2 == "F2D" and ftfc == "2U":
             ftfc_up_list.append(name)
 
+        # Failed 2U + FTFC = DOWN
         if daily_f2 == "F2U" and ftfc == "2D":
             ftfc_down_list.append(name)
 
         time.sleep(0.25)
 
+    # ============================
+    # SEND RESULTS
+    # ============================
     if not ftfc_up_list and not ftfc_down_list:
         return
 
@@ -200,74 +214,8 @@ def ftfc_scan():
 
 
 # ================================
-# NORMAL ACTIONABLE SCANS
-# ================================
-
-def build_msg(title, inside, outside, f2u, f2d):
-    msg = f"📊 **{title} Actionables**\n"
-    added = False
-
-    if inside:
-        msg += f"\n**{title} Inside (1)**\n" + "\n".join(f"• {x}" for x in inside) + "\n"
-        added = True
-
-    if outside:
-        msg += f"\n**{title} Outside (3)**\n" + "\n".join(f"• {x}" for x in outside) + "\n"
-        added = True
-
-    if f2u:
-        msg += f"\n**{title} Failed 2U**\n" + "\n".join(f"• {x}" for x in f2u) + "\n"
-        added = True
-
-    if f2d:
-        msg += f"\n**{title} Failed 2D**\n" + "\n".join(f"• {x}" for x in f2d) + "\n"
-        added = True
-
-    return msg if added else None
-
-
-def scan_normal(title, gran, webhook):
-    inside, outside, f2u, f2d = [], [], [], []
-
-    for sym in SYMBOLS:
-        candles = get_candles(sym, gran, 5)
-        if not candles:
-            continue
-
-        prev, curr = candles[-2], candles[-1]
-        name = fmt(sym)
-
-        st = strat_type(curr, prev)
-        f2 = failed_2(curr, prev)
-
-        if st == "1":
-            inside.append(name)
-        elif st == "3":
-            outside.append(name)
-
-        if f2 == "F2U":
-            f2u.append(name)
-        if f2 == "F2D":
-            f2d.append(name)
-
-    msg = build_msg(title, inside, outside, f2u, f2d)
-    if msg:
-        requests.post(webhook, json={"content": msg})
-
-
-# ================================
 # RUN MODE
 # ================================
-
-if RUN_MODE in ("DAILY", "ALL"):
-    scan_normal("Daily", "D", WEBHOOK_DAILY)
-
-if RUN_MODE in ("WEEKLY", "ALL"):
-    scan_normal("Weekly", "W", WEBHOOK_WEEKLY)
-
-if RUN_MODE in ("MONTHLY", "ALL"):
-    scan_normal("Monthly", "M", WEBHOOK_MONTHLY)
-
 if RUN_MODE == "FTFC":
     ftfc_scan()
 
