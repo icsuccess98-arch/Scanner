@@ -66,7 +66,7 @@ def pretty(sym):
     p = sym.replace("_", "/")
 
     if p == "WTICO/USD":
-        return "WTICO/USD"
+        return "WTICO/USD"   # oil fix
     return p
 
 
@@ -172,39 +172,46 @@ def true_ftfc(d, w, m, q, y):
 # ---------------------------------------------------------
 
 def scan_ftfc():
-    f2_up = []
-    f2_down = []
+    f2_up = []     # FTFC UP → Failed 2D continuation
+    f2_down = []   # FTFC DOWN → Failed 2U continuation
 
     for sym in OANDA_SYMBOLS:
 
+        # Daily candles
         daily = get_oanda_candles(sym, "D", 3)
         if not daily:
             continue
 
         d_curr, d_prev = daily[-1], daily[-2]
 
+        # Weekly candles
         weekly = get_oanda_candles(sym, "W", 3)
         if not weekly:
             continue
         w_curr = weekly[-1]
 
+        # Monthly candles
         monthly = get_oanda_candles(sym, "M", 15)
         if not monthly:
             continue
         m_curr = monthly[-1]
 
+        # Quarter + Year
         q, y = build_quarter_and_year(monthly)
 
+        # FTFC direction
         ftfc_dir = true_ftfc(d_curr, w_curr, m_curr, q, y)
         if ftfc_dir == "NONE":
             continue
 
+        # Failed 2 check
         f2 = failed_2(d_curr, d_prev)
         if not f2:
             continue
 
         pretty_name = pretty(sym)
 
+        # Continuation logic
         if ftfc_dir == "UP" and f2 == "F2D":
             f2_up.append(pretty_name)
 
@@ -213,6 +220,7 @@ def scan_ftfc():
 
         time.sleep(0.25)
 
+    # Build FINAL message
     msg = ""
 
     if f2_up:
