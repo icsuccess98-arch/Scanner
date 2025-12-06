@@ -212,7 +212,7 @@ def scan(title, granularity):
         w = get_oanda_candles(symbol, "W", 6)[-1]
         m = monthly_cache[symbol][-1]
 
-        q, y = build_quarter_and_year(monthly_cache[symbol])
+        q, y = build_quarter_and_year(monthlies)
 
         ftfc = full_ftfc(d, w, m, q, y)
         name = pretty(symbol)
