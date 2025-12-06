@@ -41,7 +41,7 @@ OANDA_SYMBOLS = [
     "NZD_JPY", "NZD_CHF", "NZD_CAD",
 
     # CHF CROSSES
-    "CHF_JPY",
+    "CHF_JPY", "CHF_CAD",
 
     # CAD CROSS
     "CAD_JPY",
