@@ -165,32 +165,38 @@ def compute_ftfc(d_prev, d_curr, w_prev, w_curr, m_prev, m_curr, q_prev, q_curr,
 
 def scan_ftfc():
 
-    ftfc_up = []
-    ftfc_down = []
+    ftfc_up = []     # FTFC UP → Daily Failed 2D continuation
+    ftfc_down = []   # FTFC DOWN → Daily Failed 2U continuation
 
     for sym in OANDA_SYMBOLS:
 
+        # DAILY
         daily = get_oanda_candles(sym, "D", 10)
         if not daily:
             continue
         d_prev, d_curr = daily[-2], daily[-1]
 
+        # WEEKLY
         weekly = get_oanda_candles(sym, "W", 10)
         if not weekly:
             continue
         w_prev, w_curr = weekly[-2], weekly[-1]
 
+        # MONTHLY
         monthly = get_oanda_candles(sym, "M", 30)
         if not monthly or len(monthly) < 24:
             continue
         m_prev, m_curr = monthly[-2], monthly[-1]
 
+        # QUARTER + YEAR from rolling data
         (q_prev, q_curr), (y_prev, y_curr) = build_quarter_and_year(monthly)
 
+        # TRUE FTFC
         ftfc_dir = compute_ftfc(d_prev, d_curr, w_prev, w_curr, m_prev, m_curr, q_prev, q_curr, y_prev, y_curr)
         if ftfc_dir == "NONE":
             continue
 
+        # DAILY FAILED 2 CHECK
         f2 = failed_2(d_curr, d_prev)
         if not f2:
             continue
@@ -205,6 +211,7 @@ def scan_ftfc():
 
         time.sleep(0.25)
 
+    # BUILD CLEAN ONE-MESSAGE OUTPUT
     msg = ""
 
     if ftfc_up:
