@@ -35,13 +35,13 @@ OANDA_SYMBOLS = [
     "GBP_JPY", "GBP_AUD", "GBP_CAD", "GBP_CHF", "GBP_NZD",
 
     # AUD CROSSES
-    "AUD_JPY", "AUD_CHF", "AUD_CAD", "AUD_NZD",
+    "AUD_JPY", "AUD_CHF", "AUD_CAD", "AUD_AD",
 
     # NZD CROSSES
     "NZD_JPY", "NZD_CHF", "NZD_CAD",
 
     # CHF CROSSES
-    "CHF_JPY",
+    "CHF_JPY", "CHF_CAD",
 
     # CAD CROSS
     "CAD_JPY",
