@@ -10,12 +10,24 @@ OANDA_KEY = os.environ["OANDA_KEY"]
 OANDA_ACCOUNT = "practice"
 RUN_MODE = os.environ.get("RUN_MODE", "ALL")
 
-WEBHOOK_DAILY = os.environ["WEBHOOK_DAILY"]
-WEBHOOK_WEEKLY = os.environ["WEBHOOK_WEEKLY"]
-WEBHOOK_MONTHLY = os.environ["WEBHOOK_MONTHLY"]
-
 OANDA_URL = f"https://api-fx{OANDA_ACCOUNT}.oanda.com/v3/instruments"
 HEADERS = {"Authorization": f"Bearer {OANDA_KEY}"}
+
+# ---------------------------------------------------------
+# TELEGRAM
+# ---------------------------------------------------------
+
+TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
+TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
+
+def tg_send(text):
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": text,
+        "parse_mode": "Markdown"
+    }
+    requests.post(url, json=payload)
 
 # ---------------------------------------------------------
 # ASSET GROUPS
@@ -168,7 +180,7 @@ def build_aplus_section(aplus_dict):
 # MAIN SCANNER
 # ---------------------------------------------------------
 
-def scan(title, granularity, webhook):
+def scan(title, granularity):
 
     inside = []
     outside = []
@@ -270,19 +282,19 @@ def scan(title, granularity, webhook):
     if f2d:
         msg += f"**{title} Failed 2D**\n" + "\n".join(f"• {pretty(x)}" for x in group_sort(f2d)) + "\n\n"
 
-    requests.post(webhook, json={"content": msg})
+    tg_send(msg)
 
 # ---------------------------------------------------------
 # EXECUTION
 # ---------------------------------------------------------
 
 if RUN_MODE in ("DAILY", "ALL"):
-    scan("Daily", "D", WEBHOOK_DAILY)
+    scan("Daily", "D")
 
 if RUN_MODE in ("WEEKLY", "ALL"):
-    scan("Weekly", "W", WEBHOOK_WEEKLY)
+    scan("Weekly", "W")
 
 if RUN_MODE in ("MONTHLY", "ALL"):
-    scan("Monthly", "M", WEBHOOK_MONTHLY)
+    scan("Monthly", "M")
 
 print("DONE")
