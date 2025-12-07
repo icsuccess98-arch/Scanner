@@ -8,7 +8,7 @@ import requests
 
 OANDA_KEY = os.environ["OANDA_KEY"]
 OANDA_ACCOUNT = "practice"
-RUN_MODE = os.environ.get("RUN_MODE", "DAILY")
+RUN_MODE = os.environ.get("RUN_MODE", "ALL")
 
 WEBHOOK_DAILY = os.environ["WEBHOOK_DAILY"]
 WEBHOOK_WEEKLY = os.environ["WEBHOOK_WEEKLY"]

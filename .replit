@@ -7,16 +7,54 @@ channel = "stable-25_05"
 expertMode = true
 
 [workflows]
-runButton = "Run Python"
+runButton = "Project"
 
-# Only ONE workflow — executes main.py ONCE
 [[workflows.workflow]]
-name = "Run Python"
+name = "Project"
+mode = "parallel"
 author = "agent"
 
-    [[workflows.workflow.tasks]]
-    task = "shell.exec"
-    args = "python main.py"
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Run Daily"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Run Weekly"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Run Monthly"
+
+[[workflows.workflow]]
+name = "Run Daily"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "RUN_MODE=DAILY python main.py"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Run Weekly"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "RUN_MODE=WEEKLY python main.py"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Run Monthly"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "RUN_MODE=MONTHLY python main.py"
 
 [workflows.workflow.metadata]
 outputType = "console"
