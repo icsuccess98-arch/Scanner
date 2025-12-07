@@ -29,7 +29,7 @@ MAJORS = [
 METALS = ["XAU_USD", "XAG_USD"]
 OIL = ["WTICO_USD"]
 INDICES = ["NAS100_USD", "US30_USD"]
-CRYPTOS = ["BTC_USD", "ETH_USD", "BCH_USD", "LTC_USD"]
+CRYPTOS = ["BTC_USD", "ETH_USD", "LTC_USD"]
 
 CROSSES = [
     "EUR_GBP", "EUR_JPY", "EUR_AUD", "EUR_CAD", "EUR_CHF", "EUR_NZD",
@@ -57,7 +57,7 @@ GROUP_ORDER = {
 def pretty(symbol):
     out = symbol.replace("_", "/")
     if out == "WTICO/USD":
-        return "WTICO/USD"
+        return "USOIL"
     return out
 
 def candle(c):
