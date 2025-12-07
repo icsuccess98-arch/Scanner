@@ -138,6 +138,7 @@ def build_aplus_section(aplus_dict):
     if not aplus_dict:
         return ""
 
+    # Separate UP vs DOWN continuation
     up = []
     dn = []
 
@@ -172,7 +173,7 @@ def scan(title, granularity, webhook):
     double_inside = []
     f2u = []
     f2d = []
-    aplus = {}
+    aplus = {}     # symbol → reason
 
     for symbol in OANDA_SYMBOLS:
 
@@ -186,16 +187,19 @@ def scan(title, granularity, webhook):
 
         st = strat_type(curr, prev)
 
+        # DOUBLE INSIDE = AUTOMATIC A++
         if st == "1" and strat_type(prev, prev2) == "1":
             double_inside.append(symbol)
             aplus[symbol] = "Double Inside"
             continue
 
+        # INSIDE / OUTSIDE
         if st == "1":
             inside.append(symbol)
         elif st == "3":
             outside.append(symbol)
 
+        # FAILED 2 → requires FTFC alignment
         f2 = failed_2(curr, prev)
         if f2:
 
@@ -209,16 +213,19 @@ def scan(title, granularity, webhook):
             if not ftfc:
                 continue
 
+            # FAILED 2U → FTFC DOWN
             if f2 == "Failed 2U" and ftfc == "DOWN":
                 f2u.append(symbol)
                 aplus[symbol] = "Failed 2U + FTFC DOWN"
 
+            # FAILED 2D → FTFC UP
             if f2 == "Failed 2D" and ftfc == "UP":
                 f2d.append(symbol)
                 aplus[symbol] = "Failed 2D + FTFC UP"
 
         time.sleep(0.25)
 
+    # Build message
     msg = f"📊 **{title} Actionables**\n\n"
     msg += build_aplus_section(aplus)
 
