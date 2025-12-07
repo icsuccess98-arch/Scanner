@@ -207,6 +207,7 @@ def scan(title, granularity, webhook):
         st = strat_type(curr, prev)
         f2 = failed_2(curr, prev)
 
+        # Basic strat classification
         if st == "1" and strat_type(prev, prev2) == "1":
             inside.append(symbol)
         elif st == "1":
@@ -220,6 +221,7 @@ def scan(title, granularity, webhook):
             else:
                 failed2d.append(symbol)
 
+        # Fetch weekly/monthly for FTFC + A++
         weekly = get_oanda_candles(symbol, "W", 10)
         monthly = get_oanda_candles(symbol, "M", 10)
         if not weekly or not monthly:
@@ -230,11 +232,12 @@ def scan(title, granularity, webhook):
             continue
 
         if not f2:
-            continue
+            continue  # A++ requires failed 2
 
         failtype = "Failed 2U" if f2 == "Failed 2U" else "Failed 2D"
         arrows = arrow_dir(direction(monthly[-1])) + arrow_dir(direction(weekly[-1])) + arrow_dir(direction(curr))
 
+        # Assign UP/DOWN group
         if ft == "UP":
             aplus_up[symbol] = {"arrows": arrows, "failtype": failtype}
         else:
@@ -242,6 +245,7 @@ def scan(title, granularity, webhook):
 
         time.sleep(0.25)
 
+    # Build & send message
     msg = ""
     msg += build_aplus_section(aplus_up, aplus_down)
     msg += build_standard_section(title, inside, outside, failed2u, failed2d)
