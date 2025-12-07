@@ -139,10 +139,10 @@ def group_sort(symbols):
 def build_message(title, aplus, double_inside, inside, outside, f2u, f2d):
     msg = f"📊 **{title} Actionables**\n"
 
+    # A++ setups FIRST
     if aplus:
         msg += "\n🔥 **A++ Setups**\n"
-        sorted_keys = [s for s in OANDA_SYMBOLS if s in aplus]
-        msg += "\n".join(f"🔥 **A++ Setup — {pretty(s)} ({aplus[s]})**" for s in sorted_keys)
+        msg += "\n".join(f"🔥 **A++ Setup — {pretty(s)} ({aplus[s]})**" for s in group_sort(aplus.keys()))
         msg += "\n"
 
     if double_inside:
@@ -178,7 +178,7 @@ def scan(title, granularity, webhook):
     double_inside = []
     failed2u = []
     failed2d = []
-    aplus = {}
+    aplus = {}   # symbol → reason
 
     for symbol in OANDA_SYMBOLS:
 
@@ -193,19 +193,23 @@ def scan(title, granularity, webhook):
         st = strat_type(curr, prev)
         name = pretty(symbol)
 
+        # DOUBLE INSIDE = A++
         if st == "1" and strat_type(prev, prev2) == "1":
             double_inside.append(symbol)
             aplus[symbol] = "Double Inside"
             continue
 
+        # INSIDE / OUTSIDE
         if st == "1":
             inside.append(symbol)
         elif st == "3":
             outside.append(symbol)
 
+        # FAILED 2 CHECK (FTFC FILTER)
         f2 = failed_2(curr, prev)
         if f2:
 
+            # fetch weekly + monthly
             weekly = get_oanda_candles(symbol, "W", 10)
             monthly = get_oanda_candles(symbol, "M", 10)
 
