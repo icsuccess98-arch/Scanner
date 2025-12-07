@@ -18,7 +18,7 @@ def send_telegram(msg, topic_id=None):
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
         "text": msg,
-        "parse_mode": "Markdown"
+        "parse_mode": "HTML"
     }
     if topic_id:
         payload["message_thread_id"] = topic_id
@@ -245,41 +245,68 @@ def scan(title, granularity, topic_id=None):
 
         time.sleep(0.2)
 
-    msg = f"📊 *{title} Actionables*\n\n"
+    msg = f"""
+📊 <b>{title} Actionables</b>
+
+🔥 <b>A++ Setups</b>
+
+"""
 
     if aplus:
-        msg += format_aplus(aplus)
+        ups = []
+        dns = []
+
+        for sym, info in aplus:
+            if "UP" in info.get("arrows", "") or info.get("label") == "Failed 2D":
+                ups.append((sym, info))
+            else:
+                dns.append((sym, info))
+
+        if ups:
+            msg += "<u><b>🔺 Upside</b></u>\n"
+            for sym, info in ups:
+                lbl = f"M/W/D {info['arrows']} — D: {info['label']}"
+                msg += f"• <b>{pretty(sym)}</b> — {lbl}\n"
+            msg += "\n"
+
+        if dns:
+            msg += "<u><b>🔻 Downside</b></u>\n"
+            for sym, info in dns:
+                lbl = f"M/W/D {info['arrows']} — D: {info['label']}"
+                msg += f"• <b>{pretty(sym)}</b> — {lbl}\n"
+            msg += "\n"
 
     if double_inside:
-        msg += f"*{title} Double Inside (II)*\n"
+        msg += "<b>🟪 Double Inside (II)</b>\n"
         for x in group_sort(double_inside):
             msg += f"• {pretty(x)}\n"
         msg += "\n"
 
     if inside:
-        msg += f"*{title} Inside (1)*\n"
+        msg += "<b>📘 Inside (1)</b>\n"
         for x in group_sort(inside):
             msg += f"• {pretty(x)}\n"
         msg += "\n"
 
     if outside:
-        msg += f"*{title} Outside (3)*\n"
+        msg += "<b>📕 Outside (3)</b>\n"
         for x in group_sort(outside):
             msg += f"• {pretty(x)}\n"
         msg += "\n"
 
     if f2u:
-        msg += f"*{title} Failed 2U*\n"
+        msg += "<b>🔻 Failed 2U</b>\n"
         for x in group_sort(f2u):
             msg += f"• {pretty(x)}\n"
         msg += "\n"
 
     if f2d:
-        msg += f"*{title} Failed 2D*\n"
+        msg += "<b>🔺 Failed 2D</b>\n"
         for x in group_sort(f2d):
             msg += f"• {pretty(x)}\n"
         msg += "\n"
 
+    msg = msg.strip()
     send_telegram(msg, topic_id)
 
 # ---------------------------------------------------------
