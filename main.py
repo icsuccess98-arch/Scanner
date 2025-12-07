@@ -143,23 +143,23 @@ def build_aplus_section(aplus_dict):
     up = []
     dn = []
 
-    for sym, label in aplus_dict.items():
-        if "↑" in label:
-            up.append((sym, label))
+    for sym, info in aplus_dict.items():
+        if "↑" in info["arrows"]:
+            up.append((sym, info))
         else:
-            dn.append((sym, label))
+            dn.append((sym, info))
 
     msg = "🔥 **A++ Setups**\n"
 
-    if dn:
-        msg += "\n🔻 **Downside**\n"
-        for sym, label in dn:
-            msg += f"• {pretty(sym)} — {label}\n"
-
     if up:
         msg += "\n🔺 **Upside**\n"
-        for sym, label in up:
-            msg += f"• {pretty(sym)} — {label}\n"
+        for sym, info in up:
+            msg += f"• {pretty(sym)} — M/W/D {info['arrows']} — D: {info['label']}\n"
+
+    if dn:
+        msg += "\n🔻 **Downside**\n"
+        for sym, info in dn:
+            msg += f"• {pretty(sym)} — M/W/D {info['arrows']} — D: {info['label']}\n"
 
     return msg + "\n"
 
@@ -233,7 +233,7 @@ def scan(title, granularity, webhook):
 
             arrows = arrow_dir(m_dir) + arrow_dir(w_dir) + arrow_dir(d_dir)
 
-            aplus[symbol] = f"M/W/D {arrows} — D: Double Inside"
+            aplus[symbol] = {"arrows": arrows, "label": "Double Inside"}
             double_inside.append(symbol)
             continue
 
@@ -267,7 +267,7 @@ def scan(title, granularity, webhook):
                     arrow_dir(direction(curr))
                 )
 
-                aplus[symbol] = f"M/W/D {arrows} — D: {fail}"
+                aplus[symbol] = {"arrows": arrows, "label": fail}
 
             if fail == "Failed 2U":
                 f2u.append(symbol)
