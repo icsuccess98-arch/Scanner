@@ -134,6 +134,7 @@ def group_sort(symbols):
 def build_message(title, aplus_up, aplus_down, double_inside, inside, outside, f2u, f2d):
     msg = f"📊 **{title} Actionables**\n"
 
+    # -------------------- A++ SETUPS --------------------
     if aplus_up or aplus_down:
         msg += "\n🔥 **A++ Setups**\n"
 
@@ -147,18 +148,22 @@ def build_message(title, aplus_up, aplus_down, double_inside, inside, outside, f
             for line in aplus_down:
                 msg += f"• {line}\n"
 
+    # -------------------- DOUBLE INSIDE -----------------
     if double_inside:
         msg += f"\n**{title} Double Inside (II)**\n"
         msg += "\n".join(f"• {x}" for x in group_sort(double_inside)) + "\n"
 
+    # -------------------- INSIDE ------------------------
     if inside:
         msg += f"\n**{title} Inside (1)**\n"
         msg += "\n".join(f"• {x}" for x in group_sort(inside)) + "\n"
 
+    # -------------------- OUTSIDE -----------------------
     if outside:
         msg += f"\n**{title} Outside (3)**\n"
         msg += "\n".join(f"• {x}" for x in group_sort(outside)) + "\n"
 
+    # -------------------- FAILED 2 ----------------------
     if f2u:
         msg += f"\n**{title} Failed 2U**\n"
         msg += "\n".join(f"• {x}" for x in group_sort(f2u)) + "\n"
@@ -196,14 +201,17 @@ def scan(title, granularity, webhook):
         st = strat_type(curr, prev)
         name = pretty(symbol)
 
+        # ===== DOUBLE INSIDE (A++) =====
         if st == "1" and strat_type(prev, prev2) == "1":
             double_inside.append(symbol)
 
+        # ===== INSIDE / OUTSIDE =====
         if st == "1":
             inside.append(symbol)
         elif st == "3":
             outside.append(symbol)
 
+        # ===== FAILED 2 CHECK =====
         f2 = failed_2(curr, prev)
         if f2:
             if f2 == "Failed 2U":
@@ -211,6 +219,7 @@ def scan(title, granularity, webhook):
             if f2 == "Failed 2D":
                 failed2d.append(symbol)
 
+            # FULL FTFC CHECK (A++ ONLY)
             weekly = get_oanda_candles(symbol, "W")
             monthly = get_oanda_candles(symbol, "M")
 
