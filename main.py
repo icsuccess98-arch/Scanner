@@ -254,10 +254,13 @@ def scan(title, granularity, topic_id=None):
         dns = []
 
         for sym, lbl in aplus.items():
-            if "UP" in lbl:
-                ups.append((sym, lbl.replace("Failed 2U", "F2U").replace("Failed 2D", "F2D")))
+            lbl_short = lbl.replace("Failed 2U", "F2U").replace("Failed 2D", "F2D")
+            # Failed 2D = bullish (upside), Failed 2U = bearish (downside)
+            # Double Inside: check arrow direction
+            if "F2D" in lbl_short or ("Double Inside" in lbl and "↑" in lbl):
+                ups.append((sym, lbl_short))
             else:
-                dns.append((sym, lbl.replace("Failed 2U", "F2U").replace("Failed 2D", "F2D")))
+                dns.append((sym, lbl_short))
 
         if ups:
             msg += "<u><b>🔺 Upside</b></u>\n"
