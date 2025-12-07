@@ -24,4 +24,4 @@ outputType = "console"
 [userenv]
 
 [userenv.shared]
-RUN_MODE = "FTFC"
+RUN_MODE = "ALL"

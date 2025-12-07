@@ -83,7 +83,7 @@ def is_rollover(c):
     """Proper rollover filter for Sunday FX candle."""
     price = (c["high"] + c["low"]) / 2
     body = abs(c["close"] - c["open"])
-    return body < price * 0.0002
+    return body < price * 0.0002  # <0.02% movement
 
 # ---------------------------------------------------------
 # OANDA CANDLE FETCH
@@ -100,6 +100,7 @@ def get_oanda_candles(symbol, granularity, count=500):
 
     closed = [candle(x) for x in r["candles"] if x["complete"]]
 
+    # Remove Sunday rollover candles
     filtered = [c for c in closed if not is_rollover(c)]
 
     if len(filtered) < 3:
