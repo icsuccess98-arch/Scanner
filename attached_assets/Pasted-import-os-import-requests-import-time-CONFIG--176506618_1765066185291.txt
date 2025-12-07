@@ -75,7 +75,7 @@ def is_rollover(c):
     """Identifies tiny Sunday rollover candles based on % movement."""
     price = (c["high"] + c["low"]) / 2
     body = abs(c["close"] - c["open"])
-    return body < price * 0.0002
+    return body < price * 0.0002  # < 0.02% movement → fake candle
 
 
 def get_oanda_candles(symbol, granularity, count=500):
@@ -88,6 +88,7 @@ def get_oanda_candles(symbol, granularity, count=500):
 
     closed = [candle(x) for x in r["candles"] if x["complete"]]
 
+    # Filter out rollover candles (Sunday open)
     filtered = [c for c in closed if not is_rollover(c)]
 
     if len(filtered) < 3:
@@ -131,39 +132,52 @@ def run_ftfc_scan():
 
     for symbol in OANDA_SYMBOLS:
 
+        # DAILY
         d = get_oanda_candles(symbol, "D", 60)
         if not d:
             continue
-        daily = d[-2:]
+        daily = d[-2:]  # Friday → previous day
 
+
+        # WEEKLY
         w = get_oanda_candles(symbol, "W", 60)
         if not w:
             continue
         weekly = w[-2:]
 
+
+        # MONTHLY
         m = get_oanda_candles(symbol, "M", 60)
         if not m:
             continue
         monthly = m[-2:]
 
+
+        # TRUE FTFC ALIGNMENT
         ftfc = ftfc_full(daily, weekly, monthly)
         if not ftfc:
             continue
 
+
+        # DAILY FAILED 2 MUST EXIST
         f2 = failed_2(daily[0], daily[1])
         if not f2:
             continue
 
         name = pretty(symbol)
 
+        # FTFC UP requires Failed 2D
         if ftfc == "UP" and f2 == "Failed 2D":
             ftfc_up_f2d.append(name)
 
+        # FTFC DOWN requires Failed 2U
         if ftfc == "DOWN" and f2 == "Failed 2U":
             ftfc_down_f2u.append(name)
 
+
         time.sleep(0.25)
 
+    # FINAL MESSAGE
     msg = "📊 **FTFC Scanner Results**\n"
 
     if ftfc_up_f2d:
@@ -178,62 +192,6 @@ def run_ftfc_scan():
 
 
 # =======================================
-# NORMAL ACTIONABLE SCANS
-# =======================================
-
-def build_msg(title, inside, outside, f2u, f2d):
-    msg = f"📊 **{title} Actionables**\n"
-    added = False
-
-    if inside:
-        msg += f"\n**{title} Inside (1)**\n" + "\n".join(f"• {x}" for x in inside) + "\n"
-        added = True
-
-    if outside:
-        msg += f"\n**{title} Outside (3)**\n" + "\n".join(f"• {x}" for x in outside) + "\n"
-        added = True
-
-    if f2u:
-        msg += f"\n**{title} Failed 2U**\n" + "\n".join(f"• {x}" for x in f2u) + "\n"
-        added = True
-
-    if f2d:
-        msg += f"\n**{title} Failed 2D**\n" + "\n".join(f"• {x}" for x in f2d) + "\n"
-        added = True
-
-    return msg if added else None
-
-
-def scan_normal(title, gran, webhook):
-    inside, outside, f2u, f2d = [], [], [], []
-
-    for sym in OANDA_SYMBOLS:
-        candles = get_oanda_candles(sym, gran, 5)
-        if not candles:
-            continue
-
-        prev, curr = candles[-2], candles[-1]
-        name = pretty(sym)
-
-        st = strat_type(curr, prev)
-        f2 = failed_2(curr, prev)
-
-        if st == "1":
-            inside.append(name)
-        elif st == "3":
-            outside.append(name)
-
-        if f2 == "Failed 2U":
-            f2u.append(name)
-        if f2 == "Failed 2D":
-            f2d.append(name)
-
-    msg = build_msg(title, inside, outside, f2u, f2d)
-    if msg:
-        requests.post(webhook, json={"content": msg})
-
-
-# =======================================
 # EXECUTION
 # =======================================
 
@@ -241,14 +199,5 @@ if RUN_MODE == "FTFC":
     run_ftfc_scan()
     print("FTFC DONE")
     exit()
-
-if RUN_MODE in ("DAILY", "ALL"):
-    scan_normal("Daily", "D", WEBHOOK_DAILY)
-
-if RUN_MODE in ("WEEKLY", "ALL"):
-    scan_normal("Weekly", "W", WEBHOOK_WEEKLY)
-
-if RUN_MODE in ("MONTHLY", "ALL"):
-    scan_normal("Monthly", "M", WEBHOOK_MONTHLY)
 
 print("DONE")
