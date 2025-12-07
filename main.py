@@ -71,6 +71,9 @@ def candle(c):
 def direction(c):
     return "UP" if c["close"] > c["open"] else "DOWN"
 
+def arrow(d):
+    return "↑" if d == "UP" else "↓"
+
 # ---------------------------------------------------------
 # FETCH CANDLES
 # ---------------------------------------------------------
@@ -126,7 +129,7 @@ def ftfc_pass(d, w, m):
 def group_sort(symbols):
     ordered = []
     for class_list in GROUP_ORDER.values():
-        subset = [pretty(s) for s in symbols if s in class_list]
+        subset = [s for s in symbols if s in class_list]
         ordered.extend(sorted(subset))
     return ordered
 
@@ -138,27 +141,26 @@ def build_aplus_section(aplus_dict):
     if not aplus_dict:
         return ""
 
-    # Separate UP vs DOWN continuation
     up = []
     dn = []
 
-    for sym, label in aplus_dict.items():
-        if "UP" in label:
-            up.append((sym, label))
+    for sym, info in aplus_dict.items():
+        if info["dir"] == "UP":
+            up.append((sym, info))
         else:
-            dn.append((sym, label))
+            dn.append((sym, info))
 
     msg = "🔥 **A++ Setups**\n"
 
-    if dn:
-        msg += "\n🔻 **Downside**\n"
-        for sym, label in dn:
-            msg += f"• {pretty(sym)} 🔥 ({label})\n"
-
     if up:
         msg += "\n🔺 **Upside**\n"
-        for sym, label in up:
-            msg += f"• {pretty(sym)} 🔥 ({label})\n"
+        for sym, info in up:
+            msg += f"• {pretty(sym)} — M/W/D {info['arrows']} — D: {info['label']}\n"
+
+    if dn:
+        msg += "\n🔻 **Downside**\n"
+        for sym, info in dn:
+            msg += f"• {pretty(sym)} — M/W/D {info['arrows']} — D: {info['label']}\n"
 
     return msg + "\n"
 
@@ -173,7 +175,7 @@ def scan(title, granularity, webhook):
     double_inside = []
     f2u = []
     f2d = []
-    aplus = {}     # symbol → reason
+    aplus = {}
 
     for symbol in OANDA_SYMBOLS:
 
@@ -190,7 +192,19 @@ def scan(title, granularity, webhook):
         # DOUBLE INSIDE = AUTOMATIC A++
         if st == "1" and strat_type(prev, prev2) == "1":
             double_inside.append(symbol)
-            aplus[symbol] = "Double Inside"
+
+            weekly = get_oanda_candles(symbol, "W")
+            monthly = get_oanda_candles(symbol, "M")
+            if weekly and monthly:
+                m_dir = direction(monthly[-1])
+                w_dir = direction(weekly[-1])
+                d_dir = direction(curr)
+                arrows = arrow(m_dir) + arrow(w_dir) + arrow(d_dir)
+                aplus[symbol] = {
+                    "arrows": arrows,
+                    "label": "Double Inside",
+                    "dir": d_dir
+                }
             continue
 
         # INSIDE / OUTSIDE
@@ -199,29 +213,41 @@ def scan(title, granularity, webhook):
         elif st == "3":
             outside.append(symbol)
 
-        # FAILED 2 → requires FTFC alignment
+        # FAILED 2 — always add to list, A++ only if FTFC aligns
         f2 = failed_2(curr, prev)
         if f2:
+            # Always add to Failed 2 lists
+            if f2 == "Failed 2U":
+                f2u.append(symbol)
+            else:
+                f2d.append(symbol)
 
+            # Check FTFC for A++ status
             weekly = get_oanda_candles(symbol, "W")
             monthly = get_oanda_candles(symbol, "M")
 
-            if not weekly or not monthly:
-                continue
+            if weekly and monthly:
+                m_dir = direction(monthly[-1])
+                w_dir = direction(weekly[-1])
+                d_dir = direction(curr)
+                ftfc = ftfc_pass(curr, weekly[-1], monthly[-1])
 
-            ftfc = ftfc_pass(curr, weekly[-1], monthly[-1])
-            if not ftfc:
-                continue
+                if ftfc:
+                    arrows = arrow(m_dir) + arrow(w_dir) + arrow(d_dir)
 
-            # FAILED 2U → FTFC DOWN
-            if f2 == "Failed 2U" and ftfc == "DOWN":
-                f2u.append(symbol)
-                aplus[symbol] = "Failed 2U + FTFC DOWN"
+                    if f2 == "Failed 2U" and ftfc == "DOWN":
+                        aplus[symbol] = {
+                            "arrows": arrows,
+                            "label": "Failed 2 Down",
+                            "dir": "DOWN"
+                        }
 
-            # FAILED 2D → FTFC UP
-            if f2 == "Failed 2D" and ftfc == "UP":
-                f2d.append(symbol)
-                aplus[symbol] = "Failed 2D + FTFC UP"
+                    if f2 == "Failed 2D" and ftfc == "UP":
+                        aplus[symbol] = {
+                            "arrows": arrows,
+                            "label": "Failed 2 Up",
+                            "dir": "UP"
+                        }
 
         time.sleep(0.25)
 
