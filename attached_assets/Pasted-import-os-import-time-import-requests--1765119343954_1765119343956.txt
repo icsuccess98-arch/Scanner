@@ -147,14 +147,12 @@ def build_aplus(aplus_up, aplus_down):
 
     if aplus_up:
         msg += "\n🔺 **Upside**\n"
-        for s in group_sort(aplus_up.keys()):
-            info = aplus_up[s]
+        for s, info in group_sort(aplus_up):
             msg += f"• {pretty(s)} — M/W/D {info['arrows']} — D: {info['label']}\n"
 
     if aplus_down:
         msg += "\n🔻 **Downside**\n"
-        for s in group_sort(aplus_down.keys()):
-            info = aplus_down[s]
+        for s, info in group_sort(aplus_down):
             msg += f"• {pretty(s)} — M/W/D {info['arrows']} — D: {info['label']}\n"
 
     return msg + "\n"
@@ -201,6 +199,7 @@ def scan(title, granularity, webhook):
 
     for symbol in OANDA_SYMBOLS:
 
+        # daily/weekly/monthly fetch
         candles = get_oanda_candles(symbol, granularity, 10)
         daily_c = get_oanda_candles(symbol, "D", 10)
         weekly_c = get_oanda_candles(symbol, "W", 10)
@@ -209,26 +208,37 @@ def scan(title, granularity, webhook):
         if not candles or not daily_c or not weekly_c or not monthly_c:
             continue
 
+        # previous closed candles ONLY
         prev   = candles[-2]
         prev2  = candles[-3]
-        curr   = candles[-1]
+        curr   = candles[-1]  # only for strat type relative to prev
 
         prev_daily   = daily_c[-2]
         prev_daily2  = daily_c[-3]
         prev_weekly  = weekly_c[-2]
         prev_monthly = monthly_c[-2]
 
+        # Strat on previous candle
         st_prev = strat_type(prev, prev2)
         st_curr = strat_type(curr, prev)
 
+        # ==================================================
+        # DOUBLE INSIDE LOGIC
+        # ==================================================
         if st_curr == "1" and st_prev == "1":
             double_inside.append(symbol)
 
+        # ==================================================
+        # INSIDE / OUTSIDE
+        # ==================================================
         if st_curr == "1":
             inside.append(symbol)
         elif st_curr == "3":
             outside.append(symbol)
 
+        # ==================================================
+        # FAILED 2 LOGIC
+        # ==================================================
         f2 = failed_2(prev, prev2)
         if f2:
             if f2 == "Failed 2U":
@@ -236,15 +246,22 @@ def scan(title, granularity, webhook):
             else:
                 f2d.append(symbol)
 
+        # ==================================================
+        # A++ LOGIC (STRICT)
+        # ==================================================
+
+        # FTFC using previous closed candles
         ft_dir = ftfc(prev_daily, prev_weekly, prev_monthly)
         if not ft_dir:
             continue
 
+        # Build arrows (M/W/D direction)
         m_dir = direction(prev_monthly)
         w_dir = direction(prev_weekly)
         d_dir = direction(prev_daily)
         arrows = arrow_dir(m_dir) + arrow_dir(w_dir) + arrow_dir(d_dir)
 
+        # A++ Daily Actionable
         daily_f2 = failed_2(prev_daily, prev_daily2)
 
         is_double_inside = (
@@ -252,16 +269,19 @@ def scan(title, granularity, webhook):
             strat_type(prev_daily2, daily_c[-4]) == "1"
         )
 
+        # Check A++ UP
         if ft_dir == "UP":
             if daily_f2 == "Failed 2D" or is_double_inside:
                 aplus_up[symbol] = {"arrows": arrows, "label": daily_f2 or "Double Inside"}
 
+        # Check A++ DOWN
         if ft_dir == "DOWN":
             if daily_f2 == "Failed 2U" or is_double_inside:
                 aplus_down[symbol] = {"arrows": arrows, "label": daily_f2 or "Double Inside"}
 
         time.sleep(0.25)
 
+    # build message
     msg = ""
     msg += build_aplus(aplus_up, aplus_down)
     msg += build_standard(title, inside, outside, f2u, f2d, double_inside)
