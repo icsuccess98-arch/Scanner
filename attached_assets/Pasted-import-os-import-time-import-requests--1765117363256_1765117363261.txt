@@ -139,18 +139,24 @@ def group_sort(symbols):
 def build_message(title, aplus, double_inside, inside, outside, f2u, f2d):
     msg = f"📊 **{title} Actionables**\n"
 
+    # ---------------------------
+    # A++ Setups (FIRED FIRST)
+    # ---------------------------
     if aplus:
         msg += "\n🔥 **A++ Setups**\n"
 
+        # Group by upside/downside
         up = []
         down = []
 
         for s, reason in aplus.items():
+            # Determine direction from FTFC label inside reason
             if "UP" in reason:
                 up.append((s, reason))
             elif "DOWN" in reason:
                 down.append((s, reason))
             else:
+                # Double Inside doesn't have direction, place in both? No — treat as neutral
                 down.append((s, reason))
 
         if down:
@@ -162,6 +168,10 @@ def build_message(title, aplus, double_inside, inside, outside, f2u, f2d):
             msg += "\n🔺 **Upside**\n"
             for s, reason in up:
                 msg += f"• {pretty(s)} — {reason}\n"
+
+    # ---------------------------
+    # Normal sections
+    # ---------------------------
 
     if double_inside:
         msg += f"\n**{title} Double Inside (II)**\n"
@@ -196,7 +206,7 @@ def scan(title, granularity, webhook):
     double_inside = []
     failed2u = []
     failed2d = []
-    aplus = {}
+    aplus = {}   # symbol → reason
 
     for symbol in OANDA_SYMBOLS:
 
@@ -211,16 +221,25 @@ def scan(title, granularity, webhook):
         st = strat_type(curr, prev)
         name = pretty(symbol)
 
+        # -------------------------------------------------
+        # DOUBLE INSIDE → A++ (per your instruction)
+        # -------------------------------------------------
         if st == "1" and strat_type(prev, prev2) == "1":
             double_inside.append(symbol)
             aplus[symbol] = "Double Inside"
             continue
 
+        # -------------------------------------------------
+        # INSIDE / OUTSIDE
+        # -------------------------------------------------
         if st == "1":
             inside.append(symbol)
         elif st == "3":
             outside.append(symbol)
 
+        # -------------------------------------------------
+        # FAILED 2 SETUPS WITH FTFC FILTER
+        # -------------------------------------------------
         f2 = failed_2(curr, prev)
         if f2:
 
