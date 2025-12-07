@@ -8,7 +8,7 @@ import requests
 
 OANDA_KEY = os.environ["OANDA_KEY"]
 OANDA_ACCOUNT = "practice"
-RUN_MODE = os.environ.get("RUN_MODE", "ALL")  # DAILY, WEEKLY, MONTHLY, ALL
+RUN_MODE = os.environ.get("RUN_MODE", "ALL")
 
 WEBHOOK_DAILY = os.environ["WEBHOOK_DAILY"]
 WEBHOOK_WEEKLY = os.environ["WEBHOOK_WEEKLY"]
@@ -18,7 +18,7 @@ OANDA_URL = f"https://api-fx{OANDA_ACCOUNT}.oanda.com/v3/instruments"
 HEADERS = {"Authorization": f"Bearer {OANDA_KEY}"}
 
 # ---------------------------------------------------------
-# ASSET CLASS GROUPS
+# ASSET GROUPS
 # ---------------------------------------------------------
 
 MAJORS = [
@@ -55,10 +55,10 @@ GROUP_ORDER = {
 # ---------------------------------------------------------
 
 def pretty(symbol):
-    s = symbol.replace("_", "/")
-    if s == "WTICO/USD":
+    out = symbol.replace("_", "/")
+    if out == "WTICO/USD":
         return "WTICO/USD"
-    return s
+    return out
 
 def candle(c):
     return {
@@ -67,6 +67,9 @@ def candle(c):
         "low": float(c["mid"]["l"]),
         "close": float(c["mid"]["c"])
     }
+
+def direction(c):
+    return "UP" if c["close"] > c["open"] else "DOWN"
 
 # ---------------------------------------------------------
 # FETCH CANDLES
@@ -81,10 +84,8 @@ def get_oanda_candles(symbol, granularity, count=20):
         return None
 
     closed = [candle(x) for x in r["candles"] if x["complete"]]
-
     if len(closed) < 3:
         return None
-
     return closed
 
 # ---------------------------------------------------------
@@ -109,66 +110,60 @@ def failed_2(curr, prev):
     return None
 
 # ---------------------------------------------------------
-# TRUE FTFC FILTER
+# FTFC CHECK (only used for A++)
 # ---------------------------------------------------------
 
-def direction(c):
-    return "UP" if c["close"] > c["open"] else "DOWN"
-
-def ftfc_pass(daily, weekly, monthly):
-    d = direction(daily[0])
-    w = direction(weekly[0])
-    m = direction(monthly[0])
-    return d if (d == w == m) else None
+def ftfc_pass(d, w, m):
+    d_dir, w_dir, m_dir = direction(d), direction(w), direction(m)
+    if d_dir == w_dir == m_dir:
+        return d_dir
+    return None
 
 # ---------------------------------------------------------
-# GROUP SORTING
+# ORDER RESULTS BY ASSET CLASS
 # ---------------------------------------------------------
 
 def group_sort(symbols):
     ordered = []
     for class_list in GROUP_ORDER.values():
-        matches = [pretty(s) for s in symbols if s in class_list]
-        ordered.extend(sorted(matches))
+        subset = [pretty(s) for s in symbols if s in class_list]
+        ordered.extend(sorted(subset))
     return ordered
 
 # ---------------------------------------------------------
-# MESSAGE BUILDER (NOW INCLUDES DOUBLE INSIDE)
+# A++ FORMATTING
 # ---------------------------------------------------------
 
-def build_message(title, inside, outside, double_inside, f2u, f2d):
-    msg = f"📊 **{title} Actionables**\n"
-    added = False
+def build_aplus_section(aplus_dict):
+    if not aplus_dict:
+        return ""
 
-    if double_inside:
-        msg += f"\n**{title} Double Inside (II)**\n"
-        msg += "\n".join(f"• {x}" for x in group_sort(double_inside)) + "\n"
-        added = True
+    # Separate UP vs DOWN continuation
+    up = []
+    dn = []
 
-    if inside:
-        msg += f"\n**{title} Inside (1)**\n"
-        msg += "\n".join(f"• {x}" for x in group_sort(inside)) + "\n"
-        added = True
+    for sym, label in aplus_dict.items():
+        if "UP" in label:
+            up.append((sym, label))
+        else:
+            dn.append((sym, label))
 
-    if outside:
-        msg += f"\n**{title} Outside (3)**\n"
-        msg += "\n".join(f"• {x}" for x in group_sort(outside)) + "\n"
-        added = True
+    msg = "🔥 **A++ Setups**\n"
 
-    if f2u:
-        msg += f"\n**{title} Failed 2U**\n"
-        msg += "\n".join(f"• {x}" for x in group_sort(f2u)) + "\n"
-        added = True
+    if dn:
+        msg += "\n🔻 **Downside**\n"
+        for sym, label in dn:
+            msg += f"• {pretty(sym)} 🔥 ({label})\n"
 
-    if f2d:
-        msg += f"\n**{title} Failed 2D**\n"
-        msg += "\n".join(f"• {x}" for x in group_sort(f2d)) + "\n"
-        added = True
+    if up:
+        msg += "\n🔺 **Upside**\n"
+        for sym, label in up:
+            msg += f"• {pretty(sym)} 🔥 ({label})\n"
 
-    return msg if added else None
+    return msg + "\n"
 
 # ---------------------------------------------------------
-# MAIN SCAN
+# MAIN SCANNER
 # ---------------------------------------------------------
 
 def scan(title, granularity, webhook):
@@ -178,10 +173,11 @@ def scan(title, granularity, webhook):
     double_inside = []
     f2u = []
     f2d = []
+    aplus = {}     # symbol → reason
 
     for symbol in OANDA_SYMBOLS:
 
-        candles = get_oanda_candles(symbol, granularity, 10)
+        candles = get_oanda_candles(symbol, granularity, 15)
         if not candles:
             continue
 
@@ -190,12 +186,12 @@ def scan(title, granularity, webhook):
         prev2 = candles[-3]
 
         st = strat_type(curr, prev)
-        name = pretty(symbol)
 
-        # DOUBLE INSIDE (II)
+        # DOUBLE INSIDE = AUTOMATIC A++
         if st == "1" and strat_type(prev, prev2) == "1":
             double_inside.append(symbol)
-            continue  # don't classify again
+            aplus[symbol] = "Double Inside"
+            continue
 
         # INSIDE / OUTSIDE
         if st == "1":
@@ -203,34 +199,52 @@ def scan(title, granularity, webhook):
         elif st == "3":
             outside.append(symbol)
 
-        # FAILED 2 (FTFC FILTER APPLIED)
-        fail = failed_2(curr, prev)
-        if fail:
+        # FAILED 2 → requires FTFC alignment
+        f2 = failed_2(curr, prev)
+        if f2:
 
-            # Must fetch weekly + monthly for FTFC
-            weekly = get_oanda_candles(symbol, "W", 10)
-            monthly = get_oanda_candles(symbol, "M", 10)
+            weekly = get_oanda_candles(symbol, "W")
+            monthly = get_oanda_candles(symbol, "M")
 
             if not weekly or not monthly:
                 continue
 
-            ftfc = ftfc_pass([curr], [weekly[-1]], [monthly[-1]])
+            ftfc = ftfc_pass(curr, weekly[-1], monthly[-1])
             if not ftfc:
-                continue  # skip failed setup unless FTFC matches
+                continue
 
-            # Failed 2U → bearish FTFC
-            if fail == "Failed 2U" and ftfc == "DOWN":
+            # FAILED 2U → FTFC DOWN
+            if f2 == "Failed 2U" and ftfc == "DOWN":
                 f2u.append(symbol)
+                aplus[symbol] = "Failed 2U + FTFC DOWN"
 
-            # Failed 2D → bullish FTFC
-            if fail == "Failed 2D" and ftfc == "UP":
+            # FAILED 2D → FTFC UP
+            if f2 == "Failed 2D" and ftfc == "UP":
                 f2d.append(symbol)
+                aplus[symbol] = "Failed 2D + FTFC UP"
 
         time.sleep(0.25)
 
-    msg = build_message(title, inside, outside, double_inside, f2u, f2d)
-    if msg:
-        requests.post(webhook, json={"content": msg})
+    # Build message
+    msg = f"📊 **{title} Actionables**\n\n"
+    msg += build_aplus_section(aplus)
+
+    if double_inside:
+        msg += f"**{title} Double Inside (II)**\n" + "\n".join(f"• {pretty(x)}" for x in group_sort(double_inside)) + "\n\n"
+
+    if inside:
+        msg += f"**{title} Inside (1)**\n" + "\n".join(f"• {pretty(x)}" for x in group_sort(inside)) + "\n\n"
+
+    if outside:
+        msg += f"**{title} Outside (3)**\n" + "\n".join(f"• {pretty(x)}" for x in group_sort(outside)) + "\n\n"
+
+    if f2u:
+        msg += f"**{title} Failed 2U**\n" + "\n".join(f"• {pretty(x)}" for x in group_sort(f2u)) + "\n\n"
+
+    if f2d:
+        msg += f"**{title} Failed 2D**\n" + "\n".join(f"• {pretty(x)}" for x in group_sort(f2d)) + "\n\n"
+
+    requests.post(webhook, json={"content": msg})
 
 # ---------------------------------------------------------
 # EXECUTION
