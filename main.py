@@ -187,7 +187,7 @@ def scan(title, granularity, topic_id=None):
     double_inside = []
     f2u = []
     f2d = []
-    aplus = []
+    aplus = {}
 
     for symbol in OANDA_SYMBOLS:
 
@@ -210,10 +210,7 @@ def scan(title, granularity, topic_id=None):
                 arrow(direction(curr))
             )
 
-            aplus.append((symbol, {
-                "label": "Double Inside",
-                "arrows": arrows
-            }))
+            aplus[symbol] = f"M/W/D {arrows} — Double Inside"
             continue
 
         if st == "1":
@@ -237,11 +234,11 @@ def scan(title, granularity, topic_id=None):
 
             if f2 == "Failed 2U" and ftfc == "DOWN":
                 f2u.append(symbol)
-                aplus.append((symbol, {"label": "Failed 2U", "arrows": arrows}))
+                aplus[symbol] = f"M/W/D {arrows} — Failed 2U"
 
             if f2 == "Failed 2D" and ftfc == "UP":
                 f2d.append(symbol)
-                aplus.append((symbol, {"label": "Failed 2D", "arrows": arrows}))
+                aplus[symbol] = f"M/W/D {arrows} — Failed 2D"
 
         time.sleep(0.2)
 
@@ -256,23 +253,21 @@ def scan(title, granularity, topic_id=None):
         ups = []
         dns = []
 
-        for sym, info in aplus:
-            if "UP" in info.get("arrows", "") or info.get("label") == "Failed 2D":
-                ups.append((sym, info))
+        for sym, lbl in aplus.items():
+            if "UP" in lbl:
+                ups.append((sym, lbl.replace("Failed 2U", "F2U").replace("Failed 2D", "F2D")))
             else:
-                dns.append((sym, info))
+                dns.append((sym, lbl.replace("Failed 2U", "F2U").replace("Failed 2D", "F2D")))
 
         if ups:
             msg += "<u><b>🔺 Upside</b></u>\n"
-            for sym, info in ups:
-                lbl = f"M/W/D {info['arrows']} — D: {info['label']}"
+            for sym, lbl in ups:
                 msg += f"• <b>{pretty(sym)}</b> — {lbl}\n"
             msg += "\n"
 
         if dns:
             msg += "<u><b>🔻 Downside</b></u>\n"
-            for sym, info in dns:
-                lbl = f"M/W/D {info['arrows']} — D: {info['label']}"
+            for sym, lbl in dns:
                 msg += f"• <b>{pretty(sym)}</b> — {lbl}\n"
             msg += "\n"
 
@@ -295,13 +290,13 @@ def scan(title, granularity, topic_id=None):
         msg += "\n"
 
     if f2u:
-        msg += "<b>🔻 Failed 2U</b>\n"
+        msg += "<b>🔻 F2U</b>\n"
         for x in group_sort(f2u):
             msg += f"• {pretty(x)}\n"
         msg += "\n"
 
     if f2d:
-        msg += "<b>🔺 Failed 2D</b>\n"
+        msg += "<b>🔺 F2D</b>\n"
         for x in group_sort(f2d):
             msg += f"• {pretty(x)}\n"
         msg += "\n"
