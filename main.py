@@ -238,14 +238,14 @@ def scan(title, granularity, webhook):
                     if f2 == "Failed 2U" and ftfc == "DOWN":
                         aplus[symbol] = {
                             "arrows": arrows,
-                            "label": "Failed 2 Down",
+                            "label": "Failed 2 Up",
                             "dir": "DOWN"
                         }
 
                     if f2 == "Failed 2D" and ftfc == "UP":
                         aplus[symbol] = {
                             "arrows": arrows,
-                            "label": "Failed 2 Up",
+                            "label": "Failed 2 Down",
                             "dir": "UP"
                         }
 
