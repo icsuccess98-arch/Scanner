@@ -221,24 +221,25 @@ def scan(title, granularity, topic_id=None):
 
         f2 = failed_2(curr, prev)
         if f2:
+            # Add to regular actionables list regardless of FTFC
+            if f2 == "Failed 2U":
+                f2u.append(symbol)
+            if f2 == "Failed 2D":
+                f2d.append(symbol)
+
+            # Check FTFC for A++ status
             weekly = get_closed_candles(symbol, "W")
             monthly = get_closed_candles(symbol, "M")
-            if not weekly or not monthly:
-                continue
+            if weekly and monthly:
+                ftfc = ftfc_pass(curr, weekly[-1], monthly[-1])
+                if ftfc:
+                    arrows = arrow(direction(monthly[-1])) + arrow(direction(weekly[-1])) + arrow(direction(curr))
 
-            ftfc = ftfc_pass(curr, weekly[-1], monthly[-1])
-            if not ftfc:
-                continue
+                    if f2 == "Failed 2U" and ftfc == "DOWN":
+                        aplus[symbol] = f"M/W/D {arrows} — Failed 2U"
 
-            arrows = arrow(direction(monthly[-1])) + arrow(direction(weekly[-1])) + arrow(direction(curr))
-
-            if f2 == "Failed 2U" and ftfc == "DOWN":
-                f2u.append(symbol)
-                aplus[symbol] = f"M/W/D {arrows} — Failed 2U"
-
-            if f2 == "Failed 2D" and ftfc == "UP":
-                f2d.append(symbol)
-                aplus[symbol] = f"M/W/D {arrows} — Failed 2D"
+                    if f2 == "Failed 2D" and ftfc == "UP":
+                        aplus[symbol] = f"M/W/D {arrows} — Failed 2D"
 
         time.sleep(0.2)
 
@@ -263,13 +264,13 @@ def scan(title, granularity, topic_id=None):
                 dns.append((sym, lbl_short))
 
         if ups:
-            msg += "<u><b>🔺 Upside</b></u>\n"
+            msg += "<u><b>🟢 Upside</b></u>\n"
             for sym, lbl in ups:
                 msg += f"• <b>{pretty(sym)}</b> — {lbl}\n"
             msg += "\n"
 
         if dns:
-            msg += "<u><b>🔻 Downside</b></u>\n"
+            msg += "<u><b>🔴 Downside</b></u>\n"
             for sym, lbl in dns:
                 msg += f"• <b>{pretty(sym)}</b> — {lbl}\n"
             msg += "\n"
@@ -293,13 +294,13 @@ def scan(title, granularity, topic_id=None):
         msg += "\n"
 
     if f2u:
-        msg += "<b>🔻 F2U</b>\n"
+        msg += "<b>🔴 F2U</b>\n"
         for x in group_sort(f2u):
             msg += f"• {pretty(x)}\n"
         msg += "\n"
 
     if f2d:
-        msg += "<b>🔺 F2D</b>\n"
+        msg += "<b>🟢 F2D</b>\n"
         for x in group_sort(f2d):
             msg += f"• {pretty(x)}\n"
         msg += "\n"
