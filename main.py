@@ -9,13 +9,19 @@ import requests
 TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
 TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 
-def send_telegram(msg):
+TOPIC_DAILY = 1236
+TOPIC_WEEKLY = 1236
+TOPIC_MONTHLY = 1236
+
+def send_telegram(msg, topic_id=None):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
         "text": msg,
         "parse_mode": "Markdown"
     }
+    if topic_id:
+        payload["message_thread_id"] = topic_id
     requests.post(url, json=payload)
 
 # ---------------------------------------------------------
@@ -174,7 +180,7 @@ def format_aplus(a_list):
 # MAIN SCANNER
 # ---------------------------------------------------------
 
-def scan(title, granularity):
+def scan(title, granularity, topic_id=None):
 
     inside = []
     outside = []
@@ -274,19 +280,19 @@ def scan(title, granularity):
             msg += f"• {pretty(x)}\n"
         msg += "\n"
 
-    send_telegram(msg)
+    send_telegram(msg, topic_id)
 
 # ---------------------------------------------------------
 # RUNTIME
 # ---------------------------------------------------------
 
 if RUN_MODE in ("DAILY", "ALL"):
-    scan("Daily", "D")
+    scan("Daily", "D", TOPIC_DAILY)
 
 if RUN_MODE in ("WEEKLY", "ALL"):
-    scan("Weekly", "W")
+    scan("Weekly", "W", TOPIC_WEEKLY)
 
 if RUN_MODE in ("MONTHLY", "ALL"):
-    scan("Monthly", "M")
+    scan("Monthly", "M", TOPIC_MONTHLY)
 
 print("DONE (Telegram Mode)")
