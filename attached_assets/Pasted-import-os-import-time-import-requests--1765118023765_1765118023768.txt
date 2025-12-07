@@ -68,9 +68,11 @@ def candle(c):
         "close": float(c["mid"]["c"])
     }
 
+# Candle direction for strat FTFC (previous candle close vs open)
 def direction(candle):
     return "UP" if candle["close"] > candle["open"] else "DOWN"
 
+# Arrow symbol
 def arrow_dir(dir):
     return "↑" if dir == "UP" else "↓"
 
@@ -212,12 +214,16 @@ def scan(title, granularity, webhook):
         prev = candles[-2]
         prev2 = candles[-3]
 
-        st = strat_type(prev, prev2)
+        st = strat_type(prev, prev2)          # IMPORTANT: previous closed candle strat
         today_st = strat_type(curr, prev)
 
+        # ======================================================
+        # DOUBLE INSIDE → A++
+        # ======================================================
         if today_st == "1" and st == "1":
             double_inside.append(symbol)
 
+            # FTFC check using previous closed candles
             weekly = get_oanda_candles(symbol, "W", 10)
             monthly = get_oanda_candles(symbol, "M", 10)
 
@@ -231,11 +237,17 @@ def scan(title, granularity, webhook):
                     else:
                         aplus_down[symbol] = item
 
+        # ======================================================
+        # INSIDE / OUTSIDE
+        # ======================================================
         if today_st == "1":
             inside.append(symbol)
         elif today_st == "3":
             outside.append(symbol)
 
+        # ======================================================
+        # FAILED 2 SETUPS
+        # ======================================================
         f2 = failed_2(curr, prev)
         if f2:
 
@@ -265,6 +277,10 @@ def scan(title, granularity, webhook):
                 aplus_down[symbol] = item
 
         time.sleep(0.25)
+
+    # -------------------------------------------------
+    # Build & send message
+    # -------------------------------------------------
 
     msg = ""
     msg += build_aplus(aplus_up, aplus_down)
