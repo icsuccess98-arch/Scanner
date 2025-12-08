@@ -260,14 +260,10 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
 
         time.sleep(0.2)
 
-    msg = f"""
-📊 <b>{title} Actionables</b>
-
-🔥 <b>A++ Setups</b>
-
-"""
+    msg = f"📊 <b>{title} Actionables</b>\n\n"
 
     if aplus:
+        msg += "🔥 <b>A++ Setups</b>\n\n"
         ups = []
         dns = []
 
