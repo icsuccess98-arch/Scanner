@@ -25,6 +25,23 @@ def send_telegram(msg, topic_id=None):
     requests.post(url, json=payload)
 
 # ---------------------------------------------------------
+# DISCORD CONFIG
+# ---------------------------------------------------------
+
+WEBHOOK_DAILY = os.environ.get("WEBHOOK_DAILY", "")
+WEBHOOK_WEEKLY = os.environ.get("WEBHOOK_WEEKLY", "")
+WEBHOOK_MONTHLY = os.environ.get("WEBHOOK_MONTHLY", "")
+
+def send_discord(msg, webhook_url):
+    if not webhook_url:
+        return
+    # Convert HTML to Discord markdown
+    discord_msg = msg.replace("<b>", "**").replace("</b>", "**")
+    discord_msg = discord_msg.replace("<u>", "__").replace("</u>", "__")
+    payload = {"content": discord_msg}
+    requests.post(webhook_url, json=payload)
+
+# ---------------------------------------------------------
 # OANDA CONFIG
 # ---------------------------------------------------------
 
@@ -180,7 +197,7 @@ def format_aplus(a_list):
 # MAIN SCANNER
 # ---------------------------------------------------------
 
-def scan(title, granularity, topic_id=None):
+def scan(title, granularity, topic_id=None, discord_webhook=None):
 
     inside = []
     outside = []
@@ -307,18 +324,19 @@ def scan(title, granularity, topic_id=None):
 
     msg = msg.strip()
     send_telegram(msg, topic_id)
+    send_discord(msg, discord_webhook)
 
 # ---------------------------------------------------------
 # RUNTIME
 # ---------------------------------------------------------
 
 if RUN_MODE in ("DAILY", "ALL"):
-    scan("Daily", "D", TOPIC_DAILY)
+    scan("Daily", "D", TOPIC_DAILY, WEBHOOK_DAILY)
 
 if RUN_MODE in ("WEEKLY", "ALL"):
-    scan("Weekly", "W", TOPIC_WEEKLY)
+    scan("Weekly", "W", TOPIC_WEEKLY, WEBHOOK_WEEKLY)
 
 if RUN_MODE in ("MONTHLY", "ALL"):
-    scan("Monthly", "M", TOPIC_MONTHLY)
+    scan("Monthly", "M", TOPIC_MONTHLY, WEBHOOK_MONTHLY)
 
-print("DONE (Telegram Mode)")
+print("DONE (Telegram + Discord)")
