@@ -315,9 +315,11 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
     date_header = today.strftime("%b %d, %Y")
     for_day = today.strftime("%a %b %d")
     from_day = yesterday.strftime("%a %b %d")
-    dc_header = f"🗓 <b>{title} Actionable Strat — {date_header}</b>\n"
-    dc_header += f"<b>{title} Actionable Strat — for {for_day}</b>\n"
-    dc_header += f"(From {from_day} close)\n\n"
+    dc_header = f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+    dc_header += f"🗓️  <b>{title} Actionable Strat</b>\n"
+    dc_header += f"📅  {date_header}\n"
+    dc_header += f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+    dc_header += f"📌 <b>For {for_day}</b>  ·  <i>From {from_day} close</i>\n\n"
     
     msg = ""
 
