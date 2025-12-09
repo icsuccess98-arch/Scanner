@@ -1,6 +1,7 @@
 import os
 import time
 import requests
+from datetime import datetime, timedelta
 
 # ---------------------------------------------------------
 # TELEGRAM CONFIG
@@ -291,7 +292,15 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
 
         time.sleep(0.2)
 
-    msg = f"📊 <b>{title} Actionables</b>\n\n"
+    today = datetime.now()
+    yesterday = today - timedelta(days=1)
+    date_header = today.strftime("%b %d, %Y")
+    for_day = today.strftime("%a %b %d")
+    from_day = yesterday.strftime("%a %b %d")
+    
+    msg = f"🗓 <b>{title} Actionable Strat — {date_header}</b>\n"
+    msg += f"<b>{title} Actionable Strat — for {for_day}</b>\n"
+    msg += f"(From {from_day} close)\n\n"
 
     if aplus:
         msg += "🔥 <b>A++ Setups</b>\n\n"
