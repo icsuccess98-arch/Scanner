@@ -351,7 +351,6 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
 
     msg = msg.strip()
     send_telegram(msg, topic_id)
-    send_discord(msg, discord_webhook)
     
     # Send TradingView watchlist CSV to Discord only
     all_symbols = list(set(double_inside + inside + outside + f2u + f2d + list(aplus.keys())))
