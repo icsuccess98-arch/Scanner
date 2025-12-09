@@ -283,12 +283,25 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
                 ftfc = ftfc_pass(curr, weekly[-1], monthly[-1])
                 if ftfc:
                     arrows = arrow(direction(monthly[-1])) + arrow(direction(weekly[-1])) + arrow(direction(curr))
-
+                    
+                    # Check if previous bar was 1 (Inside) or 3 (Outside)
+                    prev_type = strat_type(prev, prev2)
+                    
                     if f2 == "Failed 2U" and ftfc == "DOWN":
-                        aplus[symbol] = f"M/W/D {arrows} — Failed 2U"
+                        if prev_type == "1":
+                            aplus[symbol] = f"M/W/D {arrows} — 1-F2U"
+                        elif prev_type == "3":
+                            aplus[symbol] = f"M/W/D {arrows} — 3-F2U"
+                        else:
+                            aplus[symbol] = f"M/W/D {arrows} — F2U"
 
                     if f2 == "Failed 2D" and ftfc == "UP":
-                        aplus[symbol] = f"M/W/D {arrows} — Failed 2D"
+                        if prev_type == "1":
+                            aplus[symbol] = f"M/W/D {arrows} — 1-F2D"
+                        elif prev_type == "3":
+                            aplus[symbol] = f"M/W/D {arrows} — 3-F2D"
+                        else:
+                            aplus[symbol] = f"M/W/D {arrows} — F2D"
 
         time.sleep(0.2)
 
