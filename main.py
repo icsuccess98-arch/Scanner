@@ -41,6 +41,37 @@ def send_discord(msg, webhook_url):
     payload = {"content": discord_msg}
     requests.post(webhook_url, json=payload)
 
+def to_tv_symbol(oanda_sym):
+    # Convert OANDA symbol to TradingView format
+    tv_map = {
+        "XAU_USD": "OANDA:XAUUSD",
+        "XAG_USD": "OANDA:XAGUSD",
+        "WTICO_USD": "TVC:USOIL",
+        "NAS100_USD": "OANDA:NAS100USD",
+        "US30_USD": "OANDA:US30USD",
+        "BTC_USD": "COINBASE:BTCUSD",
+        "ETH_USD": "COINBASE:ETHUSD",
+        "LTC_USD": "COINBASE:LTCUSD",
+    }
+    if oanda_sym in tv_map:
+        return tv_map[oanda_sym]
+    # Standard forex pair
+    return f"FX:{oanda_sym.replace('_', '')}"
+
+def send_discord_csv(symbols, title, webhook_url):
+    if not webhook_url or not symbols:
+        return
+    # Create TradingView watchlist CSV
+    tv_symbols = [to_tv_symbol(s) for s in symbols]
+    csv_content = ",".join(tv_symbols)
+    
+    # Send as file attachment
+    files = {
+        "file": (f"{title.lower()}_watchlist.txt", csv_content, "text/plain")
+    }
+    data = {"content": f"📋 **{title} TradingView Watchlist**"}
+    requests.post(webhook_url, data=data, files=files)
+
 # ---------------------------------------------------------
 # OANDA CONFIG
 # ---------------------------------------------------------
@@ -321,6 +352,10 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
     msg = msg.strip()
     send_telegram(msg, topic_id)
     send_discord(msg, discord_webhook)
+    
+    # Send TradingView watchlist CSV to Discord only
+    all_symbols = list(set(double_inside + inside + outside + f2u + f2d + list(aplus.keys())))
+    send_discord_csv(all_symbols, title, discord_webhook)
 
 # ---------------------------------------------------------
 # RUNTIME
