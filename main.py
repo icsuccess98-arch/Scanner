@@ -276,31 +276,32 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
             if f2 == "Failed 2D":
                 f2d.append(symbol)
 
-            # Check FTFC for A++ status
+            # Check if previous bar was 1 (Inside) or 3 (Outside) for A++ 
+            prev_type = strat_type(prev, prev2)
             weekly = get_closed_candles(symbol, "W")
             monthly = get_closed_candles(symbol, "M")
+            
             if weekly and monthly:
-                ftfc = ftfc_pass(curr, weekly[-1], monthly[-1])
-                if ftfc:
-                    arrows = arrow(direction(monthly[-1])) + arrow(direction(weekly[-1])) + arrow(direction(curr))
-                    
-                    # Check if previous bar was 1 (Inside) or 3 (Outside)
-                    prev_type = strat_type(prev, prev2)
-                    
-                    if f2 == "Failed 2U" and ftfc == "DOWN":
-                        if prev_type == "1":
-                            aplus[symbol] = f"M/W/D {arrows} — 1-F2U"
-                        elif prev_type == "3":
-                            aplus[symbol] = f"M/W/D {arrows} — 3-F2U"
-                        else:
+                arrows = arrow(direction(monthly[-1])) + arrow(direction(weekly[-1])) + arrow(direction(curr))
+                
+                # 1-F2 and 3-F2 are A++ without FTFC requirement
+                if prev_type == "1":
+                    if f2 == "Failed 2U":
+                        aplus[symbol] = f"M/W/D {arrows} — 1-F2U"
+                    else:
+                        aplus[symbol] = f"M/W/D {arrows} — 1-F2D"
+                elif prev_type == "3":
+                    if f2 == "Failed 2U":
+                        aplus[symbol] = f"M/W/D {arrows} — 3-F2U"
+                    else:
+                        aplus[symbol] = f"M/W/D {arrows} — 3-F2D"
+                else:
+                    # Regular F2 requires FTFC alignment
+                    ftfc = ftfc_pass(curr, weekly[-1], monthly[-1])
+                    if ftfc:
+                        if f2 == "Failed 2U" and ftfc == "DOWN":
                             aplus[symbol] = f"M/W/D {arrows} — F2U"
-
-                    if f2 == "Failed 2D" and ftfc == "UP":
-                        if prev_type == "1":
-                            aplus[symbol] = f"M/W/D {arrows} — 1-F2D"
-                        elif prev_type == "3":
-                            aplus[symbol] = f"M/W/D {arrows} — 3-F2D"
-                        else:
+                        if f2 == "Failed 2D" and ftfc == "UP":
                             aplus[symbol] = f"M/W/D {arrows} — F2D"
 
         time.sleep(0.2)
@@ -379,7 +380,10 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
     msg = msg.strip()
     tg_msg = tg_header + msg
     dc_msg = dc_header + msg
-    send_telegram(tg_msg, topic_id)
+    
+    discord_only = os.environ.get("DISCORD_ONLY", "").upper() == "TRUE"
+    if not discord_only:
+        send_telegram(tg_msg, topic_id)
     send_discord(dc_msg, discord_webhook)
     
     # Send TradingView watchlist CSV to Discord immediately after
