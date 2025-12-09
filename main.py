@@ -1,7 +1,6 @@
 import os
 import time
 import requests
-from datetime import datetime, timedelta
 
 # ---------------------------------------------------------
 # TELEGRAM CONFIG
@@ -306,20 +305,7 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
 
         time.sleep(0.2)
 
-    # Telegram header (simple)
-    tg_header = f"📊 <b>{title} Actionables</b>\n\n"
-    
-    # Discord header (with dates)
-    today = datetime.now()
-    yesterday = today - timedelta(days=1)
-    date_header = today.strftime("%b %d, %Y")
-    for_day = today.strftime("%a %b %d")
-    from_day = yesterday.strftime("%a %b %d")
-    dc_header = f"🗓 <b>{title} Actionable Strat — {date_header}</b>\n"
-    dc_header += f"<b>{title} Actionable Strat — for {for_day}</b>\n"
-    dc_header += f"(From {from_day} close)\n\n"
-    
-    msg = ""
+    msg = f"📊 <b>{title} Actionables</b>\n\n"
 
     if aplus:
         msg += "🔥 <b>A++ Setups</b>\n\n"
@@ -378,13 +364,8 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
         msg += "\n"
 
     msg = msg.strip()
-    tg_msg = tg_header + msg
-    dc_msg = dc_header + msg
-    
-    discord_only = os.environ.get("DISCORD_ONLY", "").upper() == "TRUE"
-    if not discord_only:
-        send_telegram(tg_msg, topic_id)
-    send_discord(dc_msg, discord_webhook)
+    send_telegram(msg, topic_id)
+    send_discord(msg, discord_webhook)
     
     # Send TradingView watchlist CSV to Discord immediately after
     all_symbols = list(set(double_inside + inside + outside + f2u + f2d + list(aplus.keys())))
