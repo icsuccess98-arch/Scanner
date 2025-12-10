@@ -39,19 +39,12 @@ def send_discord_csv(symbols, title, webhook_url):
     data = {"content": f"**{title} TradingView Watchlist**"}
     requests.post(webhook_url, data=data, files=files)
 
-ETFS = ["SPY", "QQQ", "IWM", "DIA", "VTI", "VOO", "TLT", "HYG", "XLF", "XLE", "XLK", "XLV", "XLI", "XLP", "XLY", "XLU", "XLB", "XLRE", "XLC", "VNQ", "ARKK", "IYR", "SMH", "SOXX", "IBB", "XBI", "KRE", "XRT"]
-MEGA_TECH = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA", "AVGO", "ORCL"]
-TECH = ["AMD", "INTC", "QCOM", "MU", "CSCO", "IBM", "TXN", "AMAT", "LRCX", "KLAC", "ADI", "MRVL", "NXPI", "ON", "MCHP", "SNPS", "CDNS", "FTNT", "PANW", "CRWD", "ZS", "NET", "DDOG", "SNOW", "MDB", "PLTR", "PATH", "U", "RBLX", "TSM"]
-SOFTWARE = ["CRM", "ADBE", "NOW", "INTU", "WDAY", "TEAM", "DOCU", "ZM", "OKTA", "HUBS", "VEEV", "PYPL", "SHOP", "COIN", "HOOD", "AFRM", "UPST"]
-CONSUMER = ["WMT", "COST", "TGT", "HD", "LOW", "BABA", "JD", "PDD", "EBAY", "ETSY", "W", "CHWY", "DG", "DLTR", "ROST", "TJX", "BBY", "GME", "AMC", "NKE", "SBUX", "MCD", "ABNB", "BKNG", "EXPE"]
-FINANCIALS = ["JPM", "BAC", "WFC", "C", "GS", "MS", "USB", "PNC", "TFC", "SCHW", "BLK", "SPGI", "ICE", "CME", "V", "MA", "AXP", "COF", "UBS"]
-HEALTHCARE = ["UNH", "JNJ", "PFE", "MRK", "ABBV", "LLY", "BMY", "AMGN", "GILD", "REGN", "VRTX", "BIIB", "MRNA", "BNTX", "CVS", "CI", "HUM", "ELV", "MCK"]
-ENERGY = ["XOM", "CVX", "COP", "EOG", "SLB", "MPC", "PSX", "VLO", "OXY", "DVN", "HAL", "BKR", "FANG", "APA", "OKE", "WMB", "KMI"]
-INDUSTRIALS = ["BA", "LMT", "RTX", "NOC", "GD", "CAT", "DE", "UNP", "UPS", "FDX", "DAL", "UAL", "AAL", "LUV", "GE", "HON", "MMM", "EMR", "ITW", "PH"]
-MEDIA = ["DIS", "NFLX", "CMCSA", "T", "VZ", "TMUS", "CHTR", "WBD", "FOX", "ROKU", "SPOT", "SNAP", "PINS", "MTCH", "LYFT", "UBER"]
-MISC = ["TLRY", "CGC", "MARA", "RIOT", "CLSK", "SOFI", "LCID", "RIVN", "NIO", "XPEV", "LI", "F", "GM", "STLA", "PEP", "NEE"]
-
-ALL_STOCKS = list(set(ETFS + MEGA_TECH + TECH + SOFTWARE + CONSUMER + FINANCIALS + HEALTHCARE + ENERGY + INDUSTRIALS + MEDIA + MISC))
+ALL_STOCKS = [
+    "SPY", "QQQ", "IWM", "DIA", "VTI", "GLD", "SLV", "USO", "TLT", "HYG",
+    "XLF", "XLE", "XLK", "XLV", "XLI", "XLP", "XLY", "XLU", "XLB",
+    "AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA", "JPM", "V", "JNJ",
+    "WMT", "PG", "UNH", "HD", "DIS", "MA", "BAC", "XOM", "PFE"
+]
 
 def get_candles(ticker, period="3mo", interval="1d"):
     try:
