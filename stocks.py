@@ -370,11 +370,11 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
     msg = ""
     
     # FTFC Universe section
-    msg += "<b>0) FTFC UNIVERSE</b> — M/W/D all same direction\n"
-    if ftfc_up:
-        msg += f"• FTFC ↑ : {', '.join(ftfc_up)}\n"
-    if ftfc_down:
-        msg += f"• FTFC ↓ : {', '.join(ftfc_down)}\n"
+    msg += "<b>0) FTFC UNIVERSE</b> — Month/Week/Day all same direction\n"
+    for ticker in ftfc_up:
+        msg += f"• {ticker} (M/W/D ↑↑↑)\n"
+    for ticker in ftfc_down:
+        msg += f"• {ticker} (M/W/D ↓↓↓)\n"
     msg += "\n"
 
     if aplus:
