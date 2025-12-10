@@ -42,12 +42,13 @@ def send_discord_csv(symbols, title, webhook_url):
 ALL_STOCKS = [
     "AAL", "AAPL", "ABBV", "ABNB", "ADBE", "AMD", "AMAT", "AMZN", "ARM", "BA",
     "BAC", "CAT", "CMG", "CRM", "CRWD", "CSCO", "CVS", "COST", "CVX", "DAL",
-    "DDOG", "DIS", "DKNG", "DOCU", "ETSY", "FDX", "GS", "HYG", "INTC", "IWM",
+    "DDOG", "DIA", "DIS", "DKNG", "DOCU", "ETSY", "FDX", "GS", "HYG", "INTC", "IWM",
     "IYR", "KO", "MARA", "MCD", "META", "MRVL", "MSFT", "MU", "NEE", "NET",
     "NFLX", "NKE", "NVDA", "OXY", "ORCL", "PEP", "PFE", "PINS", "PLTR", "PYPL",
-    "QCOM", "RBLX", "RIOT", "ROKU", "SBUX", "SMCI", "SNOW", "SOFI", "TGT", "TLT",
-    "TSLA", "TSM", "UAL", "UBS", "UBER", "UNH", "UPS", "URA", "WDAY", "WFC",
-    "WMT", "XLE", "XLF", "XLI", "XLP", "XLU", "XLV", "XLY", "XOM", "ZM"
+    "QCOM", "QQQ", "RBLX", "RIOT", "ROKU", "SBUX", "SMCI", "SNOW", "SOFI", "SPY",
+    "TGT", "TLT", "TSLA", "TSM", "UAL", "UBS", "UBER", "UNH", "UPS", "URA",
+    "V", "VTI", "WDAY", "WFC", "WMT", "XLE", "XLF", "XLI", "XLK", "XLP",
+    "XLU", "XLV", "XLY", "XOM", "ZM"
 ]
 
 def get_candles(ticker, period="3mo", interval="1d"):
