@@ -109,9 +109,9 @@ def scan():
     ftfc_down = []
     ftfc_data = {}
     
-    pure_rob_inside = []
+    inside_bars = []
     outside_list = []
-    hybrid_daily_f2 = []
+    f2_setups = []
     aplus_setups = []
     
     all_setups = []
@@ -156,7 +156,7 @@ def scan():
                 label = "Inside"
                 if prev_st == "1":
                     label = "Double Inside"
-                pure_rob_inside.append((ticker, ftfc_dir, arrows_str, label))
+                inside_bars.append((ticker, ftfc_dir, arrows_str, label))
                 all_setups.append(ticker)
             
             if st == "3":
@@ -181,10 +181,10 @@ def scan():
                         all_setups.append(ticker)
                 else:
                     if f2 == "F2U":
-                        hybrid_daily_f2.append((ticker, ftfc_dir, arrows_str, "F2U", "DOWN"))
+                        f2_setups.append((ticker, ftfc_dir, arrows_str, "F2U", "DOWN"))
                         all_setups.append(ticker)
                     elif f2 == "F2D":
-                        hybrid_daily_f2.append((ticker, ftfc_dir, arrows_str, "F2D", "UP"))
+                        f2_setups.append((ticker, ftfc_dir, arrows_str, "F2D", "UP"))
                         all_setups.append(ticker)
         except:
             continue
@@ -226,8 +226,8 @@ def scan():
                 msg2 += f"• **{ticker}** — M/W/D {arrows} — {label}\n"
             msg2 += "\n"
     
-    double_inside_list = [s for s in pure_rob_inside if s[3] == "Double Inside"]
-    inside_list = [s for s in pure_rob_inside if s[3] == "Inside"]
+    double_inside_list = [s for s in inside_bars if s[3] == "Double Inside"]
+    inside_list = [s for s in inside_bars if s[3] == "Inside"]
     
     if double_inside_list:
         msg2 += "**🟪 Double Inside (II)**\n"
@@ -247,8 +247,8 @@ def scan():
             msg2 += f"• {ticker}\n"
         msg2 += "\n"
     
-    f2u_list = [s[0] for s in hybrid_daily_f2 if s[3] == "F2U"] + [s[0] for s in aplus_setups if "F2U" in s[3]]
-    f2d_list = [s[0] for s in hybrid_daily_f2 if s[3] == "F2D"] + [s[0] for s in aplus_setups if "F2D" in s[3]]
+    f2u_list = [s[0] for s in f2_setups if s[3] == "F2U"] + [s[0] for s in aplus_setups if "F2U" in s[3]]
+    f2d_list = [s[0] for s in f2_setups if s[3] == "F2D"] + [s[0] for s in aplus_setups if "F2D" in s[3]]
     
     if f2u_list:
         msg2 += "**🔴 F2U (Downside)**\n"
