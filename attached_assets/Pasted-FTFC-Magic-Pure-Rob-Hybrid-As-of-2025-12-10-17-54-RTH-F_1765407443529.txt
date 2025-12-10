@@ -1,0 +1,106 @@
+FTFC Magic — Pure Rob + Hybrid
+As of 2025-12-10 17:54 (RTH, FTFC only)
+
+0) FTFC UNIVERSE — Month/Week/Day all same direction
+• SPY (M/W/D ↑↑↑)
+• QQQ (M/W/D ↑↑↑)
+• IWM (M/W/D ↑↑↑)
+• AAPL (M/W/D ↑↑↑)
+• TSLA (M/W/D ↑↑↑)
+• NFLX (M/W/D ↓↓↓)
+• AMAT (M/W/D ↑↑↑)
+• QCOM (M/W/D ↑↑↑)
+• CRM (M/W/D ↑↑↑)
+• ORCL (M/W/D ↑↑↑)
+• MU (M/W/D ↑↑↑)
+• SNOW (M/W/D ↓↓↓)
+• ABNB (M/W/D ↑↑↑)
+• RIOT (M/W/D ↑↑↑)
+• TSM (M/W/D ↑↑↑)
+• XOM (M/W/D ↑↑↑)
+• DIS (M/W/D ↑↑↑)
+• TGT (M/W/D ↑↑↑)
+• NKE (M/W/D ↑↑↑)
+• UBS (M/W/D ↑↑↑)
+• PEP (M/W/D ↑↑↑)
+• UAL (M/W/D ↑↑↑)
+• DAL (M/W/D ↑↑↑)
+• AAL (M/W/D ↑↑↑)
+• PLTR (M/W/D ↑↑↑)
+• PINS (M/W/D ↑↑↑)
+• MRVL (M/W/D ↑↑↑)
+• CRWD (M/W/D ↑↑↑)
+• ZM (M/W/D ↑↑↑)
+• HYG (M/W/D ↑↑↑)
+• XLK (M/W/D ↑↑↑)
+• XLE (M/W/D ↑↑↑)
+• XLY (M/W/D ↑↑↑)
+• MSFT (M/W/D ↓↓↓)
+• GOOGL (M/W/D ↑↑↑)
+• AVGO (M/W/D ↑↑↑)
+• SHOP (M/W/D ↑↑↑)
+• CSCO (M/W/D ↑↑↑)
+• UBER (M/W/D ↓↓↓)
+• COIN (M/W/D ↑↑↑)
+• JNJ (M/W/D ↑↑↑)
+• COST (M/W/D ↓↓↓)
+• CAT (M/W/D ↑↑↑)
+• GE (M/W/D ↓↓↓)
+• UPS (M/W/D ↑↑↑)
+• FDX (M/W/D ↑↑↑)
+• WFC (M/W/D ↑↑↑)
+• GS (M/W/D ↑↑↑)
+• MS (M/W/D ↑↑↑)
+• BAC (M/W/D ↑↑↑)
+• DDOG (M/W/D ↓↓↓)
+• NET (M/W/D ↑↑↑)
+• TLRY (M/W/D ↑↑↑)
+• WDAY (M/W/D ↑↑↑)
+• ARKK (M/W/D ↑↑↑)
+• XLF (M/W/D ↑↑↑)
+• XLI (M/W/D ↑↑↑)
+• XLU (M/W/D ↓↓↓)
+• IYR (M/W/D ↓↓↓)
+
+1) PURE ROB — Inside / Double Inside + FTFC (Rob's favorite)
+• RIOT — M/W/D ↑↑↑ — D: Inside
+• XOM — M/W/D ↑↑↑ — D: Inside
+• AAL — M/W/D ↑↑↑ — D: Inside
+• ZM — M/W/D ↑↑↑ — D: Double Inside
+• COIN — M/W/D ↑↑↑ — D: Inside
+• IYR — M/W/D ↓↓↓ — D: Inside
+
+2) PURE ROB — 2-2 Continuation with FTFC (trend following)
+• TSLA — M/W/D ↑↑↑ — D: 2-2 Cont
+• MU — M/W/D ↑↑↑ — D: 2-2 Cont, 1h: 2-2 Cont
+• SNOW — M/W/D ↓↓↓ — D: 2-2 Cont
+• ABNB — M/W/D ↑↑↑ — D: 2-2 Cont
+• TSM — M/W/D ↑↑↑ — D: 2-2 Cont
+• TGT — M/W/D ↑↑↑ — D: 2-2 Cont
+• UBS — M/W/D ↑↑↑ — D: 2-2 Cont
+• UAL — M/W/D ↑↑↑ — D: 2-2 Cont
+• DAL — M/W/D ↑↑↑ — D: 2-2 Cont, 1h: 2-2 Cont
+• PINS — M/W/D ↑↑↑ — D: 2-2 Cont
+• XLE — M/W/D ↑↑↑ — D: 2-2 Cont
+• CSCO — M/W/D ↑↑↑ — D: 2-2 Cont
+• UBER — M/W/D ↓↓↓ — D: 2-2 Cont
+• COST — M/W/D ↓↓↓ — D: 2-2 Cont
+• UPS — M/W/D ↑↑↑ — D: 2-2 Cont
+• GS — M/W/D ↑↑↑ — D: 2-2 Cont
+• MS — M/W/D ↑↑↑ — D: 2-2 Cont, 1h: 2-2 Cont
+• DDOG — M/W/D ↓↓↓ — D: 2-2 Cont
+• NET — M/W/D ↑↑↑ — D: 2-2 Cont
+• XLF — M/W/D ↑↑↑ — D: 2-2 Cont, 1h: 2-2 Cont
+
+3) PURE ROB — 2-1-2 or 3-1-2 with FTFC (ready to pop)
+None
+
+4) HYBRID — Daily Failed 2 with FTFC (Lady V special)
+• AAPL — M/W/D ↑↑↑ — D: Failed 2 Down
+• CRWD — M/W/D ↑↑↑ — D: Failed 2 Down
+
+5) HYBRID — 1h Failed 2 back into FTFC (intraday sniper)
+• UBER — M/W/D ↓↓↓ — 1h: Failed 2 Up
+• COIN — M/W/D ↑↑↑ — 1h: Failed 2 Up
+• MS — M/W/D ↑↑↑ — 1h: Failed 2 Up
+• XLF — M/W/D ↑↑↑ — 1h: Failed 2 Up

@@ -19,7 +19,23 @@ def send_discord(msg, webhook_url):
     if not webhook_url:
         return
     md = html_to_markdown(msg)
-    requests.post(webhook_url, json={"content": md})
+    # Discord has 2000 char limit, split if needed
+    if len(md) <= 2000:
+        requests.post(webhook_url, json={"content": md})
+    else:
+        chunks = []
+        lines = md.split('\n')
+        current = ""
+        for line in lines:
+            if len(current) + len(line) + 1 > 1900:
+                chunks.append(current)
+                current = line
+            else:
+                current = current + "\n" + line if current else line
+        if current:
+            chunks.append(current)
+        for chunk in chunks:
+            requests.post(webhook_url, json={"content": chunk})
 
 def to_tv_symbol(ticker):
     return f"NASDAQ:{ticker}"
@@ -314,14 +330,6 @@ def scan():
     
     msg = f"🗓 **Daily Stock Actionable Strat — {date_header}**\n"
     msg += f"(From {from_day} close)\n\n"
-    
-    # FTFC Universe section
-    msg += "**0) FTFC UNIVERSE** — Month/Week/Day all same direction\n"
-    for ticker in ftfc_up:
-        msg += f"• {ticker} (M/W/D ↑↑↑)\n"
-    for ticker in ftfc_down:
-        msg += f"• {ticker} (M/W/D ↓↓↓)\n"
-    msg += "\n"
 
     if aplus:
         msg += "🔥 **A++ Setups**\n\n"
@@ -380,8 +388,7 @@ def scan():
     msg = msg.strip()
     
     # Send to Discord only
-    if WEBHOOK_DAILY:
-        requests.post(WEBHOOK_DAILY, json={"content": msg})
+    send_discord(msg, WEBHOOK_DAILY)
     
     # Send watchlist CSV
     all_symbols = list(set(double_inside + inside + outside + f2u + f2d + list(aplus.keys())))
