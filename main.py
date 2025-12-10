@@ -406,8 +406,8 @@ def scan_ftfc_favorites():
     
     for symbol in FOREX_ONLY:
         daily = get_closed_candles(symbol, "D", 5)
-        weekly = get_closed_candles(symbol, "W", 3)
-        monthly = get_closed_candles(symbol, "M", 3)
+        weekly = get_closed_candles(symbol, "W", 5)
+        monthly = get_closed_candles(symbol, "M", 5)
         
         if not daily or not weekly or not monthly:
             continue
