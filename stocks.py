@@ -254,8 +254,37 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
     f2u = []
     f2d = []
     aplus = {}
+    ftfc_up = []
+    ftfc_down = []
 
+    # First pass: identify FTFC stocks only
+    ftfc_stocks = []
     for ticker in ALL_STOCKS:
+        try:
+            daily = get_candles(ticker)
+            weekly = get_weekly_candles(ticker)
+            monthly = get_monthly_candles(ticker)
+            
+            if not daily or not weekly or not monthly:
+                continue
+            if len(daily) < 2 or len(weekly) < 2 or len(monthly) < 2:
+                continue
+            
+            d_dir = direction(daily[-1])
+            w_dir = direction(weekly[-1])
+            m_dir = direction(monthly[-1])
+            
+            if d_dir == w_dir == m_dir:
+                ftfc_stocks.append(ticker)
+                if d_dir == "UP":
+                    ftfc_up.append(ticker)
+                else:
+                    ftfc_down.append(ticker)
+        except:
+            continue
+
+    # Second pass: scan only FTFC stocks for setups
+    for ticker in ftfc_stocks:
         try:
             if granularity == "D":
                 candles = get_candles(ticker)
@@ -339,6 +368,14 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
     dc_header += f"(From {from_day} close)\n\n"
 
     msg = ""
+    
+    # FTFC Universe section
+    msg += "<b>0) FTFC UNIVERSE</b> — M/W/D all same direction\n"
+    if ftfc_up:
+        msg += f"• FTFC ↑ : {', '.join(ftfc_up)}\n"
+    if ftfc_down:
+        msg += f"• FTFC ↓ : {', '.join(ftfc_down)}\n"
+    msg += "\n"
 
     if aplus:
         msg += "🔥 <b>A++ Setups</b>\n\n"
