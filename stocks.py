@@ -40,10 +40,14 @@ def send_discord_csv(symbols, title, webhook_url):
     requests.post(webhook_url, data=data, files=files)
 
 ALL_STOCKS = [
-    "SPY", "QQQ", "IWM", "DIA", "VTI", "GLD", "SLV", "USO", "TLT", "HYG",
-    "XLF", "XLE", "XLK", "XLV", "XLI", "XLP", "XLY", "XLU", "XLB",
-    "AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA", "JPM", "V", "JNJ",
-    "WMT", "PG", "UNH", "HD", "DIS", "MA", "BAC", "XOM", "PFE"
+    "AAL", "AAPL", "ABBV", "ABNB", "ADBE", "AMD", "AMAT", "AMZN", "ARM", "BA",
+    "BAC", "CAT", "CMG", "CRM", "CRWD", "CSCO", "CVS", "COST", "CVX", "DAL",
+    "DDOG", "DIS", "DKNG", "DOCU", "ETSY", "FDX", "GS", "HYG", "INTC", "IWM",
+    "IYR", "KO", "MARA", "MCD", "META", "MRVL", "MSFT", "MU", "NEE", "NET",
+    "NFLX", "NKE", "NVDA", "OXY", "ORCL", "PEP", "PFE", "PINS", "PLTR", "PYPL",
+    "QCOM", "RBLX", "RIOT", "ROKU", "SBUX", "SMCI", "SNOW", "SOFI", "TGT", "TLT",
+    "TSLA", "TSM", "UAL", "UBS", "UBER", "UNH", "UPS", "URA", "WDAY", "WFC",
+    "WMT", "XLE", "XLF", "XLI", "XLP", "XLU", "XLV", "XLY", "XOM", "ZM"
 ]
 
 def get_candles(ticker, period="3mo", interval="1d"):
