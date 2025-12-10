@@ -9,6 +9,21 @@ expertMode = true
 [workflows]
 runButton = "Project"
 
+# -----------------------------------------------------
+# WORKFLOW: Run Stocks Daily (Discord Only)
+# -----------------------------------------------------
+[[workflows.workflow]]
+name = "Run Stocks Daily"
+author = "agent"
+mode = "parallel"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "RUN_MODE=STOCKS python stocks.py"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
 [[workflows.workflow]]
 name = "Project"
 mode = "parallel"
@@ -17,18 +32,6 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "workflow.run"
 args = "Run Daily"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Run Weekly"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Run Monthly"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Run Stocks Daily"
 
 [[workflows.workflow]]
 name = "Run Daily"
@@ -41,40 +44,10 @@ args = "RUN_MODE=DAILY python main.py"
 [workflows.workflow.metadata]
 outputType = "console"
 
-[[workflows.workflow]]
-name = "Run Weekly"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "RUN_MODE=WEEKLY python main.py"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow]]
-name = "Run Monthly"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "RUN_MODE=MONTHLY python main.py"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow]]
-name = "Run Stocks Daily"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "RUN_MODE=DAILY python stocks.py"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
+# -----------------------------------------------------
+# DEFAULT ENV
+# -----------------------------------------------------
 [userenv]
 
 [userenv.shared]
-RUN_MODE = "ALL"
+RUN_MODE = "STOCKS"
