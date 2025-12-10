@@ -107,7 +107,6 @@ CROSSES = [
 ]
 
 OANDA_SYMBOLS = MAJORS + METALS + OIL + INDICES + CRYPTOS + CROSSES
-FOREX_ONLY = MAJORS + CROSSES
 
 GROUP_ORDER = {
     "MAJORS": MAJORS,
@@ -390,128 +389,6 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
 # RUNTIME
 # ---------------------------------------------------------
 
-WEBHOOK_SPECIALTY = "https://discord.com/api/webhooks/1448256346913767477/LQmnxHMyFyXcYdrkGJGbZjeWLEOn0AEGWpvanLR9R_GdFPKtfzH1wyilRHpo-Len9VOJ"
-
-def scan_ftfc_favorites():
-    """Scan forex pairs for Rob's 4 FTFC Continuation patterns"""
-    
-    from datetime import datetime
-    
-    ftfc_up = []
-    ftfc_down = []
-    inside_2_cont = []  # 1) Inside → 2 continuation
-    two_two_cont = []   # 2) 2-2 continuation
-    three_2_cont = []   # 3) 3 → 2 continuation
-    two_1_2_rev = []    # 4) 2-1-2 reversal
-    
-    for symbol in FOREX_ONLY:
-        daily = get_closed_candles(symbol, "D", 5)
-        weekly = get_closed_candles(symbol, "W", 5)
-        monthly = get_closed_candles(symbol, "M", 5)
-        
-        if not daily or not weekly or not monthly:
-            continue
-        
-        curr = daily[-1]
-        prev = daily[-2]
-        prev2 = daily[-3]
-        
-        # Check FTFC
-        ftfc = ftfc_pass(curr, weekly[-1], monthly[-1])
-        if not ftfc:
-            time.sleep(0.15)
-            continue
-        
-        arrows = arrow(direction(monthly[-1])) + arrow(direction(weekly[-1])) + arrow(direction(curr))
-        
-        if ftfc == "UP":
-            ftfc_up.append(symbol)
-        else:
-            ftfc_down.append(symbol)
-        
-        st_curr = strat_type(curr, prev)
-        st_prev = strat_type(prev, prev2)
-        
-        # 1) FTFC + Inside → 2 continuation
-        if st_prev == "1" and st_curr == "2":
-            if (ftfc == "UP" and curr["high"] > prev["high"]) or (ftfc == "DOWN" and curr["low"] < prev["low"]):
-                label = f"{pretty(symbol)} — FTFC {ftfc} (M/W/D {arrows}) — Inside→2"
-                inside_2_cont.append((symbol, label))
-        
-        # 2) FTFC + 2-2 continuation
-        if st_prev == "2" and st_curr == "2":
-            prev_dir = "UP" if prev["high"] > prev2["high"] else "DOWN"
-            curr_dir = "UP" if curr["high"] > prev["high"] else "DOWN"
-            if prev_dir == curr_dir == ftfc:
-                label = f"{pretty(symbol)} — FTFC {ftfc} (M/W/D {arrows}) — 2→2 continuation"
-                two_two_cont.append((symbol, label))
-        
-        # 3) FTFC + 3 → 2 continuation
-        if st_prev == "3" and st_curr == "2":
-            if (ftfc == "UP" and curr["high"] > prev["high"]) or (ftfc == "DOWN" and curr["low"] < prev["low"]):
-                label = f"{pretty(symbol)} — FTFC {ftfc} (M/W/D {arrows}) — 3→2 continuation"
-                three_2_cont.append((symbol, label))
-        
-        # 4) FTFC + 2-1-2 reversal (prev was 1 inside, before that was 2 against FTFC, now 2 with FTFC)
-        if st_prev == "1" and st_curr == "2":
-            prev3 = daily[-4] if len(daily) >= 4 else None
-            if prev3:
-                st_prev2 = strat_type(prev2, prev3)
-                if st_prev2 == "2":
-                    # Check if prev2 was against FTFC and curr is with FTFC
-                    prev2_dir = "UP" if prev2["high"] > prev3["high"] else "DOWN"
-                    curr_dir = "UP" if curr["high"] > prev["high"] else "DOWN"
-                    if prev2_dir != ftfc and curr_dir == ftfc:
-                        label = f"{pretty(symbol)} — FTFC {ftfc} (M/W/D {arrows}) — 2-1-2 reversal"
-                        two_1_2_rev.append((symbol, label))
-        
-        time.sleep(0.15)
-    
-    # Build message
-    now = datetime.now().strftime("%b %d, %Y %H:%M")
-    msg = f"<b>FTFC Favorites — Forex Intraday Setups</b>\n"
-    msg += f"As of {now}\n\n"
-    
-    msg += "<b>0) FTFC UNIVERSE (Month/Week/Day all same direction)</b>\n"
-    if ftfc_up:
-        msg += f"• FTFC ↑ : {', '.join([pretty(s) for s in ftfc_up])}\n"
-    if ftfc_down:
-        msg += f"• FTFC ↓ : {', '.join([pretty(s) for s in ftfc_down])}\n"
-    msg += "\n"
-    
-    msg += "<b>1) FTFC + Inside → 2 continuation</b>\n"
-    if inside_2_cont:
-        for sym, lbl in inside_2_cont:
-            msg += f"• {lbl}\n"
-    else:
-        msg += "<i>None</i>\n"
-    msg += "\n"
-    
-    msg += "<b>2) FTFC + 2-2 continuation</b>\n"
-    if two_two_cont:
-        for sym, lbl in two_two_cont:
-            msg += f"• {lbl}\n"
-    else:
-        msg += "<i>None</i>\n"
-    msg += "\n"
-    
-    msg += "<b>3) FTFC + 3 → 2 continuation</b>\n"
-    if three_2_cont:
-        for sym, lbl in three_2_cont:
-            msg += f"• {lbl}\n"
-    else:
-        msg += "<i>None</i>\n"
-    msg += "\n"
-    
-    msg += "<b>4) FTFC + 2-1-2 reversal</b>\n"
-    if two_1_2_rev:
-        for sym, lbl in two_1_2_rev:
-            msg += f"• {lbl}\n"
-    else:
-        msg += "<i>None</i>\n"
-    
-    send_discord(msg.strip(), WEBHOOK_SPECIALTY)
-
 if RUN_MODE in ("DAILY", "ALL"):
     scan("Daily", "D", TOPIC_DAILY, WEBHOOK_DAILY)
 
@@ -520,8 +397,5 @@ if RUN_MODE in ("WEEKLY", "ALL"):
 
 if RUN_MODE in ("MONTHLY", "ALL"):
     scan("Monthly", "M", TOPIC_MONTHLY, WEBHOOK_MONTHLY)
-
-if RUN_MODE in ("SPECIALTY", "ALL"):
-    scan_ftfc_favorites()
 
 print("DONE (Telegram + Discord)")
