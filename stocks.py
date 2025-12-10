@@ -197,8 +197,7 @@ def scan():
     today = datetime.now()
     date_header = today.strftime("%b %d, %Y %H:%M")
     
-    msg = f"🌍 **FTFC WORLD** — As of {date_header}\n\n"
-    msg += "**FTFC UNIVERSE** — Month/Week/Day all same direction\n"
+    msg = f"🌍 **FTFC WORLD** — {date_header}\nMonth/Week/Day same direction\n\n"
     if ftfc_up:
         msg += f"**↑** {', '.join(sorted(ftfc_up))}\n"
     if ftfc_down:
