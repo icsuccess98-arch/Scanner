@@ -1,0 +1,44 @@
+**FTFC Favorites — Intraday Setups (Rob's 4 Continuations)**
+
+As of Dec 09, 2025 16:42
+
+0) FTFC UNIVERSE (Month/Week/Day all same direction)
+- FTFC ↑ : MSFT, AMD, AVGO, QCOM, ORCL, MU, CSCO, ABNB, COIN, MARA, RIOT, TSM, XOM, WMT, TGT, UPS, GS, MS, UBS, ROKU, NET, RBLX, DOCU, TLRY, UAL, AAL, ETSY, WDAY, CRWD, ARKK, XLK, XLE
+- FTFC ↓ : AAPL, NFLX, SNOW, LLY, ABBV, PFE, JNJ, CVX, NKE, JPM, DDOG, SBUX, PEP, SOFI, NEE, MRVL, TLT, XLV, XLU, IYR
+
+1) FTFC + Inside → 2 continuation (Rob's favorite)
+• ABNB — FTFC ↑ (M/W/D ↑↑↑) — Inside→2U UP — D:↑ — 60m 2U
+• RBLX — FTFC ↑ (M/W/D ↑↑↑) — Inside→2U UP — D:↑ — 60m 1
+• DOCU — FTFC ↑ (M/W/D ↑↑↑) — Inside→2U UP — D:↑ — Failed 2 Up
+• UAL — FTFC ↑ (M/W/D ↑↑↑) — Inside→2U UP — D:↑ — 60m 2U
+• SOFI — FTFC ↓ (M/W/D ↓↓↓) — Inside→2D DOWN — D:↓ — 60m 1
+• CRWD — FTFC ↑ (M/W/D ↑↑↑) — Inside→2U UP — D:↑ — 60m 1
+
+2) FTFC + 2-2 continuation (trend following)
+• MU — FTFC ↑ (M/W/D ↑↑↑) — 2U→2U continuation — D:↑ — 60m 2U
+• CSCO — FTFC ↑ (M/W/D ↑↑↑) — 2U→2U continuation — D:↑ — 60m 2U
+• SNOW — FTFC ↓ (M/W/D ↓↓↓) — 2D→2D continuation — D:↓ — 60m 2D
+• TSM — FTFC ↑ (M/W/D ↑↑↑) — 2U→2U continuation — D:↑ — 60m 2U
+• LLY — FTFC ↓ (M/W/D ↓↓↓) — 2D→2D continuation — D:↓ — 60m 2D
+• ABBV — FTFC ↓ (M/W/D ↓↓↓) — 2D→2D continuation — D:↓ — 60m 2D
+• TGT — FTFC ↑ (M/W/D ↑↑↑) — 2U→2U continuation — D:↑ — 60m 1
+• NKE — FTFC ↓ (M/W/D ↓↓↓) — 2D→2D continuation — D:↓ — 60m 2U
+• UPS — FTFC ↑ (M/W/D ↑↑↑) — 2U→2U continuation — D:↑ — 60m 2U
+• GS — FTFC ↑ (M/W/D ↑↑↑) — 2U→2U continuation — D:↑ — 60m 2U
+• MS — FTFC ↑ (M/W/D ↑↑↑) — 2U→2U continuation — D:↑ — 60m 2U
+• UBS — FTFC ↑ (M/W/D ↑↑↑) — 2U→2U continuation — D:↑ — Failed 2 Up
+• ROKU — FTFC ↑ (M/W/D ↑↑↑) — 2U→2U continuation — D:↑ — Failed 2 Up
+• NET — FTFC ↑ (M/W/D ↑↑↑) — 2U→2U continuation — D:↑ — 60m 2U
+• SBUX — FTFC ↓ (M/W/D ↓↓↓) — 2D→2D continuation — D:↓ — 60m 1
+• NEE — FTFC ↓ (M/W/D ↓↓↓) — 2D→2D continuation — D:↓
+ — 60m 1
+• MRVL — FTFC ↓ (M/W/D ↓↓↓) — 2D→2D continuation — D:↓ — 60m 1
+• XLV — FTFC ↓ (M/W/D ↓↓↓) — 2D→2D continuation — D:↓ — 60m 2D
+• IYR — FTFC ↓ (M/W/D ↓↓↓) — 2D→2D continuation — D:↓ — 60m 2D
+
+3) FTFC + 3 → 2 continuation (exhaustion then go)
+_None_
+
+4) FTFC + 2-1-2 reversal (power reversal with FTFC)
+• DOCU — FTFC ↑ (M/W/D ↑↑↑) — 2D-1-2U reversal — D:↑ — Failed 2 Up
+• UAL — FTFC ↑ (M/W/D ↑↑↑) — 2D-1-2U reversal — D:↑ — 60m 2U
