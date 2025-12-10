@@ -110,10 +110,8 @@ def scan():
     ftfc_data = {}
     
     pure_rob_inside = []
-    pure_rob_22_cont = []
-    pure_rob_212 = []
+    outside_list = []
     hybrid_daily_f2 = []
-    hybrid_hourly_f2 = []
     aplus_setups = []
     
     all_setups = []
@@ -161,29 +159,9 @@ def scan():
                 pure_rob_inside.append((ticker, ftfc_dir, arrows_str, label))
                 all_setups.append(ticker)
             
-            if ftfc_dir == "UP" and st == "2U" and prev_st == "2U":
-                pure_rob_22_cont.append((ticker, ftfc_dir, arrows_str, "2U→2U"))
+            if st == "3":
+                outside_list.append(ticker)
                 all_setups.append(ticker)
-            elif ftfc_dir == "DOWN" and st == "2D" and prev_st == "2D":
-                pure_rob_22_cont.append((ticker, ftfc_dir, arrows_str, "2D→2D"))
-                all_setups.append(ticker)
-            
-            if prev3:
-                prev2_st = strat_type(prev2, prev3)
-                if prev_st == "1":
-                    if ftfc_dir == "UP" and prev2_st == "2D" and st == "2U":
-                        pure_rob_212.append((ticker, ftfc_dir, arrows_str, "2D-1-2U"))
-                        all_setups.append(ticker)
-                    elif ftfc_dir == "DOWN" and prev2_st == "2U" and st == "2D":
-                        pure_rob_212.append((ticker, ftfc_dir, arrows_str, "2U-1-2D"))
-                        all_setups.append(ticker)
-                    elif prev2_st == "3":
-                        if ftfc_dir == "UP" and st == "2U":
-                            pure_rob_212.append((ticker, ftfc_dir, arrows_str, "3-1-2U"))
-                            all_setups.append(ticker)
-                        elif ftfc_dir == "DOWN" and st == "2D":
-                            pure_rob_212.append((ticker, ftfc_dir, arrows_str, "3-1-2D"))
-                            all_setups.append(ticker)
             
             f2 = failed_2(curr, prev)
             if f2:
@@ -202,24 +180,11 @@ def scan():
                         aplus_setups.append((ticker, ftfc_dir, arrows_str, "3-F2D", "UP"))
                         all_setups.append(ticker)
                 else:
-                    if f2 == "F2D" and ftfc_dir == "UP":
-                        hybrid_daily_f2.append((ticker, ftfc_dir, arrows_str, "Failed 2 Down"))
+                    if f2 == "F2U":
+                        hybrid_daily_f2.append((ticker, ftfc_dir, arrows_str, "F2U", "DOWN"))
                         all_setups.append(ticker)
-                    elif f2 == "F2U" and ftfc_dir == "DOWN":
-                        hybrid_daily_f2.append((ticker, ftfc_dir, arrows_str, "Failed 2 Up"))
-                        all_setups.append(ticker)
-            
-            hourly = get_hourly_candles(ticker)
-            if hourly and len(hourly) >= 3:
-                h_curr = hourly[-1]
-                h_prev = hourly[-2]
-                h_f2 = failed_2(h_curr, h_prev)
-                if h_f2:
-                    if h_f2 == "F2D" and ftfc_dir == "UP":
-                        hybrid_hourly_f2.append((ticker, ftfc_dir, arrows_str, "1h F2D"))
-                        all_setups.append(ticker)
-                    elif h_f2 == "F2U" and ftfc_dir == "DOWN":
-                        hybrid_hourly_f2.append((ticker, ftfc_dir, arrows_str, "1h F2U"))
+                    elif f2 == "F2D":
+                        hybrid_daily_f2.append((ticker, ftfc_dir, arrows_str, "F2D", "UP"))
                         all_setups.append(ticker)
         except:
             continue
@@ -244,10 +209,10 @@ def scan():
     
     send_discord(msg1.strip(), WEBHOOK_DAILY)
     
-    msg2 = f"📋 **FTFC RECIPE** — Pure Rob + Hybrid Setups\n\n"
+    msg2 = f"📋 **FTFC SETUPS**\n\n"
     
     if aplus_setups:
-        msg2 += "🔥 **A++ SETUPS** — 1-F2 / 3-F2 (High Probability)\n\n"
+        msg2 += "🔥 **A++ SETUPS** — 1-F2 / 3-F2\n\n"
         ups = [s for s in aplus_setups if s[4] == "UP"]
         dns = [s for s in aplus_setups if s[4] == "DOWN"]
         if ups:
@@ -261,46 +226,41 @@ def scan():
                 msg2 += f"• **{ticker}** — M/W/D {arrows} — {label}\n"
             msg2 += "\n"
     
-    if pure_rob_inside:
-        msg2 += "**1) PURE ROB — Inside / Double Inside + FTFC**\n"
-        for ticker, ftfc_dir, arrows, label in pure_rob_inside:
-            emoji = "🟢" if ftfc_dir == "UP" else "🔴"
-            msg2 += f"{emoji} **{ticker}** — M/W/D {arrows} — D: {label}\n"
+    double_inside_list = [s for s in pure_rob_inside if s[3] == "Double Inside"]
+    inside_list = [s for s in pure_rob_inside if s[3] == "Inside"]
+    
+    if double_inside_list:
+        msg2 += "**🟪 Double Inside (II)**\n"
+        for ticker, ftfc_dir, arrows, label in double_inside_list:
+            msg2 += f"• {ticker}\n"
         msg2 += "\n"
     
-    if pure_rob_22_cont:
-        msg2 += "**2) PURE ROB — 2-2 Continuation + FTFC**\n"
-        for ticker, ftfc_dir, arrows, label in pure_rob_22_cont:
-            emoji = "🟢" if ftfc_dir == "UP" else "🔴"
-            msg2 += f"{emoji} **{ticker}** — M/W/D {arrows} — D: {label}\n"
+    if inside_list:
+        msg2 += "**📘 Inside (1)**\n"
+        for ticker, ftfc_dir, arrows, label in inside_list:
+            msg2 += f"• {ticker}\n"
         msg2 += "\n"
     
-    if pure_rob_212:
-        msg2 += "**3) PURE ROB — 2-1-2 or 3-1-2 + FTFC**\n"
-        for ticker, ftfc_dir, arrows, label in pure_rob_212:
-            emoji = "🟢" if ftfc_dir == "UP" else "🔴"
-            msg2 += f"{emoji} **{ticker}** — M/W/D {arrows} — D: {label}\n"
+    if outside_list:
+        msg2 += "**📕 Outside (3)**\n"
+        for ticker in outside_list:
+            msg2 += f"• {ticker}\n"
         msg2 += "\n"
-    else:
-        msg2 += "**3) PURE ROB — 2-1-2 or 3-1-2 + FTFC**\n_None_\n\n"
     
-    if hybrid_daily_f2:
-        msg2 += "**4) HYBRID — Daily Failed 2 with FTFC**\n"
-        for ticker, ftfc_dir, arrows, label in hybrid_daily_f2:
-            emoji = "🟢" if ftfc_dir == "UP" else "🔴"
-            msg2 += f"{emoji} **{ticker}** — M/W/D {arrows} — D: {label}\n"
-        msg2 += "\n"
-    else:
-        msg2 += "**4) HYBRID — Daily Failed 2 with FTFC**\n_None_\n\n"
+    f2u_list = [s[0] for s in hybrid_daily_f2 if s[3] == "F2U"] + [s[0] for s in aplus_setups if "F2U" in s[3]]
+    f2d_list = [s[0] for s in hybrid_daily_f2 if s[3] == "F2D"] + [s[0] for s in aplus_setups if "F2D" in s[3]]
     
-    if hybrid_hourly_f2:
-        msg2 += "**5) HYBRID — 1h Failed 2 back into FTFC**\n"
-        for ticker, ftfc_dir, arrows, label in hybrid_hourly_f2:
-            emoji = "🟢" if ftfc_dir == "UP" else "🔴"
-            msg2 += f"{emoji} **{ticker}** — M/W/D {arrows} — {label}\n"
+    if f2u_list:
+        msg2 += "**🔴 F2U (Downside)**\n"
+        for t in list(set(f2u_list)):
+            msg2 += f"• {t}\n"
         msg2 += "\n"
-    else:
-        msg2 += "**5) HYBRID — 1h Failed 2 back into FTFC**\n_None_\n\n"
+    
+    if f2d_list:
+        msg2 += "**🟢 F2D (Upside)**\n"
+        for t in list(set(f2d_list)):
+            msg2 += f"• {t}\n"
+        msg2 += "\n"
     
     send_discord(msg2.strip(), WEBHOOK_DAILY)
     
