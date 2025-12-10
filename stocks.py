@@ -114,6 +114,7 @@ def scan():
     pure_rob_212 = []
     hybrid_daily_f2 = []
     hybrid_hourly_f2 = []
+    aplus_setups = []
     
     all_setups = []
 
@@ -186,12 +187,27 @@ def scan():
             
             f2 = failed_2(curr, prev)
             if f2:
-                if f2 == "F2D" and ftfc_dir == "UP":
-                    hybrid_daily_f2.append((ticker, ftfc_dir, arrows_str, "Failed 2 Down"))
-                    all_setups.append(ticker)
-                elif f2 == "F2U" and ftfc_dir == "DOWN":
-                    hybrid_daily_f2.append((ticker, ftfc_dir, arrows_str, "Failed 2 Up"))
-                    all_setups.append(ticker)
+                if prev_st == "1":
+                    if f2 == "F2U":
+                        aplus_setups.append((ticker, ftfc_dir, arrows_str, "1-F2U", "DOWN"))
+                        all_setups.append(ticker)
+                    elif f2 == "F2D":
+                        aplus_setups.append((ticker, ftfc_dir, arrows_str, "1-F2D", "UP"))
+                        all_setups.append(ticker)
+                elif prev_st == "3":
+                    if f2 == "F2U":
+                        aplus_setups.append((ticker, ftfc_dir, arrows_str, "3-F2U", "DOWN"))
+                        all_setups.append(ticker)
+                    elif f2 == "F2D":
+                        aplus_setups.append((ticker, ftfc_dir, arrows_str, "3-F2D", "UP"))
+                        all_setups.append(ticker)
+                else:
+                    if f2 == "F2D" and ftfc_dir == "UP":
+                        hybrid_daily_f2.append((ticker, ftfc_dir, arrows_str, "Failed 2 Down"))
+                        all_setups.append(ticker)
+                    elif f2 == "F2U" and ftfc_dir == "DOWN":
+                        hybrid_daily_f2.append((ticker, ftfc_dir, arrows_str, "Failed 2 Up"))
+                        all_setups.append(ticker)
             
             hourly = get_hourly_candles(ticker)
             if hourly and len(hourly) >= 3:
@@ -229,6 +245,21 @@ def scan():
     send_discord(msg1.strip(), WEBHOOK_DAILY)
     
     msg2 = f"📋 **FTFC RECIPE** — Pure Rob + Hybrid Setups\n\n"
+    
+    if aplus_setups:
+        msg2 += "🔥 **A++ SETUPS** — 1-F2 / 3-F2 (High Probability)\n\n"
+        ups = [s for s in aplus_setups if s[4] == "UP"]
+        dns = [s for s in aplus_setups if s[4] == "DOWN"]
+        if ups:
+            msg2 += "__🟢 Upside__\n"
+            for ticker, ftfc_dir, arrows, label, trade_dir in ups:
+                msg2 += f"• **{ticker}** — M/W/D {arrows} — {label}\n"
+            msg2 += "\n"
+        if dns:
+            msg2 += "__🔴 Downside__\n"
+            for ticker, ftfc_dir, arrows, label, trade_dir in dns:
+                msg2 += f"• **{ticker}** — M/W/D {arrows} — {label}\n"
+            msg2 += "\n"
     
     if pure_rob_inside:
         msg2 += "**1) PURE ROB — Inside / Double Inside + FTFC**\n"
