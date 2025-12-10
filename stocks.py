@@ -1,38 +1,13 @@
 import os
-import time
 import requests
 import yfinance as yf
 from datetime import datetime, timedelta
-
-# ---------------------------------------------------------
-# TELEGRAM CONFIG
-# ---------------------------------------------------------
-
-TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
-TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
-
-TOPIC_DAILY = 1236
-TOPIC_WEEKLY = 1236
-TOPIC_MONTHLY = 1236
-
-def send_telegram(msg, topic_id=None):
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": msg,
-        "parse_mode": "HTML"
-    }
-    if topic_id:
-        payload["message_thread_id"] = topic_id
-    requests.post(url, json=payload)
 
 # ---------------------------------------------------------
 # DISCORD CONFIG
 # ---------------------------------------------------------
 
 WEBHOOK_DAILY = os.environ.get("WEBHOOK_DAILY", "")
-WEBHOOK_WEEKLY = os.environ.get("WEBHOOK_WEEKLY", "")
-WEBHOOK_MONTHLY = os.environ.get("WEBHOOK_MONTHLY", "")
 
 def html_to_markdown(msg):
     out = msg
@@ -61,16 +36,9 @@ def send_discord_csv(symbols, title, webhook_url):
     requests.post(webhook_url, data=data, files=files)
 
 # ---------------------------------------------------------
-# RUN MODE
-# ---------------------------------------------------------
-
-RUN_MODE = os.environ.get("RUN_MODE", "ALL")
-
-# ---------------------------------------------------------
 # TOP 200 STOCK TICKERS
 # ---------------------------------------------------------
 
-# ETFs
 ETFS = [
     "SPY", "QQQ", "IWM", "DIA", "VTI", "VOO", "VXX", "UVXY", "SQQQ", "TQQQ",
     "GLD", "SLV", "USO", "TLT", "HYG", "LQD", "EEM", "EFA", "XLF", "XLE",
@@ -78,67 +46,56 @@ ETFS = [
     "ARKK", "ARKG", "ARKF", "IYR", "SMH", "SOXX", "IBB", "XBI", "KRE", "XRT"
 ]
 
-# Mega Cap Tech
 MEGA_TECH = [
     "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "META", "TSLA", "NVDA", "AVGO", "ORCL"
 ]
 
-# Tech & Software
 TECH = [
     "AMD", "INTC", "QCOM", "MU", "CSCO", "IBM", "TXN", "AMAT", "LRCX", "KLAC",
     "ADI", "MRVL", "NXPI", "ON", "MCHP", "SNPS", "CDNS", "FTNT", "PANW", "CRWD",
     "ZS", "NET", "DDOG", "SNOW", "MDB", "PLTR", "DOCN", "PATH", "U", "RBLX"
 ]
 
-# Software & Cloud
 SOFTWARE = [
     "CRM", "ADBE", "NOW", "INTU", "WDAY", "TEAM", "DOCU", "ZM", "OKTA", "HUBS",
-    "VEEV", "SPLK", "TWLO", "SQ", "PYPL", "SHOP", "COIN", "HOOD", "AFRM", "UPST"
+    "VEEV", "TWLO", "PYPL", "SHOP", "COIN", "HOOD", "AFRM", "UPST"
 ]
 
-# Consumer & Retail
 CONSUMER = [
-    "WMT", "COST", "TGT", "HD", "LOW", "AMZN", "BABA", "JD", "PDD", "EBAY",
+    "WMT", "COST", "TGT", "HD", "LOW", "BABA", "JD", "PDD", "EBAY",
     "ETSY", "W", "CHWY", "DG", "DLTR", "ROST", "TJX", "BBY", "GME", "AMC"
 ]
 
-# Financials
 FINANCIALS = [
     "JPM", "BAC", "WFC", "C", "GS", "MS", "USB", "PNC", "TFC", "SCHW",
-    "BLK", "SPGI", "ICE", "CME", "COIN", "V", "MA", "AXP", "COF", "DFS"
+    "BLK", "SPGI", "ICE", "CME", "V", "MA", "AXP", "COF"
 ]
 
-# Healthcare & Pharma
 HEALTHCARE = [
     "UNH", "JNJ", "PFE", "MRK", "ABBV", "LLY", "BMY", "AMGN", "GILD", "REGN",
-    "VRTX", "BIIB", "MRNA", "BNTX", "CVS", "CI", "HUM", "ELV", "MCK", "ABC"
+    "VRTX", "BIIB", "MRNA", "BNTX", "CVS", "CI", "HUM", "ELV", "MCK"
 ]
 
-# Energy
 ENERGY = [
-    "XOM", "CVX", "COP", "EOG", "SLB", "MPC", "PSX", "VLO", "OXY", "PXD",
-    "DVN", "HAL", "BKR", "FANG", "HES", "APA", "MRO", "OKE", "WMB", "KMI"
+    "XOM", "CVX", "COP", "EOG", "SLB", "MPC", "PSX", "VLO", "OXY",
+    "DVN", "HAL", "BKR", "FANG", "APA", "OKE", "WMB", "KMI"
 ]
 
-# Industrials & Defense
 INDUSTRIALS = [
     "BA", "LMT", "RTX", "NOC", "GD", "CAT", "DE", "UNP", "UPS", "FDX",
     "DAL", "UAL", "AAL", "LUV", "GE", "HON", "MMM", "EMR", "ITW", "PH"
 ]
 
-# Communication & Media
 MEDIA = [
-    "DIS", "NFLX", "CMCSA", "T", "VZ", "TMUS", "CHTR", "WBD", "PARA", "FOX",
+    "DIS", "NFLX", "CMCSA", "T", "VZ", "TMUS", "CHTR", "WBD", "FOX",
     "ROKU", "SPOT", "SNAP", "PINS", "MTCH", "LYFT", "UBER", "ABNB", "BKNG", "EXPE"
 ]
 
-# Cannabis & Misc
 MISC = [
     "TLRY", "CGC", "ACB", "SNDL", "MARA", "RIOT", "CLSK", "BITF", "HIVE", "HUT",
-    "SOFI", "LCID", "RIVN", "NIO", "XPEV", "LI", "FSR", "F", "GM", "STLA"
+    "SOFI", "LCID", "RIVN", "NIO", "XPEV", "LI", "F", "GM", "STLA"
 ]
 
-# Utilities & REITS
 UTILITIES = [
     "NEE", "DUK", "SO", "D", "AEP", "EXC", "SRE", "XEL", "ED", "PEG"
 ]
@@ -164,7 +121,7 @@ GROUP_ORDER = {
 }
 
 # ---------------------------------------------------------
-# HELPERS
+# DATA HELPERS
 # ---------------------------------------------------------
 
 def get_candles(ticker, period="3mo", interval="1d"):
@@ -246,8 +203,7 @@ def group_sort(symbols):
 # MAIN SCANNER
 # ---------------------------------------------------------
 
-def scan(title, granularity, topic_id=None, discord_webhook=None):
-
+def scan():
     inside = []
     outside = []
     double_inside = []
@@ -286,13 +242,7 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
     # Second pass: scan only FTFC stocks for setups
     for ticker in ftfc_stocks:
         try:
-            if granularity == "D":
-                candles = get_candles(ticker)
-            elif granularity == "W":
-                candles = get_weekly_candles(ticker)
-            else:
-                candles = get_monthly_candles(ticker)
-
+            candles = get_candles(ticker)
             if not candles or len(candles) < 4:
                 continue
 
@@ -353,24 +303,20 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
                             if f2 == "Failed 2D" and ftfc == "UP":
                                 aplus[ticker] = f"M/W/D {arrows_str} — F2D"
 
-        except Exception as e:
+        except:
             continue
 
-    # Telegram header (simple)
-    tg_header = f"📊 <b>{title} Stock Actionables</b>\n\n"
-
-    # Discord header (with dates)
+    # Build message
     today = datetime.now()
     yesterday = today - timedelta(days=1)
     date_header = today.strftime("%b %d, %Y")
     from_day = yesterday.strftime("%a %b %d")
-    dc_header = f"🗓 <b>{title} Stock Actionable Strat — {date_header}</b>\n"
-    dc_header += f"(From {from_day} close)\n\n"
-
-    msg = ""
+    
+    msg = f"🗓 **Daily Stock Actionable Strat — {date_header}**\n"
+    msg += f"(From {from_day} close)\n\n"
     
     # FTFC Universe section
-    msg += "<b>0) FTFC UNIVERSE</b> — Month/Week/Day all same direction\n"
+    msg += "**0) FTFC UNIVERSE** — Month/Week/Day all same direction\n"
     for ticker in ftfc_up:
         msg += f"• {ticker} (M/W/D ↑↑↑)\n"
     for ticker in ftfc_down:
@@ -378,7 +324,7 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
     msg += "\n"
 
     if aplus:
-        msg += "🔥 <b>A++ Setups</b>\n\n"
+        msg += "🔥 **A++ Setups**\n\n"
         ups = []
         dns = []
 
@@ -390,67 +336,60 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
                 dns.append((sym, lbl_short))
 
         if ups:
-            msg += "<u><b>🟢 Upside</b></u>\n"
+            msg += "__**🟢 Upside**__\n"
             for sym, lbl in ups:
-                msg += f"• <b>{sym}</b> — {lbl}\n"
+                msg += f"• **{sym}** — {lbl}\n"
             msg += "\n"
 
         if dns:
-            msg += "<u><b>🔴 Downside</b></u>\n"
+            msg += "__**🔴 Downside**__\n"
             for sym, lbl in dns:
-                msg += f"• <b>{sym}</b> — {lbl}\n"
+                msg += f"• **{sym}** — {lbl}\n"
             msg += "\n"
 
     if double_inside:
-        msg += "<b>🟪 Double Inside (II)</b>\n"
+        msg += "**🟪 Double Inside (II)**\n"
         for x in group_sort(double_inside):
             msg += f"• {x}\n"
         msg += "\n"
 
     if inside:
-        msg += "<b>📘 Inside (1)</b>\n"
+        msg += "**📘 Inside (1)**\n"
         for x in group_sort(inside):
             msg += f"• {x}\n"
         msg += "\n"
 
     if outside:
-        msg += "<b>📕 Outside (3)</b>\n"
+        msg += "**📕 Outside (3)**\n"
         for x in group_sort(outside):
             msg += f"• {x}\n"
         msg += "\n"
 
     if f2u:
-        msg += "<b>🔴 F2U</b>\n"
+        msg += "**🔴 F2U**\n"
         for x in group_sort(f2u):
             msg += f"• {x}\n"
         msg += "\n"
 
     if f2d:
-        msg += "<b>🟢 F2D</b>\n"
+        msg += "**🟢 F2D**\n"
         for x in group_sort(f2d):
             msg += f"• {x}\n"
         msg += "\n"
 
     msg = msg.strip()
-    tg_msg = tg_header + msg
-    dc_msg = dc_header + msg
     
-    send_discord(dc_msg, discord_webhook)
-
+    # Send to Discord only
+    if WEBHOOK_DAILY:
+        requests.post(WEBHOOK_DAILY, json={"content": msg})
+    
+    # Send watchlist CSV
     all_symbols = list(set(double_inside + inside + outside + f2u + f2d + list(aplus.keys())))
-    send_discord_csv(all_symbols, title, discord_webhook)
+    send_discord_csv(all_symbols, "Daily", WEBHOOK_DAILY)
 
 # ---------------------------------------------------------
-# RUNTIME
+# RUN
 # ---------------------------------------------------------
 
-if RUN_MODE in ("DAILY", "ALL"):
-    scan("Daily", "D", TOPIC_DAILY, WEBHOOK_DAILY)
-
-if RUN_MODE in ("WEEKLY", "ALL"):
-    scan("Weekly", "W", TOPIC_WEEKLY, WEBHOOK_WEEKLY)
-
-if RUN_MODE in ("MONTHLY", "ALL"):
-    scan("Monthly", "M", TOPIC_MONTHLY, WEBHOOK_MONTHLY)
-
-print("DONE (Stocks - Telegram + Discord)")
+scan()
+print("DONE (Stocks - Discord only)")
