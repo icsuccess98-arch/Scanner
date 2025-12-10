@@ -397,7 +397,10 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
     msg = msg.strip()
     tg_msg = tg_header + msg
     dc_msg = dc_header + msg
-    send_telegram(tg_msg, topic_id)
+    
+    discord_only = os.environ.get("DISCORD_ONLY", "").upper() == "TRUE"
+    if not discord_only:
+        send_telegram(tg_msg, topic_id)
     send_discord(dc_msg, discord_webhook)
 
     all_symbols = list(set(double_inside + inside + outside + f2u + f2d + list(aplus.keys())))
