@@ -192,77 +192,66 @@ def scan():
     today = datetime.now()
     date_header = today.strftime("%b %d, %Y %H:%M")
     
-    msg1 = f"🌍 **FTFC WORLD** — As of {date_header}\n\n"
-    msg1 += "**0) FTFC UNIVERSE** — Month/Week/Day all same direction\n\n"
-    
+    msg = f"🌍 **FTFC WORLD** — As of {date_header}\n\n"
+    msg += "**FTFC UNIVERSE** — Month/Week/Day all same direction\n"
     if ftfc_up:
-        msg1 += "**FTFC ↑**\n"
-        for t in sorted(ftfc_up):
-            msg1 += f"• {t} (M/W/D ↑↑↑)\n"
-        msg1 += "\n"
-    
+        msg += f"**↑** {', '.join(sorted(ftfc_up))}\n"
     if ftfc_down:
-        msg1 += "**FTFC ↓**\n"
-        for t in sorted(ftfc_down):
-            msg1 += f"• {t} (M/W/D ↓↓↓)\n"
-        msg1 += "\n"
-    
-    send_discord(msg1.strip(), WEBHOOK_DAILY)
-    
-    msg2 = f"📋 **FTFC SETUPS**\n\n"
+        msg += f"**↓** {', '.join(sorted(ftfc_down))}\n"
+    msg += "\n📋 **SETUPS**\n\n"
     
     if aplus_setups:
-        msg2 += "🔥 **A++ SETUPS** — 1-F2 / 3-F2\n\n"
+        msg += "🔥 **A++ SETUPS** — 1-F2 / 3-F2\n\n"
         ups = [s for s in aplus_setups if s[4] == "UP"]
         dns = [s for s in aplus_setups if s[4] == "DOWN"]
         if ups:
-            msg2 += "__🟢 Upside__\n"
+            msg += "__🟢 Upside__\n"
             for ticker, ftfc_dir, arrows, label, trade_dir in ups:
-                msg2 += f"• **{ticker}** — M/W/D {arrows} — {label}\n"
-            msg2 += "\n"
+                msg += f"• **{ticker}** — M/W/D {arrows} — {label}\n"
+            msg += "\n"
         if dns:
-            msg2 += "__🔴 Downside__\n"
+            msg += "__🔴 Downside__\n"
             for ticker, ftfc_dir, arrows, label, trade_dir in dns:
-                msg2 += f"• **{ticker}** — M/W/D {arrows} — {label}\n"
-            msg2 += "\n"
+                msg += f"• **{ticker}** — M/W/D {arrows} — {label}\n"
+            msg += "\n"
     
     double_inside_list = [s for s in inside_bars if s[3] == "Double Inside"]
     inside_list = [s for s in inside_bars if s[3] == "Inside"]
     
     if double_inside_list:
-        msg2 += "**🟪 Double Inside (II)**\n"
+        msg += "**🟪 Double Inside (II)**\n"
         for ticker, ftfc_dir, arrows, label in double_inside_list:
-            msg2 += f"• {ticker}\n"
-        msg2 += "\n"
+            msg += f"• {ticker}\n"
+        msg += "\n"
     
     if inside_list:
-        msg2 += "**📘 Inside (1)**\n"
+        msg += "**📘 Inside (1)**\n"
         for ticker, ftfc_dir, arrows, label in inside_list:
-            msg2 += f"• {ticker}\n"
-        msg2 += "\n"
+            msg += f"• {ticker}\n"
+        msg += "\n"
     
     if outside_list:
-        msg2 += "**📕 Outside (3)**\n"
+        msg += "**📕 Outside (3)**\n"
         for ticker in outside_list:
-            msg2 += f"• {ticker}\n"
-        msg2 += "\n"
+            msg += f"• {ticker}\n"
+        msg += "\n"
     
     f2u_list = [s[0] for s in f2_setups if s[3] == "F2U"] + [s[0] for s in aplus_setups if "F2U" in s[3]]
     f2d_list = [s[0] for s in f2_setups if s[3] == "F2D"] + [s[0] for s in aplus_setups if "F2D" in s[3]]
     
     if f2u_list:
-        msg2 += "**🔴 F2U (Downside)**\n"
+        msg += "**🔴 F2U (Downside)**\n"
         for t in list(set(f2u_list)):
-            msg2 += f"• {t}\n"
-        msg2 += "\n"
+            msg += f"• {t}\n"
+        msg += "\n"
     
     if f2d_list:
-        msg2 += "**🟢 F2D (Upside)**\n"
+        msg += "**🟢 F2D (Upside)**\n"
         for t in list(set(f2d_list)):
-            msg2 += f"• {t}\n"
-        msg2 += "\n"
+            msg += f"• {t}\n"
+        msg += "\n"
     
-    send_discord(msg2.strip(), WEBHOOK_DAILY)
+    send_discord(msg.strip(), WEBHOOK_DAILY)
     
     all_symbols = list(set(all_setups))
     send_discord_csv(all_symbols, "FTFC Setups", WEBHOOK_DAILY)
