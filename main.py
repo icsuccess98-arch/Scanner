@@ -1,7 +1,12 @@
 import os
 import time
 import requests
+import logging
 from datetime import datetime, timedelta
+from tvDatafeed import TvDatafeed, Interval as TvInterval
+
+# Suppress tvDatafeed error logging
+logging.getLogger("tvDatafeed.main").setLevel(logging.CRITICAL)
 
 # ---------------------------------------------------------
 # TELEGRAM CONFIG
@@ -42,22 +47,28 @@ def send_discord(msg, webhook_url):
     payload = {"content": discord_msg}
     requests.post(webhook_url, json=payload)
 
-def to_tv_symbol(oanda_sym):
-    # Convert OANDA symbol to TradingView format
+def to_tv_symbol(sym):
+    # Convert symbol to TradingView format
     tv_map = {
         "XAU_USD": "OANDA:XAUUSD",
         "XAG_USD": "OANDA:XAGUSD",
         "WTICO_USD": "TVC:USOIL",
         "NAS100_USD": "OANDA:NAS100USD",
         "US30_USD": "OANDA:US30USD",
+        "SPX500_USD": "OANDA:SPX500USD",
         "BTC_USD": "COINBASE:BTCUSD",
         "ETH_USD": "COINBASE:ETHUSD",
-        "LTC_USD": "COINBASE:LTCUSD",
+        "SOL_USD": "COINBASE:SOLUSD",
+        # Futures
+        "MNQ": "CME:MNQ1!",
+        "MES": "CME:MES1!",
+        "MCL": "NYMEX:MCL1!",
+        "MGC": "COMEX:MGC1!",
     }
-    if oanda_sym in tv_map:
-        return tv_map[oanda_sym]
+    if sym in tv_map:
+        return tv_map[sym]
     # Standard forex pair
-    return f"FX:{oanda_sym.replace('_', '')}"
+    return f"FX:{sym.replace('_', '')}"
 
 def send_discord_csv(symbols, title, webhook_url):
     if not webhook_url or not symbols:
@@ -95,18 +106,33 @@ CRYPTOS = ["BTC_USD", "SOL_USD", "ETH_USD"]
 
 OANDA_SYMBOLS = METALS + OIL + INDICES + CRYPTOS
 
+# TradingView Futures (micro contracts)
+FUTURES = [
+    {"symbol": "MNQ1!", "exchange": "CME", "name": "MNQ"},
+    {"symbol": "MES1!", "exchange": "CME", "name": "MES"},
+    {"symbol": "MCL1!", "exchange": "NYMEX", "name": "MCL"},
+    {"symbol": "MGC1!", "exchange": "COMEX", "name": "MGC"},
+]
+
 GROUP_ORDER = {
     "METALS": METALS,
     "OIL": OIL,
     "INDICES": INDICES,
-    "CRYPTOS": CRYPTOS
+    "CRYPTOS": CRYPTOS,
+    "FUTURES": [f["name"] for f in FUTURES]
 }
+
+# Initialize TradingView datafeed
+tv = TvDatafeed()
 
 # ---------------------------------------------------------
 # HELPERS
 # ---------------------------------------------------------
 
 def pretty(symbol):
+    # Futures symbols are already clean
+    if symbol in ["MNQ", "MES", "MCL", "MGC"]:
+        return symbol
     out = symbol.replace("_", "/")
     if out == "WTICO/USD":
         return "USOIL"
@@ -144,6 +170,41 @@ def get_closed_candles(symbol, granularity, count=5):
         return None
 
     return closed
+
+def get_futures_candles(symbol, exchange, granularity, count=5):
+    """Get candles from TradingView for futures"""
+    try:
+        interval_map = {
+            "D": TvInterval.in_daily,
+            "W": TvInterval.in_weekly,
+            "M": TvInterval.in_monthly,
+        }
+        interval = interval_map.get(granularity, TvInterval.in_daily)
+        
+        df = tv.get_hist(
+            symbol=symbol,
+            exchange=exchange,
+            interval=interval,
+            n_bars=count,
+            fut_contract=1
+        )
+        
+        if df is None or len(df) < 4:
+            return None
+        
+        # Convert DataFrame to list of candle dicts
+        candles = []
+        for _, row in df.iterrows():
+            candles.append({
+                "open": float(row["open"]),
+                "high": float(row["high"]),
+                "low": float(row["low"]),
+                "close": float(row["close"]),
+            })
+        
+        return candles
+    except Exception:
+        return None
 
 # ---------------------------------------------------------
 # STRAT LOGIC
@@ -314,6 +375,92 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
                             aplus[symbol] = f"M/W/D {arrows} — F2D"
 
         time.sleep(0.2)
+
+    # Scan TradingView Futures
+    for fut in FUTURES:
+        symbol = fut["name"]  # Use clean name for display
+        tv_symbol = fut["symbol"]
+        exchange = fut["exchange"]
+        
+        candles = get_futures_candles(tv_symbol, exchange, granularity)
+        if not candles:
+            continue
+
+        curr = candles[-1]
+        prev = candles[-2]
+        prev2 = candles[-3]
+        prev3 = candles[-4] if len(candles) >= 4 else None
+
+        st = strat_type(curr, prev)
+
+        if st == "1" and strat_type(prev, prev2) == "1":
+            double_inside.append(symbol)
+            arrows = (
+                arrow(direction(get_futures_candles(tv_symbol, exchange, "M")[-1])) +
+                arrow(direction(get_futures_candles(tv_symbol, exchange, "W")[-1])) +
+                arrow(direction(curr))
+            )
+            aplus[symbol] = f"M/W/D {arrows} — Double Inside"
+            continue
+
+        if st == "1":
+            inside.append(symbol)
+            if strat_type(prev, prev2) == "3":
+                weekly = get_futures_candles(tv_symbol, exchange, "W")
+                monthly = get_futures_candles(tv_symbol, exchange, "M")
+                if weekly and monthly:
+                    arrows = arrow(direction(monthly[-1])) + arrow(direction(weekly[-1])) + arrow(direction(curr))
+                    aplus[symbol] = f"M/W/D {arrows} — 3-1"
+
+        if st == "3":
+            outside.append(symbol)
+            if strat_type(prev, prev2) == "1":
+                weekly = get_futures_candles(tv_symbol, exchange, "W")
+                monthly = get_futures_candles(tv_symbol, exchange, "M")
+                if weekly and monthly:
+                    arrows = arrow(direction(monthly[-1])) + arrow(direction(weekly[-1])) + arrow(direction(curr))
+                    aplus[symbol] = f"M/W/D {arrows} — 1-3"
+
+        f2 = failed_2(curr, prev)
+        if f2:
+            if f2 == "Failed 2U":
+                f2u.append(symbol)
+            if f2 == "Failed 2D":
+                f2d.append(symbol)
+
+            prev_type = strat_type(prev, prev2)
+            weekly = get_futures_candles(tv_symbol, exchange, "W")
+            monthly = get_futures_candles(tv_symbol, exchange, "M")
+            
+            is_double_inside = prev3 and prev_type == "1" and strat_type(prev2, prev3) == "1"
+            
+            if weekly and monthly:
+                arrows = arrow(direction(monthly[-1])) + arrow(direction(weekly[-1])) + arrow(direction(curr))
+                
+                if is_double_inside:
+                    if f2 == "Failed 2U":
+                        aplus[symbol] = f"M/W/D {arrows} — II-F2U"
+                    else:
+                        aplus[symbol] = f"M/W/D {arrows} — II-F2D"
+                elif prev_type == "1":
+                    if f2 == "Failed 2U":
+                        aplus[symbol] = f"M/W/D {arrows} — 1-F2U"
+                    else:
+                        aplus[symbol] = f"M/W/D {arrows} — 1-F2D"
+                elif prev_type == "3":
+                    if f2 == "Failed 2U":
+                        aplus[symbol] = f"M/W/D {arrows} — 3-F2U"
+                    else:
+                        aplus[symbol] = f"M/W/D {arrows} — 3-F2D"
+                else:
+                    ftfc = ftfc_pass(curr, weekly[-1], monthly[-1])
+                    if ftfc:
+                        if f2 == "Failed 2U" and ftfc == "DOWN":
+                            aplus[symbol] = f"M/W/D {arrows} — F2U"
+                        if f2 == "Failed 2D" and ftfc == "UP":
+                            aplus[symbol] = f"M/W/D {arrows} — F2D"
+
+        time.sleep(0.5)  # Rate limit for TradingView
 
     # Telegram header (simple)
     tg_header = f"📊 <b>{title} Actionables</b>\n\n"
