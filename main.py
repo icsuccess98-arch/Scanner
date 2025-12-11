@@ -1,12 +1,7 @@
 import os
 import time
 import requests
-import logging
 from datetime import datetime, timedelta
-from tvDatafeed import TvDatafeed, Interval as TvInterval
-
-# Suppress tvDatafeed error logging
-logging.getLogger("tvDatafeed.main").setLevel(logging.CRITICAL)
 
 # ---------------------------------------------------------
 # TELEGRAM CONFIG
@@ -59,11 +54,6 @@ def to_tv_symbol(sym):
         "BTC_USD": "COINBASE:BTCUSD",
         "ETH_USD": "COINBASE:ETHUSD",
         "SOL_USD": "COINBASE:SOLUSD",
-        # Futures
-        "MNQ": "CME:MNQ1!",
-        "MES": "CME:MES1!",
-        "MCL": "NYMEX:MCL1!",
-        "MGC": "COMEX:MGC1!",
     }
     if sym in tv_map:
         return tv_map[sym]
@@ -106,33 +96,18 @@ CRYPTOS = ["BTC_USD", "SOL_USD", "ETH_USD"]
 
 OANDA_SYMBOLS = METALS + OIL + INDICES + CRYPTOS
 
-# TradingView Futures (micro contracts)
-FUTURES = [
-    {"symbol": "MNQ1!", "exchange": "CME", "name": "MNQ"},
-    {"symbol": "MES1!", "exchange": "CME", "name": "MES"},
-    {"symbol": "MCL1!", "exchange": "NYMEX", "name": "MCL"},
-    {"symbol": "MGC1!", "exchange": "COMEX", "name": "MGC"},
-]
-
 GROUP_ORDER = {
     "METALS": METALS,
     "OIL": OIL,
     "INDICES": INDICES,
-    "CRYPTOS": CRYPTOS,
-    "FUTURES": [f["name"] for f in FUTURES]
+    "CRYPTOS": CRYPTOS
 }
-
-# Initialize TradingView datafeed
-tv = TvDatafeed()
 
 # ---------------------------------------------------------
 # HELPERS
 # ---------------------------------------------------------
 
 def pretty(symbol):
-    # Futures symbols are already clean
-    if symbol in ["MNQ", "MES", "MCL", "MGC"]:
-        return symbol
     out = symbol.replace("_", "/")
     if out == "WTICO/USD":
         return "USOIL"
@@ -170,41 +145,6 @@ def get_closed_candles(symbol, granularity, count=5):
         return None
 
     return closed
-
-def get_futures_candles(symbol, exchange, granularity, count=5):
-    """Get candles from TradingView for futures"""
-    try:
-        interval_map = {
-            "D": TvInterval.in_daily,
-            "W": TvInterval.in_weekly,
-            "M": TvInterval.in_monthly,
-        }
-        interval = interval_map.get(granularity, TvInterval.in_daily)
-        
-        df = tv.get_hist(
-            symbol=symbol,
-            exchange=exchange,
-            interval=interval,
-            n_bars=count,
-            fut_contract=1
-        )
-        
-        if df is None or len(df) < 4:
-            return None
-        
-        # Convert DataFrame to list of candle dicts
-        candles = []
-        for _, row in df.iterrows():
-            candles.append({
-                "open": float(row["open"]),
-                "high": float(row["high"]),
-                "low": float(row["low"]),
-                "close": float(row["close"]),
-            })
-        
-        return candles
-    except Exception:
-        return None
 
 # ---------------------------------------------------------
 # STRAT LOGIC
@@ -275,87 +215,14 @@ def format_aplus(a_list):
 # MAIN SCANNER
 # ---------------------------------------------------------
 
-def build_message(title, aplus, double_inside, inside, outside, f2u, f2d, is_futures=False):
-    """Build message body from scan results"""
-    msg = ""
-    
-    if aplus:
-        msg += "🔥 <b>A++ Setups</b>\n\n"
-        ups = []
-        dns = []
-
-        for sym, lbl in aplus.items():
-            lbl_short = lbl.replace("Failed 2U", "F2U").replace("Failed 2D", "F2D")
-            if "F2D" in lbl_short:
-                ups.append((sym, lbl_short))
-            elif "F2U" in lbl_short:
-                dns.append((sym, lbl_short))
-            elif ("Double Inside" in lbl or "3-1" in lbl or "1-3" in lbl) and "↑" in lbl:
-                ups.append((sym, lbl_short))
-            else:
-                dns.append((sym, lbl_short))
-
-        if ups:
-            msg += "<u><b>🟢 Upside</b></u>\n"
-            for sym, lbl in ups:
-                msg += f"• <b>{pretty(sym)}</b> — {lbl}\n"
-            msg += "\n"
-
-        if dns:
-            msg += "<u><b>🔴 Downside</b></u>\n"
-            for sym, lbl in dns:
-                msg += f"• <b>{pretty(sym)}</b> — {lbl}\n"
-            msg += "\n"
-
-    if double_inside:
-        msg += "<b>🟪 Double Inside (II)</b>\n"
-        for x in (double_inside if is_futures else group_sort(double_inside)):
-            msg += f"• {pretty(x)}\n"
-        msg += "\n"
-
-    if inside:
-        msg += "<b>📘 Inside (1)</b>\n"
-        for x in (inside if is_futures else group_sort(inside)):
-            msg += f"• {pretty(x)}\n"
-        msg += "\n"
-
-    if outside:
-        msg += "<b>📕 Outside (3)</b>\n"
-        for x in (outside if is_futures else group_sort(outside)):
-            msg += f"• {pretty(x)}\n"
-        msg += "\n"
-
-    if f2u:
-        msg += "<b>🔴 F2U</b>\n"
-        for x in (f2u if is_futures else group_sort(f2u)):
-            msg += f"• {pretty(x)}\n"
-        msg += "\n"
-
-    if f2d:
-        msg += "<b>🟢 F2D</b>\n"
-        for x in (f2d if is_futures else group_sort(f2d)):
-            msg += f"• {pretty(x)}\n"
-        msg += "\n"
-
-    return msg.strip()
-
 def scan(title, granularity, topic_id=None, discord_webhook=None):
 
-    # OANDA results
     inside = []
     outside = []
     double_inside = []
     f2u = []
     f2d = []
     aplus = {}
-    
-    # Futures results (separate)
-    fut_inside = []
-    fut_outside = []
-    fut_double_inside = []
-    fut_f2u = []
-    fut_f2d = []
-    fut_aplus = {}
 
     for symbol in OANDA_SYMBOLS:
 
@@ -449,94 +316,10 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
 
         time.sleep(0.2)
 
-    # Scan TradingView Futures
-    for fut in FUTURES:
-        symbol = fut["name"]  # Use clean name for display
-        tv_symbol = fut["symbol"]
-        exchange = fut["exchange"]
-        
-        candles = get_futures_candles(tv_symbol, exchange, granularity)
-        if not candles:
-            continue
-
-        curr = candles[-1]
-        prev = candles[-2]
-        prev2 = candles[-3]
-        prev3 = candles[-4] if len(candles) >= 4 else None
-
-        st = strat_type(curr, prev)
-
-        if st == "1" and strat_type(prev, prev2) == "1":
-            fut_double_inside.append(symbol)
-            arrows = (
-                arrow(direction(get_futures_candles(tv_symbol, exchange, "M")[-1])) +
-                arrow(direction(get_futures_candles(tv_symbol, exchange, "W")[-1])) +
-                arrow(direction(curr))
-            )
-            fut_aplus[symbol] = f"M/W/D {arrows} — Double Inside"
-            continue
-
-        if st == "1":
-            fut_inside.append(symbol)
-            if strat_type(prev, prev2) == "3":
-                weekly = get_futures_candles(tv_symbol, exchange, "W")
-                monthly = get_futures_candles(tv_symbol, exchange, "M")
-                if weekly and monthly:
-                    arrows = arrow(direction(monthly[-1])) + arrow(direction(weekly[-1])) + arrow(direction(curr))
-                    fut_aplus[symbol] = f"M/W/D {arrows} — 3-1"
-
-        if st == "3":
-            fut_outside.append(symbol)
-            if strat_type(prev, prev2) == "1":
-                weekly = get_futures_candles(tv_symbol, exchange, "W")
-                monthly = get_futures_candles(tv_symbol, exchange, "M")
-                if weekly and monthly:
-                    arrows = arrow(direction(monthly[-1])) + arrow(direction(weekly[-1])) + arrow(direction(curr))
-                    fut_aplus[symbol] = f"M/W/D {arrows} — 1-3"
-
-        f2 = failed_2(curr, prev)
-        if f2:
-            if f2 == "Failed 2U":
-                fut_f2u.append(symbol)
-            if f2 == "Failed 2D":
-                fut_f2d.append(symbol)
-
-            prev_type = strat_type(prev, prev2)
-            weekly = get_futures_candles(tv_symbol, exchange, "W")
-            monthly = get_futures_candles(tv_symbol, exchange, "M")
-            
-            is_double_inside = prev3 and prev_type == "1" and strat_type(prev2, prev3) == "1"
-            
-            if weekly and monthly:
-                arrows = arrow(direction(monthly[-1])) + arrow(direction(weekly[-1])) + arrow(direction(curr))
-                
-                if is_double_inside:
-                    if f2 == "Failed 2U":
-                        fut_aplus[symbol] = f"M/W/D {arrows} — II-F2U"
-                    else:
-                        fut_aplus[symbol] = f"M/W/D {arrows} — II-F2D"
-                elif prev_type == "1":
-                    if f2 == "Failed 2U":
-                        fut_aplus[symbol] = f"M/W/D {arrows} — 1-F2U"
-                    else:
-                        fut_aplus[symbol] = f"M/W/D {arrows} — 1-F2D"
-                elif prev_type == "3":
-                    if f2 == "Failed 2U":
-                        fut_aplus[symbol] = f"M/W/D {arrows} — 3-F2U"
-                    else:
-                        fut_aplus[symbol] = f"M/W/D {arrows} — 3-F2D"
-                else:
-                    ftfc = ftfc_pass(curr, weekly[-1], monthly[-1])
-                    if ftfc:
-                        if f2 == "Failed 2U" and ftfc == "DOWN":
-                            fut_aplus[symbol] = f"M/W/D {arrows} — F2U"
-                        if f2 == "Failed 2D" and ftfc == "UP":
-                            fut_aplus[symbol] = f"M/W/D {arrows} — F2D"
-
-        time.sleep(0.5)  # Rate limit for TradingView
-
-    # Build headers
+    # Telegram header (simple)
     tg_header = f"📊 <b>{title} Actionables</b>\n\n"
+    
+    # Discord header (with dates)
     today = datetime.now()
     yesterday = today - timedelta(days=1)
     date_header = today.strftime("%b %d, %Y")
@@ -544,31 +327,80 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
     dc_header = f"🗓 <b>{title} Actionable Strat — {date_header}</b>\n"
     dc_header += f"(From {from_day} close)\n\n"
     
+    msg = ""
+
+    if aplus:
+        msg += "🔥 <b>A++ Setups</b>\n\n"
+        ups = []
+        dns = []
+
+        for sym, lbl in aplus.items():
+            lbl_short = lbl.replace("Failed 2U", "F2U").replace("Failed 2D", "F2D")
+            # F2D patterns = bullish (upside), F2U patterns = bearish (downside)
+            # Double Inside, 3-1, 1-3: check arrow direction
+            if "F2D" in lbl_short:
+                ups.append((sym, lbl_short))
+            elif "F2U" in lbl_short:
+                dns.append((sym, lbl_short))
+            elif ("Double Inside" in lbl or "3-1" in lbl or "1-3" in lbl) and "↑" in lbl:
+                ups.append((sym, lbl_short))
+            else:
+                dns.append((sym, lbl_short))
+
+        if ups:
+            msg += "<u><b>🟢 Upside</b></u>\n"
+            for sym, lbl in ups:
+                msg += f"• <b>{pretty(sym)}</b> — {lbl}\n"
+            msg += "\n"
+
+        if dns:
+            msg += "<u><b>🔴 Downside</b></u>\n"
+            for sym, lbl in dns:
+                msg += f"• <b>{pretty(sym)}</b> — {lbl}\n"
+            msg += "\n"
+
+    if double_inside:
+        msg += "<b>🟪 Double Inside (II)</b>\n"
+        for x in group_sort(double_inside):
+            msg += f"• {pretty(x)}\n"
+        msg += "\n"
+
+    if inside:
+        msg += "<b>📘 Inside (1)</b>\n"
+        for x in group_sort(inside):
+            msg += f"• {pretty(x)}\n"
+        msg += "\n"
+
+    if outside:
+        msg += "<b>📕 Outside (3)</b>\n"
+        for x in group_sort(outside):
+            msg += f"• {pretty(x)}\n"
+        msg += "\n"
+
+    if f2u:
+        msg += "<b>🔴 F2U</b>\n"
+        for x in group_sort(f2u):
+            msg += f"• {pretty(x)}\n"
+        msg += "\n"
+
+    if f2d:
+        msg += "<b>🟢 F2D</b>\n"
+        for x in group_sort(f2d):
+            msg += f"• {pretty(x)}\n"
+        msg += "\n"
+
+    msg = msg.strip()
+    tg_msg = tg_header + msg
+    dc_msg = dc_header + msg
+    
     discord_only = os.environ.get("DISCORD_ONLY", "").upper() == "TRUE"
+    if not discord_only:
+        send_telegram(tg_msg, topic_id)
+    send_discord(dc_msg, discord_webhook)
     
-    # Build and send OANDA message
-    msg = build_message(title, aplus, double_inside, inside, outside, f2u, f2d)
-    if msg:
-        tg_msg = tg_header + msg
-        dc_msg = dc_header + msg
-        if not discord_only:
-            send_telegram(tg_msg, topic_id)
-        send_discord(dc_msg, discord_webhook)
-        
-        # Send TradingView watchlist CSV for OANDA symbols only
-        all_symbols = list(set(double_inside + inside + outside + f2u + f2d + list(aplus.keys())))
-        send_discord_csv(all_symbols, title, discord_webhook)
-    
-    # Build and send Futures message (separate, no CSV)
-    fut_msg = build_message(title, fut_aplus, fut_double_inside, fut_inside, fut_outside, fut_f2u, fut_f2d, is_futures=True)
-    if fut_msg:
-        fut_tg_header = f"📊 <b>{title} Futures</b>\n\n"
-        fut_dc_header = f"🗓 <b>{title} Futures — {date_header}</b>\n"
-        fut_dc_header += f"(From {from_day} close)\n\n"
-        
-        if not discord_only:
-            send_telegram(fut_tg_header + fut_msg, topic_id)
-        send_discord(fut_dc_header + fut_msg, discord_webhook)
+    # Send TradingView watchlist CSV to Discord immediately after
+    all_symbols = list(set(double_inside + inside + outside + f2u + f2d + list(aplus.keys())))
+    send_discord_csv(all_symbols, title, discord_webhook)
 
 # ---------------------------------------------------------
 # RUNTIME
