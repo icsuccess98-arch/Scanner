@@ -199,10 +199,16 @@ def scan():
     
     msg = f"🌍 **FTFC WORLD** — {date_header}\nMonth/Week/Day same direction\n\n"
     if ftfc_up:
-        msg += f"**↑** {', '.join(sorted(ftfc_up))}\n"
+        msg += "**↑ Bullish**\n"
+        for t in sorted(ftfc_up):
+            msg += f"• {t}\n"
+        msg += "\n"
     if ftfc_down:
-        msg += f"**↓** {', '.join(sorted(ftfc_down))}\n"
-    msg += "\n📋 **SETUPS**\n\n"
+        msg += "**↓ Bearish**\n"
+        for t in sorted(ftfc_down):
+            msg += f"• {t}\n"
+        msg += "\n"
+    msg += "📋 **SETUPS**\n\n"
     
     if aplus_setups:
         msg += "🔥 **A++ SETUPS** — 1-F2 / 3-F2\n\n"
