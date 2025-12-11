@@ -249,9 +249,23 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
 
         if st == "1":
             inside.append(symbol)
+            # Check for 3-1 pattern (Outside followed by Inside)
+            if strat_type(prev, prev2) == "3":
+                weekly = get_closed_candles(symbol, "W")
+                monthly = get_closed_candles(symbol, "M")
+                if weekly and monthly:
+                    arrows = arrow(direction(monthly[-1])) + arrow(direction(weekly[-1])) + arrow(direction(curr))
+                    aplus[symbol] = f"M/W/D {arrows} — 3-1"
 
         if st == "3":
             outside.append(symbol)
+            # Check for 1-3 pattern (Inside followed by Outside)
+            if strat_type(prev, prev2) == "1":
+                weekly = get_closed_candles(symbol, "W")
+                monthly = get_closed_candles(symbol, "M")
+                if weekly and monthly:
+                    arrows = arrow(direction(monthly[-1])) + arrow(direction(weekly[-1])) + arrow(direction(curr))
+                    aplus[symbol] = f"M/W/D {arrows} — 1-3"
 
         f2 = failed_2(curr, prev)
         if f2:
@@ -312,8 +326,10 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
         for sym, lbl in aplus.items():
             lbl_short = lbl.replace("Failed 2U", "F2U").replace("Failed 2D", "F2D")
             # Failed 2D = bullish (upside), Failed 2U = bearish (downside)
-            # Double Inside: check arrow direction
-            if "F2D" in lbl_short or ("Double Inside" in lbl and "↑" in lbl):
+            # Double Inside, 3-1, 1-3: check arrow direction
+            if "F2D" in lbl_short:
+                ups.append((sym, lbl_short))
+            elif ("Double Inside" in lbl or "3-1" in lbl or "1-3" in lbl) and "↑" in lbl:
                 ups.append((sym, lbl_short))
             else:
                 dns.append((sym, lbl_short))
