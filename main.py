@@ -232,6 +232,7 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
         curr = candles[-1]
         prev = candles[-2]
         prev2 = candles[-3]
+        prev3 = candles[-4] if len(candles) >= 4 else None
 
         st = strat_type(curr, prev)
 
@@ -280,11 +281,20 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
             weekly = get_closed_candles(symbol, "W")
             monthly = get_closed_candles(symbol, "M")
             
+            # Check for Double Inside before F2 (II-F2)
+            is_double_inside = prev3 and prev_type == "1" and strat_type(prev2, prev3) == "1"
+            
             if weekly and monthly:
                 arrows = arrow(direction(monthly[-1])) + arrow(direction(weekly[-1])) + arrow(direction(curr))
                 
+                # II-F2: Double Inside followed by Failed 2
+                if is_double_inside:
+                    if f2 == "Failed 2U":
+                        aplus[symbol] = f"M/W/D {arrows} — II-F2U"
+                    else:
+                        aplus[symbol] = f"M/W/D {arrows} — II-F2D"
                 # 1-F2 and 3-F2 are A++ without FTFC requirement
-                if prev_type == "1":
+                elif prev_type == "1":
                     if f2 == "Failed 2U":
                         aplus[symbol] = f"M/W/D {arrows} — 1-F2U"
                     else:
@@ -325,10 +335,12 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
 
         for sym, lbl in aplus.items():
             lbl_short = lbl.replace("Failed 2U", "F2U").replace("Failed 2D", "F2D")
-            # Failed 2D = bullish (upside), Failed 2U = bearish (downside)
+            # F2D patterns = bullish (upside), F2U patterns = bearish (downside)
             # Double Inside, 3-1, 1-3: check arrow direction
             if "F2D" in lbl_short:
                 ups.append((sym, lbl_short))
+            elif "F2U" in lbl_short:
+                dns.append((sym, lbl_short))
             elif ("Double Inside" in lbl or "3-1" in lbl or "1-3" in lbl) and "↑" in lbl:
                 ups.append((sym, lbl_short))
             else:
