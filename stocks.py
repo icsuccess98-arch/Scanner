@@ -197,18 +197,20 @@ def scan():
     today = datetime.now()
     date_header = today.strftime("%b %d, %Y %H:%M")
     
-    msg = f"🌍 **FTFC WORLD** — {date_header}\nMonth/Week/Day same direction\n\n"
+    msg1 = f"🌍 **FTFC WORLD** — {date_header}\nMonth/Week/Day same direction\n\n"
     if ftfc_up:
-        msg += "**↑ Bullish**\n"
+        msg1 += "**↑ Bullish**\n"
         for t in sorted(ftfc_up):
-            msg += f"• {t}\n"
-        msg += "\n"
+            msg1 += f"• {t} — M/W/D ↑↑↑\n"
+        msg1 += "\n"
     if ftfc_down:
-        msg += "**↓ Bearish**\n"
+        msg1 += "**↓ Bearish**\n"
         for t in sorted(ftfc_down):
-            msg += f"• {t}\n"
-        msg += "\n"
-    msg += "📋 **SETUPS**\n\n"
+            msg1 += f"• {t} — M/W/D ↓↓↓\n"
+        msg1 += "\n"
+    send_discord(msg1.strip(), WEBHOOK_DAILY)
+    
+    msg = "📋 **SETUPS**\n\n"
     
     if aplus_setups:
         msg += "🔥 **A++ SETUPS** — 1-F2 / 3-F2\n\n"
