@@ -205,35 +205,55 @@ def scan():
     msg += "\n📋 **SETUPS**\n\n"
     
     if aplus_setups:
-        msg += "🔥 **A++ Setups**\n"
+        msg += "🔥 **A++ SETUPS** — 1-F2 / 3-F2\n\n"
         ups = [s for s in aplus_setups if s[4] == "UP"]
         dns = [s for s in aplus_setups if s[4] == "DOWN"]
         if ups:
-            msg += f"**🔺 Upside** {', '.join([s[0] for s in ups])}\n"
+            msg += "__🟢 Upside__\n"
+            for ticker, ftfc_dir, arrows, label, trade_dir in ups:
+                msg += f"• **{ticker}** — M/W/D {arrows} — {label}\n"
+            msg += "\n"
         if dns:
-            msg += f"**🔻 Downside** {', '.join([s[0] for s in dns])}\n"
-        msg += "\n"
+            msg += "__🔴 Downside__\n"
+            for ticker, ftfc_dir, arrows, label, trade_dir in dns:
+                msg += f"• **{ticker}** — M/W/D {arrows} — {label}\n"
+            msg += "\n"
     
     double_inside_list = [s for s in inside_bars if s[3] == "Double Inside"]
     inside_list = [s for s in inside_bars if s[3] == "Inside"]
     
     if double_inside_list:
-        msg += f"🟪 **Double Inside** {', '.join([s[0] for s in double_inside_list])}\n"
+        msg += "**🟪 Double Inside (II)**\n"
+        for ticker, ftfc_dir, arrows, label in double_inside_list:
+            msg += f"• {ticker}\n"
+        msg += "\n"
     
     if inside_list:
-        msg += f"📘 **Inside** {', '.join([s[0] for s in inside_list])}\n"
+        msg += "**📘 Inside (1)**\n"
+        for ticker, ftfc_dir, arrows, label in inside_list:
+            msg += f"• {ticker}\n"
+        msg += "\n"
     
     if outside_list:
-        msg += f"📕 **Outside** {', '.join(outside_list)}\n"
+        msg += "**📕 Outside (3)**\n"
+        for ticker in outside_list:
+            msg += f"• {ticker}\n"
+        msg += "\n"
     
-    f2u_list = list(set([s[0] for s in f2_setups if s[3] == "F2U"] + [s[0] for s in aplus_setups if "F2U" in s[3]]))
-    f2d_list = list(set([s[0] for s in f2_setups if s[3] == "F2D"] + [s[0] for s in aplus_setups if "F2D" in s[3]]))
+    f2u_list = [s[0] for s in f2_setups if s[3] == "F2U"] + [s[0] for s in aplus_setups if "F2U" in s[3]]
+    f2d_list = [s[0] for s in f2_setups if s[3] == "F2D"] + [s[0] for s in aplus_setups if "F2D" in s[3]]
     
     if f2u_list:
-        msg += f"🔻 **F2U** {', '.join(f2u_list)}\n"
+        msg += "**🔴 F2U (Downside)**\n"
+        for t in list(set(f2u_list)):
+            msg += f"• {t}\n"
+        msg += "\n"
     
     if f2d_list:
-        msg += f"🔺 **F2D** {', '.join(f2d_list)}\n"
+        msg += "**🟢 F2D (Upside)**\n"
+        for t in list(set(f2d_list)):
+            msg += f"• {t}\n"
+        msg += "\n"
     
     send_discord(msg.strip(), WEBHOOK_DAILY)
     
