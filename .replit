@@ -16,23 +16,50 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Run Daily Stocks"
+args = "Run Daily"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Run Weekly"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Run Monthly"
 
 [[workflows.workflow]]
-name = "Run Daily Stocks"
+name = "Run Daily"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python stocks.py"
+args = "RUN_MODE=DAILY python main.py"
 
 [workflows.workflow.metadata]
 outputType = "console"
 
-# -----------------------------------------------------
-# DEFAULT ENV
-# -----------------------------------------------------
+[[workflows.workflow]]
+name = "Run Weekly"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "RUN_MODE=WEEKLY python main.py"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Run Monthly"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "RUN_MODE=MONTHLY python main.py"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
 [userenv]
 
 [userenv.shared]
-RUN_MODE = "STOCKS"
+RUN_MODE = "ALL"
