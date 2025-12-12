@@ -90,18 +90,12 @@ HEADERS = {"Authorization": f"Bearer {OANDA_KEY}"}
 # ---------------------------------------------------------
 
 FOREX = [
-    # Majors
-    "EUR_USD", "GBP_USD", "USD_JPY", "USD_CHF", "AUD_USD", "USD_CAD", "NZD_USD",
-    # Crosses
-    "EUR_GBP", "EUR_JPY", "EUR_CHF", "EUR_AUD", "EUR_CAD", "EUR_NZD",
-    "GBP_JPY", "GBP_CHF", "GBP_AUD", "GBP_CAD", "GBP_NZD",
-    "AUD_JPY", "AUD_CHF", "AUD_CAD", "AUD_NZD",
-    "NZD_JPY", "NZD_CHF", "NZD_CAD",
-    "CAD_JPY", "CAD_CHF",
-    "CHF_JPY",
-    # Exotics
-    "USD_MXN", "USD_ZAR", "USD_SGD", "USD_HKD", "USD_NOK", "USD_SEK", "USD_DKK",
-    "EUR_NOK", "EUR_SEK", "EUR_DKK", "EUR_PLN", "EUR_TRY"
+    "AUD_CAD", "AUD_CHF", "AUD_JPY", "AUD_NZD", "AUD_USD",
+    "CAD_CHF", "CAD_JPY", "CHF_JPY",
+    "EUR_AUD", "EUR_CAD", "EUR_CHF", "EUR_GBP", "EUR_JPY", "EUR_NZD", "EUR_USD",
+    "GBP_AUD", "GBP_CAD", "GBP_CHF", "GBP_JPY", "GBP_NZD", "GBP_USD",
+    "NZD_CAD", "NZD_CHF", "NZD_JPY", "NZD_USD",
+    "USD_CAD", "USD_CHF", "USD_JPY"
 ]
 METALS = ["XAU_USD", "XAG_USD"]
 OIL = ["WTICO_USD"]
