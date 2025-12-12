@@ -89,14 +89,19 @@ HEADERS = {"Authorization": f"Bearer {OANDA_KEY}"}
 # ASSET GROUPS
 # ---------------------------------------------------------
 
+FOREX = [
+    "EUR_USD", "GBP_USD", "USD_JPY", "USD_CHF", "AUD_USD", "USD_CAD", "NZD_USD",
+    "EUR_GBP", "EUR_JPY", "GBP_JPY", "AUD_JPY", "EUR_AUD", "GBP_AUD"
+]
 METALS = ["XAU_USD", "XAG_USD"]
 OIL = ["WTICO_USD"]
 INDICES = ["NAS100_USD", "US30_USD", "SPX500_USD"]
 CRYPTOS = ["BTC_USD", "SOL_USD", "ETH_USD"]
 
-OANDA_SYMBOLS = METALS + OIL + INDICES + CRYPTOS
+OANDA_SYMBOLS = FOREX + METALS + OIL + INDICES + CRYPTOS
 
 GROUP_ORDER = {
+    "FOREX": FOREX,
     "METALS": METALS,
     "OIL": OIL,
     "INDICES": INDICES,
