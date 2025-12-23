@@ -14,9 +14,35 @@ THRESHOLDS = {
 
 def send_discord(msg):
     if not DISCORD_WEBHOOK:
+        print("WARNING: DISCORD_WEBHOOK not set")
         return
-    payload = {"content": msg}
-    requests.post(DISCORD_WEBHOOK, json=payload)
+    
+    if len(msg) <= 1900:
+        chunks = [msg]
+    else:
+        chunks = []
+        current = ""
+        for line in msg.split("\n"):
+            if len(current) + len(line) + 1 > 1900:
+                if current:
+                    chunks.append(current.strip())
+                current = line + "\n"
+            else:
+                current += line + "\n"
+        if current.strip():
+            chunks.append(current.strip())
+    
+    for i, chunk in enumerate(chunks):
+        print(f"Sending Discord chunk {i+1}/{len(chunks)} ({len(chunk)} chars)...")
+        try:
+            payload = {"content": chunk}
+            resp = requests.post(DISCORD_WEBHOOK, json=payload, timeout=30)
+            print(f"Discord response: {resp.status_code}")
+            if resp.status_code != 204:
+                print(f"Discord error: {resp.text}")
+            time.sleep(0.5)
+        except Exception as e:
+            print(f"Discord send error: {e}")
 
 def fetch_nba_stats():
     from nba_api.stats.endpoints import leaguedashteamstats
