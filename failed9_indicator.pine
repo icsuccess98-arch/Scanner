@@ -9,9 +9,9 @@ showTable       = input.bool(true, "Show Dashboard Panel")
 boxOpacity      = input.int(85, "Position Box Opacity", minval=0, maxval=100)
 labelOnLevels   = input.bool(true, "Show Entry/Stop/TP Labels")
 
-// Offsets as FRACTIONS of the 8AM candle range (e.g., 0.25 = 25%)
-entry_offset    = input.float(0.25, "Entry Offset (from extremes)", step=0.01, minval=0.01, maxval=0.49)
-stop_offset     = input.float(0.00, "Stop Offset (beyond extreme)", step=0.01)
+// Offsets as FRACTIONS of the 8AM candle range
+entry_offset    = input.float(0.25, "Entry Offset (25% default)", step=0.01, minval=0.01, maxval=0.49)
+stop_offset     = input.float(0.00, "Stop Offset (beyond sweep)", step=0.01)
 tp1_offset      = input.float(0.50, "TP1 Offset (50% default)", step=0.01)
 
 // =========================
@@ -33,74 +33,75 @@ if is8AMCandle
     refTime := time
 
 // =========================
-// LEVEL CALCULATIONS (from the 8AM candle's range)
+// LEVEL CALCULATIONS
 // =========================
+candleRange = refHigh - refLow
+entry25High = refHigh - (candleRange * entry_offset)  // 25% from high (short entry after sweep)
+entry25Low = refLow + (candleRange * entry_offset)    // 25% from low (long entry after sweep)
+midPoint = refLow + (candleRange * tp1_offset)        // 50% level
+
+// =========================
+// FAILED 9 SWEEP DETECTION
+// =========================
+// High Swept: price breaks above 8AM high, then closes back below it (FAILED = SHORT setup)
+highSwept = not na(refHigh) and high > refHigh and close < refHigh
+
+// Low Swept: price breaks below 8AM low, then closes back above it (FAILED = LONG setup)
+lowSwept = not na(refLow) and low < refLow and close > refLow
+
+// Freeze the most recent signal
+var string dir = na
 var float lvlEntry = na
 var float lvlStop = na
 var float lvlTp1 = na
 var float lvlTp2 = na
-var string dir = na
-
-candleRange = refHigh - refLow
-
-// Entry zones at 25% from extremes
-entry25High = refHigh - (candleRange * entry_offset)  // Short entry zone
-entry25Low = refLow + (candleRange * entry_offset)    // Long entry zone
-midPoint = refLow + (candleRange * tp1_offset)        // 50% level
-
-// =========================
-// SWEEP/TRIGGER DETECTION
-// =========================
-// Long setup: price dips into bottom 25% zone but holds above low
-longSetup = not na(refHigh) and low <= entry25Low and close > refLow
-
-// Short setup: price spikes into top 25% zone but holds below high
-shortSetup = not na(refHigh) and high >= entry25High and close < refHigh
-
-// Freeze the signal direction
-var string frozenDir = na
-var bool signalFresh = false
-
-if longSetup and (na(frozenDir) or frozenDir != "LONG" or signalFresh == false)
-    frozenDir := "LONG"
-    dir := "LONG"
-    lvlEntry := entry25Low
-    lvlStop := refLow - (candleRange * stop_offset)
-    lvlTp1 := midPoint
-    lvlTp2 := refHigh
-    signalFresh := true
-
-if shortSetup and (na(frozenDir) or frozenDir != "SHORT" or signalFresh == false)
-    frozenDir := "SHORT"
-    dir := "SHORT"
-    lvlEntry := entry25High
-    lvlStop := refHigh + (candleRange * stop_offset)
-    lvlTp1 := midPoint
-    lvlTp2 := refLow
-    signalFresh := true
+var float sweepHigh = na
+var float sweepLow = na
 
 // Reset on new 8AM candle
 if is8AMCandle
-    frozenDir := na
     dir := na
-    signalFresh := false
+    lvlEntry := na
+    lvlStop := na
+    lvlTp1 := na
+    lvlTp2 := na
+    sweepHigh := na
+    sweepLow := na
+
+// SHORT setup: High swept and failed
+if highSwept and barstate.isconfirmed
+    dir := "SHORT"
+    sweepHigh := high  // The actual sweep high (for stop)
+    lvlEntry := entry25High
+    lvlStop := sweepHigh + (candleRange * stop_offset)
+    lvlTp1 := midPoint
+    lvlTp2 := refLow
+
+// LONG setup: Low swept and failed
+if lowSwept and barstate.isconfirmed
+    dir := "LONG"
+    sweepLow := low  // The actual sweep low (for stop)
+    lvlEntry := entry25Low
+    lvlStop := sweepLow - (candleRange * stop_offset)
+    lvlTp1 := midPoint
+    lvlTp2 := refHigh
 
 // =========================
 // STATE: waiting/active/completed
 // =========================
-var string tradeState = "Waiting for setup..."
+var string tradeState = "Waiting for sweep..."
 var bool armed = true
 var bool done = false
 
 // Reset state on new 8AM candle
 var int lastSeenRefTime = na
 if refTime != lastSeenRefTime
-    tradeState := "Waiting for setup..."
+    tradeState := "Waiting for sweep..."
     armed := true
     done := false
     lastSeenRefTime := refTime
 
-// Entry triggers
+// Entry triggers (price crosses entry level after sweep)
 enterLong = dir == "LONG" and armed and ta.crossover(close, lvlEntry)
 enterShort = dir == "SHORT" and armed and ta.crossunder(close, lvlEntry)
 
@@ -153,8 +154,8 @@ f_reset_drawings() =>
         box.delete(posBox)
         posBox := na
 
-// Draw on signal
-if (longSetup or shortSetup) and signalFresh
+// Draw ONLY when a sweep is confirmed
+if (highSwept or lowSwept) and barstate.isconfirmed
     f_reset_drawings()
     
     // Position box spans ENTRY to TP2
@@ -179,9 +180,9 @@ if (longSetup or shortSetup) and signalFresh
         label.new(bar_index, lvlTp2, "TP2: " + str.tostring(lvlTp2, format.mintick), style=label.style_label_left, color=color.new(color.teal, 0), textcolor=color.white)
     
     // Direction label
-    trigText = (dir == "SHORT" ? "SHORT TRIGGER" : "LONG TRIGGER")
+    trigText = (dir == "SHORT" ? "FAILED 9 SHORT" : "FAILED 9 LONG")
     trigCol = (dir == "SHORT" ? color.new(color.red, 0) : color.new(color.lime, 0))
-    lbDir := label.new(bar_index, na(dir) ? close : (dir == "SHORT" ? high : low), trigText, style=label.style_label_down, color=trigCol, textcolor=color.white)
+    lbDir := label.new(bar_index, dir == "SHORT" ? high : low, trigText, style=label.style_label_down, color=trigCol, textcolor=color.white)
 
 // Keep box right edge advancing
 if not na(posBox)
@@ -196,7 +197,7 @@ if showTable
         t := table.new(position.bottom_right, 4, 6, frame_color=color.new(color.gray, 70), border_color=color.new(color.gray, 70))
     
     bg = dir == "SHORT" ? color.new(color.red, 85) : dir == "LONG" ? color.new(color.lime, 85) : color.new(color.gray, 92)
-    head = dir == "SHORT" ? "SHORT TRIGGER" : dir == "LONG" ? "LONG TRIGGER" : "Waiting..."
+    head = dir == "SHORT" ? "FAILED 9 SHORT" : dir == "LONG" ? "FAILED 9 LONG" : "Waiting for sweep..."
     
     // R:R calculation using TP1
     rr = na(lvlEntry) or na(lvlStop) or na(lvlTp1) ? na : (
@@ -232,17 +233,16 @@ if showTable
     table.cell(t, 3, 5, na(rr) ? "-" : "1:" + str.tostring(rr, format.mintick))
 
 // =========================
-// REFERENCE LINES (8AM High/Low/50%)
+// REFERENCE LINES (8AM High/Low)
 // =========================
 plot(not na(refHigh) ? refHigh : na, "8AM High", color=color.new(color.red, 70), style=plot.style_linebr, linewidth=1)
 plot(not na(refLow) ? refLow : na, "8AM Low", color=color.new(color.green, 70), style=plot.style_linebr, linewidth=1)
-plot(not na(refHigh) ? midPoint : na, "50% Level", color=color.new(color.yellow, 70), style=plot.style_linebr, linewidth=1)
 
 // =========================
 // ALERTS
 // =========================
-alertcondition(longSetup, title="Failed 9 Long Setup", message="Failed 9 LONG setup detected at 25% zone!")
-alertcondition(shortSetup, title="Failed 9 Short Setup", message="Failed 9 SHORT setup detected at 25% zone!")
+alertcondition(highSwept, title="Failed 9 Short Setup", message="8AM HIGH SWEPT - Failed 9 SHORT setup!")
+alertcondition(lowSwept, title="Failed 9 Long Setup", message="8AM LOW SWEPT - Failed 9 LONG setup!")
 alertcondition(enterLong, title="Failed 9 Long Entry", message="Failed 9 LONG entry triggered!")
 alertcondition(enterShort, title="Failed 9 Short Entry", message="Failed 9 SHORT entry triggered!")
 alertcondition(hitTp1, title="TP1 Hit", message="Failed 9 TP1 hit!")
