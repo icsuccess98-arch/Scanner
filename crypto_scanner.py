@@ -129,8 +129,11 @@ def get_coinbase_candles(product_id, granularity, count=5):
         
         candles = []
         for c in candles_raw:
+            candle_time = int(c.start) if hasattr(c, 'start') else int(c["start"])
+            if candle_time >= end_time:
+                continue
             candles.append({
-                "time": int(c.start) if hasattr(c, 'start') else int(c["start"]),
+                "time": candle_time,
                 "open": float(c.open) if hasattr(c, 'open') else float(c["open"]),
                 "high": float(c.high) if hasattr(c, 'high') else float(c["high"]),
                 "low": float(c.low) if hasattr(c, 'low') else float(c["low"]),
