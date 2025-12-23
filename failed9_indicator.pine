@@ -4,90 +4,75 @@ indicator("Failed 9 — 8AM NY Session", overlay=true, max_boxes_count=50, max_l
 // =========================
 // USER SETTINGS
 // =========================
-baseTf          = input.timeframe("60", "Base Timeframe (hourly candles)")
 boxOpacity      = input.int(85, "Position Box Opacity", minval=0, maxval=100)
 labelOnLevels   = input.bool(true, "Show Entry/Stop/TP Labels")
 stop_offset     = input.float(0.125, "Stop Offset (12.5%)", step=0.01)
 entry_offset    = input.float(0.25, "Entry Offset (25%)", step=0.01)
 tp1_offset      = input.float(0.50, "TP1 Offset (50%)", step=0.01)
 
-// Only show entries on timeframes LOWER than baseTf
-baseSec = timeframe.in_seconds(baseTf)
-meSec = timeframe.in_seconds(timeframe.period)
-showHere = na(baseSec) or na(meSec) ? true : meSec < baseSec
-
 // =========================
-// 8AM CANDLE SERIES - Store the 8AM candle as reference
+// 8AM CANDLE DETECTION (NY TIME)
 // =========================
-[cHigh, cLow, cClose, cOpen, cTime] = request.security(syminfo.tickerid, baseTf, [high, low, close, open, time], barmerge.gaps_off, barmerge.lookahead_off)
-
-// Detect when it's the 8AM candle (to store) vs 9AM+ candle (to check for sweep)
-candleHour = hour(cTime, "America/New_York")
-is8AMCandle = candleHour == 8
-is9AMCandle = candleHour == 9
+nyHour = hour(time, "America/New_York")
+is8AMCandle = nyHour == 8 and nyHour[1] != 8
 
 // Store the 8AM candle's high/low as reference levels
 var float ref8AMHigh = na
 var float ref8AMLow = na
 var int ref8AMTime = na
 
-if is8AMCandle and barstate.isconfirmed
-    ref8AMHigh := cHigh
-    ref8AMLow := cLow
-    ref8AMTime := cTime
+if is8AMCandle
+    ref8AMHigh := high
+    ref8AMLow := low
+    ref8AMTime := time
+
+// Update 8AM candle high/low during the 8AM hour
+if nyHour == 8
+    if high > ref8AMHigh
+        ref8AMHigh := high
+    if low < ref8AMLow
+        ref8AMLow := low
 
 // =========================
-// FAILED 9 SWEEP DETECTION (on 9AM+ candles)
+// FAILED 9 SWEEP DETECTION (9AM+ candles)
 // Sweep = price takes out 8AM high/low, then closes back inside
 // =========================
-// Check if current candle (9AM or later) sweeps the 8AM levels
-afterSession = candleHour >= 9 and candleHour < 17  // 9AM to 5PM NY
+afterSession = nyHour >= 9 and nyHour < 17  // 9AM to 5PM NY
+candleRange = ref8AMHigh - ref8AMLow
 
-// High Swept: 9AM+ candle breaks above 8AM high, then closes back below it
-highSwept = afterSession and not na(ref8AMHigh) and cHigh > ref8AMHigh and cClose < ref8AMHigh and cClose > ref8AMLow
+// Entry levels at 25% into the 8AM candle
+entry25High = ref8AMHigh - (candleRange * entry_offset)
+entry25Low = ref8AMLow + (candleRange * entry_offset)
 
-// Low Swept: 9AM+ candle breaks below 8AM low, then closes back above it
-lowSwept = afterSession and not na(ref8AMLow) and cLow < ref8AMLow and cClose > ref8AMLow and cClose < ref8AMHigh
+// High Swept: price breaks above 8AM high, then closes back at 25% level
+highSwept = afterSession and not na(ref8AMHigh) and high > ref8AMHigh and close <= entry25High and close > ref8AMLow
+
+// Low Swept: price breaks below 8AM low, then closes back at 25% level
+lowSwept = afterSession and not na(ref8AMLow) and low < ref8AMLow and close >= entry25Low and close < ref8AMHigh
 
 // Freeze the most recent signal
 var string dir = na
-var float refHigh = na
-var float refLow = na
-var int refDay = na
-
-if highSwept and barstate.isconfirmed
-    dir := "SHORT"
-    refHigh := ref8AMHigh
-    refLow := ref8AMLow
-    refDay := ref8AMTime
-
-if lowSwept and barstate.isconfirmed
-    dir := "LONG"
-    refHigh := ref8AMHigh
-    refLow := ref8AMLow
-    refDay := ref8AMTime
-
-// =========================
-// LEVEL CALCULATIONS (from 8AM candle's reference levels)
-// =========================
 var float lvlEntry = na
 var float lvlStop = na
 var float lvlTp1 = na
 var float lvlTp2 = na
+var int refDay = na
 
-candleRange = refHigh - refLow
+if highSwept and barstate.isconfirmed
+    dir := "SHORT"
+    lvlEntry := entry25High
+    lvlStop := ref8AMHigh + (candleRange * stop_offset)
+    lvlTp1 := ref8AMHigh - (candleRange * tp1_offset)
+    lvlTp2 := ref8AMLow
+    refDay := ref8AMTime
 
-if not na(dir)
-    if dir == "SHORT"
-        lvlEntry := refHigh - (candleRange * entry_offset)
-        lvlStop := refHigh + (candleRange * stop_offset)
-        lvlTp1 := refHigh - (candleRange * tp1_offset)
-        lvlTp2 := refLow
-    else
-        lvlEntry := refLow + (candleRange * entry_offset)
-        lvlStop := refLow - (candleRange * stop_offset)
-        lvlTp1 := refLow + (candleRange * tp1_offset)
-        lvlTp2 := refHigh
+if lowSwept and barstate.isconfirmed
+    dir := "LONG"
+    lvlEntry := entry25Low
+    lvlStop := ref8AMLow - (candleRange * stop_offset)
+    lvlTp1 := ref8AMLow + (candleRange * tp1_offset)
+    lvlTp2 := ref8AMHigh
+    refDay := ref8AMTime
 
 // =========================
 // STATE: waiting/active/completed
@@ -104,9 +89,9 @@ if ref8AMTime != lastSeenRefDay
     done := false
     lastSeenRefDay := ref8AMTime
 
-// Activate on lower TF only
-enterLong = showHere and dir == "LONG" and armed and ta.crossover(close, lvlEntry)
-enterShort = showHere and dir == "SHORT" and armed and ta.crossunder(close, lvlEntry)
+// Entry triggers
+enterLong = dir == "LONG" and armed and ta.crossover(close, lvlEntry)
+enterShort = dir == "SHORT" and armed and ta.crossunder(close, lvlEntry)
 
 if enterLong or enterShort
     tradeState := dir + " TRIGGER"
@@ -128,7 +113,7 @@ else if hitTp1
     tradeState := "TP1 hit"
 
 // =========================
-// DRAWING: lines, labels, and position box (only on lower TF)
+// DRAWING: lines, labels, and position box
 // =========================
 var line lnEntry = na
 var line lnStop = na
@@ -138,7 +123,7 @@ var label lbDir = na
 var box posBox = na
 
 // Whenever new signal: clear and redraw
-if barstate.isnew and showHere and not na(refDay)
+if (highSwept or lowSwept) and barstate.isconfirmed and not na(refDay)
     // Delete old drawings
     if not na(lnEntry)
         line.delete(lnEntry)
@@ -177,7 +162,7 @@ if barstate.isnew and showHere and not na(refDay)
     // Direction label
     trigText = dir == "SHORT" ? "SHORT TRIGGER" : "LONG TRIGGER"
     trigCol = dir == "SHORT" ? color.new(color.red, 0) : color.new(color.lime, 0)
-    lbDir := label.new(bar_index, na(dir) ? close : (dir == "SHORT" ? high : low), trigText, style=label.style_label_down, color=trigCol, textcolor=color.white)
+    lbDir := label.new(bar_index, dir == "SHORT" ? high : low, trigText, style=label.style_label_down, color=trigCol, textcolor=color.white)
 
 // Keep the box right edge advancing
 if not na(posBox)
@@ -186,5 +171,5 @@ if not na(posBox)
 // =========================
 // ALERTS
 // =========================
-alertcondition(highSwept, title="Failed 9 Short Setup", message="8AM high swept at 9AM - Short trigger")
-alertcondition(lowSwept, title="Failed 9 Long Setup", message="8AM low swept at 9AM - Long trigger")
+alertcondition(highSwept, title="Failed 9 Short Setup", message="8AM high swept - Short trigger")
+alertcondition(lowSwept, title="Failed 9 Long Setup", message="8AM low swept - Long trigger")
