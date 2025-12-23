@@ -5,7 +5,9 @@ indicator("Failed 9 — 8AM NY Session", overlay=true, max_boxes_count=10, max_l
 // USER SETTINGS
 // =========================
 sessionHour     = input.int(8, "Session Hour (NY Time)", minval=0, maxval=23)
-boxOpacity      = input.int(80, "Position Box Opacity", minval=0, maxval=100)
+sessionEnd      = input.int(17, "Session End Hour (5PM NY)", minval=0, maxval=23)
+boxOpacity      = input.int(50, "Position Box Opacity", minval=0, maxval=100)
+boxWidth        = input.int(30, "Box Width (bars)", minval=10, maxval=200)
 stop_offset     = input.float(0.125, "Stop Offset (12.5%)", step=0.01)
 entry_offset    = input.float(0.25, "Entry Offset (25%)", step=0.01)
 tp1_offset      = input.float(0.50, "TP1 Offset (50%)", step=0.01)
@@ -16,10 +18,13 @@ tp1_offset      = input.float(0.50, "TP1 Offset (50%)", step=0.01)
 twoDaysAgo = timenow - 2 * 24 * 60 * 60 * 1000
 isRecent = time > twoDaysAgo
 
+// Session end check (5PM NY for futures)
+nyHour = hour(time, "America/New_York")
+sessionEnded = nyHour >= sessionEnd
+
 // =========================
 // 8AM CANDLE DETECTION (NY TIME)
 // =========================
-nyHour = hour(time, "America/New_York")
 is8AMCandle = nyHour == sessionHour and nyHour[1] != sessionHour
 
 var float refHigh = na
@@ -48,6 +53,7 @@ var float lvlTp1 = na
 var float lvlTp2 = na
 var int signalBar = na
 var bool newSignal = false
+var bool tradeActive = false
 
 newSignal := false
 
@@ -59,6 +65,7 @@ if highSwept and barstate.isconfirmed
     lvlTp2 := refLow
     signalBar := bar_index
     newSignal := true
+    tradeActive := true
 
 if lowSwept and barstate.isconfirmed
     dir := "LONG"
@@ -68,6 +75,7 @@ if lowSwept and barstate.isconfirmed
     lvlTp2 := refHigh
     signalBar := bar_index
     newSignal := true
+    tradeActive := true
 
 // =========================
 // STATE TRACKING
@@ -81,27 +89,33 @@ if newSignal
     tp2Hit := false
     stopHit := false
 
-if not na(dir) and not stopHit and not tp2Hit
+if tradeActive and not na(dir) and not stopHit and not tp2Hit
     if dir == "LONG"
         if low <= lvlStop
             stopHit := true
+            tradeActive := false
         if high >= lvlTp1
             tp1Hit := true
         if high >= lvlTp2
             tp2Hit := true
+            tradeActive := false
     else
         if high >= lvlStop
             stopHit := true
+            tradeActive := false
         if low <= lvlTp1
             tp1Hit := true
         if low <= lvlTp2
             tp2Hit := true
+            tradeActive := false
+
+// Deactivate trade at session end (5PM NY)
+if sessionEnded and tradeActive
+    tradeActive := false
 
 // =========================
 // DRAWING - Two boxes like Long/Short Position Tool
 // =========================
-// Box 1: RISK zone (Entry to Stop) - RED
-// Box 2: PROFIT zone (Entry to TP2) - GREEN
 var box riskBox = box.new(na, na, na, na, bgcolor=na, border_color=na, border_width=0)
 var box profitBox = box.new(na, na, na, na, bgcolor=na, border_color=na, border_width=0)
 
@@ -118,84 +132,71 @@ var label lblTp2 = label.new(na, na, "", style=label.style_label_left, size=size
 signalRecent = not na(signalBar) and bar_index - signalBar < 500
 
 if newSignal and signalRecent
-    // RISK BOX: Entry to Stop (RED)
-    // PROFIT BOX: Entry to TP2 (GREEN)
-    
+    // More translucent colors
     redBg = color.new(#4d0000, 100 - boxOpacity)
     greenBg = color.new(#004d00, 100 - boxOpacity)
-    redBorder = color.new(color.red, 50)
-    greenBorder = color.new(color.green, 50)
+    redBorder = color.new(color.red, 70)
+    greenBorder = color.new(color.green, 70)
     
     if dir == "LONG"
-        // LONG: Stop below Entry, TPs above Entry
-        // Risk box: Stop (bottom) to Entry (top) - RED
         box.set_lefttop(riskBox, bar_index, lvlEntry)
-        box.set_rightbottom(riskBox, bar_index + 100, lvlStop)
+        box.set_rightbottom(riskBox, bar_index + boxWidth, lvlStop)
         box.set_bgcolor(riskBox, redBg)
         box.set_border_color(riskBox, redBorder)
         box.set_border_style(riskBox, line.style_dashed)
         
-        // Profit box: Entry (bottom) to TP2 (top) - GREEN
         box.set_lefttop(profitBox, bar_index, lvlTp2)
-        box.set_rightbottom(profitBox, bar_index + 100, lvlEntry)
+        box.set_rightbottom(profitBox, bar_index + boxWidth, lvlEntry)
         box.set_bgcolor(profitBox, greenBg)
         box.set_border_color(profitBox, greenBorder)
         box.set_border_style(profitBox, line.style_dashed)
     else
-        // SHORT: Stop above Entry, TPs below Entry
-        // Risk box: Entry (bottom) to Stop (top) - RED
         box.set_lefttop(riskBox, bar_index, lvlStop)
-        box.set_rightbottom(riskBox, bar_index + 100, lvlEntry)
+        box.set_rightbottom(riskBox, bar_index + boxWidth, lvlEntry)
         box.set_bgcolor(riskBox, redBg)
         box.set_border_color(riskBox, redBorder)
         box.set_border_style(riskBox, line.style_dashed)
         
-        // Profit box: TP2 (bottom) to Entry (top) - GREEN
         box.set_lefttop(profitBox, bar_index, lvlEntry)
-        box.set_rightbottom(profitBox, bar_index + 100, lvlTp2)
+        box.set_rightbottom(profitBox, bar_index + boxWidth, lvlTp2)
         box.set_bgcolor(profitBox, greenBg)
         box.set_border_color(profitBox, greenBorder)
         box.set_border_style(profitBox, line.style_dashed)
     
-    // Dashed lines
     line.set_xy1(lnEntry, bar_index, lvlEntry)
-    line.set_xy2(lnEntry, bar_index + 500, lvlEntry)
-    
+    line.set_xy2(lnEntry, bar_index + boxWidth, lvlEntry)
     line.set_xy1(lnStop, bar_index, lvlStop)
-    line.set_xy2(lnStop, bar_index + 500, lvlStop)
-    
+    line.set_xy2(lnStop, bar_index + boxWidth, lvlStop)
     line.set_xy1(lnTp1, bar_index, lvlTp1)
-    line.set_xy2(lnTp1, bar_index + 500, lvlTp1)
-    
+    line.set_xy2(lnTp1, bar_index + boxWidth, lvlTp1)
     line.set_xy1(lnTp2, bar_index, lvlTp2)
-    line.set_xy2(lnTp2, bar_index + 500, lvlTp2)
+    line.set_xy2(lnTp2, bar_index + boxWidth, lvlTp2)
 
-// Update labels on every bar
-if signalRecent and not na(lvlEntry)
+// Update labels while trade is active
+if signalRecent and tradeActive and not na(lvlEntry)
     dirTag = dir == "LONG" ? " (L)" : " (S)"
     
-    label.set_xy(lblEntry, bar_index + 5, lvlEntry)
+    label.set_xy(lblEntry, bar_index + 3, lvlEntry)
     label.set_text(lblEntry, "Entry: " + str.tostring(lvlEntry, format.mintick) + dirTag)
-    label.set_color(lblEntry, color.new(color.gray, 30))
+    label.set_color(lblEntry, color.new(color.gray, 50))
     
-    label.set_xy(lblStop, bar_index + 5, lvlStop)
-    label.set_text(lblStop, (stopHit ? "SL hit: " : "SL: ") + str.tostring(lvlStop, format.mintick))
-    label.set_color(lblStop, stopHit ? color.red : color.new(color.red, 50))
+    label.set_xy(lblStop, bar_index + 3, lvlStop)
+    label.set_text(lblStop, "Stop: " + str.tostring(lvlStop, format.mintick))
+    label.set_color(lblStop, color.new(color.red, 60))
     
-    label.set_xy(lblTp1, bar_index + 5, lvlTp1)
+    label.set_xy(lblTp1, bar_index + 3, lvlTp1)
     label.set_text(lblTp1, (tp1Hit ? "TP1 hit: " : "TP1: ") + str.tostring(lvlTp1, format.mintick))
-    label.set_color(lblTp1, tp1Hit ? color.green : color.new(color.green, 50))
+    label.set_color(lblTp1, tp1Hit ? color.new(color.green, 30) : color.new(color.green, 60))
     
-    label.set_xy(lblTp2, bar_index + 5, lvlTp2)
-    label.set_text(lblTp2, (tp2Hit ? "TP2 hit: " : "TP2: ") + str.tostring(lvlTp2, format.mintick))
-    label.set_color(lblTp2, tp2Hit ? color.green : color.new(color.green, 50))
+    label.set_xy(lblTp2, bar_index + 3, lvlTp2)
+    label.set_text(lblTp2, "TP2: " + str.tostring(lvlTp2, format.mintick))
+    label.set_color(lblTp2, color.new(color.green, 60))
     
-    // Extend boxes right edge
-    box.set_right(riskBox, bar_index + 100)
-    box.set_right(profitBox, bar_index + 100)
+    box.set_right(riskBox, bar_index + boxWidth)
+    box.set_right(profitBox, bar_index + boxWidth)
 
-// Hide if signal is too old
-if not signalRecent
+// Hide when trade is no longer active (TP2/SL hit or session ended)
+if not tradeActive or not signalRecent
     box.set_bgcolor(riskBox, na)
     box.set_border_color(riskBox, na)
     box.set_bgcolor(profitBox, na)
