@@ -22,7 +22,6 @@ SPORT_KEYS = {
 
 def send_discord(msg):
     if not DISCORD_WEBHOOK:
-        print("No Discord webhook configured")
         return
     payload = {"content": msg}
     requests.post(DISCORD_WEBHOOK, json=payload)
@@ -103,7 +102,6 @@ def fetch_espn_team_stats(league):
 
 def fetch_odds(league):
     if not ODDS_API_KEY:
-        print("No ODDS_API_KEY configured")
         return []
     
     sport_key = SPORT_KEYS.get(league)
@@ -116,13 +114,12 @@ def fetch_odds(league):
             "apiKey": ODDS_API_KEY,
             "regions": "us",
             "markets": "totals",
-            "bookmakers": "bovada"
+            "oddsFormat": "american"
         }
         
         resp = requests.get(url, params=params, timeout=30)
         
         if resp.status_code != 200:
-            print(f"Odds API error: {resp.status_code}")
             return []
         
         data = resp.json()
@@ -142,6 +139,20 @@ def fetch_odds(league):
                                 if outcome.get("name") == "Over":
                                     bovada_line = outcome.get("point")
                                     break
+                    break
+            
+            if not bovada_line:
+                for bookmaker in event.get("bookmakers", []):
+                    for market in bookmaker.get("markets", []):
+                        if market.get("key") == "totals":
+                            for outcome in market.get("outcomes", []):
+                                if outcome.get("name") == "Over":
+                                    bovada_line = outcome.get("point")
+                                    break
+                            if bovada_line:
+                                break
+                    if bovada_line:
+                        break
             
             if bovada_line:
                 games.append({
@@ -157,11 +168,8 @@ def fetch_odds(league):
         print(f"Error fetching odds for {league}: {e}")
         return []
 
-def normalize_team_name(name):
-    return name.lower().strip()
-
 def find_team_stats(team_name, stats_dict):
-    normalized = normalize_team_name(team_name)
+    normalized = team_name.lower().strip()
     
     if normalized in stats_dict:
         return stats_dict[normalized]
@@ -172,14 +180,14 @@ def find_team_stats(team_name, stats_dict):
     
     words = normalized.split()
     for word in words:
-        if word in stats_dict:
+        if len(word) > 3 and word in stats_dict:
             return stats_dict[word]
     
     return None
 
 def calculate_bet(team_a_stats, team_b_stats, bovada_line, league):
     if not team_a_stats or not team_b_stats:
-        return None, "Insufficient data — no play."
+        return None
     
     threshold = THRESHOLDS[league]
     
@@ -188,28 +196,26 @@ def calculate_bet(team_a_stats, team_b_stats, bovada_line, league):
     projected_total = expected_a + expected_b
     difference = projected_total - bovada_line
     
-    decision = None
-    reason = None
-    
     if projected_total >= bovada_line + threshold:
-        decision = "OVER"
-        reason = f"Threshold met: {abs(difference):.1f} >= {threshold}"
-    elif bovada_line >= projected_total + threshold:
-        decision = "UNDER"
-        reason = f"Threshold met: {abs(difference):.1f} >= {threshold}"
-    
-    if decision:
         return {
             "expected_a": expected_a,
             "expected_b": expected_b,
             "projected_total": projected_total,
             "difference": difference,
-            "decision": decision,
-            "reason": reason,
+            "decision": "OVER",
             "threshold": threshold
-        }, None
+        }
+    elif bovada_line >= projected_total + threshold:
+        return {
+            "expected_a": expected_a,
+            "expected_b": expected_b,
+            "projected_total": projected_total,
+            "difference": difference,
+            "decision": "UNDER",
+            "threshold": threshold
+        }
     
-    return None, None
+    return None
 
 def format_output(team_a, team_b, team_a_stats, team_b_stats, bovada_line, league, result):
     msg = f"Game: {team_a} vs {team_b}\n"
@@ -224,7 +230,7 @@ def format_output(team_a, team_b, team_a_stats, team_b_stats, bovada_line, leagu
     msg += f"Bovada Line: {bovada_line}\n"
     msg += f"Difference: {result['difference']:.1f}\n\n"
     msg += f"Decision: {result['decision']}\n"
-    msg += f"Reason: {result['reason']}"
+    msg += f"Reason: Threshold met ({abs(result['difference']):.1f} >= {result['threshold']})"
     
     return msg
 
@@ -247,7 +253,7 @@ def scan_league(league, team_stats):
         if not home_stats or not away_stats:
             continue
         
-        result, error = calculate_bet(away_stats, home_stats, bovada_line, league)
+        result = calculate_bet(away_stats, home_stats, bovada_line, league)
         
         if result:
             output = format_output(away_team, home_team, away_stats, home_stats, bovada_line, league, result)
@@ -256,11 +262,8 @@ def scan_league(league, team_stats):
     return qualified_bets
 
 def scan_all_leagues():
-    print(f"Sports Scanner — {datetime.now().strftime('%b %d, %Y %H:%M')}")
-    print("=" * 50)
-    
     if not ODDS_API_KEY:
-        msg = "Insufficient data — no play.\nMissing ODDS_API_KEY for betting lines."
+        msg = "Insufficient data — no play.\nMissing ODDS_API_KEY."
         print(msg)
         send_discord(msg)
         return
@@ -268,40 +271,26 @@ def scan_all_leagues():
     all_bets = []
     
     for league in ["NBA", "NFL", "NHL", "CBB"]:
-        print(f"\nScanning {league}...")
+        print(f"Scanning {league}...")
         
         team_stats = fetch_espn_team_stats(league)
         
         if not team_stats:
-            print(f"No stats available for {league}")
             continue
-        
-        print(f"Loaded {len(team_stats)} team stat entries for {league}")
         
         bets = scan_league(league, team_stats)
         
         if bets:
             all_bets.extend(bets)
-            print(f"Found {len(bets)} qualified bet(s) in {league}")
-        else:
-            print(f"No qualified bets in {league}")
         
         time.sleep(1)
     
     if all_bets:
-        header = f"Sure Bets — {datetime.now().strftime('%b %d, %Y')}\n"
-        header += "=" * 40 + "\n\n"
-        
-        full_msg = header + "\n\n".join(all_bets)
-        
-        print("\n" + "=" * 50)
-        print("QUALIFIED BETS:")
-        print("=" * 50)
+        full_msg = "\n\n---\n\n".join(all_bets)
         print(full_msg)
-        
         send_discord(full_msg)
     else:
-        print("\nNo qualified bets found across all leagues.")
+        print("No qualified bets found.")
 
 if __name__ == "__main__":
     scan_all_leagues()
