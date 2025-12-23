@@ -1,0 +1,172 @@
+//@version=5
+indicator("Liquidity Sweep Entry Framework — Visual Edition", overlay=true, max_boxes_count=50, max_labels_count=500, max_lines_count=500)
+
+// =========================
+// USER SETTINGS
+// =========================
+baseTf          = input.timeframe("1D",   "Base Timeframe (sweep detection)")
+showTable       = input.bool(true,         "Show Dashboard Panel")
+boxOpacity      = input.int(85,            "Position Box Opacity", minval=0, maxval=100)
+labelOnLevels   = input.bool(true,         "Show Entry/Stop/TP Labels")
+
+// Offsets are ABSOLUTE price distances (e.g., 0.12 = 12 cents)
+stop_offset     = input.float(0.12, "Stop Offset", step=0.01)
+entry_offset    = input.float(0.25, "Entry Offset", step=0.01)
+tp1_offset      = input.float(0.50, "TP1 Offset",  step=0.01)
+
+// Only show entries on timeframes LOWER than baseTf
+baseSec  = timeframe.in_seconds(baseTf)
+meSec    = timeframe.in_seconds(timeframe.period)
+showHere = na(baseSec) or na(meSec) ? true : meSec < baseSec
+
+// =========================
+// DAILY (BASE TF) SERIES
+// =========================
+[dHigh, dLow, dClose, dOpen, dTime] = request.security(syminfo.tickerid, baseTf, [high, low, close, open, time], barmerge.gaps_off, barmerge.lookahead_off)
+
+// Use prior completed candle for reference levels
+[dHigh_1, dLow_1, dClose_1, dOpen_1, dTime_1] = request.security(syminfo.tickerid, baseTf, [high[1], low[1], close[1], open[1], time[1]], barmerge.gaps_off, barmerge.lookahead_off)
+
+// Sweep conditions: current daily takes previous daily extremum, then trades back inside (classic liquidity sweep)
+highSwept = dHigh > dHigh_1 and dClose < dHigh_1
+lowSwept  = dLow  < dLow_1  and dClose > dLow_1
+
+// Freeze the most recent signal so that intraday charts can reference it until invalidated
+var string dir = na                // "SHORT" when high swept, "LONG" when low swept
+var float  refHigh = na
+var float  refLow  = na
+var int    refDay  = na
+
+if highSwept and barstate.isconfirmed
+    dir     := "SHORT"
+    refHigh := dHigh_1
+    refLow  := dLow_1
+    refDay  := dTime_1
+
+if lowSwept and barstate.isconfirmed
+    dir     := "LONG"
+    refHigh := dHigh_1
+    refLow  := dLow_1
+    refDay  := dTime_1
+
+// =========================
+// LEVEL CALCULATIONS (from the swept candle's reference levels)
+// =========================
+var float lvlEntry = na
+var float lvlStop  = na
+var float lvlTp1   = na
+var float lvlTp2   = na
+
+if not na(dir)
+    if dir == "SHORT"
+        lvlEntry := refHigh - entry_offset
+        lvlStop  := refHigh + stop_offset
+        lvlTp1   := refHigh - tp1_offset
+        lvlTp2   := refLow
+    else
+        lvlEntry := refLow + entry_offset
+        lvlStop  := refLow - stop_offset
+        lvlTp1   := refLow + tp1_offset
+        lvlTp2   := refHigh
+
+// =========================
+// STATE: waiting/active/completed
+// =========================
+var string tradeState = "Waiting for entry…"
+var bool   armed      = true
+var bool   done       = false
+
+// Reset completion when a NEW base-day signal is stamped
+var int lastSeenRefDay = na
+if refDay != lastSeenRefDay
+    tradeState := "Waiting for entry…"
+    armed      := true
+    done       := false
+    lastSeenRefDay := refDay
+
+// Activate on lower TF only
+enterLong  = showHere and dir == "LONG"  and armed and ta.crossover(close, lvlEntry)
+enterShort = showHere and dir == "SHORT" and armed and ta.crossunder(close, lvlEntry)
+
+if enterLong or enterShort
+    tradeState := dir + " TRIGGER"
+    armed      := false
+
+// Completion rules
+hitStop = not armed and not done and ((dir == "LONG"  and low  <= lvlStop)  or (dir == "SHORT" and high >= lvlStop))
+hitTp1  = not armed and not done and ((dir == "LONG"  and high >= lvlTp1)  or (dir == "SHORT" and low  <= lvlTp1))
+hitTp2  = not armed and not done and ((dir == "LONG"  and high >= lvlTp2)  or (dir == "SHORT" and low  <= lvlTp2))
+
+if hitStop
+    tradeState := "Stopped"
+    done := true
+
+if hitTp2
+    tradeState := "TP2 hit"
+    done := true
+else if hitTp1
+    tradeState := "TP1 hit"
+
+// =========================
+// DRAWING: lines, labels, and position box (only on lower TF)
+// =========================
+var line  lnEntry = na
+var line  lnStop  = na
+var line  lnTp1   = na
+var line  lnTp2   = na
+var label lbDir   = na
+var box   posBox  = na
+
+f_reset_drawings() =>
+    if not na(lnEntry)
+        line.delete(lnEntry)
+        lnEntry := na
+    if not na(lnStop)
+        line.delete(lnStop)
+        lnStop := na
+    if not na(lnTp1)
+        line.delete(lnTp1)
+        lnTp1 := na
+    if not na(lnTp2)
+        line.delete(lnTp2)
+        lnTp2 := na
+    if not na(lbDir)
+        label.delete(lbDir)
+        lbDir := na
+    if not na(posBox)
+        box.delete(posBox)
+        posBox := na
+
+// Whenever new base-day signal: clear and redraw
+if barstate.isnew and showHere and not na(refDay)
+    // fresh draw on first bar after state set
+    f_reset_drawings()
+    // Position box spans ENTRY ↔ TP2 and last N bars into the future
+    if dir == "SHORT"
+        posBox := box.new(left=bar_index, top=lvlEntry, right=bar_index+100, bottom=lvlTp2, bgcolor=color.new(color.red, 100 - boxOpacity), border_color=color.new(color.red, 0))
+    else if dir == "LONG"
+        posBox := box.new(left=bar_index, top=lvlTp2, right=bar_index+100, bottom=lvlEntry, bgcolor=color.new(color.lime, 100 - boxOpacity), border_color=color.new(color.lime, 0))
+    
+    colEntry = color.new(color.yellow, 0)
+    colStop  = color.new(color.red, 0)
+    colTp    = color.new(color.teal, 0)
+
+    lnEntry := line.new(x1=bar_index, y1=lvlEntry, x2=bar_index+500, y2=lvlEntry, extend=extend.right, color=colEntry, width=2)
+    lnStop  := line.new(x1=bar_index, y1=lvlStop,  x2=bar_index+500, y2=lvlStop,  extend=extend.right, color=colStop,  width=2)
+    lnTp1   := line.new(x1=bar_index, y1=lvlTp1,  x2=bar_index+500, y2=lvlTp1,  extend=extend.right, color=color.new(color.lime, 0), width=2)
+    lnTp2   := line.new(x1=bar_index, y1=lvlTp2,  x2=bar_index+500, y2=lvlTp2,  extend=extend.right, color=colTp,     width=2)
+
+    if labelOnLevels
+        label.new(bar_index, lvlEntry, "Entry: " + str.tostring(lvlEntry, format.mintick), style=label.style_label_left, color=color.new(color.yellow, 0), textcolor=color.black)
+        label.new(bar_index, lvlStop,  "Stop:  " + str.tostring(lvlStop,  format.mintick), style=label.style_label_left, color=color.new(color.red, 0),    textcolor=color.white)
+        label.new(bar_index, lvlTp1,   "TP1:   " + str.tostring(lvlTp1,   format.mintick), style=label.style_label_left, color=color.new(color.lime, 0),   textcolor=color.black)
+        label.new(bar_index, lvlTp2,   "TP2:   " + str.tostring(lvlTp2,   format.mintick), style=label.style_label_left, color=color.new(color.teal, 0),   textcolor=color.white)
+
+    // Direction label similar to your screenshot
+    trigText = (dir == "SHORT" ? "SHORT TRIGGER" : "LONG TRIGGER")
+    trigCol  = (dir == "SHORT" ? color.new(color.red, 0) : color.new(color.lime, 0))
+    lbDir := label.new(bar_index, na(dir) ? close : (dir == "SHORT" ? high : low), trigText, style=label.style_label_down, color=trigCol, textcolor=color.white)
+
+// Keep the box right edge advancing so it doesn't stop drawing
+if not na(posBox)
+    box.set_right(posBox, bar_index+100)

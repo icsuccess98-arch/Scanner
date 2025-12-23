@@ -10,10 +10,9 @@ boxOpacity      = input.int(85, "Position Box Opacity", minval=0, maxval=100)
 labelOnLevels   = input.bool(true, "Show Entry/Stop/TP Labels")
 
 // Offsets as FRACTIONS of the 8AM candle range
-entry_offset    = input.float(0.25, "Entry Level (25%)", step=0.01)
-stop_offset     = input.float(0.125, "Stop Level (12.5%)", step=0.01)
-tp1_offset      = input.float(0.50, "TP1 Level (50%)", step=0.01)
-tp2_offset      = input.float(1.00, "TP2 Level (100%)", step=0.01)
+stop_offset     = input.float(0.125, "Stop Offset (12.5%)", step=0.01)
+entry_offset    = input.float(0.25, "Entry Offset (25%)", step=0.01)
+tp1_offset      = input.float(0.50, "TP1 Offset (50%)", step=0.01)
 
 // =========================
 // 8AM CANDLE DETECTION (NY TIME)
@@ -24,82 +23,63 @@ is8AMCandle = nyHour == sessionHour and nyHour[1] != sessionHour
 // Store 8AM candle reference levels
 var float refHigh = na
 var float refLow = na
-var int refBar = na
 var int refTime = na
 
 if is8AMCandle
     refHigh := high
     refLow := low
-    refBar := bar_index
     refTime := time
-
-// =========================
-// LEVEL CALCULATIONS
-// =========================
-candleRange = refHigh - refLow
-
-// Entry at 25% from extremes
-entry25High = refHigh - (candleRange * entry_offset)  // Short entry (25% from high)
-entry25Low = refLow + (candleRange * entry_offset)    // Long entry (25% from low)
 
 // =========================
 // FAILED 9 SWEEP DETECTION
 // =========================
-// High Swept at 25%: price enters the top 25% zone after sweeping high
-highSwept = not na(refHigh) and high > refHigh and close <= entry25High and close > refLow
+// High Swept: price breaks above 8AM high, then closes back at 25% level
+candleRange = refHigh - refLow
+entry25High = refHigh - (candleRange * entry_offset)
+entry25Low = refLow + (candleRange * entry_offset)
 
-// Low Swept at 25%: price enters the bottom 25% zone after sweeping low  
+highSwept = not na(refHigh) and high > refHigh and close <= entry25High and close > refLow
 lowSwept = not na(refLow) and low < refLow and close >= entry25Low and close < refHigh
 
-// Freeze the most recent signal
+// Freeze the most recent signal so charts can reference it
 var string dir = na
 var float lvlEntry = na
 var float lvlStop = na
 var float lvlTp1 = na
 var float lvlTp2 = na
 
-// Reset on new 8AM candle
-if is8AMCandle
-    dir := na
-    lvlEntry := na
-    lvlStop := na
-    lvlTp1 := na
-    lvlTp2 := na
-
-// SHORT setup: High swept, price at 25% level
 if highSwept and barstate.isconfirmed
     dir := "SHORT"
-    lvlEntry := entry25High                                    // Entry at 25% from high
-    lvlStop := refHigh - (candleRange * stop_offset)           // Stop at 12.5% from high (above entry)
-    lvlTp1 := refHigh - (candleRange * tp1_offset)             // TP1 at 50%
-    lvlTp2 := refLow                                           // TP2 at 100% (the low)
+    lvlEntry := entry25High
+    lvlStop := refHigh + (candleRange * stop_offset)
+    lvlTp1 := refHigh - (candleRange * tp1_offset)
+    lvlTp2 := refLow
 
-// LONG setup: Low swept, price at 25% level
 if lowSwept and barstate.isconfirmed
     dir := "LONG"
-    lvlEntry := entry25Low                                     // Entry at 25% from low
-    lvlStop := refLow + (candleRange * stop_offset)            // Stop at 12.5% from low (below entry)
-    lvlTp1 := refLow + (candleRange * tp1_offset)              // TP1 at 50%
-    lvlTp2 := refHigh                                          // TP2 at 100% (the high)
+    lvlEntry := entry25Low
+    lvlStop := refLow - (candleRange * stop_offset)
+    lvlTp1 := refLow + (candleRange * tp1_offset)
+    lvlTp2 := refHigh
 
 // =========================
 // STATE: waiting/active/completed
 // =========================
-var string tradeState = "Waiting for sweep..."
+var string tradeState = "Waiting for entry..."
 var bool armed = true
 var bool done = false
 
-// Reset state on new 8AM candle
+// Reset completion when a NEW 8AM candle signal is stamped
 var int lastSeenRefTime = na
 if refTime != lastSeenRefTime
-    tradeState := "Waiting for sweep..."
+    tradeState := "Waiting for entry..."
     armed := true
     done := false
     lastSeenRefTime := refTime
 
-// Entry triggers
-enterLong = dir == "LONG" and armed and close >= lvlEntry
-enterShort = dir == "SHORT" and armed and close <= lvlEntry
+// Activate entry
+enterLong = dir == "LONG" and armed and ta.crossover(close, lvlEntry)
+enterShort = dir == "SHORT" and armed and ta.crossunder(close, lvlEntry)
 
 if enterLong or enterShort
     tradeState := dir + " TRIGGER"
@@ -129,7 +109,6 @@ var line lnTp1 = na
 var line lnTp2 = na
 var label lbDir = na
 var box posBox = na
-var box stopBox = na
 
 f_reset_drawings() =>
     if not na(lnEntry)
@@ -150,54 +129,40 @@ f_reset_drawings() =>
     if not na(posBox)
         box.delete(posBox)
         posBox := na
-    if not na(stopBox)
-        box.delete(stopBox)
-        stopBox := na
 
-// Draw ONLY when a sweep is confirmed
-if (highSwept or lowSwept) and barstate.isconfirmed
+// Whenever new signal: clear and redraw
+if barstate.isnew and not na(dir) and not na(lvlEntry)
     f_reset_drawings()
     
-    // Position box: Entry to TP2 (profit zone - green for long, red for short)
-    // Stop box: Entry to Stop (risk zone - opposite color)
+    // Position box spans ENTRY to TP2
     if dir == "SHORT"
-        posBox := box.new(left=bar_index, top=lvlEntry, right=bar_index+100, bottom=lvlTp2, bgcolor=color.new(color.green, 100 - boxOpacity), border_color=color.new(color.green, 0))
-        stopBox := box.new(left=bar_index, top=lvlStop, right=bar_index+100, bottom=lvlEntry, bgcolor=color.new(color.red, 100 - boxOpacity), border_color=color.new(color.red, 0))
+        posBox := box.new(left=bar_index, top=lvlEntry, right=bar_index+100, bottom=lvlTp2, bgcolor=color.new(color.red, 100 - boxOpacity), border_color=color.new(color.red, 0))
     else if dir == "LONG"
-        posBox := box.new(left=bar_index, top=lvlTp2, right=bar_index+100, bottom=lvlEntry, bgcolor=color.new(color.green, 100 - boxOpacity), border_color=color.new(color.green, 0))
-        stopBox := box.new(left=bar_index, top=lvlEntry, right=bar_index+100, bottom=lvlStop, bgcolor=color.new(color.red, 100 - boxOpacity), border_color=color.new(color.red, 0))
+        posBox := box.new(left=bar_index, top=lvlTp2, right=bar_index+100, bottom=lvlEntry, bgcolor=color.new(color.lime, 100 - boxOpacity), border_color=color.new(color.lime, 0))
     
     colEntry = color.new(color.yellow, 0)
     colStop = color.new(color.red, 0)
-    colTp1 = color.new(color.lime, 0)
-    colTp2 = color.new(color.teal, 0)
+    colTp = color.new(color.teal, 0)
     
-    lnEntry := line.new(x1=bar_index, y1=lvlEntry, x2=bar_index+500, y2=lvlEntry, extend=extend.right, color=colEntry, width=2, style=line.style_dashed)
+    lnEntry := line.new(x1=bar_index, y1=lvlEntry, x2=bar_index+500, y2=lvlEntry, extend=extend.right, color=colEntry, width=2)
     lnStop := line.new(x1=bar_index, y1=lvlStop, x2=bar_index+500, y2=lvlStop, extend=extend.right, color=colStop, width=2)
-    lnTp1 := line.new(x1=bar_index, y1=lvlTp1, x2=bar_index+500, y2=lvlTp1, extend=extend.right, color=colTp1, width=2, style=line.style_dashed)
-    lnTp2 := line.new(x1=bar_index, y1=lvlTp2, x2=bar_index+500, y2=lvlTp2, extend=extend.right, color=colTp2, width=2)
+    lnTp1 := line.new(x1=bar_index, y1=lvlTp1, x2=bar_index+500, y2=lvlTp1, extend=extend.right, color=color.new(color.lime, 0), width=2)
+    lnTp2 := line.new(x1=bar_index, y1=lvlTp2, x2=bar_index+500, y2=lvlTp2, extend=extend.right, color=colTp, width=2)
     
     if labelOnLevels
-        // Calculate R:R for labels
-        risk = math.abs(lvlEntry - lvlStop)
-        tp1RR = math.abs(lvlTp1 - lvlEntry) / risk
-        tp2RR = math.abs(lvlTp2 - lvlEntry) / risk
-        
-        label.new(bar_index + 5, lvlEntry, "Entry: " + str.tostring(lvlEntry, format.mintick), style=label.style_label_left, color=color.new(color.yellow, 0), textcolor=color.black)
-        label.new(bar_index + 5, lvlStop, "Stop: " + str.tostring(lvlStop, format.mintick), style=label.style_label_left, color=color.new(color.red, 0), textcolor=color.white)
-        label.new(bar_index + 5, lvlTp1, "TP1: " + str.tostring(lvlTp1, format.mintick) + " (1:" + str.tostring(tp1RR, "#.#") + ")", style=label.style_label_left, color=color.new(color.lime, 0), textcolor=color.black)
-        label.new(bar_index + 5, lvlTp2, "TP2: " + str.tostring(lvlTp2, format.mintick) + " (1:" + str.tostring(tp2RR, "#.#") + ")", style=label.style_label_left, color=color.new(color.teal, 0), textcolor=color.white)
+        label.new(bar_index, lvlEntry, "Entry: " + str.tostring(lvlEntry, format.mintick), style=label.style_label_left, color=color.new(color.yellow, 0), textcolor=color.black)
+        label.new(bar_index, lvlStop, "Stop:  " + str.tostring(lvlStop, format.mintick), style=label.style_label_left, color=color.new(color.red, 0), textcolor=color.white)
+        label.new(bar_index, lvlTp1, "TP1:   " + str.tostring(lvlTp1, format.mintick), style=label.style_label_left, color=color.new(color.lime, 0), textcolor=color.black)
+        label.new(bar_index, lvlTp2, "TP2:   " + str.tostring(lvlTp2, format.mintick), style=label.style_label_left, color=color.new(color.teal, 0), textcolor=color.white)
     
     // Direction label
-    trigText = (dir == "SHORT" ? "FAILED 9 SHORT" : "FAILED 9 LONG")
+    trigText = (dir == "SHORT" ? "SHORT TRIGGER" : "LONG TRIGGER")
     trigCol = (dir == "SHORT" ? color.new(color.red, 0) : color.new(color.lime, 0))
-    lbDir := label.new(bar_index, dir == "SHORT" ? high : low, trigText, style=label.style_label_down, color=trigCol, textcolor=color.white, size=size.normal)
+    lbDir := label.new(bar_index, na(dir) ? close : (dir == "SHORT" ? high : low), trigText, style=label.style_label_down, color=trigCol, textcolor=color.white)
 
-// Keep boxes advancing
+// Keep the box right edge advancing
 if not na(posBox)
     box.set_right(posBox, bar_index + 100)
-if not na(stopBox)
-    box.set_right(stopBox, bar_index + 100)
 
 // =========================
 // DASHBOARD PANEL (table)
@@ -205,59 +170,45 @@ if not na(stopBox)
 var table t = na
 if showTable
     if na(t)
-        t := table.new(position.bottom_right, 4, 7, frame_color=color.new(color.gray, 70), border_color=color.new(color.gray, 70))
+        t := table.new(position.bottom_right, 4, 6, frame_color=color.new(color.gray, 70), border_color=color.new(color.gray, 70))
     
     bg = dir == "SHORT" ? color.new(color.red, 85) : dir == "LONG" ? color.new(color.lime, 85) : color.new(color.gray, 92)
-    head = dir == "SHORT" ? "FAILED 9 SHORT" : dir == "LONG" ? "FAILED 9 LONG" : "Waiting for sweep..."
+    head = dir == "SHORT" ? "SHORT TRIGGER" : dir == "LONG" ? "LONG TRIGGER" : "Waiting..."
     
-    // R:R calculations
-    risk = na(lvlEntry) or na(lvlStop) ? na : math.abs(lvlEntry - lvlStop)
-    rr1 = na(risk) or na(lvlTp1) ? na : math.abs(lvlTp1 - lvlEntry) / risk
-    rr2 = na(risk) or na(lvlTp2) ? na : math.abs(lvlTp2 - lvlEntry) / risk
+    // R:R calculation
+    rr = na(lvlEntry) or na(lvlStop) or na(lvlTp1) ? na : (
+         dir == "SHORT" ? (math.abs(lvlEntry - lvlTp1) / math.abs(lvlStop - lvlEntry)) :
+                          (math.abs(lvlTp1 - lvlEntry) / math.abs(lvlEntry - lvlStop)))
     
-    // Percent move to TP1 from Entry
-    potPct = na(lvlEntry) or na(lvlTp1) ? na : (math.abs(lvlTp1 - lvlEntry) / lvlEntry) * 100
+    potPct = na(lvlEntry) or na(lvlTp1) ? na : (
+             dir == "SHORT" ? ((lvlEntry - lvlTp1) / lvlEntry) * 100 : ((lvlTp1 - lvlEntry) / lvlEntry) * 100)
     
-    // Draw table
+    rangeTxt = na(refHigh) or na(refLow) ? "-" : str.tostring(refLow, format.mintick) + " - " + str.tostring(refHigh, format.mintick)
+    
     table.cell(t, 0, 0, "Failed 9 Framework", bgcolor=color.new(color.black, 0), text_color=color.silver)
     table.cell(t, 0, 1, head, bgcolor=bg, text_color=color.white)
     table.cell(t, 0, 2, "8AM Candle", text_color=color.silver)
     table.cell(t, 1, 2, str.tostring(sessionHour) + ":00 NY")
-    rangeTxt = na(refHigh) or na(refLow) ? "-" : str.tostring(refLow, format.mintick) + " - " + str.tostring(refHigh, format.mintick)
     table.cell(t, 2, 2, "Price Range", text_color=color.silver)
     table.cell(t, 3, 2, rangeTxt)
     
-    table.cell(t, 0, 3, "Entry (25%)", text_color=color.silver)
+    table.cell(t, 0, 3, "Entry", text_color=color.silver)
     table.cell(t, 1, 3, na(lvlEntry) ? "-" : str.tostring(lvlEntry, format.mintick))
-    table.cell(t, 2, 3, "Stop (12.5%)", text_color=color.silver)
+    table.cell(t, 2, 3, "Stop", text_color=color.silver)
     table.cell(t, 3, 3, na(lvlStop) ? "-" : str.tostring(lvlStop, format.mintick))
     
     table.cell(t, 0, 4, "TP1 (50%)", text_color=color.silver)
     table.cell(t, 1, 4, na(lvlTp1) ? "-" : str.tostring(lvlTp1, format.mintick))
-    table.cell(t, 2, 4, "TP2 (100%)", text_color=color.silver)
+    table.cell(t, 2, 4, "TP2", text_color=color.silver)
     table.cell(t, 3, 4, na(lvlTp2) ? "-" : str.tostring(lvlTp2, format.mintick))
     
-    table.cell(t, 0, 5, "R:R to TP1", text_color=color.silver)
-    table.cell(t, 1, 5, na(rr1) ? "-" : "1:" + str.tostring(rr1, "#.#"))
-    table.cell(t, 2, 5, "R:R to TP2", text_color=color.silver)
-    table.cell(t, 3, 5, na(rr2) ? "-" : "1:" + str.tostring(rr2, "#.#"))
-    
-    table.cell(t, 0, 6, "Potential Move", text_color=color.silver)
-    table.cell(t, 1, 6, na(potPct) ? "-" : str.tostring(potPct, "#.##") + "%")
-    table.cell(t, 2, 6, "Status", text_color=color.silver)
-    table.cell(t, 3, 6, tradeState)
-
-// =========================
-// REFERENCE LINES (8AM High/Low)
-// =========================
-plot(not na(refHigh) ? refHigh : na, "8AM High", color=color.new(color.red, 70), style=plot.style_linebr, linewidth=1)
-plot(not na(refLow) ? refLow : na, "8AM Low", color=color.new(color.green, 70), style=plot.style_linebr, linewidth=1)
+    table.cell(t, 0, 5, "Potential Move", text_color=color.silver)
+    table.cell(t, 1, 5, na(potPct) ? "-" : str.tostring(potPct, format.percent))
+    table.cell(t, 2, 5, "R:R (to TP1)", text_color=color.silver)
+    table.cell(t, 3, 5, na(rr) ? "-" : "1:" + str.tostring(rr, format.mintick))
 
 // =========================
 // ALERTS
 // =========================
-alertcondition(highSwept, title="Failed 9 Short Setup", message="8AM HIGH SWEPT - Failed 9 SHORT at 25%!")
-alertcondition(lowSwept, title="Failed 9 Long Setup", message="8AM LOW SWEPT - Failed 9 LONG at 25%!")
-alertcondition(hitTp1, title="TP1 Hit", message="Failed 9 TP1 (50%) hit!")
-alertcondition(hitTp2, title="TP2 Hit", message="Failed 9 TP2 (100%) hit!")
-alertcondition(hitStop, title="Stop Hit", message="Failed 9 Stop (12.5%) hit!")
+alertcondition(highSwept, title="Failed 9 Short Setup", message="8AM high swept. Short trigger active.")
+alertcondition(lowSwept, title="Failed 9 Long Setup", message="8AM low swept. Long trigger active.")
