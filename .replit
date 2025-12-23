@@ -2,6 +2,7 @@ modules = ["python-3.11"]
 
 [nix]
 channel = "stable-25_05"
+packages = ["cargo", "libiconv", "libxcrypt", "openssl", "pkg-config", "rustc"]
 
 [agent]
 expertMode = true
@@ -25,6 +26,14 @@ args = "Run Weekly"
 [[workflows.workflow.tasks]]
 task = "workflow.run"
 args = "Run Monthly"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Crypto Daily"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Crypto Weekly"
 
 [[workflows.workflow]]
 name = "Run Daily"
@@ -55,6 +64,28 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "RUN_MODE=MONTHLY python main.py"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Crypto Daily"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "RUN_MODE=DAILY python crypto_scanner.py"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Crypto Weekly"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "RUN_MODE=WEEKLY python crypto_scanner.py"
 
 [workflows.workflow.metadata]
 outputType = "console"
