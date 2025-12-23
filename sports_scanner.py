@@ -3,7 +3,7 @@ import requests
 from datetime import datetime
 import time
 
-DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK", "")
+DISCORD_WEBHOOK = os.environ.get("SPORTS_DISCORD_WEBHOOK", "")
 
 THRESHOLDS = {
     "NBA": 8.0,
