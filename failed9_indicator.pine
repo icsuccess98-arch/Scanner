@@ -1,0 +1,168 @@
+//@version=5
+indicator("Failed 9 - 8AM NY Session", overlay=true, max_boxes_count=500, max_lines_count=500, max_labels_count=500)
+
+// Inputs
+nyOffset = input.int(-5, "NY Timezone Offset (EST = -5)", minval=-12, maxval=12)
+sessionHour = input.int(8, "Session Hour (8 = 8AM)", minval=0, maxval=23)
+entryPercent = input.float(25, "Entry Trigger %", minval=1, maxval=49) / 100
+tp1Percent = input.float(50, "TP1 %", minval=1, maxval=100) / 100
+showBoxes = input.bool(true, "Show Risk/Reward Boxes")
+showLabels = input.bool(true, "Show Labels")
+longColor = input.color(color.new(color.green, 80), "Long Zone Color")
+shortColor = input.color(color.new(color.red, 80), "Short Zone Color")
+entryColor = input.color(color.white, "Entry Line Color")
+tp1Color = input.color(color.lime, "TP1 Line Color")
+tp2Color = input.color(color.aqua, "TP2 Line Color")
+
+// Variables
+var float sessionHigh = na
+var float sessionLow = na
+var bool sessionCaptured = false
+var int sessionBar = na
+var bool longTriggered = false
+var bool shortTriggered = false
+var float entryPrice = na
+var float tp1Price = na
+var float tp2Price = na
+var float stopPrice = na
+var box longBox = na
+var box shortBox = na
+var line entryLine = na
+var line tp1Line = na
+var line tp2Line = na
+var line stopLine = na
+var label entryLabel = na
+var label tp1Label = na
+var label tp2Label = na
+
+// Get current hour in NY time
+nyHour = hour(time, "America/New_York")
+
+// Detect 8AM candle
+is8AMCandle = nyHour == sessionHour and nyHour[1] != sessionHour
+
+// Capture 8AM candle high/low
+if is8AMCandle
+    sessionHigh := high
+    sessionLow := low
+    sessionBar := bar_index
+    sessionCaptured := true
+    longTriggered := false
+    shortTriggered := false
+    
+    // Clean up old drawings
+    if not na(longBox)
+        box.delete(longBox)
+    if not na(shortBox)
+        box.delete(shortBox)
+    if not na(entryLine)
+        line.delete(entryLine)
+    if not na(tp1Line)
+        line.delete(tp1Line)
+    if not na(tp2Line)
+        line.delete(tp2Line)
+    if not na(stopLine)
+        line.delete(stopLine)
+    if not na(entryLabel)
+        label.delete(entryLabel)
+    if not na(tp1Label)
+        label.delete(tp1Label)
+    if not na(tp2Label)
+        label.delete(tp2Label)
+
+// Calculate levels
+sessionRange = sessionHigh - sessionLow
+entry25High = sessionHigh - (sessionRange * entryPercent)  // 25% from high (short entry)
+entry25Low = sessionLow + (sessionRange * entryPercent)    // 25% from low (long entry)
+midPoint = sessionLow + (sessionRange * tp1Percent)        // 50% level
+
+// Draw session zones after 8AM candle
+if sessionCaptured and bar_index > sessionBar and showBoxes
+    // Short zone (top - red)
+    if na(shortBox)
+        shortBox := box.new(sessionBar, sessionHigh, bar_index + 20, entry25High, 
+                           bgcolor=shortColor, border_color=color.red, border_width=1)
+    else
+        box.set_right(shortBox, bar_index + 20)
+    
+    // Long zone (bottom - green)  
+    if na(longBox)
+        longBox := box.new(sessionBar, entry25Low, bar_index + 20, sessionLow,
+                           bgcolor=longColor, border_color=color.green, border_width=1)
+    else
+        box.set_right(longBox, bar_index + 20)
+
+// Detect Failed 9 Long Setup (price takes out low at 25%)
+longSetup = sessionCaptured and not longTriggered and low <= entry25Low and close > sessionLow
+
+// Detect Failed 9 Short Setup (price takes out high at 25%)
+shortSetup = sessionCaptured and not shortTriggered and high >= entry25High and close < sessionHigh
+
+// Long Entry Triggered
+if longSetup and not longTriggered
+    longTriggered := true
+    entryPrice := entry25Low
+    stopPrice := sessionLow
+    tp1Price := midPoint
+    tp2Price := sessionHigh
+    
+    // Draw entry/TP lines
+    entryLine := line.new(bar_index, entryPrice, bar_index + 30, entryPrice, 
+                         color=entryColor, style=line.style_dashed, width=2)
+    tp1Line := line.new(bar_index, tp1Price, bar_index + 30, tp1Price,
+                       color=tp1Color, style=line.style_dashed, width=1)
+    tp2Line := line.new(bar_index, tp2Price, bar_index + 30, tp2Price,
+                       color=tp2Color, style=line.style_dashed, width=1)
+    stopLine := line.new(bar_index, stopPrice, bar_index + 30, stopPrice,
+                        color=color.red, style=line.style_solid, width=2)
+    
+    if showLabels
+        riskPips = entryPrice - stopPrice
+        tp1RR = (tp1Price - entryPrice) / riskPips
+        tp2RR = (tp2Price - entryPrice) / riskPips
+        
+        entryLabel := label.new(bar_index + 25, entryPrice, "Entry: " + str.tostring(entryPrice, "#.#####"),
+                               color=color.new(color.white, 100), textcolor=entryColor, style=label.style_label_left)
+        tp1Label := label.new(bar_index + 25, tp1Price, "TP1: " + str.tostring(tp1Price, "#.#####") + " (1:" + str.tostring(tp1RR, "#.#") + ")",
+                             color=color.new(color.white, 100), textcolor=tp1Color, style=label.style_label_left)
+        tp2Label := label.new(bar_index + 25, tp2Price, "TP2: " + str.tostring(tp2Price, "#.#####") + " (1:" + str.tostring(tp2RR, "#.#") + ")",
+                             color=color.new(color.white, 100), textcolor=tp2Color, style=label.style_label_left)
+
+// Short Entry Triggered  
+if shortSetup and not shortTriggered
+    shortTriggered := true
+    entryPrice := entry25High
+    stopPrice := sessionHigh
+    tp1Price := midPoint
+    tp2Price := sessionLow
+    
+    // Draw entry/TP lines
+    entryLine := line.new(bar_index, entryPrice, bar_index + 30, entryPrice,
+                         color=entryColor, style=line.style_dashed, width=2)
+    tp1Line := line.new(bar_index, tp1Price, bar_index + 30, tp1Price,
+                       color=tp1Color, style=line.style_dashed, width=1)
+    tp2Line := line.new(bar_index, tp2Price, bar_index + 30, tp2Price,
+                       color=tp2Color, style=line.style_dashed, width=1)
+    stopLine := line.new(bar_index, stopPrice, bar_index + 30, stopPrice,
+                        color=color.red, style=line.style_solid, width=2)
+    
+    if showLabels
+        riskPips = stopPrice - entryPrice
+        tp1RR = (entryPrice - tp1Price) / riskPips
+        tp2RR = (entryPrice - tp2Price) / riskPips
+        
+        entryLabel := label.new(bar_index + 25, entryPrice, "Entry: " + str.tostring(entryPrice, "#.#####"),
+                               color=color.new(color.white, 100), textcolor=entryColor, style=label.style_label_left)
+        tp1Label := label.new(bar_index + 25, tp1Price, "TP1: " + str.tostring(tp1Price, "#.#####") + " (1:" + str.tostring(tp1RR, "#.#") + ")",
+                             color=color.new(color.white, 100), textcolor=tp1Color, style=label.style_label_left)
+        tp2Label := label.new(bar_index + 25, tp2Price, "TP2: " + str.tostring(tp2Price, "#.#####") + " (1:" + str.tostring(tp2RR, "#.#") + ")",
+                             color=color.new(color.white, 100), textcolor=tp2Color, style=label.style_label_left)
+
+// Plot session high/low reference lines
+plot(sessionCaptured ? sessionHigh : na, "8AM High", color=color.new(color.red, 50), style=plot.style_linebr, linewidth=1)
+plot(sessionCaptured ? sessionLow : na, "8AM Low", color=color.new(color.green, 50), style=plot.style_linebr, linewidth=1)
+plot(sessionCaptured ? midPoint : na, "50% Level", color=color.new(color.yellow, 50), style=plot.style_linebr, linewidth=1)
+
+// Alerts
+alertcondition(longSetup, "Failed 9 Long", "Failed 9 LONG setup detected!")
+alertcondition(shortSetup, "Failed 9 Short", "Failed 9 SHORT setup detected!")
