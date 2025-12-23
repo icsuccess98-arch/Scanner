@@ -22,12 +22,12 @@ def send_discord(msg, webhook_url):
 def send_discord_csv(symbols, title, webhook_url):
     if not webhook_url or not symbols:
         return
-    tv_symbols = [f"COINBASE:{s.replace('-', '')}" for s in symbols]
+    tv_symbols = [f"COINBASE:{s}" for s in symbols]
     csv_content = ",".join(tv_symbols)
     files = {
         "file": (f"{title.lower()}_crypto_watchlist.txt", csv_content, "text/plain")
     }
-    data = {"content": f"📋 **{title} Crypto TradingView Watchlist**"}
+    data = {"content": f"**{title} Crypto TradingView Watchlist**"}
     requests.post(webhook_url, data=data, files=files)
 
 # ---------------------------------------------------------
@@ -81,9 +81,6 @@ GROUP_ORDER = {
 
 def pretty(symbol):
     return symbol.replace("USD", "")
-
-def to_product_id(symbol):
-    return symbol[:-3] + "-USD"
 
 def direction(c):
     return "UP" if c["close"] > c["open"] else "DOWN"
@@ -248,82 +245,111 @@ def scan(title, granularity, discord_webhook=None):
             
             is_double_inside = prev3 and prev_type == "1" and strat_type(prev2, prev3) == "1"
             
-            if prev_type == "1" or prev_type == "3" or is_double_inside:
-                if weekly and monthly:
-                    arrows = arrow(direction(monthly[-1])) + arrow(direction(weekly[-1])) + arrow(direction(curr))
-                    if is_double_inside:
-                        pattern = "II-" + f2.replace("Failed ", "F")
-                    elif prev_type == "1":
-                        pattern = "1-" + f2.replace("Failed ", "F")
+            if weekly and monthly:
+                arrows = arrow(direction(monthly[-1])) + arrow(direction(weekly[-1])) + arrow(direction(curr))
+                
+                if is_double_inside:
+                    if f2 == "Failed 2U":
+                        aplus[symbol] = f"M/W/D {arrows} — II-F2U"
                     else:
-                        pattern = "3-" + f2.replace("Failed ", "F")
-                    aplus[symbol] = f"M/W/D {arrows} — {pattern}"
+                        aplus[symbol] = f"M/W/D {arrows} — II-F2D"
+                elif prev_type == "1":
+                    if f2 == "Failed 2U":
+                        aplus[symbol] = f"M/W/D {arrows} — 1-F2U"
+                    else:
+                        aplus[symbol] = f"M/W/D {arrows} — 1-F2D"
+                elif prev_type == "3":
+                    if f2 == "Failed 2U":
+                        aplus[symbol] = f"M/W/D {arrows} — 3-F2U"
+                    else:
+                        aplus[symbol] = f"M/W/D {arrows} — 3-F2D"
+                else:
+                    ftfc = ftfc_pass(curr, weekly[-1], monthly[-1])
+                    if ftfc:
+                        if f2 == "Failed 2U" and ftfc == "DOWN":
+                            aplus[symbol] = f"M/W/D {arrows} — F2U"
+                        if f2 == "Failed 2D" and ftfc == "UP":
+                            aplus[symbol] = f"M/W/D {arrows} — F2D"
 
-    msg_parts = []
+    today = datetime.now()
+    yesterday = today - timedelta(days=1)
+    date_header = today.strftime("%b %d, %Y")
+    from_day = yesterday.strftime("%a %b %d")
+    dc_header = f"<b>Crypto {title} Actionable Strat — {date_header}</b>\n"
+    dc_header += f"(From {from_day} close)\n\n"
 
-    msg_parts.append(f"📊 **CRYPTO {title} SCAN** (TradingView Data)\n")
-    msg_parts.append(f"_Timestamp: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}_\n")
+    msg = ""
 
     if aplus:
-        upside = []
-        downside = []
-        for sym, info in aplus.items():
-            arrows = info.split(" — ")[0].replace("M/W/D ", "")
-            if "↑" in arrows[-1:]:
-                upside.append((sym, info))
+        msg += "<b>A++ Setups</b>\n\n"
+        ups = []
+        dns = []
+
+        for sym, lbl in aplus.items():
+            lbl_short = lbl.replace("Failed 2U", "F2U").replace("Failed 2D", "F2D")
+            if "F2D" in lbl_short:
+                ups.append((sym, lbl_short))
+            elif "F2U" in lbl_short:
+                dns.append((sym, lbl_short))
+            elif ("Double Inside" in lbl or "3-1" in lbl or "1-3" in lbl) and "↑" in lbl:
+                ups.append((sym, lbl_short))
             else:
-                downside.append((sym, info))
-        
-        msg_parts.append("\n🔥 **A++ SETUPS (No FTFC Required)**\n")
-        if upside:
-            msg_parts.append("🔺 Upside:\n")
-            for sym, info in upside:
-                msg_parts.append(f"• {pretty(sym)} — {info}\n")
-        if downside:
-            msg_parts.append("🔻 Downside:\n")
-            for sym, info in downside:
-                msg_parts.append(f"• {pretty(sym)} — {info}\n")
+                dns.append((sym, lbl_short))
 
-    if f2u or f2d:
-        msg_parts.append("\n⚡ **Failed 2 (FTFC Required)**\n")
-        if f2d:
-            msg_parts.append("🔺 F2D (Bullish):\n")
-            for sym in group_sort(f2d):
-                if sym not in aplus:
-                    msg_parts.append(f"• {pretty(sym)}\n")
-        if f2u:
-            msg_parts.append("🔻 F2U (Bearish):\n")
-            for sym in group_sort(f2u):
-                if sym not in aplus:
-                    msg_parts.append(f"• {pretty(sym)}\n")
+        if ups:
+            msg += "<u><b>Upside</b></u>\n"
+            for sym, lbl in ups:
+                msg += f"• <b>{pretty(sym)}</b> — {lbl}\n"
+            msg += "\n"
 
-    if inside:
-        msg_parts.append("\n📦 **Inside (1)**\n")
-        for sym in group_sort(inside):
-            msg_parts.append(f"• {pretty(sym)}\n")
-
-    if outside:
-        msg_parts.append("\n💥 **Outside (3)**\n")
-        for sym in group_sort(outside):
-            msg_parts.append(f"• {pretty(sym)}\n")
+        if dns:
+            msg += "<u><b>Downside</b></u>\n"
+            for sym, lbl in dns:
+                msg += f"• <b>{pretty(sym)}</b> — {lbl}\n"
+            msg += "\n"
 
     if double_inside:
-        msg_parts.append("\n📦📦 **Double Inside (II)**\n")
-        for sym in group_sort(double_inside):
-            msg_parts.append(f"• {pretty(sym)}\n")
+        msg += "<b>Double Inside (II)</b>\n"
+        for x in group_sort(double_inside):
+            msg += f"• {pretty(x)}\n"
+        msg += "\n"
 
-    msg = "".join(msg_parts)
+    if inside:
+        msg += "<b>Inside (1)</b>\n"
+        for x in group_sort(inside):
+            msg += f"• {pretty(x)}\n"
+        msg += "\n"
 
-    print(msg)
+    if outside:
+        msg += "<b>Outside (3)</b>\n"
+        for x in group_sort(outside):
+            msg += f"• {pretty(x)}\n"
+        msg += "\n"
+
+    if f2u:
+        msg += "<b>F2U</b>\n"
+        for x in group_sort(f2u):
+            msg += f"• {pretty(x)}\n"
+        msg += "\n"
+
+    if f2d:
+        msg += "<b>F2D</b>\n"
+        for x in group_sort(f2d):
+            msg += f"• {pretty(x)}\n"
+        msg += "\n"
+
+    msg = msg.strip()
+    dc_msg = dc_header + msg
+
+    print(dc_msg)
 
     if discord_webhook:
-        send_discord(msg, discord_webhook)
+        send_discord(dc_msg, discord_webhook)
         
-        all_setups = list(aplus.keys()) + f2u + f2d
-        if all_setups:
-            send_discord_csv([to_product_id(s) for s in all_setups], title, discord_webhook)
+        all_symbols = list(set(double_inside + inside + outside + f2u + f2d + list(aplus.keys())))
+        send_discord_csv(all_symbols, title, discord_webhook)
 
-    print("DONE (Crypto Discord)")
+    print("DONE")
 
 # ---------------------------------------------------------
 # MAIN
