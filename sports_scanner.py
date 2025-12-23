@@ -320,7 +320,7 @@ def format_output(away_team, home_team, away_stats, home_stats, line, league, re
     msg += f"Bovada Total Line: {line}\n"
     msg += f"Projected Total: {result['projected_total']:.2f} {unit}\n"
     msg += f"Difference: {diff_sign}{result['difference']:.2f} {unit}\n"
-    msg += f"✅ PICK: {result['decision']} {line}"
+    msg += f"VALID PICK: {result['decision']} {line}"
     
     return msg
 
