@@ -1,12 +1,12 @@
 //@version=5
-indicator("Failed 9 — 8AM NY Session", overlay=true, max_boxes_count=10, max_labels_count=50, max_lines_count=50)
+indicator("Failed 9 — 8AM NY Session", overlay=true, max_boxes_count=50, max_labels_count=500, max_lines_count=500)
 
 // =========================
 // USER SETTINGS
 // =========================
 sessionHour     = input.int(8, "Session Hour (NY Time)", minval=0, maxval=23)
-boxOpacity      = input.int(80, "Position Box Opacity", minval=0, maxval=100)
-boxWidth        = input.int(30, "Box Width (bars)", minval=10, maxval=200)
+boxOpacity      = input.int(85, "Position Box Opacity", minval=0, maxval=100)
+labelOnLevels   = input.bool(true, "Show Entry/Stop/TP Labels")
 stop_offset     = input.float(0.125, "Stop Offset (12.5%)", step=0.01)
 entry_offset    = input.float(0.25, "Entry Offset (25%)", step=0.01)
 tp1_offset      = input.float(0.50, "TP1 Offset (50%)", step=0.01)
@@ -22,12 +22,12 @@ is8AMCandle = nyHour == sessionHour and nyHour[1] != sessionHour
 
 var float refHigh = na
 var float refLow = na
-var int refTime = na
+var int refDay = na
 
 if is8AMCandle and isRecent
     refHigh := high
     refLow := low
-    refTime := time
+    refDay := time
 
 // =========================
 // FAILED 9 SWEEP DETECTION
@@ -44,10 +44,6 @@ var float lvlEntry = na
 var float lvlStop = na
 var float lvlTp1 = na
 var float lvlTp2 = na
-var int signalBar = na
-var bool newSignal = false
-
-newSignal := false
 
 if highSwept and barstate.isconfirmed
     dir := "SHORT"
@@ -55,8 +51,6 @@ if highSwept and barstate.isconfirmed
     lvlStop := refHigh + (candleRange * stop_offset)
     lvlTp1 := refHigh - (candleRange * tp1_offset)
     lvlTp2 := refLow
-    signalBar := bar_index
-    newSignal := true
 
 if lowSwept and barstate.isconfirmed
     dir := "LONG"
@@ -64,123 +58,100 @@ if lowSwept and barstate.isconfirmed
     lvlStop := refLow - (candleRange * stop_offset)
     lvlTp1 := refLow + (candleRange * tp1_offset)
     lvlTp2 := refHigh
-    signalBar := bar_index
-    newSignal := true
 
 // =========================
-// STATE TRACKING
+// STATE: waiting/active/completed
 // =========================
-var bool tp1Hit = false
-var bool tp2Hit = false
-var bool stopHit = false
+var string tradeState = "Waiting for entry..."
+var bool armed = true
+var bool done = false
 
-if newSignal
-    tp1Hit := false
-    tp2Hit := false
-    stopHit := false
+// Reset when new 8AM candle
+var int lastSeenRefDay = na
+if refDay != lastSeenRefDay
+    tradeState := "Waiting for entry..."
+    armed := true
+    done := false
+    lastSeenRefDay := refDay
 
-if not na(dir) and not stopHit and not tp2Hit
-    if dir == "LONG"
-        if low <= lvlStop
-            stopHit := true
-        if high >= lvlTp1
-            tp1Hit := true
-        if high >= lvlTp2
-            tp2Hit := true
-    else
-        if high >= lvlStop
-            stopHit := true
-        if low <= lvlTp1
-            tp1Hit := true
-        if low <= lvlTp2
-            tp2Hit := true
+// Entry triggers
+enterLong = dir == "LONG" and armed and ta.crossover(close, lvlEntry)
+enterShort = dir == "SHORT" and armed and ta.crossunder(close, lvlEntry)
+
+if enterLong or enterShort
+    tradeState := dir + " TRIGGER"
+    armed := false
+
+// Completion rules
+hitStop = not armed and not done and ((dir == "LONG" and low <= lvlStop) or (dir == "SHORT" and high >= lvlStop))
+hitTp1 = not armed and not done and ((dir == "LONG" and high >= lvlTp1) or (dir == "SHORT" and low <= lvlTp1))
+hitTp2 = not armed and not done and ((dir == "LONG" and high >= lvlTp2) or (dir == "SHORT" and low <= lvlTp2))
+
+if hitStop
+    tradeState := "Stopped"
+    done := true
+
+if hitTp2
+    tradeState := "TP2 hit"
+    done := true
+else if hitTp1
+    tradeState := "TP1 hit"
 
 // =========================
-// DRAWING - Two boxes like Long/Short Position Tool
+// DRAWING: lines, labels, and position box
 // =========================
-var box riskBox = box.new(na, na, na, na, bgcolor=na, border_color=na, border_width=1)
-var box profitBox = box.new(na, na, na, na, bgcolor=na, border_color=na, border_width=1)
+var line lnEntry = na
+var line lnStop = na
+var line lnTp1 = na
+var line lnTp2 = na
+var label lbDir = na
+var box posBox = na
 
-var line lnEntry = line.new(na, na, na, na, style=line.style_dashed, width=1, color=color.white)
-var line lnStop = line.new(na, na, na, na, style=line.style_dashed, width=1, color=color.red)
-var line lnTp1 = line.new(na, na, na, na, style=line.style_dashed, width=1, color=color.green)
-var line lnTp2 = line.new(na, na, na, na, style=line.style_dashed, width=1, color=color.green)
+// Whenever new signal: clear and redraw
+if (highSwept or lowSwept) and barstate.isconfirmed and not na(refDay)
+    // Delete old drawings
+    if not na(lnEntry)
+        line.delete(lnEntry)
+    if not na(lnStop)
+        line.delete(lnStop)
+    if not na(lnTp1)
+        line.delete(lnTp1)
+    if not na(lnTp2)
+        line.delete(lnTp2)
+    if not na(lbDir)
+        label.delete(lbDir)
+    if not na(posBox)
+        box.delete(posBox)
+    
+    // Position box spans ENTRY to TP2
+    if dir == "SHORT"
+        posBox := box.new(left=bar_index, top=lvlEntry, right=bar_index+100, bottom=lvlTp2, bgcolor=color.new(color.red, 100 - boxOpacity), border_color=color.new(color.red, 0))
+    else if dir == "LONG"
+        posBox := box.new(left=bar_index, top=lvlTp2, right=bar_index+100, bottom=lvlEntry, bgcolor=color.new(color.lime, 100 - boxOpacity), border_color=color.new(color.lime, 0))
+    
+    colEntry = color.new(color.yellow, 0)
+    colStop = color.new(color.red, 0)
+    colTp = color.new(color.teal, 0)
+    
+    lnEntry := line.new(x1=bar_index, y1=lvlEntry, x2=bar_index+500, y2=lvlEntry, extend=extend.right, color=colEntry, width=2)
+    lnStop := line.new(x1=bar_index, y1=lvlStop, x2=bar_index+500, y2=lvlStop, extend=extend.right, color=colStop, width=2)
+    lnTp1 := line.new(x1=bar_index, y1=lvlTp1, x2=bar_index+500, y2=lvlTp1, extend=extend.right, color=color.new(color.lime, 0), width=2)
+    lnTp2 := line.new(x1=bar_index, y1=lvlTp2, x2=bar_index+500, y2=lvlTp2, extend=extend.right, color=colTp, width=2)
+    
+    if labelOnLevels
+        label.new(bar_index, lvlEntry, "Entry: " + str.tostring(lvlEntry, format.mintick), style=label.style_label_left, color=color.new(color.yellow, 0), textcolor=color.black)
+        label.new(bar_index, lvlStop, "Stop:  " + str.tostring(lvlStop, format.mintick), style=label.style_label_left, color=color.new(color.red, 0), textcolor=color.white)
+        label.new(bar_index, lvlTp1, "TP1:   " + str.tostring(lvlTp1, format.mintick), style=label.style_label_left, color=color.new(color.lime, 0), textcolor=color.black)
+        label.new(bar_index, lvlTp2, "TP2:   " + str.tostring(lvlTp2, format.mintick), style=label.style_label_left, color=color.new(color.teal, 0), textcolor=color.white)
+    
+    // Direction label
+    trigText = dir == "SHORT" ? "SHORT TRIGGER" : "LONG TRIGGER"
+    trigCol = dir == "SHORT" ? color.new(color.red, 0) : color.new(color.lime, 0)
+    lbDir := label.new(bar_index, dir == "SHORT" ? high : low, trigText, style=label.style_label_down, color=trigCol, textcolor=color.white)
 
-var label lblEntry = label.new(na, na, "", style=label.style_label_left, size=size.small, textcolor=color.white)
-var label lblStop = label.new(na, na, "", style=label.style_label_left, size=size.small, textcolor=color.white)
-var label lblTp1 = label.new(na, na, "", style=label.style_label_left, size=size.small, textcolor=color.white)
-var label lblTp2 = label.new(na, na, "", style=label.style_label_left, size=size.small, textcolor=color.white)
-
-signalRecent = not na(signalBar) and bar_index - signalBar < 500
-
-if newSignal and signalRecent
-    // Visible colors - boxOpacity controls how solid the fill is
-    redBg = color.new(color.red, 100 - boxOpacity)
-    greenBg = color.new(color.green, 100 - boxOpacity)
-    redBorder = color.red
-    greenBorder = color.green
-    
-    if dir == "LONG"
-        box.set_lefttop(riskBox, bar_index, lvlEntry)
-        box.set_rightbottom(riskBox, bar_index + boxWidth, lvlStop)
-        box.set_bgcolor(riskBox, redBg)
-        box.set_border_color(riskBox, redBorder)
-        box.set_border_style(riskBox, line.style_dashed)
-        
-        box.set_lefttop(profitBox, bar_index, lvlTp2)
-        box.set_rightbottom(profitBox, bar_index + boxWidth, lvlEntry)
-        box.set_bgcolor(profitBox, greenBg)
-        box.set_border_color(profitBox, greenBorder)
-        box.set_border_style(profitBox, line.style_dashed)
-    else
-        box.set_lefttop(riskBox, bar_index, lvlStop)
-        box.set_rightbottom(riskBox, bar_index + boxWidth, lvlEntry)
-        box.set_bgcolor(riskBox, redBg)
-        box.set_border_color(riskBox, redBorder)
-        box.set_border_style(riskBox, line.style_dashed)
-        
-        box.set_lefttop(profitBox, bar_index, lvlEntry)
-        box.set_rightbottom(profitBox, bar_index + boxWidth, lvlTp2)
-        box.set_bgcolor(profitBox, greenBg)
-        box.set_border_color(profitBox, greenBorder)
-        box.set_border_style(profitBox, line.style_dashed)
-    
-    line.set_xy1(lnEntry, bar_index, lvlEntry)
-    line.set_xy2(lnEntry, bar_index + boxWidth, lvlEntry)
-    line.set_color(lnEntry, color.white)
-    
-    line.set_xy1(lnStop, bar_index, lvlStop)
-    line.set_xy2(lnStop, bar_index + boxWidth, lvlStop)
-    line.set_color(lnStop, color.red)
-    
-    line.set_xy1(lnTp1, bar_index, lvlTp1)
-    line.set_xy2(lnTp1, bar_index + boxWidth, lvlTp1)
-    line.set_color(lnTp1, color.green)
-    
-    line.set_xy1(lnTp2, bar_index, lvlTp2)
-    line.set_xy2(lnTp2, bar_index + boxWidth, lvlTp2)
-    line.set_color(lnTp2, color.green)
-
-// Update labels on every bar while signal is recent
-if signalRecent and not na(lvlEntry)
-    label.set_xy(lblEntry, bar_index + 3, lvlEntry)
-    label.set_text(lblEntry, "Entry: " + str.tostring(lvlEntry, format.mintick))
-    label.set_color(lblEntry, color.new(color.gray, 20))
-    
-    label.set_xy(lblStop, bar_index + 3, lvlStop)
-    label.set_text(lblStop, "Stop: " + str.tostring(lvlStop, format.mintick))
-    label.set_color(lblStop, color.new(color.red, 20))
-    
-    label.set_xy(lblTp1, bar_index + 3, lvlTp1)
-    label.set_text(lblTp1, "TP1: " + str.tostring(lvlTp1, format.mintick))
-    label.set_color(lblTp1, color.new(color.green, 20))
-    
-    label.set_xy(lblTp2, bar_index + 3, lvlTp2)
-    label.set_text(lblTp2, "TP2: " + str.tostring(lvlTp2, format.mintick))
-    label.set_color(lblTp2, color.new(color.green, 20))
-    
-    box.set_right(riskBox, bar_index + boxWidth)
-    box.set_right(profitBox, bar_index + boxWidth)
+// Keep the box right edge advancing
+if not na(posBox)
+    box.set_right(posBox, bar_index + 100)
 
 // =========================
 // ALERTS

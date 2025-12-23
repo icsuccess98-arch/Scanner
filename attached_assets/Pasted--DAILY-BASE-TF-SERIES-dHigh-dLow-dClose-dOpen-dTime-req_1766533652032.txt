@@ -1,0 +1,71 @@
+// DAILY (BASE TF) SERIES
+// =========================
+[dHigh, dLow, dClose, dOpen, dTime] = request.security(syminfo.tickerid, baseTf, [high, low, close, open, time], barmerge.gaps_off, barmerge.lookahead_off)
+
+// Use prior completed candle for reference levels
+[dHigh_1, dLow_1, dClose_1, dOpen_1, dTime_1] = request.security(syminfo.tickerid, baseTf, [high[1], low[1], close[1], open[1], time[1]], barmerge.gaps_off, barmerge.lookahead_off)
+
+// Sweep conditions: current daily takes previous daily extremum, then trades back inside (classic liquidity sweep)
+highSwept = dHigh > dHigh_1 and dClose < dHigh_1
+lowSwept  = dLow  < dLow_1  and dClose > dLow_1
+
+// Freeze the most recent signal so that intraday charts can reference it until invalidated
+var string dir = na                // "SHORT" when high swept, "LONG" when low swept
+var float  refHigh = na
+var float  refLow  = na
+var int    refDay  = na
+
+if highSwept and barstate.isconfirmed
+    dir     := "SHORT"
+    refHigh := dHigh_1
+    refLow  := dLow_1
+    refDay  := dTime_1
+
+if lowSwept and barstate.isconfirmed
+    dir     := "LONG"
+    refHigh := dHigh_1
+    refLow  := dLow_1
+    refDay  := dTime_1
+
+// =========================
+// LEVEL CALCULATIONS (from the swept candle's reference levels)
+// =========================
+var float lvlEntry = na
+var float lvlStop  = na
+var float lvlTp1   = na
+var float lvlTp2   = na
+
+if not na(dir)
+    if dir == "SHORT"
+        lvlEntry := refHigh - entry_offset
+        lvlStop  := refHigh + stop_offset
+        lvlTp1   := refHigh - tp1_offset
+        lvlTp2   := refLow
+    else
+        lvlEntry := refLow + entry_offset
+        lvlStop  := refLow - stop_offset
+        lvlTp1   := refLow + tp1_offset
+        lvlTp2   := refHigh
+
+// =========================
+// STATE: waiting/active/completed
+// =========================
+var string tradeState = "Waiting for entry…"
+var bool   armed      = true
+var bool   done       = false
+
+// Reset completion when a NEW base-day signal is stamped
+var int lastSeenRefDay = na
+if refDay != lastSeenRefDay
+    tradeState := "Waiting for entry…"
+    armed      := true
+    done       := false
+    lastSeenRefDay := refDay
+
+// Activate on lower TF only
+enterLong  = showHere and dir == "LONG"  and armed and ta.crossover(close, lvlEntry)
+enterShort = showHere and dir == "SHORT" and armed and ta.crossunder(close, lvlEntry)
+
+if enterLong or enterShort
+    tradeState := dir + " TRIGGER"
+    armed      := false
