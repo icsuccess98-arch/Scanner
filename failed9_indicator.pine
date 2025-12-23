@@ -9,7 +9,6 @@ showTable       = input.bool(true, "Show Dashboard Panel")
 boxOpacity      = input.int(85, "Position Box Opacity", minval=0, maxval=100)
 labelOnLevels   = input.bool(true, "Show Entry/Stop/TP Labels")
 
-// Offsets as FRACTIONS of the 8AM candle range
 stop_offset     = input.float(0.125, "Stop Offset (12.5%)", step=0.01)
 entry_offset    = input.float(0.25, "Entry Offset (25%)", step=0.01)
 tp1_offset      = input.float(0.50, "TP1 Offset (50%)", step=0.01)
@@ -20,7 +19,6 @@ tp1_offset      = input.float(0.50, "TP1 Offset (50%)", step=0.01)
 nyHour = hour(time, "America/New_York")
 is8AMCandle = nyHour == sessionHour and nyHour[1] != sessionHour
 
-// Store 8AM candle reference levels
 var float refHigh = na
 var float refLow = na
 var int refTime = na
@@ -40,12 +38,14 @@ entry25Low = refLow + (candleRange * entry_offset)
 highSwept = not na(refHigh) and high > refHigh and close <= entry25High and close > refLow
 lowSwept = not na(refLow) and low < refLow and close >= entry25Low and close < refHigh
 
-// Freeze the most recent signal
 var string dir = na
 var float lvlEntry = na
 var float lvlStop = na
 var float lvlTp1 = na
 var float lvlTp2 = na
+var bool newSignal = false
+
+newSignal := false
 
 if highSwept and barstate.isconfirmed
     dir := "SHORT"
@@ -53,6 +53,7 @@ if highSwept and barstate.isconfirmed
     lvlStop := refHigh + (candleRange * stop_offset)
     lvlTp1 := refHigh - (candleRange * tp1_offset)
     lvlTp2 := refLow
+    newSignal := true
 
 if lowSwept and barstate.isconfirmed
     dir := "LONG"
@@ -60,9 +61,10 @@ if lowSwept and barstate.isconfirmed
     lvlStop := refLow - (candleRange * stop_offset)
     lvlTp1 := refLow + (candleRange * tp1_offset)
     lvlTp2 := refHigh
+    newSignal := true
 
 // =========================
-// STATE: waiting/active/completed
+// STATE
 // =========================
 var string tradeState = "Waiting for entry..."
 var bool armed = true
@@ -97,56 +99,53 @@ else if hitTp1
     tradeState := "TP1 hit"
 
 // =========================
-// DRAWING: lines, labels, and position box
+// DRAWING - Create once at bar 0, update via set_* methods
 // =========================
-var line lnEntry = na
-var line lnStop = na
-var line lnTp1 = na
-var line lnTp2 = na
-var label lbDir = na
-var box posBox = na
+var line lnEntry = line.new(na, na, na, na, color=color.new(color.yellow, 0), width=2, extend=extend.right)
+var line lnStop = line.new(na, na, na, na, color=color.new(color.red, 0), width=2, extend=extend.right)
+var line lnTp1 = line.new(na, na, na, na, color=color.new(color.lime, 0), width=2, extend=extend.right)
+var line lnTp2 = line.new(na, na, na, na, color=color.new(color.teal, 0), width=2, extend=extend.right)
+var box posBox = box.new(na, na, na, na, bgcolor=color.new(color.gray, 90), border_color=color.gray)
+var label lbDir = label.new(na, na, "", style=label.style_label_down, textcolor=color.white)
 
-// Whenever new signal: clear and redraw
-if barstate.isnew and not na(dir) and not na(lvlEntry)
-    // Delete old drawings
-    line.delete(lnEntry)
-    line.delete(lnStop)
-    line.delete(lnTp1)
-    line.delete(lnTp2)
-    label.delete(lbDir)
-    box.delete(posBox)
+// Update positions when new signal
+if newSignal
+    line.set_xy1(lnEntry, bar_index, lvlEntry)
+    line.set_xy2(lnEntry, bar_index + 500, lvlEntry)
+    line.set_xy1(lnStop, bar_index, lvlStop)
+    line.set_xy2(lnStop, bar_index + 500, lvlStop)
+    line.set_xy1(lnTp1, bar_index, lvlTp1)
+    line.set_xy2(lnTp1, bar_index + 500, lvlTp1)
+    line.set_xy1(lnTp2, bar_index, lvlTp2)
+    line.set_xy2(lnTp2, bar_index + 500, lvlTp2)
     
-    // Position box spans ENTRY to TP2
-    if dir == "SHORT"
-        posBox := box.new(left=bar_index, top=lvlEntry, right=bar_index+100, bottom=lvlTp2, bgcolor=color.new(color.red, 100 - boxOpacity), border_color=color.new(color.red, 0))
-    else if dir == "LONG"
-        posBox := box.new(left=bar_index, top=lvlTp2, right=bar_index+100, bottom=lvlEntry, bgcolor=color.new(color.lime, 100 - boxOpacity), border_color=color.new(color.lime, 0))
+    boxTop = dir == "SHORT" ? lvlEntry : lvlTp2
+    boxBot = dir == "SHORT" ? lvlTp2 : lvlEntry
+    boxCol = dir == "SHORT" ? color.red : color.lime
+    box.set_lefttop(posBox, bar_index, boxTop)
+    box.set_rightbottom(posBox, bar_index + 100, boxBot)
+    box.set_bgcolor(posBox, color.new(boxCol, 100 - boxOpacity))
+    box.set_border_color(posBox, color.new(boxCol, 0))
     
-    colEntry = color.new(color.yellow, 0)
-    colStop = color.new(color.red, 0)
-    colTp = color.new(color.teal, 0)
-    
-    lnEntry := line.new(x1=bar_index, y1=lvlEntry, x2=bar_index+500, y2=lvlEntry, extend=extend.right, color=colEntry, width=2)
-    lnStop := line.new(x1=bar_index, y1=lvlStop, x2=bar_index+500, y2=lvlStop, extend=extend.right, color=colStop, width=2)
-    lnTp1 := line.new(x1=bar_index, y1=lvlTp1, x2=bar_index+500, y2=lvlTp1, extend=extend.right, color=color.new(color.lime, 0), width=2)
-    lnTp2 := line.new(x1=bar_index, y1=lvlTp2, x2=bar_index+500, y2=lvlTp2, extend=extend.right, color=colTp, width=2)
-    
-    if labelOnLevels
-        label.new(bar_index, lvlEntry, "Entry: " + str.tostring(lvlEntry, format.mintick), style=label.style_label_left, color=color.new(color.yellow, 0), textcolor=color.black)
-        label.new(bar_index, lvlStop, "Stop:  " + str.tostring(lvlStop, format.mintick), style=label.style_label_left, color=color.new(color.red, 0), textcolor=color.white)
-        label.new(bar_index, lvlTp1, "TP1:   " + str.tostring(lvlTp1, format.mintick), style=label.style_label_left, color=color.new(color.lime, 0), textcolor=color.black)
-        label.new(bar_index, lvlTp2, "TP2:   " + str.tostring(lvlTp2, format.mintick), style=label.style_label_left, color=color.new(color.teal, 0), textcolor=color.white)
-    
-    trigText = (dir == "SHORT" ? "SHORT TRIGGER" : "LONG TRIGGER")
-    trigCol = (dir == "SHORT" ? color.new(color.red, 0) : color.new(color.lime, 0))
-    lbDir := label.new(bar_index, dir == "SHORT" ? high : low, trigText, style=label.style_label_down, color=trigCol, textcolor=color.white)
+    trigText = dir == "SHORT" ? "SHORT TRIGGER" : "LONG TRIGGER"
+    trigCol = dir == "SHORT" ? color.red : color.lime
+    label.set_xy(lbDir, bar_index, dir == "SHORT" ? high : low)
+    label.set_text(lbDir, trigText)
+    label.set_color(lbDir, color.new(trigCol, 0))
 
-// Keep the box right edge advancing
-if not na(posBox)
+// Keep box right edge advancing
+if not na(lvlEntry)
     box.set_right(posBox, bar_index + 100)
 
+// Draw labels on new signal if enabled
+if newSignal and labelOnLevels
+    label.new(bar_index, lvlEntry, "Entry: " + str.tostring(lvlEntry, format.mintick), style=label.style_label_left, color=color.new(color.yellow, 0), textcolor=color.black)
+    label.new(bar_index, lvlStop, "Stop:  " + str.tostring(lvlStop, format.mintick), style=label.style_label_left, color=color.new(color.red, 0), textcolor=color.white)
+    label.new(bar_index, lvlTp1, "TP1:   " + str.tostring(lvlTp1, format.mintick), style=label.style_label_left, color=color.new(color.lime, 0), textcolor=color.black)
+    label.new(bar_index, lvlTp2, "TP2:   " + str.tostring(lvlTp2, format.mintick), style=label.style_label_left, color=color.new(color.teal, 0), textcolor=color.white)
+
 // =========================
-// DASHBOARD PANEL (table)
+// DASHBOARD
 // =========================
 var table t = na
 if showTable
@@ -155,7 +154,6 @@ if showTable
     
     bg = dir == "SHORT" ? color.new(color.red, 85) : dir == "LONG" ? color.new(color.lime, 85) : color.new(color.gray, 92)
     head = dir == "SHORT" ? "SHORT TRIGGER" : dir == "LONG" ? "LONG TRIGGER" : "Waiting..."
-    
     rr = na(lvlEntry) or na(lvlStop) or na(lvlTp1) ? na : (dir == "SHORT" ? (math.abs(lvlEntry - lvlTp1) / math.abs(lvlStop - lvlEntry)) : (math.abs(lvlTp1 - lvlEntry) / math.abs(lvlEntry - lvlStop)))
     potPct = na(lvlEntry) or na(lvlTp1) ? na : (dir == "SHORT" ? ((lvlEntry - lvlTp1) / lvlEntry) * 100 : ((lvlTp1 - lvlEntry) / lvlEntry) * 100)
     rangeTxt = na(refHigh) or na(refLow) ? "-" : str.tostring(refLow, format.mintick) + " - " + str.tostring(refHigh, format.mintick)
