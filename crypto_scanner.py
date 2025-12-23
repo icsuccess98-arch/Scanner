@@ -1,13 +1,8 @@
 import os
 import time
 import requests
-import json
-import hmac
-import hashlib
 from datetime import datetime, timedelta
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.backends import default_backend
-import jwt
+from coinbase.rest import RESTClient
 
 # ---------------------------------------------------------
 # DISCORD CONFIG
@@ -45,61 +40,13 @@ RUN_MODE = os.environ.get("RUN_MODE", "ALL")
 
 def format_private_key(key_str):
     key_str = key_str.replace("\\n", "\n")
-    key_str = key_str.replace("\n", "")
-    key_str = key_str.replace(" ", "")
-    
-    key_str = key_str.replace("-----BEGINECPRIVATEKEY-----", "")
-    key_str = key_str.replace("-----ENDECPRIVATEKEY-----", "")
-    key_str = key_str.replace("-----BEGIN EC PRIVATE KEY-----", "")
-    key_str = key_str.replace("-----END EC PRIVATE KEY-----", "")
-    
-    key_body = key_str.strip()
-    
-    formatted = "-----BEGIN EC PRIVATE KEY-----\n"
-    formatted += key_body + "\n"
-    formatted += "-----END EC PRIVATE KEY-----\n"
-    
-    return formatted
+    if "-----BEGIN" not in key_str:
+        key_str = "-----BEGIN EC PRIVATE KEY-----\n" + key_str + "\n-----END EC PRIVATE KEY-----"
+    return key_str
 
-def get_coinbase_jwt():
-    request_method = "GET"
-    request_path = "/api/v3/brokerage/products"
-    
-    private_key_bytes = format_private_key(COINBASE_PRIVATE_KEY).encode('utf-8')
-    private_key = serialization.load_pem_private_key(private_key_bytes, password=None, backend=default_backend())
-    
-    uri = f"{request_method} api.coinbase.com{request_path}"
-    
-    payload = {
-        "sub": COINBASE_API_KEY,
-        "iss": "coinbase-cloud",
-        "nbf": int(time.time()),
-        "exp": int(time.time()) + 120,
-        "uri": uri,
-    }
-    
-    token = jwt.encode(payload, private_key, algorithm="ES256")
-    return token
-
-def get_candles_jwt(product_id, granularity):
-    request_method = "GET"
-    request_path = f"/api/v3/brokerage/products/{product_id}/candles"
-    
-    private_key_bytes = format_private_key(COINBASE_PRIVATE_KEY).encode('utf-8')
-    private_key = serialization.load_pem_private_key(private_key_bytes, password=None, backend=default_backend())
-    
-    uri = f"{request_method} api.coinbase.com{request_path}"
-    
-    payload = {
-        "sub": COINBASE_API_KEY,
-        "iss": "coinbase-cloud",
-        "nbf": int(time.time()),
-        "exp": int(time.time()) + 120,
-        "uri": uri,
-    }
-    
-    token = jwt.encode(payload, private_key, algorithm="ES256")
-    return token
+def get_coinbase_client():
+    api_secret = format_private_key(COINBASE_PRIVATE_KEY)
+    return RESTClient(api_key=COINBASE_API_KEY, api_secret=api_secret)
 
 # ---------------------------------------------------------
 # CRYPTO SYMBOLS (Coinbase product IDs)
@@ -145,14 +92,16 @@ def arrow(d):
 # FETCH CANDLES FROM COINBASE
 # ---------------------------------------------------------
 
+coinbase_client = None
+
+def get_client():
+    global coinbase_client
+    if coinbase_client is None:
+        coinbase_client = get_coinbase_client()
+    return coinbase_client
+
 def get_coinbase_candles(product_id, granularity, count=5):
-    granularity_map = {
-        "D": "ONE_DAY",
-        "W": "ONE_DAY",
-        "M": "ONE_DAY"
-    }
-    
-    cb_granularity = granularity_map.get(granularity, "ONE_DAY")
+    cb_granularity = "ONE_DAY"
     
     if granularity == "W":
         days_back = count * 7 + 7
@@ -164,27 +113,18 @@ def get_coinbase_candles(product_id, granularity, count=5):
     end_time = int(time.time())
     start_time = end_time - (days_back * 86400)
     
-    url = f"https://api.coinbase.com/api/v3/brokerage/products/{product_id}/candles"
-    params = {
-        "start": str(start_time),
-        "end": str(end_time),
-        "granularity": cb_granularity
-    }
-    
-    jwt_token = get_candles_jwt(product_id, granularity)
-    headers = {
-        "Authorization": f"Bearer {jwt_token}",
-        "Content-Type": "application/json"
-    }
-    
     try:
-        r = requests.get(url, headers=headers, params=params)
-        data = r.json()
+        client = get_client()
+        response = client.get_candles(
+            product_id=product_id,
+            start=str(start_time),
+            end=str(end_time),
+            granularity=cb_granularity
+        )
         
-        if "candles" not in data:
+        candles_raw = response.get("candles", [])
+        if not candles_raw:
             return None
-        
-        candles_raw = data["candles"]
         
         candles = []
         for c in candles_raw:
