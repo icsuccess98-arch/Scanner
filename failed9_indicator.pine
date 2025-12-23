@@ -4,7 +4,7 @@ indicator("Failed 9 — 8AM NY Session", overlay=true, max_boxes_count=50, max_l
 // =========================
 // USER SETTINGS
 // =========================
-baseTf          = input.timeframe("60", "Base Timeframe (8AM candle)")
+baseTf          = input.timeframe("60", "Base Timeframe (hourly candles)")
 boxOpacity      = input.int(85, "Position Box Opacity", minval=0, maxval=100)
 labelOnLevels   = input.bool(true, "Show Entry/Stop/TP Labels")
 stop_offset     = input.float(0.125, "Stop Offset (12.5%)", step=0.01)
@@ -17,25 +17,39 @@ meSec = timeframe.in_seconds(timeframe.period)
 showHere = na(baseSec) or na(meSec) ? true : meSec < baseSec
 
 // =========================
-// 8AM CANDLE SERIES (BASE TF)
+// 8AM CANDLE SERIES - Store the 8AM candle as reference
 // =========================
-// Get 8AM hour candle data
-nyHour = hour(time, "America/New_York")
-is8AM = nyHour == 8
-
 [cHigh, cLow, cClose, cOpen, cTime] = request.security(syminfo.tickerid, baseTf, [high, low, close, open, time], barmerge.gaps_off, barmerge.lookahead_off)
 
-// Use prior completed 8AM candle for reference levels
-[cHigh_1, cLow_1, cClose_1, cOpen_1, cTime_1] = request.security(syminfo.tickerid, baseTf, [high[1], low[1], close[1], open[1], time[1]], barmerge.gaps_off, barmerge.lookahead_off)
+// Detect when it's the 8AM candle (to store) vs 9AM+ candle (to check for sweep)
+candleHour = hour(cTime, "America/New_York")
+is8AMCandle = candleHour == 8
+is9AMCandle = candleHour == 9
 
-// Check if current candle is 8AM NY time
-is8AMCandle = hour(cTime, "America/New_York") == 8
+// Store the 8AM candle's high/low as reference levels
+var float ref8AMHigh = na
+var float ref8AMLow = na
+var int ref8AMTime = na
 
-// Sweep conditions: price takes 8AM candle extremum, then trades back inside
-highSwept = is8AMCandle and cHigh > cHigh_1 and cClose < cHigh_1
-lowSwept = is8AMCandle and cLow < cLow_1 and cClose > cLow_1
+if is8AMCandle and barstate.isconfirmed
+    ref8AMHigh := cHigh
+    ref8AMLow := cLow
+    ref8AMTime := cTime
 
-// Freeze the most recent signal so intraday charts can reference it
+// =========================
+// FAILED 9 SWEEP DETECTION (on 9AM+ candles)
+// Sweep = price takes out 8AM high/low, then closes back inside
+// =========================
+// Check if current candle (9AM or later) sweeps the 8AM levels
+afterSession = candleHour >= 9 and candleHour < 17  // 9AM to 5PM NY
+
+// High Swept: 9AM+ candle breaks above 8AM high, then closes back below it
+highSwept = afterSession and not na(ref8AMHigh) and cHigh > ref8AMHigh and cClose < ref8AMHigh and cClose > ref8AMLow
+
+// Low Swept: 9AM+ candle breaks below 8AM low, then closes back above it
+lowSwept = afterSession and not na(ref8AMLow) and cLow < ref8AMLow and cClose > ref8AMLow and cClose < ref8AMHigh
+
+// Freeze the most recent signal
 var string dir = na
 var float refHigh = na
 var float refLow = na
@@ -43,18 +57,18 @@ var int refDay = na
 
 if highSwept and barstate.isconfirmed
     dir := "SHORT"
-    refHigh := cHigh_1
-    refLow := cLow_1
-    refDay := cTime_1
+    refHigh := ref8AMHigh
+    refLow := ref8AMLow
+    refDay := ref8AMTime
 
 if lowSwept and barstate.isconfirmed
     dir := "LONG"
-    refHigh := cHigh_1
-    refLow := cLow_1
-    refDay := cTime_1
+    refHigh := ref8AMHigh
+    refLow := ref8AMLow
+    refDay := ref8AMTime
 
 // =========================
-// LEVEL CALCULATIONS (from the swept candle's reference levels)
+// LEVEL CALCULATIONS (from 8AM candle's reference levels)
 // =========================
 var float lvlEntry = na
 var float lvlStop = na
@@ -82,13 +96,13 @@ var string tradeState = "Waiting for entry..."
 var bool armed = true
 var bool done = false
 
-// Reset when a NEW signal is stamped
+// Reset when a NEW 8AM candle is stored
 var int lastSeenRefDay = na
-if refDay != lastSeenRefDay
+if ref8AMTime != lastSeenRefDay
     tradeState := "Waiting for entry..."
     armed := true
     done := false
-    lastSeenRefDay := refDay
+    lastSeenRefDay := ref8AMTime
 
 // Activate on lower TF only
 enterLong = showHere and dir == "LONG" and armed and ta.crossover(close, lvlEntry)
@@ -172,5 +186,5 @@ if not na(posBox)
 // =========================
 // ALERTS
 // =========================
-alertcondition(highSwept, title="Failed 9 Short Setup", message="8AM high swept - Short trigger")
-alertcondition(lowSwept, title="Failed 9 Long Setup", message="8AM low swept - Long trigger")
+alertcondition(highSwept, title="Failed 9 Short Setup", message="8AM high swept at 9AM - Short trigger")
+alertcondition(lowSwept, title="Failed 9 Long Setup", message="8AM low swept at 9AM - Long trigger")
