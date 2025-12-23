@@ -462,6 +462,7 @@ dependencies = [
     { name = "cryptography" },
     { name = "nba-api" },
     { name = "pyjwt" },
+    { name = "pytz" },
     { name = "requests" },
     { name = "tradingview-datafeed" },
 ]
@@ -473,6 +474,7 @@ requires-dist = [
     { name = "cryptography", specifier = ">=46.0.3" },
     { name = "nba-api", specifier = ">=1.11.3" },
     { name = "pyjwt", specifier = ">=2.10.1" },
+    { name = "pytz", specifier = ">=2025.2" },
     { name = "requests", specifier = ">=2.32.5" },
     { name = "tradingview-datafeed", specifier = ">=2.1.1" },
 ]

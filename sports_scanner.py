@@ -3,7 +3,7 @@ import requests
 from datetime import datetime
 import time
 
-DISCORD_WEBHOOK = os.environ.get("Cryptodiscord", "")
+DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK", "")
 
 THRESHOLDS = {
     "NBA": 8.0,
@@ -145,7 +145,11 @@ def fetch_nhl_stats():
     return teams
 
 def fetch_espn_games_with_odds(sport, league_key):
+    from datetime import timezone
+    import pytz
+    
     games = []
+    et = pytz.timezone('America/New_York')
     
     try:
         events_url = f"http://sports.core.api.espn.com/v2/sports/{sport}/leagues/{league_key}/events?limit=50"
@@ -160,6 +164,16 @@ def fetch_espn_games_with_odds(sport, league_key):
             try:
                 event_resp = requests.get(event_ref, timeout=10)
                 event_data = event_resp.json()
+                
+                game_time = ""
+                date_str = event_data.get("date", "")
+                if date_str:
+                    try:
+                        dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+                        dt_et = dt.astimezone(et)
+                        game_time = dt_et.strftime("%-I:%M %p ET")
+                    except:
+                        pass
                 
                 competitions = event_data.get("competitions", [])
                 if not competitions:
@@ -205,7 +219,8 @@ def fetch_espn_games_with_odds(sport, league_key):
                             "home_team": home_team["name"],
                             "away_team_id": away_team["id"],
                             "away_team": away_team["name"],
-                            "over_under": over_under
+                            "over_under": over_under,
+                            "game_time": game_time
                         })
                 
             except Exception:
@@ -269,20 +284,17 @@ def calculate_bet(team_a_stats, team_b_stats, line, league):
     
     return None
 
-def format_output(team_a, team_b, team_a_stats, team_b_stats, line, league, result):
-    msg = f"Game: {team_a} vs {team_b}\n"
-    msg += f"League: {league}\n"
-    msg += f"• {team_a} PPG: {team_a_stats['ppg']:.1f}\n"
-    msg += f"• {team_a} Opp PPG: {team_a_stats['opp_ppg']:.1f}\n"
-    msg += f"• {team_b} PPG: {team_b_stats['ppg']:.1f}\n"
-    msg += f"• {team_b} Opp PPG: {team_b_stats['opp_ppg']:.1f}\n\n"
-    msg += f"Expected {team_a}: {result['expected_a']:.1f}\n"
-    msg += f"Expected {team_b}: {result['expected_b']:.1f}\n"
-    msg += f"Projected Total: {result['projected_total']:.1f}\n"
-    msg += f"Line: {line}\n"
-    msg += f"Difference: {result['difference']:.1f}\n\n"
-    msg += f"Decision: {result['decision']}\n"
-    msg += f"Reason: Threshold met ({abs(result['difference']):.1f} >= {result['threshold']})"
+def format_output(away_team, home_team, away_stats, home_stats, line, league, result, game_time=""):
+    unit = "goals" if league == "NHL" else "points"
+    diff_sign = "+" if result['difference'] > 0 else ""
+    
+    time_str = f" ({game_time})" if game_time else ""
+    
+    msg = f"{league}: {away_team} at {home_team}{time_str}\n"
+    msg += f"Bovada Total Line: {line}\n"
+    msg += f"Projected Total: {result['projected_total']:.2f} {unit}\n"
+    msg += f"Difference: {diff_sign}{result['difference']:.2f} {unit}\n"
+    msg += f"✅ PICK: {result['decision']} {line}"
     
     return msg
 
@@ -315,7 +327,8 @@ def scan_nba():
             output = format_output(
                 game["away_team"], game["home_team"],
                 away_stats, home_stats,
-                game["over_under"], "NBA", result
+                game["over_under"], "NBA", result,
+                game.get("game_time", "")
             )
             qualified_bets.append(output)
     
@@ -350,7 +363,8 @@ def scan_nfl():
             output = format_output(
                 game["away_team"], game["home_team"],
                 away_stats, home_stats,
-                game["over_under"], "NFL", result
+                game["over_under"], "NFL", result,
+                game.get("game_time", "")
             )
             qualified_bets.append(output)
     
@@ -385,19 +399,20 @@ def scan_nhl():
             output = format_output(
                 game["away_team"], game["home_team"],
                 away_stats, home_stats,
-                game["over_under"], "NHL", result
+                game["over_under"], "NHL", result,
+                game.get("game_time", "")
             )
             qualified_bets.append(output)
     
     return qualified_bets
 
 def scan_all_leagues():
-    all_bets = []
+    league_bets = {}
     
     print("\n=== Scanning NBA ===")
     bets = scan_nba()
     if bets:
-        all_bets.extend(bets)
+        league_bets["NBA"] = bets
         print(f"Found {len(bets)} qualified bet(s)")
     else:
         print("No qualified bets")
@@ -407,7 +422,7 @@ def scan_all_leagues():
     print("\n=== Scanning NFL ===")
     bets = scan_nfl()
     if bets:
-        all_bets.extend(bets)
+        league_bets["NFL"] = bets
         print(f"Found {len(bets)} qualified bet(s)")
     else:
         print("No qualified bets")
@@ -417,16 +432,23 @@ def scan_all_leagues():
     print("\n=== Scanning NHL ===")
     bets = scan_nhl()
     if bets:
-        all_bets.extend(bets)
+        league_bets["NHL"] = bets
         print(f"Found {len(bets)} qualified bet(s)")
     else:
         print("No qualified bets")
     
-    if all_bets:
-        full_msg = "\n\n---\n\n".join(all_bets)
+    if league_bets:
         print("\n" + "=" * 50)
         print("QUALIFIED BETS:")
         print("=" * 50)
+        
+        full_msg = ""
+        for league in ["NBA", "NFL", "NHL"]:
+            if league in league_bets:
+                full_msg += f"\n{'='*30}\n{league} PICKS\n{'='*30}\n\n"
+                full_msg += "\n\n".join(league_bets[league])
+                full_msg += "\n"
+        
         print(full_msg)
         send_discord(full_msg)
     else:
