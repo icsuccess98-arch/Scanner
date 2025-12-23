@@ -239,6 +239,29 @@ def fetch_espn_games_with_odds(sport, league_key):
                     home_team = next((c for c in competitors if c["homeAway"] == "home"), None)
                     away_team = next((c for c in competitors if c["homeAway"] == "away"), None)
                     
+                    game_status = event_data.get("status", {}).get("type", {}).get("name", "")
+                    total_score = None
+                    
+                    if game_status == "STATUS_FINAL":
+                        try:
+                            home_score = 0
+                            away_score = 0
+                            for competitor in comp_data.get("competitors", []):
+                                score = competitor.get("score", {})
+                                if isinstance(score, dict):
+                                    score_ref = score.get("$ref", "")
+                                    if score_ref:
+                                        score_resp = requests.get(score_ref, timeout=10)
+                                        score_data = score_resp.json()
+                                        pts = score_data.get("value", 0)
+                                        if competitor.get("homeAway") == "home":
+                                            home_score = pts
+                                        else:
+                                            away_score = pts
+                            total_score = home_score + away_score
+                        except:
+                            pass
+                    
                     if home_team and away_team:
                         games.append({
                             "home_team_id": home_team["id"],
@@ -246,7 +269,9 @@ def fetch_espn_games_with_odds(sport, league_key):
                             "away_team_id": away_team["id"],
                             "away_team": away_team["name"],
                             "over_under": over_under,
-                            "game_time": game_time
+                            "game_time": game_time,
+                            "game_status": game_status,
+                            "total_score": total_score
                         })
                 
             except Exception:
@@ -310,15 +335,33 @@ def calculate_bet(team_a_stats, team_b_stats, line, league):
     
     return None
 
-def format_output(away_team, home_team, away_stats, home_stats, line, league, result, game_time=""):
+def format_output(away_team, home_team, away_stats, home_stats, line, league, result, game_time="", game_result=None):
     diff_sign = "+" if result['difference'] > 0 else ""
     time_str = f" ({game_time})" if game_time else ""
     
-    msg = f"{away_team} at {home_team}{time_str}\n"
-    msg += f"Line: {line} | Projected: {result['projected_total']:.1f} | Diff: {diff_sign}{result['difference']:.1f}\n"
-    msg += f"VALID PICK: {result['decision']} {line}"
+    if game_result:
+        result_emoji = "✅" if game_result == "win" else "❌"
+        status = f" {result_emoji}"
+    else:
+        status = ""
+    
+    msg = f"• {away_team} at {home_team}{time_str}{status}\n"
+    msg += f"   Line: {line} | Projected: {result['projected_total']:.1f} | Diff: {diff_sign}{result['difference']:.1f}\n"
+    msg += f"   VALID PICK: {result['decision']} {line}"
     
     return msg
+
+def get_game_result(game, decision):
+    if game.get("game_status") != "STATUS_FINAL":
+        return None
+    total_score = game.get("total_score")
+    if total_score is None:
+        return None
+    line = game["over_under"]
+    if decision == "OVER":
+        return "win" if total_score > line else "loss"
+    else:
+        return "win" if total_score < line else "loss"
 
 def scan_nba():
     print("Fetching NBA stats...")
@@ -346,11 +389,12 @@ def scan_nba():
         result = calculate_bet(away_stats, home_stats, game["over_under"], "NBA")
         
         if result:
+            game_result = get_game_result(game, result["decision"])
             output = format_output(
                 game["away_team"], game["home_team"],
                 away_stats, home_stats,
                 game["over_under"], "NBA", result,
-                game.get("game_time", "")
+                game.get("game_time", ""), game_result
             )
             qualified_bets.append(output)
     
@@ -382,11 +426,12 @@ def scan_nfl():
         result = calculate_bet(away_stats, home_stats, game["over_under"], "NFL")
         
         if result:
+            game_result = get_game_result(game, result["decision"])
             output = format_output(
                 game["away_team"], game["home_team"],
                 away_stats, home_stats,
                 game["over_under"], "NFL", result,
-                game.get("game_time", "")
+                game.get("game_time", ""), game_result
             )
             qualified_bets.append(output)
     
@@ -418,11 +463,12 @@ def scan_nhl():
         result = calculate_bet(away_stats, home_stats, game["over_under"], "NHL")
         
         if result:
+            game_result = get_game_result(game, result["decision"])
             output = format_output(
                 game["away_team"], game["home_team"],
                 away_stats, home_stats,
                 game["over_under"], "NHL", result,
-                game.get("game_time", "")
+                game.get("game_time", ""), game_result
             )
             qualified_bets.append(output)
     
@@ -473,8 +519,8 @@ def scan_all_leagues():
         full_msg = ""
         for league in ["NBA", "NFL", "NHL"]:
             if league in league_bets:
-                full_msg += f"\n{headers[league]}\n"
-                full_msg += "\n".join(league_bets[league])
+                full_msg += f"\n{headers[league]}\n\n"
+                full_msg += "\n\n".join(league_bets[league])
                 full_msg += "\n"
         
         print(full_msg)
