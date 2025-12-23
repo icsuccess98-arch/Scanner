@@ -311,15 +311,11 @@ def calculate_bet(team_a_stats, team_b_stats, line, league):
     return None
 
 def format_output(away_team, home_team, away_stats, home_stats, line, league, result, game_time=""):
-    unit = "goals" if league == "NHL" else "points"
     diff_sign = "+" if result['difference'] > 0 else ""
-    
     time_str = f" ({game_time})" if game_time else ""
     
-    msg = f"{league}: {away_team} at {home_team}{time_str}\n"
-    msg += f"Bovada Total Line: {line}\n"
-    msg += f"Projected Total: {result['projected_total']:.2f} {unit}\n"
-    msg += f"Difference: {diff_sign}{result['difference']:.2f} {unit}\n"
+    msg = f"{away_team} at {home_team}{time_str}\n"
+    msg += f"Line: {line} | Projected: {result['projected_total']:.1f} | Diff: {diff_sign}{result['difference']:.1f}\n"
     msg += f"VALID PICK: {result['decision']} {line}"
     
     return msg
@@ -468,11 +464,17 @@ def scan_all_leagues():
         print("QUALIFIED BETS:")
         print("=" * 50)
         
+        headers = {
+            "NBA": "🏀 NBA PICKS 🏀",
+            "NFL": "🏈 NFL PICKS 🏈",
+            "NHL": "🏒 NHL PICKS 🏒"
+        }
+        
         full_msg = ""
         for league in ["NBA", "NFL", "NHL"]:
             if league in league_bets:
-                full_msg += f"\n{'='*30}\n{league} PICKS\n{'='*30}\n\n"
-                full_msg += "\n\n".join(league_bets[league])
+                full_msg += f"\n{headers[league]}\n"
+                full_msg += "\n".join(league_bets[league])
                 full_msg += "\n"
         
         print(full_msg)
