@@ -17,32 +17,18 @@ def send_discord(msg):
         print("WARNING: DISCORD_WEBHOOK not set")
         return
     
-    if len(msg) <= 1900:
-        chunks = [msg]
-    else:
-        chunks = []
-        current = ""
-        for line in msg.split("\n"):
-            if len(current) + len(line) + 1 > 1900:
-                if current:
-                    chunks.append(current.strip())
-                current = line + "\n"
-            else:
-                current += line + "\n"
-        if current.strip():
-            chunks.append(current.strip())
+    if len(msg) > 2000:
+        msg = msg[:1997] + "..."
     
-    for i, chunk in enumerate(chunks):
-        print(f"Sending Discord chunk {i+1}/{len(chunks)} ({len(chunk)} chars)...")
-        try:
-            payload = {"content": chunk}
-            resp = requests.post(DISCORD_WEBHOOK, json=payload, timeout=30)
-            print(f"Discord response: {resp.status_code}")
-            if resp.status_code != 204:
-                print(f"Discord error: {resp.text}")
-            time.sleep(0.5)
-        except Exception as e:
-            print(f"Discord send error: {e}")
+    print(f"Sending Discord message ({len(msg)} chars)...")
+    try:
+        payload = {"content": msg}
+        resp = requests.post(DISCORD_WEBHOOK, json=payload, timeout=30)
+        print(f"Discord response: {resp.status_code}")
+        if resp.status_code != 204:
+            print(f"Discord error: {resp.text}")
+    except Exception as e:
+        print(f"Discord send error: {e}")
 
 def fetch_nba_stats():
     from nba_api.stats.endpoints import leaguedashteamstats
@@ -227,6 +213,7 @@ def fetch_espn_games_with_odds(sport, league_key):
     
     games = []
     et = pytz.timezone('America/New_York')
+    today = datetime.now(et).strftime("%Y%m%d")
     
     try:
         events_url = f"http://sports.core.api.espn.com/v2/sports/{sport}/leagues/{league_key}/events?limit=50"
@@ -243,14 +230,19 @@ def fetch_espn_games_with_odds(sport, league_key):
                 event_data = event_resp.json()
                 
                 game_time = ""
+                game_date = ""
                 date_str = event_data.get("date", "")
                 if date_str:
                     try:
                         dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
                         dt_et = dt.astimezone(et)
                         game_time = dt_et.strftime("%-I:%M %p ET")
+                        game_date = dt_et.strftime("%Y%m%d")
                     except:
                         pass
+                
+                if game_date != today:
+                    continue
                 
                 competitions = event_data.get("competitions", [])
                 if not competitions:
@@ -386,19 +378,13 @@ def calculate_bet(team_a_stats, team_b_stats, line, league):
     
     return None
 
-def format_output(away_team, home_team, away_stats, home_stats, line, league, result, game_time="", game_result=None):
+def format_output(away_team, home_team, away_stats, home_stats, line, league, result, game_time=""):
     diff_sign = "+" if result['difference'] > 0 else ""
     time_str = f" ({game_time})" if game_time else ""
     
-    if game_result:
-        result_emoji = "✅" if game_result == "win" else "❌"
-        status = f" {result_emoji}"
-    else:
-        status = ""
-    
-    msg = f"• {away_team} at {home_team}{time_str}{status}\n"
-    msg += f"   Line: {line} | Projected: {result['projected_total']:.1f} | Diff: {diff_sign}{result['difference']:.1f}\n"
-    msg += f"   VALID PICK: {result['decision']} {line}"
+    msg = f"• {away_team} @ {home_team}{time_str}\n"
+    msg += f"  Line: {line} | Proj: {result['projected_total']:.1f} | {diff_sign}{result['difference']:.1f}\n"
+    msg += f"  PICK: {result['decision']} {line}"
     
     return msg
 
@@ -459,7 +445,6 @@ def scan_nba():
         print("No NBA games with odds")
         return []
     
-    completed_scores = fetch_completed_scores("basketball", "nba")
     qualified_bets = []
     
     for game in games:
@@ -472,12 +457,11 @@ def scan_nba():
         result = calculate_bet(away_stats, home_stats, game["over_under"], "NBA")
         
         if result:
-            game_result = get_game_result(game, result["decision"], completed_scores)
             output = format_output(
                 game["away_team"], game["home_team"],
                 away_stats, home_stats,
                 game["over_under"], "NBA", result,
-                game.get("game_time", ""), game_result
+                game.get("game_time", "")
             )
             qualified_bets.append(output)
     
@@ -497,7 +481,6 @@ def scan_nfl():
         print("No NFL games with odds")
         return []
     
-    completed_scores = fetch_completed_scores("football", "nfl")
     qualified_bets = []
     
     for game in games:
@@ -510,12 +493,11 @@ def scan_nfl():
         result = calculate_bet(away_stats, home_stats, game["over_under"], "NFL")
         
         if result:
-            game_result = get_game_result(game, result["decision"], completed_scores)
             output = format_output(
                 game["away_team"], game["home_team"],
                 away_stats, home_stats,
                 game["over_under"], "NFL", result,
-                game.get("game_time", ""), game_result
+                game.get("game_time", "")
             )
             qualified_bets.append(output)
     
@@ -535,7 +517,6 @@ def scan_nhl():
         print("No NHL games with odds")
         return []
     
-    completed_scores = fetch_completed_scores("hockey", "nhl")
     qualified_bets = []
     
     for game in games:
@@ -548,12 +529,11 @@ def scan_nhl():
         result = calculate_bet(away_stats, home_stats, game["over_under"], "NHL")
         
         if result:
-            game_result = get_game_result(game, result["decision"], completed_scores)
             output = format_output(
                 game["away_team"], game["home_team"],
                 away_stats, home_stats,
                 game["over_under"], "NHL", result,
-                game.get("game_time", ""), game_result
+                game.get("game_time", "")
             )
             qualified_bets.append(output)
     
@@ -573,7 +553,6 @@ def scan_cbb():
         print("No CBB games with odds")
         return []
     
-    completed_scores = fetch_completed_scores("basketball", "mens-college-basketball")
     qualified_bets = []
     
     for game in games:
@@ -586,12 +565,11 @@ def scan_cbb():
         result = calculate_bet(away_stats, home_stats, game["over_under"], "CBB")
         
         if result:
-            game_result = get_game_result(game, result["decision"], completed_scores)
             output = format_output(
                 game["away_team"], game["home_team"],
                 away_stats, home_stats,
                 game["over_under"], "CBB", result,
-                game.get("game_time", ""), game_result
+                game.get("game_time", "")
             )
             qualified_bets.append(output)
     
