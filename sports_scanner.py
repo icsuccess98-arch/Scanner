@@ -351,12 +351,43 @@ def format_output(away_team, home_team, away_stats, home_stats, line, league, re
     
     return msg
 
-def get_game_result(game, decision):
-    if game.get("game_status") != "STATUS_FINAL":
-        return None
-    total_score = game.get("total_score")
+def fetch_completed_scores(sport, league):
+    scores = {}
+    try:
+        url = f"https://site.api.espn.com/apis/site/v2/sports/{sport}/{league}/scoreboard"
+        resp = requests.get(url, timeout=30)
+        data = resp.json()
+        
+        for event in data.get("events", []):
+            status = event.get("status", {}).get("type", {}).get("name", "")
+            if status == "STATUS_FINAL":
+                competitions = event.get("competitions", [])
+                if competitions:
+                    comp = competitions[0]
+                    competitors = comp.get("competitors", [])
+                    total = 0
+                    teams = []
+                    for c in competitors:
+                        score = c.get("score", "0")
+                        total += int(score) if score.isdigit() else 0
+                        teams.append(c.get("team", {}).get("displayName", ""))
+                    
+                    for team in teams:
+                        scores[team.lower()] = total
+    except Exception as e:
+        print(f"Error fetching scores: {e}")
+    
+    return scores
+
+def get_game_result(game, decision, completed_scores):
+    home_team = game.get("home_team", "").lower()
+    away_team = game.get("away_team", "").lower()
+    
+    total_score = completed_scores.get(home_team) or completed_scores.get(away_team)
+    
     if total_score is None:
         return None
+    
     line = game["over_under"]
     if decision == "OVER":
         return "win" if total_score > line else "loss"
@@ -377,6 +408,7 @@ def scan_nba():
         print("No NBA games with odds")
         return []
     
+    completed_scores = fetch_completed_scores("basketball", "nba")
     qualified_bets = []
     
     for game in games:
@@ -389,7 +421,7 @@ def scan_nba():
         result = calculate_bet(away_stats, home_stats, game["over_under"], "NBA")
         
         if result:
-            game_result = get_game_result(game, result["decision"])
+            game_result = get_game_result(game, result["decision"], completed_scores)
             output = format_output(
                 game["away_team"], game["home_team"],
                 away_stats, home_stats,
@@ -414,6 +446,7 @@ def scan_nfl():
         print("No NFL games with odds")
         return []
     
+    completed_scores = fetch_completed_scores("football", "nfl")
     qualified_bets = []
     
     for game in games:
@@ -426,7 +459,7 @@ def scan_nfl():
         result = calculate_bet(away_stats, home_stats, game["over_under"], "NFL")
         
         if result:
-            game_result = get_game_result(game, result["decision"])
+            game_result = get_game_result(game, result["decision"], completed_scores)
             output = format_output(
                 game["away_team"], game["home_team"],
                 away_stats, home_stats,
@@ -451,6 +484,7 @@ def scan_nhl():
         print("No NHL games with odds")
         return []
     
+    completed_scores = fetch_completed_scores("hockey", "nhl")
     qualified_bets = []
     
     for game in games:
@@ -463,7 +497,7 @@ def scan_nhl():
         result = calculate_bet(away_stats, home_stats, game["over_under"], "NHL")
         
         if result:
-            game_result = get_game_result(game, result["decision"])
+            game_result = get_game_result(game, result["decision"], completed_scores)
             output = format_output(
                 game["away_team"], game["home_team"],
                 away_stats, home_stats,
