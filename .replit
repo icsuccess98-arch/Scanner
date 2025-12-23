@@ -29,11 +29,7 @@ args = "Run Monthly"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Crypto Daily"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Crypto Weekly"
+args = "Sports Scanner"
 
 [[workflows.workflow]]
 name = "Run Daily"
@@ -69,23 +65,12 @@ args = "RUN_MODE=MONTHLY python main.py"
 outputType = "console"
 
 [[workflows.workflow]]
-name = "Crypto Daily"
+name = "Sports Scanner"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "RUN_MODE=DAILY python crypto_scanner.py"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow]]
-name = "Crypto Weekly"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "RUN_MODE=WEEKLY python crypto_scanner.py"
+args = "python sports_scanner.py"
 
 [workflows.workflow.metadata]
 outputType = "console"
