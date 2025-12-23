@@ -56,23 +56,21 @@ CRYPTO_SYMBOLS = [
     "BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "ADA-USD", "DOGE-USD", "LTC-USD",
     "BCH-USD", "LINK-USD", "UNI-USD", "AAVE-USD", "DOT-USD", "XLM-USD", "ATOM-USD",
     "ENS-USD", "ETC-USD", "ARB-USD", "ICP-USD", "FIL-USD", "NEAR-USD", "APT-USD",
-    "TRX-USD", "AVAX-USD", "SEI-USD", "OP-USD", "IMX-USD", "MATIC-USD", "COMP-USD",
-    "CRV-USD", "SUSHI-USD", "RUNE-USD", "DYDX-USD", "LDO-USD", "SHIB-USD", "PEPE-USD",
-    "FLOKI-USD", "BONK-USD", "BLUR-USD", "AXS-USD", "SAND-USD", "GALA-USD", "APE-USD",
-    "ENJ-USD", "RENDER-USD", "FET-USD", "GRT-USD", "ONDO-USD", "INJ-USD", "ALGO-USD",
-    "HBAR-USD", "FTM-USD", "FLOW-USD", "VET-USD", "QNT-USD", "THETA-USD", "SNX-USD",
-    "MINA-USD", "POL-USD", "ZRO-USD", "JTO-USD", "PAXG-USD", "MNT-USD", "WLD-USD",
-    "EIGEN-USD", "JUP-USD", "TIA-USD", "PYTH-USD", "W-USD", "STRK-USD", "DYM-USD",
-    "SUPER-USD", "GMT-USD", "PEOPLE-USD", "ALT-USD", "ACE-USD", "ORDI-USD", "SKY-USD"
+    "AVAX-USD", "SEI-USD", "OP-USD", "IMX-USD", "COMP-USD", "CRV-USD", "SUSHI-USD",
+    "LDO-USD", "SHIB-USD", "PEPE-USD", "FLOKI-USD", "BONK-USD", "BLUR-USD", "AXS-USD",
+    "SAND-USD", "APE-USD", "RENDER-USD", "FET-USD", "GRT-USD", "ONDO-USD", "INJ-USD",
+    "ALGO-USD", "HBAR-USD", "FLOW-USD", "VET-USD", "QNT-USD", "SNX-USD", "MINA-USD",
+    "POL-USD", "ZRO-USD", "JTO-USD", "PAXG-USD", "WLD-USD", "EIGEN-USD", "TIA-USD",
+    "PYTH-USD", "W-USD", "STRK-USD", "SUPER-USD", "GMT-USD", "ALT-USD", "SKY-USD"
 ]
 
 GROUP_ORDER = {
     "MAJOR": ["BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "ADA-USD", "DOGE-USD", "LTC-USD", "BCH-USD"],
-    "DEFI": ["LINK-USD", "UNI-USD", "AAVE-USD", "COMP-USD", "CRV-USD", "SUSHI-USD", "RUNE-USD", "DYDX-USD", "LDO-USD", "JUP-USD"],
-    "L1_L2": ["DOT-USD", "ATOM-USD", "AVAX-USD", "NEAR-USD", "APT-USD", "SEI-USD", "OP-USD", "ARB-USD", "IMX-USD", "MATIC-USD", "INJ-USD", "TIA-USD", "STRK-USD"],
+    "DEFI": ["LINK-USD", "UNI-USD", "AAVE-USD", "COMP-USD", "CRV-USD", "SUSHI-USD", "LDO-USD", "SNX-USD"],
+    "L1_L2": ["DOT-USD", "ATOM-USD", "AVAX-USD", "NEAR-USD", "APT-USD", "SEI-USD", "OP-USD", "ARB-USD", "IMX-USD", "POL-USD", "INJ-USD", "TIA-USD", "STRK-USD"],
     "MEME": ["SHIB-USD", "PEPE-USD", "FLOKI-USD", "BONK-USD", "WLD-USD"],
     "AI_COMPUTE": ["RENDER-USD", "FET-USD", "GRT-USD", "ONDO-USD"],
-    "GAMING": ["BLUR-USD", "AXS-USD", "SAND-USD", "GALA-USD", "APE-USD", "ENJ-USD", "IMX-USD"],
+    "GAMING": ["BLUR-USD", "AXS-USD", "SAND-USD", "APE-USD", "IMX-USD"],
 }
 
 # ---------------------------------------------------------
@@ -122,18 +120,18 @@ def get_coinbase_candles(product_id, granularity, count=5):
             granularity=cb_granularity
         )
         
-        candles_raw = response.get("candles", [])
+        candles_raw = response.candles if hasattr(response, 'candles') else []
         if not candles_raw:
             return None
         
         candles = []
         for c in candles_raw:
             candles.append({
-                "time": int(c["start"]),
-                "open": float(c["open"]),
-                "high": float(c["high"]),
-                "low": float(c["low"]),
-                "close": float(c["close"])
+                "time": int(c.start) if hasattr(c, 'start') else int(c["start"]),
+                "open": float(c.open) if hasattr(c, 'open') else float(c["open"]),
+                "high": float(c.high) if hasattr(c, 'high') else float(c["high"]),
+                "low": float(c.low) if hasattr(c, 'low') else float(c["low"]),
+                "close": float(c.close) if hasattr(c, 'close') else float(c["close"])
             })
         
         candles.sort(key=lambda x: x["time"])
