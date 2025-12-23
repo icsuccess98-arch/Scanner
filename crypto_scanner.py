@@ -43,11 +43,25 @@ COINBASE_API_KEY = os.environ.get("COINBASE_API_KEY", "")
 COINBASE_PRIVATE_KEY = os.environ.get("COINBASE_PRIVATE_KEY", "")
 RUN_MODE = os.environ.get("RUN_MODE", "ALL")
 
+def format_private_key(key_str):
+    key_str = key_str.replace("\\n", "\n")
+    
+    key_str = key_str.replace("-----BEGIN EC PRIVATE KEY-----", "")
+    key_str = key_str.replace("-----END EC PRIVATE KEY-----", "")
+    
+    key_body = "".join(key_str.split())
+    
+    formatted = "-----BEGIN EC PRIVATE KEY-----\n"
+    formatted += key_body + "\n"
+    formatted += "-----END EC PRIVATE KEY-----\n"
+    
+    return formatted
+
 def get_coinbase_jwt():
     request_method = "GET"
     request_path = "/api/v3/brokerage/products"
     
-    private_key_bytes = COINBASE_PRIVATE_KEY.replace("\\n", "\n").encode('utf-8')
+    private_key_bytes = format_private_key(COINBASE_PRIVATE_KEY).encode('utf-8')
     private_key = serialization.load_pem_private_key(private_key_bytes, password=None, backend=default_backend())
     
     uri = f"{request_method} api.coinbase.com{request_path}"
@@ -67,7 +81,7 @@ def get_candles_jwt(product_id, granularity):
     request_method = "GET"
     request_path = f"/api/v3/brokerage/products/{product_id}/candles"
     
-    private_key_bytes = COINBASE_PRIVATE_KEY.replace("\\n", "\n").encode('utf-8')
+    private_key_bytes = format_private_key(COINBASE_PRIVATE_KEY).encode('utf-8')
     private_key = serialization.load_pem_private_key(private_key_bytes, password=None, backend=default_backend())
     
     uri = f"{request_method} api.coinbase.com{request_path}"
