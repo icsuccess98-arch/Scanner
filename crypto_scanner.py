@@ -8,8 +8,8 @@ from coinbase.rest import RESTClient
 # DISCORD CONFIG
 # ---------------------------------------------------------
 
-WEBHOOK_CRYPTO_DAILY = os.environ.get("WEBHOOK_CRYPTO_DAILY", "")
-WEBHOOK_CRYPTO_WEEKLY = os.environ.get("WEBHOOK_CRYPTO_WEEKLY", "")
+WEBHOOK_CRYPTO_DAILY = os.environ.get("Cryptodiscord", "")
+WEBHOOK_CRYPTO_WEEKLY = os.environ.get("Cryptodiscord", "")
 
 def send_discord(msg, webhook_url):
     if not webhook_url:
