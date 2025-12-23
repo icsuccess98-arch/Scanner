@@ -2,7 +2,7 @@ import os
 import time
 import requests
 from datetime import datetime, timedelta
-from coinbase.rest import RESTClient
+from tvDatafeed import TvDatafeed, Interval
 
 # ---------------------------------------------------------
 # DISCORD CONFIG
@@ -31,46 +31,48 @@ def send_discord_csv(symbols, title, webhook_url):
     requests.post(webhook_url, data=data, files=files)
 
 # ---------------------------------------------------------
-# COINBASE CONFIG
+# TRADINGVIEW CONFIG
 # ---------------------------------------------------------
 
-COINBASE_API_KEY = os.environ.get("COINBASE_API_KEY", "")
-COINBASE_PRIVATE_KEY = os.environ.get("COINBASE_PRIVATE_KEY", "")
 RUN_MODE = os.environ.get("RUN_MODE", "ALL")
 
-def format_private_key(key_str):
-    key_str = key_str.replace("\\n", "\n")
-    if "-----BEGIN" not in key_str:
-        key_str = "-----BEGIN EC PRIVATE KEY-----\n" + key_str + "\n-----END EC PRIVATE KEY-----"
-    return key_str
-
-def get_coinbase_client():
-    api_secret = format_private_key(COINBASE_PRIVATE_KEY)
-    return RESTClient(api_key=COINBASE_API_KEY, api_secret=api_secret)
+tv = TvDatafeed()
 
 # ---------------------------------------------------------
-# CRYPTO SYMBOLS (Coinbase product IDs)
+# CRYPTO SYMBOLS (TradingView format: symbol, exchange)
 # ---------------------------------------------------------
 
 CRYPTO_SYMBOLS = [
-    "BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "ADA-USD", "DOGE-USD", "LTC-USD",
-    "BCH-USD", "LINK-USD", "UNI-USD", "AAVE-USD", "DOT-USD", "XLM-USD", "ATOM-USD",
-    "ENS-USD", "ETC-USD", "ARB-USD", "ICP-USD", "FIL-USD", "NEAR-USD", "APT-USD",
-    "AVAX-USD", "SEI-USD", "OP-USD", "IMX-USD", "COMP-USD", "CRV-USD", "SUSHI-USD",
-    "LDO-USD", "SHIB-USD", "PEPE-USD", "FLOKI-USD", "BONK-USD", "BLUR-USD", "AXS-USD",
-    "SAND-USD", "APE-USD", "RENDER-USD", "FET-USD", "GRT-USD", "ONDO-USD", "INJ-USD",
-    "ALGO-USD", "HBAR-USD", "FLOW-USD", "VET-USD", "QNT-USD", "SNX-USD", "MINA-USD",
-    "POL-USD", "ZRO-USD", "JTO-USD", "PAXG-USD", "WLD-USD", "EIGEN-USD", "TIA-USD",
-    "PYTH-USD", "W-USD", "STRK-USD", "SUPER-USD", "GMT-USD", "ALT-USD", "SKY-USD"
+    ("BTCUSD", "COINBASE"), ("ETHUSD", "COINBASE"), ("SOLUSD", "COINBASE"),
+    ("XRPUSD", "COINBASE"), ("ADAUSD", "COINBASE"), ("DOGEUSD", "COINBASE"),
+    ("LTCUSD", "COINBASE"), ("BCHUSD", "COINBASE"), ("LINKUSD", "COINBASE"),
+    ("UNIUSD", "COINBASE"), ("AAVEUSD", "COINBASE"), ("DOTUSD", "COINBASE"),
+    ("XLMUSD", "COINBASE"), ("ATOMUSD", "COINBASE"), ("ENSUSD", "COINBASE"),
+    ("ETCUSD", "COINBASE"), ("ARBUSD", "COINBASE"), ("ICPUSD", "COINBASE"),
+    ("FILUSD", "COINBASE"), ("NEARUSD", "COINBASE"), ("APTUSD", "COINBASE"),
+    ("AVAXUSD", "COINBASE"), ("SEIUSD", "COINBASE"), ("OPUSD", "COINBASE"),
+    ("IMXUSD", "COINBASE"), ("COMPUSD", "COINBASE"), ("CRVUSD", "COINBASE"),
+    ("SUSHIUSD", "COINBASE"), ("LDOUSD", "COINBASE"), ("SHIBUSD", "COINBASE"),
+    ("PEPEUSD", "COINBASE"), ("FLOKIUSD", "COINBASE"), ("BONKUSD", "COINBASE"),
+    ("BLURUSD", "COINBASE"), ("AXSUSD", "COINBASE"), ("SANDUSD", "COINBASE"),
+    ("APEUSD", "COINBASE"), ("RENDERUSD", "COINBASE"), ("FETUSD", "COINBASE"),
+    ("GRTUSD", "COINBASE"), ("ONDOUSD", "COINBASE"), ("INJUSD", "COINBASE"),
+    ("ALGOUSD", "COINBASE"), ("HBARUSD", "COINBASE"), ("FLOWUSD", "COINBASE"),
+    ("VETUSD", "COINBASE"), ("QNTUSD", "COINBASE"), ("SNXUSD", "COINBASE"),
+    ("MINAUSD", "COINBASE"), ("POLUSD", "COINBASE"), ("ZROUSD", "COINBASE"),
+    ("JTOUSD", "COINBASE"), ("PAXGUSD", "COINBASE"), ("WLDUSD", "COINBASE"),
+    ("EIGENUSD", "COINBASE"), ("TIAUSD", "COINBASE"), ("PYTHIUSD", "COINBASE"),
+    ("WUSD", "COINBASE"), ("STRKUSD", "COINBASE"), ("SUPERUSD", "COINBASE"),
+    ("GMTUSD", "COINBASE"), ("ALTUSD", "COINBASE"), ("SKYUSD", "COINBASE")
 ]
 
 GROUP_ORDER = {
-    "MAJOR": ["BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "ADA-USD", "DOGE-USD", "LTC-USD", "BCH-USD"],
-    "DEFI": ["LINK-USD", "UNI-USD", "AAVE-USD", "COMP-USD", "CRV-USD", "SUSHI-USD", "LDO-USD", "SNX-USD"],
-    "L1_L2": ["DOT-USD", "ATOM-USD", "AVAX-USD", "NEAR-USD", "APT-USD", "SEI-USD", "OP-USD", "ARB-USD", "IMX-USD", "POL-USD", "INJ-USD", "TIA-USD", "STRK-USD"],
-    "MEME": ["SHIB-USD", "PEPE-USD", "FLOKI-USD", "BONK-USD", "WLD-USD"],
-    "AI_COMPUTE": ["RENDER-USD", "FET-USD", "GRT-USD", "ONDO-USD"],
-    "GAMING": ["BLUR-USD", "AXS-USD", "SAND-USD", "APE-USD", "IMX-USD"],
+    "MAJOR": ["BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD", "ADAUSD", "DOGEUSD", "LTCUSD", "BCHUSD"],
+    "DEFI": ["LINKUSD", "UNIUSD", "AAVEUSD", "COMPUSD", "CRVUSD", "SUSHIUSD", "LDOUSD", "SNXUSD"],
+    "L1_L2": ["DOTUSD", "ATOMUSD", "AVAXUSD", "NEARUSD", "APTUSD", "SEIUSD", "OPUSD", "ARBUSD", "IMXUSD", "POLUSD", "INJUSD", "TIAUSD", "STRKUSD"],
+    "MEME": ["SHIBUSD", "PEPEUSD", "FLOKIUSD", "BONKUSD", "WLDUSD"],
+    "AI_COMPUTE": ["RENDERUSD", "FETUSD", "GRTUSD", "ONDOUSD"],
+    "GAMING": ["BLURUSD", "AXSUSD", "SANDUSD", "APEUSD", "IMXUSD"],
 }
 
 # ---------------------------------------------------------
@@ -78,7 +80,10 @@ GROUP_ORDER = {
 # ---------------------------------------------------------
 
 def pretty(symbol):
-    return symbol.replace("-USD", "")
+    return symbol.replace("USD", "")
+
+def to_product_id(symbol):
+    return symbol[:-3] + "-USD"
 
 def direction(c):
     return "UP" if c["close"] > c["open"] else "DOWN"
@@ -87,127 +92,47 @@ def arrow(d):
     return "↑" if d == "UP" else "↓"
 
 # ---------------------------------------------------------
-# FETCH CANDLES FROM COINBASE
+# FETCH CANDLES FROM TRADINGVIEW
 # ---------------------------------------------------------
 
-coinbase_client = None
-
-def get_client():
-    global coinbase_client
-    if coinbase_client is None:
-        coinbase_client = get_coinbase_client()
-    return coinbase_client
-
-def get_coinbase_candles(product_id, granularity, count=5):
-    cb_granularity = "ONE_DAY"
-    
-    now = datetime.utcnow()
-    today_start = datetime(now.year, now.month, now.day)
-    end_time = int(today_start.timestamp())
-    
-    if granularity == "W":
-        days_back = count * 7 + 14
+def get_tv_candles(symbol, exchange, granularity, count=5):
+    if granularity == "D":
+        interval = Interval.in_daily
+    elif granularity == "W":
+        interval = Interval.in_weekly
     elif granularity == "M":
-        days_back = count * 31 + 62
+        interval = Interval.in_monthly
     else:
-        days_back = count + 5
-    
-    start_time = end_time - (days_back * 86400)
+        interval = Interval.in_daily
     
     try:
-        client = get_client()
-        response = client.get_candles(
-            product_id=product_id,
-            start=str(start_time),
-            end=str(end_time),
-            granularity=cb_granularity
-        )
+        df = tv.get_hist(symbol=symbol, exchange=exchange, interval=interval, n_bars=count + 2)
         
-        candles_raw = response.candles if hasattr(response, 'candles') else []
-        if not candles_raw:
+        if df is None or df.empty:
+            return None
+        
+        now = datetime.utcnow()
+        today = now.date()
+        df = df[df.index.date < today]
+        
+        if len(df) < 3:
             return None
         
         candles = []
-        for c in candles_raw:
-            candle_time = int(c.start) if hasattr(c, 'start') else int(c["start"])
-            if candle_time >= end_time:
-                continue
+        for idx, row in df.iterrows():
             candles.append({
-                "time": candle_time,
-                "open": float(c.open) if hasattr(c, 'open') else float(c["open"]),
-                "high": float(c.high) if hasattr(c, 'high') else float(c["high"]),
-                "low": float(c.low) if hasattr(c, 'low') else float(c["low"]),
-                "close": float(c.close) if hasattr(c, 'close') else float(c["close"])
+                "time": idx,
+                "open": float(row["open"]),
+                "high": float(row["high"]),
+                "low": float(row["low"]),
+                "close": float(row["close"])
             })
-        
-        candles.sort(key=lambda x: x["time"])
-        
-        if granularity == "W":
-            candles = aggregate_weekly(candles)
-        elif granularity == "M":
-            candles = aggregate_monthly(candles)
-        
-        if len(candles) < 3:
-            return None
         
         return candles[-count:] if len(candles) >= count else candles
         
     except Exception as e:
-        print(f"Error fetching {product_id}: {e}")
+        print(f"Error fetching {symbol}: {e}")
         return None
-
-def aggregate_weekly(daily_candles):
-    weekly = {}
-    for c in daily_candles:
-        dt = datetime.fromtimestamp(c["time"])
-        week_start = dt - timedelta(days=dt.weekday())
-        week_key = week_start.strftime("%Y-%W")
-        
-        if week_key not in weekly:
-            weekly[week_key] = {
-                "time": c["time"],
-                "open": c["open"],
-                "high": c["high"],
-                "low": c["low"],
-                "close": c["close"]
-            }
-        else:
-            weekly[week_key]["high"] = max(weekly[week_key]["high"], c["high"])
-            weekly[week_key]["low"] = min(weekly[week_key]["low"], c["low"])
-            weekly[week_key]["close"] = c["close"]
-    
-    result = list(weekly.values())
-    result.sort(key=lambda x: x["time"])
-    now = datetime.utcnow()
-    current_week = (now - timedelta(days=now.weekday())).strftime("%Y-%W")
-    result = [w for w in result if datetime.fromtimestamp(w["time"]).strftime("%Y-%W") != current_week]
-    return result
-
-def aggregate_monthly(daily_candles):
-    monthly = {}
-    for c in daily_candles:
-        dt = datetime.fromtimestamp(c["time"])
-        month_key = dt.strftime("%Y-%m")
-        
-        if month_key not in monthly:
-            monthly[month_key] = {
-                "time": c["time"],
-                "open": c["open"],
-                "high": c["high"],
-                "low": c["low"],
-                "close": c["close"]
-            }
-        else:
-            monthly[month_key]["high"] = max(monthly[month_key]["high"], c["high"])
-            monthly[month_key]["low"] = min(monthly[month_key]["low"], c["low"])
-            monthly[month_key]["close"] = c["close"]
-    
-    result = list(monthly.values())
-    result.sort(key=lambda x: x["time"])
-    now = datetime.utcnow()
-    current_month = now.strftime("%Y-%m")
-    result = [m for m in result if datetime.fromtimestamp(m["time"]).strftime("%Y-%m") != current_month]
-    return result
 
 # ---------------------------------------------------------
 # STRAT LOGIC
@@ -266,9 +191,9 @@ def scan(title, granularity, discord_webhook=None):
     f2d = []
     aplus = {}
 
-    for symbol in CRYPTO_SYMBOLS:
+    for symbol, exchange in CRYPTO_SYMBOLS:
 
-        candles = get_coinbase_candles(symbol, granularity)
+        candles = get_tv_candles(symbol, exchange, granularity)
         if not candles:
             continue
 
@@ -281,8 +206,8 @@ def scan(title, granularity, discord_webhook=None):
 
         if st == "1" and strat_type(prev, prev2) == "1":
             double_inside.append(symbol)
-            weekly = get_coinbase_candles(symbol, "W")
-            monthly = get_coinbase_candles(symbol, "M")
+            weekly = get_tv_candles(symbol, exchange, "W")
+            monthly = get_tv_candles(symbol, exchange, "M")
             if weekly and monthly:
                 arrows = (
                     arrow(direction(monthly[-1])) +
@@ -295,8 +220,8 @@ def scan(title, granularity, discord_webhook=None):
         if st == "1":
             inside.append(symbol)
             if strat_type(prev, prev2) == "3":
-                weekly = get_coinbase_candles(symbol, "W")
-                monthly = get_coinbase_candles(symbol, "M")
+                weekly = get_tv_candles(symbol, exchange, "W")
+                monthly = get_tv_candles(symbol, exchange, "M")
                 if weekly and monthly:
                     arrows = arrow(direction(monthly[-1])) + arrow(direction(weekly[-1])) + arrow(direction(curr))
                     aplus[symbol] = f"M/W/D {arrows} — 3-1"
@@ -304,8 +229,8 @@ def scan(title, granularity, discord_webhook=None):
         if st == "3":
             outside.append(symbol)
             if strat_type(prev, prev2) == "1":
-                weekly = get_coinbase_candles(symbol, "W")
-                monthly = get_coinbase_candles(symbol, "M")
+                weekly = get_tv_candles(symbol, exchange, "W")
+                monthly = get_tv_candles(symbol, exchange, "M")
                 if weekly and monthly:
                     arrows = arrow(direction(monthly[-1])) + arrow(direction(weekly[-1])) + arrow(direction(curr))
                     aplus[symbol] = f"M/W/D {arrows} — 1-3"
@@ -318,122 +243,102 @@ def scan(title, granularity, discord_webhook=None):
                 f2d.append(symbol)
 
             prev_type = strat_type(prev, prev2)
-            weekly = get_coinbase_candles(symbol, "W")
-            monthly = get_coinbase_candles(symbol, "M")
+            weekly = get_tv_candles(symbol, exchange, "W")
+            monthly = get_tv_candles(symbol, exchange, "M")
             
             is_double_inside = prev3 and prev_type == "1" and strat_type(prev2, prev3) == "1"
             
-            if weekly and monthly:
-                arrows = arrow(direction(monthly[-1])) + arrow(direction(weekly[-1])) + arrow(direction(curr))
-                
-                if is_double_inside:
-                    if f2 == "Failed 2U":
-                        aplus[symbol] = f"M/W/D {arrows} — II-F2U"
+            if prev_type == "1" or prev_type == "3" or is_double_inside:
+                if weekly and monthly:
+                    arrows = arrow(direction(monthly[-1])) + arrow(direction(weekly[-1])) + arrow(direction(curr))
+                    if is_double_inside:
+                        pattern = "II-" + f2.replace("Failed ", "F")
+                    elif prev_type == "1":
+                        pattern = "1-" + f2.replace("Failed ", "F")
                     else:
-                        aplus[symbol] = f"M/W/D {arrows} — II-F2D"
-                elif prev_type == "1":
-                    if f2 == "Failed 2U":
-                        aplus[symbol] = f"M/W/D {arrows} — 1-F2U"
-                    else:
-                        aplus[symbol] = f"M/W/D {arrows} — 1-F2D"
-                elif prev_type == "3":
-                    if f2 == "Failed 2U":
-                        aplus[symbol] = f"M/W/D {arrows} — 3-F2U"
-                    else:
-                        aplus[symbol] = f"M/W/D {arrows} — 3-F2D"
-                else:
-                    ftfc = ftfc_pass(curr, weekly[-1], monthly[-1])
-                    if ftfc:
-                        if f2 == "Failed 2U" and ftfc == "DOWN":
-                            aplus[symbol] = f"M/W/D {arrows} — F2U"
-                        if f2 == "Failed 2D" and ftfc == "UP":
-                            aplus[symbol] = f"M/W/D {arrows} — F2D"
+                        pattern = "3-" + f2.replace("Failed ", "F")
+                    aplus[symbol] = f"M/W/D {arrows} — {pattern}"
 
-        time.sleep(0.3)
+    msg_parts = []
 
-    today = datetime.now()
-    yesterday = today - timedelta(days=1)
-    date_header = today.strftime("%b %d, %Y")
-    from_day = yesterday.strftime("%a %b %d")
-    dc_header = f"🗓 <b>{title} Crypto Strat — {date_header}</b>\n"
-    dc_header += f"(From {from_day} close)\n\n"
-    
-    msg = ""
+    msg_parts.append(f"📊 **CRYPTO {title} SCAN** (TradingView Data)\n")
+    msg_parts.append(f"_Timestamp: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}_\n")
 
     if aplus:
-        msg += "🔥 <b>A++ Setups</b>\n\n"
-        ups = []
-        dns = []
-
-        for sym, lbl in aplus.items():
-            lbl_short = lbl.replace("Failed 2U", "F2U").replace("Failed 2D", "F2D")
-            if "F2D" in lbl_short:
-                ups.append((sym, lbl_short))
-            elif "F2U" in lbl_short:
-                dns.append((sym, lbl_short))
-            elif ("Double Inside" in lbl or "3-1" in lbl or "1-3" in lbl) and "↑" in lbl:
-                ups.append((sym, lbl_short))
+        upside = []
+        downside = []
+        for sym, info in aplus.items():
+            arrows = info.split(" — ")[0].replace("M/W/D ", "")
+            if "↑" in arrows[-1:]:
+                upside.append((sym, info))
             else:
-                dns.append((sym, lbl_short))
+                downside.append((sym, info))
+        
+        msg_parts.append("\n🔥 **A++ SETUPS (No FTFC Required)**\n")
+        if upside:
+            msg_parts.append("🔺 Upside:\n")
+            for sym, info in upside:
+                msg_parts.append(f"• {pretty(sym)} — {info}\n")
+        if downside:
+            msg_parts.append("🔻 Downside:\n")
+            for sym, info in downside:
+                msg_parts.append(f"• {pretty(sym)} — {info}\n")
 
-        if ups:
-            msg += "<u><b>🟢 Upside</b></u>\n"
-            for sym, lbl in ups:
-                msg += f"• <b>{pretty(sym)}</b> — {lbl}\n"
-            msg += "\n"
-
-        if dns:
-            msg += "<u><b>🔴 Downside</b></u>\n"
-            for sym, lbl in dns:
-                msg += f"• <b>{pretty(sym)}</b> — {lbl}\n"
-            msg += "\n"
-
-    if double_inside:
-        msg += "<b>🟪 Double Inside (II)</b>\n"
-        for x in group_sort(double_inside):
-            msg += f"• {pretty(x)}\n"
-        msg += "\n"
+    if f2u or f2d:
+        msg_parts.append("\n⚡ **Failed 2 (FTFC Required)**\n")
+        if f2d:
+            msg_parts.append("🔺 F2D (Bullish):\n")
+            for sym in group_sort(f2d):
+                if sym not in aplus:
+                    msg_parts.append(f"• {pretty(sym)}\n")
+        if f2u:
+            msg_parts.append("🔻 F2U (Bearish):\n")
+            for sym in group_sort(f2u):
+                if sym not in aplus:
+                    msg_parts.append(f"• {pretty(sym)}\n")
 
     if inside:
-        msg += "<b>📘 Inside (1)</b>\n"
-        for x in group_sort(inside):
-            msg += f"• {pretty(x)}\n"
-        msg += "\n"
+        msg_parts.append("\n📦 **Inside (1)**\n")
+        for sym in group_sort(inside):
+            msg_parts.append(f"• {pretty(sym)}\n")
 
     if outside:
-        msg += "<b>📕 Outside (3)</b>\n"
-        for x in group_sort(outside):
-            msg += f"• {pretty(x)}\n"
-        msg += "\n"
+        msg_parts.append("\n💥 **Outside (3)**\n")
+        for sym in group_sort(outside):
+            msg_parts.append(f"• {pretty(sym)}\n")
 
-    if f2u:
-        msg += "<b>🔴 F2U</b>\n"
-        for x in group_sort(f2u):
-            msg += f"• {pretty(x)}\n"
-        msg += "\n"
+    if double_inside:
+        msg_parts.append("\n📦📦 **Double Inside (II)**\n")
+        for sym in group_sort(double_inside):
+            msg_parts.append(f"• {pretty(sym)}\n")
 
-    if f2d:
-        msg += "<b>🟢 F2D</b>\n"
-        for x in group_sort(f2d):
-            msg += f"• {pretty(x)}\n"
-        msg += "\n"
+    msg = "".join(msg_parts)
 
-    msg = msg.strip()
-    dc_msg = dc_header + msg
-    
-    send_discord(dc_msg, discord_webhook)
-    
-    all_symbols = list(set(double_inside + inside + outside + f2u + f2d + list(aplus.keys())))
-    send_discord_csv(all_symbols, title, discord_webhook)
+    print(msg)
+
+    if discord_webhook:
+        send_discord(msg, discord_webhook)
+        
+        all_setups = list(aplus.keys()) + f2u + f2d
+        if all_setups:
+            send_discord_csv([to_product_id(s) for s in all_setups], title, discord_webhook)
+
+    print("DONE (Crypto Discord)")
 
 # ---------------------------------------------------------
-# RUNTIME
+# MAIN
 # ---------------------------------------------------------
 
-if RUN_MODE in ("DAILY", "ALL"):
-    scan("Daily", "D", WEBHOOK_CRYPTO_DAILY)
-
-if RUN_MODE in ("WEEKLY", "ALL"):
-    scan("Weekly", "W", WEBHOOK_CRYPTO_WEEKLY)
-
-print("DONE (Crypto Discord)")
+if __name__ == "__main__":
+    
+    if RUN_MODE == "ALL":
+        print("=== DAILY SCAN ===")
+        scan("Daily", "D", WEBHOOK_CRYPTO_DAILY)
+        print("\n=== WEEKLY SCAN ===")
+        scan("Weekly", "W", WEBHOOK_CRYPTO_WEEKLY)
+    elif RUN_MODE == "DAILY":
+        scan("Daily", "D", WEBHOOK_CRYPTO_DAILY)
+    elif RUN_MODE == "WEEKLY":
+        scan("Weekly", "W", WEBHOOK_CRYPTO_WEEKLY)
+    else:
+        print(f"Unknown RUN_MODE: {RUN_MODE}")
