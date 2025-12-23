@@ -45,11 +45,15 @@ RUN_MODE = os.environ.get("RUN_MODE", "ALL")
 
 def format_private_key(key_str):
     key_str = key_str.replace("\\n", "\n")
+    key_str = key_str.replace("\n", "")
+    key_str = key_str.replace(" ", "")
     
+    key_str = key_str.replace("-----BEGINECPRIVATEKEY-----", "")
+    key_str = key_str.replace("-----ENDECPRIVATEKEY-----", "")
     key_str = key_str.replace("-----BEGIN EC PRIVATE KEY-----", "")
     key_str = key_str.replace("-----END EC PRIVATE KEY-----", "")
     
-    key_body = "".join(key_str.split())
+    key_body = key_str.strip()
     
     formatted = "-----BEGIN EC PRIVATE KEY-----\n"
     formatted += key_body + "\n"
