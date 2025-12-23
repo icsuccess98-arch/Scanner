@@ -101,14 +101,17 @@ def get_client():
 def get_coinbase_candles(product_id, granularity, count=5):
     cb_granularity = "ONE_DAY"
     
-    if granularity == "W":
-        days_back = count * 7 + 7
-    elif granularity == "M":
-        days_back = count * 31 + 31
-    else:
-        days_back = count + 2
+    now = datetime.utcnow()
+    today_start = datetime(now.year, now.month, now.day)
+    end_time = int(today_start.timestamp())
     
-    end_time = int(time.time())
+    if granularity == "W":
+        days_back = count * 7 + 14
+    elif granularity == "M":
+        days_back = count * 31 + 62
+    else:
+        days_back = count + 5
+    
     start_time = end_time - (days_back * 86400)
     
     try:
@@ -172,6 +175,9 @@ def aggregate_weekly(daily_candles):
     
     result = list(weekly.values())
     result.sort(key=lambda x: x["time"])
+    now = datetime.utcnow()
+    current_week = (now - timedelta(days=now.weekday())).strftime("%Y-%W")
+    result = [w for w in result if datetime.fromtimestamp(w["time"]).strftime("%Y-%W") != current_week]
     return result
 
 def aggregate_monthly(daily_candles):
@@ -195,6 +201,9 @@ def aggregate_monthly(daily_candles):
     
     result = list(monthly.values())
     result.sort(key=lambda x: x["time"])
+    now = datetime.utcnow()
+    current_month = now.strftime("%Y-%m")
+    result = [m for m in result if datetime.fromtimestamp(m["time"]).strftime("%Y-%m") != current_month]
     return result
 
 # ---------------------------------------------------------
