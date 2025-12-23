@@ -170,6 +170,57 @@ def fetch_nhl_stats():
     
     return teams
 
+def fetch_cbb_stats():
+    teams = {}
+    try:
+        url = "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/teams?limit=500"
+        resp = requests.get(url, timeout=60)
+        data = resp.json()
+        
+        team_list = data.get("sports", [{}])[0].get("leagues", [{}])[0].get("teams", [])
+        
+        for team_data in team_list:
+            team = team_data.get("team", {})
+            team_id = team.get("id")
+            team_name = team.get("displayName", "")
+            
+            try:
+                record_url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/teams/{team_id}"
+                record_resp = requests.get(record_url, timeout=10)
+                record_data = record_resp.json()
+                
+                team_record = record_data.get("team", {}).get("record", {})
+                items = team_record.get("items", [])
+                
+                ppg = None
+                opp_ppg = None
+                
+                for item in items:
+                    if item.get("type") == "total":
+                        for stat in item.get("stats", []):
+                            if stat.get("name") == "avgPointsFor":
+                                ppg = stat.get("value")
+                            if stat.get("name") == "avgPointsAgainst":
+                                opp_ppg = stat.get("value")
+                        break
+                
+                if ppg and opp_ppg:
+                    teams[team_name.lower()] = {
+                        "name": team_name,
+                        "ppg": ppg,
+                        "opp_ppg": opp_ppg
+                    }
+                    teams[str(team_id)] = teams[team_name.lower()]
+                    
+            except Exception:
+                continue
+                
+    except Exception as e:
+        print(f"Error fetching CBB stats: {e}")
+    
+    print(f"Loaded {len(teams)//2} CBB teams with stats")
+    return teams
+
 def fetch_espn_games_with_odds(sport, league_key):
     from datetime import timezone
     import pytz
@@ -508,6 +559,44 @@ def scan_nhl():
     
     return qualified_bets
 
+def scan_cbb():
+    print("Fetching CBB stats...")
+    team_stats = fetch_cbb_stats()
+    
+    if not team_stats:
+        return []
+    
+    print("Fetching CBB games with odds...")
+    games = fetch_espn_games_with_odds("basketball", "mens-college-basketball")
+    
+    if not games:
+        print("No CBB games with odds")
+        return []
+    
+    completed_scores = fetch_completed_scores("basketball", "mens-college-basketball")
+    qualified_bets = []
+    
+    for game in games:
+        home_stats = find_team_stats(game["home_team"], game["home_team_id"], team_stats)
+        away_stats = find_team_stats(game["away_team"], game["away_team_id"], team_stats)
+        
+        if not home_stats or not away_stats:
+            continue
+        
+        result = calculate_bet(away_stats, home_stats, game["over_under"], "CBB")
+        
+        if result:
+            game_result = get_game_result(game, result["decision"], completed_scores)
+            output = format_output(
+                game["away_team"], game["home_team"],
+                away_stats, home_stats,
+                game["over_under"], "CBB", result,
+                game.get("game_time", ""), game_result
+            )
+            qualified_bets.append(output)
+    
+    return qualified_bets
+
 def scan_all_leagues():
     league_bets = {}
     
@@ -515,6 +604,16 @@ def scan_all_leagues():
     bets = scan_nba()
     if bets:
         league_bets["NBA"] = bets
+        print(f"Found {len(bets)} qualified bet(s)")
+    else:
+        print("No qualified bets")
+    
+    time.sleep(1)
+    
+    print("\n=== Scanning CBB ===")
+    bets = scan_cbb()
+    if bets:
+        league_bets["CBB"] = bets
         print(f"Found {len(bets)} qualified bet(s)")
     else:
         print("No qualified bets")
@@ -546,12 +645,13 @@ def scan_all_leagues():
         
         headers = {
             "NBA": "🏀 NBA PICKS 🏀",
+            "CBB": "🏀 CBB PICKS 🏀",
             "NFL": "🏈 NFL PICKS 🏈",
             "NHL": "🏒 NHL PICKS 🏒"
         }
         
         full_msg = ""
-        for league in ["NBA", "NFL", "NHL"]:
+        for league in ["NBA", "CBB", "NFL", "NHL"]:
             if league in league_bets:
                 full_msg += f"\n{headers[league]}\n\n"
                 full_msg += "\n\n".join(league_bets[league])
