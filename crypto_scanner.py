@@ -271,17 +271,10 @@ def scan(title, granularity, discord_webhook=None):
                         if f2 == "Failed 2D" and ftfc == "UP":
                             aplus[symbol] = f"M/W/D {arrows} — F2D"
 
-    today = datetime.now()
-    yesterday = today - timedelta(days=1)
-    date_header = today.strftime("%b %d, %Y")
-    from_day = yesterday.strftime("%a %b %d")
-    dc_header = f"<b>Crypto {title} Actionable Strat — {date_header}</b>\n"
-    dc_header += f"(From {from_day} close)\n\n"
-
     msg = ""
 
     if aplus:
-        msg += "<b>A++ Setups</b>\n\n"
+        msg += "🔥 <b>A++ Setups</b>\n\n"
         ups = []
         dns = []
 
@@ -297,54 +290,53 @@ def scan(title, granularity, discord_webhook=None):
                 dns.append((sym, lbl_short))
 
         if ups:
-            msg += "<u><b>Upside</b></u>\n"
+            msg += "🟢 <u><b>Upside</b></u>\n"
             for sym, lbl in ups:
                 msg += f"• <b>{pretty(sym)}</b> — {lbl}\n"
             msg += "\n"
 
         if dns:
-            msg += "<u><b>Downside</b></u>\n"
+            msg += "🔴 <u><b>Downside</b></u>\n"
             for sym, lbl in dns:
                 msg += f"• <b>{pretty(sym)}</b> — {lbl}\n"
             msg += "\n"
 
     if double_inside:
-        msg += "<b>Double Inside (II)</b>\n"
+        msg += "🟪 <b>Double Inside (II)</b>\n"
         for x in group_sort(double_inside):
             msg += f"• {pretty(x)}\n"
         msg += "\n"
 
     if inside:
-        msg += "<b>Inside (1)</b>\n"
+        msg += "📘 <b>Inside (1)</b>\n"
         for x in group_sort(inside):
             msg += f"• {pretty(x)}\n"
         msg += "\n"
 
     if outside:
-        msg += "<b>Outside (3)</b>\n"
+        msg += "📕 <b>Outside (3)</b>\n"
         for x in group_sort(outside):
             msg += f"• {pretty(x)}\n"
         msg += "\n"
 
     if f2u:
-        msg += "<b>F2U</b>\n"
+        msg += "🔴 <b>F2U</b>\n"
         for x in group_sort(f2u):
             msg += f"• {pretty(x)}\n"
         msg += "\n"
 
     if f2d:
-        msg += "<b>F2D</b>\n"
+        msg += "🟢 <b>F2D</b>\n"
         for x in group_sort(f2d):
             msg += f"• {pretty(x)}\n"
         msg += "\n"
 
     msg = msg.strip()
-    dc_msg = dc_header + msg
 
-    print(dc_msg)
+    print(msg)
 
     if discord_webhook:
-        send_discord(dc_msg, discord_webhook)
+        send_discord(msg, discord_webhook)
         
         all_symbols = list(set(double_inside + inside + outside + f2u + f2d + list(aplus.keys())))
         send_discord_csv(all_symbols, title, discord_webhook)
