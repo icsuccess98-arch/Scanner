@@ -146,10 +146,10 @@ if (highSwept or lowSwept) and barstate.isconfirmed and not na(refDay)
         profitBox := box.new(left=bar_index, top=lvlTp2, right=bar_index+9, bottom=lvlEntry, bgcolor=color.new(profitZoneColor, fillTransparency), border_color=color.new(profitZoneColor, 50))
         stopBox := box.new(left=bar_index, top=lvlEntry, right=bar_index+9, bottom=lvlStop, bgcolor=color.new(stopZoneColor, fillTransparency), border_color=color.new(stopZoneColor, 50))
     
-    lnEntry := line.new(x1=bar_index, y1=lvlEntry, x2=bar_index+500, y2=lvlEntry, extend=extend.right, color=entryColor, width=2)
-    lnStop := line.new(x1=bar_index, y1=lvlStop, x2=bar_index+500, y2=lvlStop, extend=extend.right, color=stopColor, width=2)
-    lnTp1 := line.new(x1=bar_index, y1=lvlTp1, x2=bar_index+500, y2=lvlTp1, extend=extend.right, color=tp1Color, width=2)
-    lnTp2 := line.new(x1=bar_index, y1=lvlTp2, x2=bar_index+500, y2=lvlTp2, extend=extend.right, color=tp2Color, width=2)
+    lnEntry := line.new(x1=bar_index, y1=lvlEntry, x2=bar_index+9, y2=lvlEntry, color=entryColor, width=2)
+    lnStop := line.new(x1=bar_index, y1=lvlStop, x2=bar_index+9, y2=lvlStop, color=stopColor, width=2)
+    lnTp1 := line.new(x1=bar_index, y1=lvlTp1, x2=bar_index+9, y2=lvlTp1, color=tp1Color, width=2)
+    lnTp2 := line.new(x1=bar_index, y1=lvlTp2, x2=bar_index+9, y2=lvlTp2, color=tp2Color, width=2)
     
     if labelOnLevels
         entryStr = "Entry: " + str.tostring(lvlEntry, format.mintick)
@@ -165,6 +165,14 @@ if not na(profitBox)
     box.set_right(profitBox, bar_index + 9)
 if not na(stopBox)
     box.set_right(stopBox, bar_index + 9)
+if not na(lnEntry)
+    line.set_x2(lnEntry, bar_index + 9)
+if not na(lnStop)
+    line.set_x2(lnStop, bar_index + 9)
+if not na(lnTp1)
+    line.set_x2(lnTp1, bar_index + 9)
+if not na(lnTp2)
+    line.set_x2(lnTp2, bar_index + 9)
 
 // =========================
 // ALERTS
