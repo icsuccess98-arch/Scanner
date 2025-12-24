@@ -122,7 +122,6 @@ var line lnEntry = na
 var line lnStop = na
 var line lnTp1 = na
 var line lnTp2 = na
-var label lbDir = na
 var box profitBox = na
 var box stopBox = na
 
@@ -135,19 +134,17 @@ if (highSwept or lowSwept) and barstate.isconfirmed and not na(refDay)
         line.delete(lnTp1)
     if not na(lnTp2)
         line.delete(lnTp2)
-    if not na(lbDir)
-        label.delete(lbDir)
     if not na(profitBox)
         box.delete(profitBox)
     if not na(stopBox)
         box.delete(stopBox)
     
     if dir == "SHORT"
-        profitBox := box.new(left=bar_index, top=lvlEntry, right=bar_index+100, bottom=lvlTp2, bgcolor=color.new(profitZoneColor, fillTransparency), border_color=color.new(profitZoneColor, 50))
-        stopBox := box.new(left=bar_index, top=lvlStop, right=bar_index+100, bottom=lvlEntry, bgcolor=color.new(stopZoneColor, fillTransparency), border_color=color.new(stopZoneColor, 50))
+        profitBox := box.new(left=bar_index, top=lvlEntry, right=bar_index+9, bottom=lvlTp2, bgcolor=color.new(profitZoneColor, fillTransparency), border_color=color.new(profitZoneColor, 50))
+        stopBox := box.new(left=bar_index, top=lvlStop, right=bar_index+9, bottom=lvlEntry, bgcolor=color.new(stopZoneColor, fillTransparency), border_color=color.new(stopZoneColor, 50))
     else if dir == "LONG"
-        profitBox := box.new(left=bar_index, top=lvlTp2, right=bar_index+100, bottom=lvlEntry, bgcolor=color.new(profitZoneColor, fillTransparency), border_color=color.new(profitZoneColor, 50))
-        stopBox := box.new(left=bar_index, top=lvlEntry, right=bar_index+100, bottom=lvlStop, bgcolor=color.new(stopZoneColor, fillTransparency), border_color=color.new(stopZoneColor, 50))
+        profitBox := box.new(left=bar_index, top=lvlTp2, right=bar_index+9, bottom=lvlEntry, bgcolor=color.new(profitZoneColor, fillTransparency), border_color=color.new(profitZoneColor, 50))
+        stopBox := box.new(left=bar_index, top=lvlEntry, right=bar_index+9, bottom=lvlStop, bgcolor=color.new(stopZoneColor, fillTransparency), border_color=color.new(stopZoneColor, 50))
     
     lnEntry := line.new(x1=bar_index, y1=lvlEntry, x2=bar_index+500, y2=lvlEntry, extend=extend.right, color=entryColor, width=2)
     lnStop := line.new(x1=bar_index, y1=lvlStop, x2=bar_index+500, y2=lvlStop, extend=extend.right, color=stopColor, width=2)
@@ -159,20 +156,15 @@ if (highSwept or lowSwept) and barstate.isconfirmed and not na(refDay)
         stopStr = "Stop: " + str.tostring(lvlStop, format.mintick)
         tp1Str = "TP1: " + str.tostring(lvlTp1, format.mintick)
         tp2Str = "TP2: " + str.tostring(lvlTp2, format.mintick)
-        label.new(bar_index, lvlEntry, entryStr, style=label.style_label_left, color=entryColor, textcolor=color.white)
+        label.new(bar_index, lvlEntry, entryStr, style=label.style_label_left, color=entryColor, textcolor=color.black)
         label.new(bar_index, lvlStop, stopStr, style=label.style_label_left, color=stopColor, textcolor=color.white)
-        label.new(bar_index, lvlTp1, tp1Str, style=label.style_label_left, color=tp1Color, textcolor=color.white)
+        label.new(bar_index, lvlTp1, tp1Str, style=label.style_label_left, color=tp1Color, textcolor=color.black)
         label.new(bar_index, lvlTp2, tp2Str, style=label.style_label_left, color=tp2Color, textcolor=color.white)
-    
-    trigText = dir == "SHORT" ? "SHORT TRIGGER" : "LONG TRIGGER"
-    trigCol = dir == "SHORT" ? stopColor : profitZoneColor
-    trigY = dir == "SHORT" ? high : low
-    lbDir := label.new(bar_index, trigY, trigText, style=label.style_label_down, color=trigCol, textcolor=color.white)
 
 if not na(profitBox)
-    box.set_right(profitBox, bar_index + 100)
+    box.set_right(profitBox, bar_index + 9)
 if not na(stopBox)
-    box.set_right(stopBox, bar_index + 100)
+    box.set_right(stopBox, bar_index + 9)
 
 // =========================
 // ALERTS
