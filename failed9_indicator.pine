@@ -67,7 +67,7 @@ var int refDay = na
 if highSwept and barstate.isconfirmed
     dir := "SHORT"
     lvlEntry := entry25High
-    lvlStop := ref8AMHigh + (candleRange * stop_offset)
+    lvlStop := ref8AMHigh - (candleRange * stop_offset)
     lvlTp1 := ref8AMHigh - (candleRange * tp1_offset)
     lvlTp2 := ref8AMLow
     refDay := ref8AMTime
@@ -75,7 +75,7 @@ if highSwept and barstate.isconfirmed
 if lowSwept and barstate.isconfirmed
     dir := "LONG"
     lvlEntry := entry25Low
-    lvlStop := ref8AMLow - (candleRange * stop_offset)
+    lvlStop := ref8AMLow + (candleRange * stop_offset)
     lvlTp1 := ref8AMLow + (candleRange * tp1_offset)
     lvlTp2 := ref8AMHigh
     refDay := ref8AMTime
