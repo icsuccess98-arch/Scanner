@@ -1,4 +1,4 @@
-//@version=5
+//@version=6
 indicator("Failed 9 — 8AM NY Session", overlay=true, max_boxes_count=50, max_labels_count=500, max_lines_count=500)
 
 // =========================
@@ -30,7 +30,6 @@ labelOnLevels   = input.bool(true, "Show Entry/Stop/TP Labels")
 nyHour = hour(time, "America/New_York")
 is8AMCandle = nyHour == 8 and nyHour[1] != 8
 
-// Store the 8AM candle's high/low as reference levels
 var float ref8AMHigh = na
 var float ref8AMLow = na
 var int ref8AMTime = na
@@ -40,7 +39,6 @@ if is8AMCandle
     ref8AMLow := low
     ref8AMTime := time
 
-// Update 8AM candle high/low during the 8AM hour
 if nyHour == 8
     if high > ref8AMHigh
         ref8AMHigh := high
@@ -49,22 +47,16 @@ if nyHour == 8
 
 // =========================
 // FAILED 9 SWEEP DETECTION (9AM+ candles)
-// Sweep = price takes out 8AM high/low, then closes back inside
 // =========================
-afterSession = nyHour >= 9 and nyHour < 17  // 9AM to 5PM NY
+afterSession = nyHour >= 9 and nyHour < 17
 candleRange = ref8AMHigh - ref8AMLow
 
-// Entry levels at 25% into the 8AM candle
 entry25High = ref8AMHigh - (candleRange * entry_offset)
 entry25Low = ref8AMLow + (candleRange * entry_offset)
 
-// High Swept: price breaks above 8AM high, then closes back at 25% level
 highSwept = afterSession and not na(ref8AMHigh) and high > ref8AMHigh and close <= entry25High and close > ref8AMLow
-
-// Low Swept: price breaks below 8AM low, then closes back at 25% level
 lowSwept = afterSession and not na(ref8AMLow) and low < ref8AMLow and close >= entry25Low and close < ref8AMHigh
 
-// Freeze the most recent signal
 var string dir = na
 var float lvlEntry = na
 var float lvlStop = na
@@ -89,29 +81,26 @@ if lowSwept and barstate.isconfirmed
     refDay := ref8AMTime
 
 // =========================
-// STATE: waiting/active/completed
+// STATE
 // =========================
-var string tradeState = "Waiting for entry..."
+var string tradeState = "Waiting"
 var bool armed = true
 var bool done = false
 
-// Reset when a NEW 8AM candle is stored
 var int lastSeenRefDay = na
 if ref8AMTime != lastSeenRefDay
-    tradeState := "Waiting for entry..."
+    tradeState := "Waiting"
     armed := true
     done := false
     lastSeenRefDay := ref8AMTime
 
-// Entry triggers
 enterLong = dir == "LONG" and armed and ta.crossover(close, lvlEntry)
 enterShort = dir == "SHORT" and armed and ta.crossunder(close, lvlEntry)
 
 if enterLong or enterShort
-    tradeState := dir + " TRIGGER"
+    tradeState := "TRIGGER"
     armed := false
 
-// Completion rules
 hitStop = not armed and not done and ((dir == "LONG" and low <= lvlStop) or (dir == "SHORT" and high >= lvlStop))
 hitTp1 = not armed and not done and ((dir == "LONG" and high >= lvlTp1) or (dir == "SHORT" and low <= lvlTp1))
 hitTp2 = not armed and not done and ((dir == "LONG" and high >= lvlTp2) or (dir == "SHORT" and low <= lvlTp2))
@@ -127,7 +116,7 @@ else if hitTp1
     tradeState := "TP1 hit"
 
 // =========================
-// DRAWING: lines, labels, and TWO position boxes
+// DRAWING
 // =========================
 var line lnEntry = na
 var line lnStop = na
@@ -137,9 +126,7 @@ var label lbDir = na
 var box profitBox = na
 var box stopBox = na
 
-// Whenever new signal: clear and redraw
 if (highSwept or lowSwept) and barstate.isconfirmed and not na(refDay)
-    // Delete old drawings
     if not na(lnEntry)
         line.delete(lnEntry)
     if not na(lnStop)
@@ -155,36 +142,33 @@ if (highSwept or lowSwept) and barstate.isconfirmed and not na(refDay)
     if not na(stopBox)
         box.delete(stopBox)
     
-    // TWO BOXES: Profit zone (Entry to TP2) and Stop zone (Entry to Stop)
     if dir == "SHORT"
-        // Profit box: Entry down to TP2 (green)
         profitBox := box.new(left=bar_index, top=lvlEntry, right=bar_index+100, bottom=lvlTp2, bgcolor=color.new(profitZoneColor, fillTransparency), border_color=color.new(profitZoneColor, 50))
-        // Stop box: Entry up to Stop (red)
         stopBox := box.new(left=bar_index, top=lvlStop, right=bar_index+100, bottom=lvlEntry, bgcolor=color.new(stopZoneColor, fillTransparency), border_color=color.new(stopZoneColor, 50))
     else if dir == "LONG"
-        // Profit box: Entry up to TP2 (green)
         profitBox := box.new(left=bar_index, top=lvlTp2, right=bar_index+100, bottom=lvlEntry, bgcolor=color.new(profitZoneColor, fillTransparency), border_color=color.new(profitZoneColor, 50))
-        // Stop box: Entry down to Stop (red)
         stopBox := box.new(left=bar_index, top=lvlEntry, right=bar_index+100, bottom=lvlStop, bgcolor=color.new(stopZoneColor, fillTransparency), border_color=color.new(stopZoneColor, 50))
     
-    // Lines with custom colors
     lnEntry := line.new(x1=bar_index, y1=lvlEntry, x2=bar_index+500, y2=lvlEntry, extend=extend.right, color=entryColor, width=2)
     lnStop := line.new(x1=bar_index, y1=lvlStop, x2=bar_index+500, y2=lvlStop, extend=extend.right, color=stopColor, width=2)
     lnTp1 := line.new(x1=bar_index, y1=lvlTp1, x2=bar_index+500, y2=lvlTp1, extend=extend.right, color=tp1Color, width=2)
     lnTp2 := line.new(x1=bar_index, y1=lvlTp2, x2=bar_index+500, y2=lvlTp2, extend=extend.right, color=tp2Color, width=2)
     
     if labelOnLevels
-        label.new(bar_index, lvlEntry, "Entry: " + str.tostring(lvlEntry, format.mintick), style=label.style_label_left, color=entryColor, textcolor=color.white)
-        label.new(bar_index, lvlStop, "Stop:  " + str.tostring(lvlStop, format.mintick), style=label.style_label_left, color=stopColor, textcolor=color.white)
-        label.new(bar_index, lvlTp1, "TP1:   " + str.tostring(lvlTp1, format.mintick), style=label.style_label_left, color=tp1Color, textcolor=color.white)
-        label.new(bar_index, lvlTp2, "TP2:   " + str.tostring(lvlTp2, format.mintick), style=label.style_label_left, color=tp2Color, textcolor=color.white)
+        entryStr = "Entry: " + str.tostring(lvlEntry, format.mintick)
+        stopStr = "Stop: " + str.tostring(lvlStop, format.mintick)
+        tp1Str = "TP1: " + str.tostring(lvlTp1, format.mintick)
+        tp2Str = "TP2: " + str.tostring(lvlTp2, format.mintick)
+        label.new(bar_index, lvlEntry, entryStr, style=label.style_label_left, color=entryColor, textcolor=color.white)
+        label.new(bar_index, lvlStop, stopStr, style=label.style_label_left, color=stopColor, textcolor=color.white)
+        label.new(bar_index, lvlTp1, tp1Str, style=label.style_label_left, color=tp1Color, textcolor=color.white)
+        label.new(bar_index, lvlTp2, tp2Str, style=label.style_label_left, color=tp2Color, textcolor=color.white)
     
-    // Direction label
     trigText = dir == "SHORT" ? "SHORT TRIGGER" : "LONG TRIGGER"
     trigCol = dir == "SHORT" ? stopColor : profitZoneColor
-    lbDir := label.new(bar_index, dir == "SHORT" ? high : low, trigText, style=label.style_label_down, color=trigCol, textcolor=color.white)
+    trigY = dir == "SHORT" ? high : low
+    lbDir := label.new(bar_index, trigY, trigText, style=label.style_label_down, color=trigCol, textcolor=color.white)
 
-// Keep the box right edges advancing
 if not na(profitBox)
     box.set_right(profitBox, bar_index + 100)
 if not na(stopBox)
