@@ -31,6 +31,10 @@ args = "Run Monthly"
 task = "workflow.run"
 args = "Sports Scanner"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Crypto Scanner"
+
 [[workflows.workflow]]
 name = "Run Daily"
 author = "agent"
@@ -71,6 +75,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python sports_scanner.py"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Crypto Scanner"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python crypto_scanner.py"
 
 [workflows.workflow.metadata]
 outputType = "console"
