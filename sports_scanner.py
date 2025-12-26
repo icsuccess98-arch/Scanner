@@ -9,6 +9,7 @@ THRESHOLDS = {
     "NBA": 8.0,
     "CBB": 8.0,
     "NFL": 3.5,
+    "CFB": 3.5,
     "NHL": 0.5
 }
 
@@ -16,6 +17,7 @@ SPREAD_THRESHOLDS = {
     "NBA": 6.0,
     "CBB": 6.0,
     "NFL": 3.0,
+    "CFB": 3.0,
     "NHL": 1.0
 }
 
@@ -212,6 +214,57 @@ def fetch_cbb_stats():
         print(f"Error fetching CBB stats: {e}")
     
     print(f"Loaded {len(teams)//2} CBB teams with stats")
+    return teams
+
+def fetch_cfb_stats():
+    teams = {}
+    try:
+        url = "https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams?limit=500"
+        resp = requests.get(url, timeout=60)
+        data = resp.json()
+        
+        team_list = data.get("sports", [{}])[0].get("leagues", [{}])[0].get("teams", [])
+        
+        for team_data in team_list:
+            team = team_data.get("team", {})
+            team_id = team.get("id")
+            team_name = team.get("displayName", "")
+            
+            try:
+                record_url = f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams/{team_id}"
+                record_resp = requests.get(record_url, timeout=10)
+                record_data = record_resp.json()
+                
+                team_record = record_data.get("team", {}).get("record", {})
+                items = team_record.get("items", [])
+                
+                ppg = None
+                opp_ppg = None
+                
+                for item in items:
+                    if item.get("type") == "total":
+                        for stat in item.get("stats", []):
+                            if stat.get("name") == "avgPointsFor":
+                                ppg = stat.get("value")
+                            if stat.get("name") == "avgPointsAgainst":
+                                opp_ppg = stat.get("value")
+                        break
+                
+                if ppg and opp_ppg:
+                    teams[team_name.lower()] = {
+                        "name": team_name,
+                        "ppg": ppg,
+                        "opp_ppg": opp_ppg
+                    }
+                    teams[str(team_id)] = teams[team_name.lower()]
+                    
+            except Exception:
+                continue
+                
+    except Exception as e:
+        print(f"Error fetching CFB stats: {e}")
+    
+    print(f"Loaded {len(teams)//2} CFB teams with stats")
     return teams
 
 def fetch_espn_games_with_odds(sport, league_key):
@@ -717,6 +770,57 @@ def scan_cbb():
     
     return {"totals": total_bets, "spreads": spread_bets}
 
+def scan_cfb():
+    print("Fetching CFB stats...")
+    team_stats = fetch_cfb_stats()
+    
+    if not team_stats:
+        return {"totals": [], "spreads": []}
+    
+    print("Fetching CFB games with odds...")
+    games = fetch_espn_games_with_odds("football", "college-football")
+    
+    if not games:
+        print("No CFB games with odds")
+        return {"totals": [], "spreads": []}
+    
+    total_bets = []
+    spread_bets = []
+    
+    for game in games:
+        home_stats = find_team_stats(game["home_team"], game["home_team_id"], team_stats)
+        away_stats = find_team_stats(game["away_team"], game["away_team_id"], team_stats)
+        
+        if not home_stats or not away_stats:
+            continue
+        
+        if game.get("over_under"):
+            result = calculate_bet(away_stats, home_stats, game["over_under"], "CFB")
+            if result:
+                output = format_output(
+                    game["away_team"], game["home_team"],
+                    away_stats, home_stats,
+                    game["over_under"], "CFB", result,
+                    game.get("game_time", "")
+                )
+                total_bets.append(output)
+        
+        if game.get("spread"):
+            spread_result = calculate_spread_bet(
+                home_stats, away_stats,
+                game["spread"], game.get("spread_team"),
+                game["home_team"], game["away_team"],
+                "CFB"
+            )
+            if spread_result:
+                output = format_spread_output(
+                    game["away_team"], game["home_team"],
+                    spread_result, game.get("game_time", "")
+                )
+                spread_bets.append(output)
+    
+    return {"totals": total_bets, "spreads": spread_bets}
+
 def scan_all_leagues():
     league_totals = {}
     league_spreads = {}
@@ -757,6 +861,18 @@ def scan_all_leagues():
     
     time.sleep(1)
     
+    print("\n=== Scanning CFB ===")
+    bets = scan_cfb()
+    total_count = len(bets.get("totals", []))
+    spread_count = len(bets.get("spreads", []))
+    if bets.get("totals"):
+        league_totals["CFB"] = bets["totals"]
+    if bets.get("spreads"):
+        league_spreads["CFB"] = bets["spreads"]
+    print(f"Found {total_count} total bet(s), {spread_count} spread bet(s)")
+    
+    time.sleep(1)
+    
     print("\n=== Scanning NHL ===")
     bets = scan_nhl()
     total_count = len(bets.get("totals", []))
@@ -771,6 +887,7 @@ def scan_all_leagues():
         "NBA": "🏀 NBA",
         "CBB": "🏀 CBB",
         "NFL": "🏈 NFL",
+        "CFB": "🏈 CFB",
         "NHL": "🏒 NHL"
     }
     
@@ -783,7 +900,7 @@ def scan_all_leagues():
         
         if league_totals:
             full_msg += "📊 TOTALS (O/U)\n"
-            for league in ["NBA", "CBB", "NFL", "NHL"]:
+            for league in ["NBA", "CBB", "NFL", "CFB", "NHL"]:
                 if league in league_totals:
                     full_msg += f"\n{headers[league]} TOTALS\n\n"
                     full_msg += "\n\n".join(league_totals[league])
@@ -791,7 +908,7 @@ def scan_all_leagues():
         
         if league_spreads:
             full_msg += "\n📈 SPREADS\n"
-            for league in ["NBA", "CBB", "NFL", "NHL"]:
+            for league in ["NBA", "CBB", "NFL", "CFB", "NHL"]:
                 if league in league_spreads:
                     full_msg += f"\n{headers[league]} SPREADS\n\n"
                     full_msg += "\n\n".join(league_spreads[league])
