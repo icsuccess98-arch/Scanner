@@ -33,7 +33,15 @@ args = "Sports Scanner"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Crypto Scanner"
+args = "Crypto Daily"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Crypto Weekly"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Crypto Monthly"
 
 [[workflows.workflow]]
 name = "Run Daily"
@@ -80,12 +88,34 @@ args = "python sports_scanner.py"
 outputType = "console"
 
 [[workflows.workflow]]
-name = "Crypto Scanner"
+name = "Crypto Daily"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python crypto_scanner.py"
+args = "CRYPTO_RUN_MODE=DAILY python crypto_main.py"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Crypto Weekly"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "CRYPTO_RUN_MODE=WEEKLY python crypto_main.py"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Crypto Monthly"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "CRYPTO_RUN_MODE=MONTHLY python crypto_main.py"
 
 [workflows.workflow.metadata]
 outputType = "console"

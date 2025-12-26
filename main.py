@@ -32,7 +32,6 @@ def send_telegram(msg, topic_id=None):
 WEBHOOK_DAILY = os.environ.get("WEBHOOK_DAILY", "")
 WEBHOOK_WEEKLY = os.environ.get("WEBHOOK_WEEKLY", "")
 WEBHOOK_MONTHLY = os.environ.get("WEBHOOK_MONTHLY", "")
-CRYPTO_WEBHOOK = os.environ.get("CRYPTO_DISCORD_WEBHOOK", "")
 
 def send_discord(msg, webhook_url):
     if not webhook_url:
@@ -51,18 +50,6 @@ def to_tv_symbol(sym):
         "NAS100_USD": "OANDA:NAS100USD",
         "US30_USD": "OANDA:US30USD",
         "SPX500_USD": "OANDA:SPX500USD",
-        "BTC_USD": "COINBASE:BTCUSD",
-        "ETH_USD": "COINBASE:ETHUSD",
-        "SOL_USD": "COINBASE:SOLUSD",
-        "LTC_USD": "COINBASE:LTCUSD",
-        "BCH_USD": "COINBASE:BCHUSD",
-        "LINK_USD": "COINBASE:LINKUSD",
-        "DOGE_USD": "COINBASE:DOGEUSD",
-        "ADA_USD": "COINBASE:ADAUSD",
-        "DOT_USD": "COINBASE:DOTUSD",
-        "UNI_USD": "COINBASE:UNIUSD",
-        "AVAX_USD": "COINBASE:AVAXUSD",
-        "XRP_USD": "COINBASE:XRPUSD",
     }
     if sym in tv_map:
         return tv_map[sym]
@@ -108,16 +95,14 @@ FOREX = [
 METALS = ["XAU_USD", "XAG_USD"]
 OIL = ["WTICO_USD"]
 INDICES = ["NAS100_USD", "US30_USD", "SPX500_USD"]
-CRYPTOS = ["BTC_USD", "ETH_USD", "SOL_USD"]
 
-OANDA_SYMBOLS = FOREX + METALS + OIL + INDICES + CRYPTOS
+OANDA_SYMBOLS = FOREX + METALS + OIL + INDICES
 
 GROUP_ORDER = {
     "FOREX": FOREX,
     "METALS": METALS,
     "OIL": OIL,
-    "INDICES": INDICES,
-    "CRYPTOS": CRYPTOS
+    "INDICES": INDICES
 }
 
 # ---------------------------------------------------------
@@ -420,177 +405,16 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
     send_discord_csv(all_symbols, title, discord_webhook)
 
 # ---------------------------------------------------------
-# CRYPTO SCANNER (Dedicated)
-# ---------------------------------------------------------
-
-def scan_crypto(title, granularity):
-    if not CRYPTO_WEBHOOK:
-        print("No crypto webhook configured")
-        return
-
-    inside = []
-    outside = []
-    double_inside = []
-    f2u = []
-    f2d = []
-    aplus = {}
-
-    for symbol in CRYPTOS:
-        candles = get_closed_candles(symbol, granularity)
-        if not candles:
-            continue
-
-        curr = candles[-1]
-        prev = candles[-2]
-        prev2 = candles[-3]
-        prev3 = candles[-4] if len(candles) >= 4 else None
-
-        st = strat_type(curr, prev)
-
-        if st == "1" and strat_type(prev, prev2) == "1":
-            double_inside.append(symbol)
-            arrows = (
-                arrow(direction(get_closed_candles(symbol, "M")[-1])) +
-                arrow(direction(get_closed_candles(symbol, "W")[-1])) +
-                arrow(direction(curr))
-            )
-            aplus[symbol] = f"M/W/D {arrows} — Double Inside"
-            continue
-
-        if st == "1":
-            inside.append(symbol)
-            if strat_type(prev, prev2) == "3":
-                weekly = get_closed_candles(symbol, "W")
-                monthly = get_closed_candles(symbol, "M")
-                if weekly and monthly:
-                    arrows = arrow(direction(monthly[-1])) + arrow(direction(weekly[-1])) + arrow(direction(curr))
-                    aplus[symbol] = f"M/W/D {arrows} — 3-1"
-
-        if st == "3":
-            outside.append(symbol)
-            if strat_type(prev, prev2) == "1":
-                weekly = get_closed_candles(symbol, "W")
-                monthly = get_closed_candles(symbol, "M")
-                if weekly and monthly:
-                    arrows = arrow(direction(monthly[-1])) + arrow(direction(weekly[-1])) + arrow(direction(curr))
-                    aplus[symbol] = f"M/W/D {arrows} — 1-3"
-
-        f2 = failed_2(curr, prev)
-        if f2:
-            if f2 == "Failed 2U":
-                f2u.append(symbol)
-            if f2 == "Failed 2D":
-                f2d.append(symbol)
-
-            prev_type = strat_type(prev, prev2)
-            weekly = get_closed_candles(symbol, "W")
-            monthly = get_closed_candles(symbol, "M")
-            is_double_inside = prev3 and prev_type == "1" and strat_type(prev2, prev3) == "1"
-
-            if weekly and monthly:
-                arrows = arrow(direction(monthly[-1])) + arrow(direction(weekly[-1])) + arrow(direction(curr))
-                if is_double_inside:
-                    aplus[symbol] = f"M/W/D {arrows} — II-F2U" if f2 == "Failed 2U" else f"M/W/D {arrows} — II-F2D"
-                elif prev_type == "1":
-                    aplus[symbol] = f"M/W/D {arrows} — 1-F2U" if f2 == "Failed 2U" else f"M/W/D {arrows} — 1-F2D"
-                elif prev_type == "3":
-                    aplus[symbol] = f"M/W/D {arrows} — 3-F2U" if f2 == "Failed 2U" else f"M/W/D {arrows} — 3-F2D"
-                else:
-                    ftfc = ftfc_pass(curr, weekly[-1], monthly[-1])
-                    if ftfc:
-                        if f2 == "Failed 2U" and ftfc == "DOWN":
-                            aplus[symbol] = f"M/W/D {arrows} — F2U"
-                        if f2 == "Failed 2D" and ftfc == "UP":
-                            aplus[symbol] = f"M/W/D {arrows} — F2D"
-
-        time.sleep(0.2)
-
-    today = datetime.now()
-    yesterday = today - timedelta(days=1)
-    date_header = today.strftime("%b %d, %Y")
-    from_day = yesterday.strftime("%a %b %d")
-    dc_header = f"🗓 <b>Crypto {title} Actionable Strat — {date_header}</b>\n"
-    dc_header += f"(From {from_day} close)\n\n"
-    msg = ""
-
-    if aplus:
-        msg += "🔥 <b>A++ Setups</b>\n\n"
-        ups = []
-        dns = []
-        for sym, lbl in aplus.items():
-            lbl_short = lbl.replace("Failed 2U", "F2U").replace("Failed 2D", "F2D")
-            if "F2D" in lbl or "↑↑↑" in lbl:
-                ups.append((sym, lbl_short))
-            elif "F2U" in lbl or "↓↓↓" in lbl:
-                dns.append((sym, lbl_short))
-            elif "↑" in lbl:
-                ups.append((sym, lbl_short))
-            else:
-                dns.append((sym, lbl_short))
-        if ups:
-            msg += "<u><b>🟢 Upside</b></u>\n"
-            for sym, lbl in ups:
-                msg += f"• <b>{pretty(sym)}</b> — {lbl}\n"
-            msg += "\n"
-        if dns:
-            msg += "<u><b>🔴 Downside</b></u>\n"
-            for sym, lbl in dns:
-                msg += f"• <b>{pretty(sym)}</b> — {lbl}\n"
-            msg += "\n"
-
-    if double_inside:
-        msg += "<b>🟪 Double Inside (II)</b>\n"
-        for x in double_inside:
-            msg += f"• {pretty(x)}\n"
-        msg += "\n"
-
-    if inside:
-        msg += "<b>📘 Inside (1)</b>\n"
-        for x in inside:
-            msg += f"• {pretty(x)}\n"
-        msg += "\n"
-
-    if outside:
-        msg += "<b>📕 Outside (3)</b>\n"
-        for x in outside:
-            msg += f"• {pretty(x)}\n"
-        msg += "\n"
-
-    if f2u:
-        msg += "<b>🔴 F2U</b>\n"
-        for x in f2u:
-            msg += f"• {pretty(x)}\n"
-        msg += "\n"
-
-    if f2d:
-        msg += "<b>🟢 F2D</b>\n"
-        for x in f2d:
-            msg += f"• {pretty(x)}\n"
-        msg += "\n"
-
-    if msg:
-        full_msg = dc_header + msg.strip()
-        send_discord(full_msg, CRYPTO_WEBHOOK)
-        all_symbols = list(set(double_inside + inside + outside + f2u + f2d + list(aplus.keys())))
-        send_discord_csv(all_symbols, f"Crypto {title}", CRYPTO_WEBHOOK)
-        print(f"Crypto {title} scan sent to Discord")
-    else:
-        print(f"No crypto {title} signals found")
-
-# ---------------------------------------------------------
 # RUNTIME
 # ---------------------------------------------------------
 
 if RUN_MODE in ("DAILY", "ALL"):
     scan("Daily", "D", TOPIC_DAILY, WEBHOOK_DAILY)
-    scan_crypto("Daily", "D")
 
 if RUN_MODE in ("WEEKLY", "ALL"):
     scan("Weekly", "W", TOPIC_WEEKLY, WEBHOOK_WEEKLY)
-    scan_crypto("Weekly", "W")
 
 if RUN_MODE in ("MONTHLY", "ALL"):
     scan("Monthly", "M", TOPIC_MONTHLY, WEBHOOK_MONTHLY)
-    scan_crypto("Monthly", "M")
 
-print("DONE (Telegram + Discord + Crypto)")
+print("DONE (Telegram + Discord)")
