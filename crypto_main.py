@@ -237,6 +237,39 @@ def scan_crypto(timeframe, title):
                 f2u_list.append(ticker)
             if f2 == "Failed 2D":
                 f2d_list.append(ticker)
+            
+            prev_type = strat_type(prev, prev2)
+            daily = get_closed_candles(client, product_id, "ONE_DAY", limit=3)
+            weekly = get_closed_candles(client, product_id, "ONE_WEEK", limit=3) if timeframe != "ONE_WEEK" else candles
+            monthly = get_closed_candles(client, product_id, "ONE_MONTH", limit=3) if timeframe != "ONE_MONTH" else candles
+            
+            is_double_inside = prev3 and prev_type == "1" and strat_type(prev2, prev3) == "1"
+            
+            if daily and weekly and monthly:
+                arrows = arrow(direction(monthly[-1])) + arrow(direction(weekly[-1])) + arrow(direction(daily[-1]))
+                
+                if is_double_inside:
+                    if f2 == "Failed 2U":
+                        aplus[ticker] = f"M/W/D {arrows} — II-F2U"
+                    else:
+                        aplus[ticker] = f"M/W/D {arrows} — II-F2D"
+                elif prev_type == "1":
+                    if f2 == "Failed 2U":
+                        aplus[ticker] = f"M/W/D {arrows} — 1-F2U"
+                    else:
+                        aplus[ticker] = f"M/W/D {arrows} — 1-F2D"
+                elif prev_type == "3":
+                    if f2 == "Failed 2U":
+                        aplus[ticker] = f"M/W/D {arrows} — 3-F2U"
+                    else:
+                        aplus[ticker] = f"M/W/D {arrows} — 3-F2D"
+                else:
+                    ftfc = ftfc_pass(daily[-1], weekly[-1], monthly[-1])
+                    if ftfc:
+                        if f2 == "Failed 2U" and ftfc == "DOWN":
+                            aplus[ticker] = f"M/W/D {arrows} — F2U"
+                        if f2 == "Failed 2D" and ftfc == "UP":
+                            aplus[ticker] = f"M/W/D {arrows} — F2D"
         
         time.sleep(0.3)
     
