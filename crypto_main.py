@@ -83,9 +83,10 @@ def get_coinbase_client():
         print(f"Coinbase client error: {e}")
         return None
 
-def get_candles(client, product_id, granularity="ONE_DAY", limit=5):
+def get_closed_candles(client, product_id, granularity="ONE_DAY", limit=5):
+    """Get only CLOSED/COMPLETED candles - excludes the current incomplete candle"""
     try:
-        end = int(datetime.now().timestamp())
+        now = int(datetime.now().timestamp())
         granularity_seconds = {
             "ONE_MINUTE": 60,
             "FIVE_MINUTE": 300,
@@ -97,12 +98,12 @@ def get_candles(client, product_id, granularity="ONE_DAY", limit=5):
             "ONE_MONTH": 2592000
         }
         seconds = granularity_seconds.get(granularity, 86400)
-        start = end - (seconds * (limit + 10))
+        start = now - (seconds * (limit + 10))
         
         response = client.get_candles(
             product_id=product_id,
             start=str(start),
-            end=str(end),
+            end=str(now),
             granularity=granularity
         )
         
@@ -111,15 +112,22 @@ def get_candles(client, product_id, granularity="ONE_DAY", limit=5):
             
         candles = []
         for c in response.candles:
-            candles.append({
-                "open": float(c.open),
-                "high": float(c.high),
-                "low": float(c.low),
-                "close": float(c.close),
-                "time": int(c.start)
-            })
+            candle_start = int(c.start)
+            candle_end = candle_start + seconds
+            if candle_end <= now:
+                candles.append({
+                    "open": float(c.open),
+                    "high": float(c.high),
+                    "low": float(c.low),
+                    "close": float(c.close),
+                    "time": candle_start
+                })
         
         candles.sort(key=lambda x: x["time"])
+        
+        if len(candles) < 3:
+            return None
+        
         return candles[-limit:] if len(candles) >= limit else candles
         
     except Exception as e:
@@ -201,7 +209,7 @@ def scan_crypto(timeframe, title):
     for ticker, product_id in PERP_PRODUCTS.items():
         print(f"Scanning {ticker} ({product_id})...")
         
-        candles = get_candles(client, product_id, timeframe, limit=5)
+        candles = get_closed_candles(client, product_id, timeframe, limit=5)
         if not candles or len(candles) < 3:
             continue
         
@@ -214,9 +222,9 @@ def scan_crypto(timeframe, title):
         
         if st == "1" and strat_type(prev, prev2) == "1":
             double_inside_list.append(ticker)
-            daily = get_candles(client, product_id, "ONE_DAY", limit=3)
-            weekly = get_candles(client, product_id, "ONE_WEEK", limit=3) if timeframe != "ONE_WEEK" else candles
-            monthly = get_candles(client, product_id, "ONE_MONTH", limit=3) if timeframe != "ONE_MONTH" else candles
+            daily = get_closed_candles(client, product_id, "ONE_DAY", limit=3)
+            weekly = get_closed_candles(client, product_id, "ONE_WEEK", limit=3) if timeframe != "ONE_WEEK" else candles
+            monthly = get_closed_candles(client, product_id, "ONE_MONTH", limit=3) if timeframe != "ONE_MONTH" else candles
             if daily and weekly and monthly:
                 arrows = arrow(direction(monthly[-1])) + arrow(direction(weekly[-1])) + arrow(direction(daily[-1]))
                 aplus[ticker] = f"M/W/D {arrows} — Double Inside"
@@ -225,9 +233,9 @@ def scan_crypto(timeframe, title):
         if st == "1":
             inside_list.append(ticker)
             if strat_type(prev, prev2) == "3":
-                daily = get_candles(client, product_id, "ONE_DAY", limit=3)
-                weekly = get_candles(client, product_id, "ONE_WEEK", limit=3) if timeframe != "ONE_WEEK" else candles
-                monthly = get_candles(client, product_id, "ONE_MONTH", limit=3) if timeframe != "ONE_MONTH" else candles
+                daily = get_closed_candles(client, product_id, "ONE_DAY", limit=3)
+                weekly = get_closed_candles(client, product_id, "ONE_WEEK", limit=3) if timeframe != "ONE_WEEK" else candles
+                monthly = get_closed_candles(client, product_id, "ONE_MONTH", limit=3) if timeframe != "ONE_MONTH" else candles
                 if daily and weekly and monthly:
                     arrows = arrow(direction(monthly[-1])) + arrow(direction(weekly[-1])) + arrow(direction(daily[-1]))
                     aplus[ticker] = f"M/W/D {arrows} — 3-1"
@@ -235,9 +243,9 @@ def scan_crypto(timeframe, title):
         if st == "3":
             outside_list.append(ticker)
             if strat_type(prev, prev2) == "1":
-                daily = get_candles(client, product_id, "ONE_DAY", limit=3)
-                weekly = get_candles(client, product_id, "ONE_WEEK", limit=3) if timeframe != "ONE_WEEK" else candles
-                monthly = get_candles(client, product_id, "ONE_MONTH", limit=3) if timeframe != "ONE_MONTH" else candles
+                daily = get_closed_candles(client, product_id, "ONE_DAY", limit=3)
+                weekly = get_closed_candles(client, product_id, "ONE_WEEK", limit=3) if timeframe != "ONE_WEEK" else candles
+                monthly = get_closed_candles(client, product_id, "ONE_MONTH", limit=3) if timeframe != "ONE_MONTH" else candles
                 if daily and weekly and monthly:
                     arrows = arrow(direction(monthly[-1])) + arrow(direction(weekly[-1])) + arrow(direction(daily[-1]))
                     aplus[ticker] = f"M/W/D {arrows} — 1-3"
@@ -249,9 +257,9 @@ def scan_crypto(timeframe, title):
             if f2 == "Failed 2D":
                 f2d_list.append(ticker)
             
-            daily = get_candles(client, product_id, "ONE_DAY", limit=3)
-            weekly = get_candles(client, product_id, "ONE_WEEK", limit=3) if timeframe != "ONE_WEEK" else candles
-            monthly = get_candles(client, product_id, "ONE_MONTH", limit=3) if timeframe != "ONE_MONTH" else candles
+            daily = get_closed_candles(client, product_id, "ONE_DAY", limit=3)
+            weekly = get_closed_candles(client, product_id, "ONE_WEEK", limit=3) if timeframe != "ONE_WEEK" else candles
+            monthly = get_closed_candles(client, product_id, "ONE_MONTH", limit=3) if timeframe != "ONE_MONTH" else candles
             
             if daily and weekly and monthly:
                 arrows = arrow(direction(monthly[-1])) + arrow(direction(weekly[-1])) + arrow(direction(daily[-1]))
