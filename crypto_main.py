@@ -20,57 +20,38 @@ PERP_PRODUCTS = {
     "BTC": "BTC-PERP-INTX",
     "ETH": "ETH-PERP-INTX",
     "SOL": "SOL-PERP-INTX",
-    "BCH": "BCH-PERP-INTX",
-    "LTC": "LTC-PERP-INTX",
     "XRP": "XRP-PERP-INTX",
+    "DOGE": "DOGE-PERP-INTX",
     "AVAX": "AVAX-PERP-INTX",
     "LINK": "LINK-PERP-INTX",
-    "DOGE": "DOGE-PERP-INTX",
+    "SUI": "SUI-PERP-INTX",
     "DOT": "DOT-PERP-INTX",
     "ATOM": "ATOM-PERP-INTX",
-    "UNI": "UNI-PERP-INTX",
-    "AAVE": "AAVE-PERP-INTX",
-    "XLM": "XLM-PERP-INTX",
-    "ETC": "ETC-PERP-INTX",
-    "FIL": "FIL-PERP-INTX",
-    "APT": "APT-PERP-INTX",
+    "LTC": "LTC-PERP-INTX",
+    "BCH": "BCH-PERP-INTX",
     "NEAR": "NEAR-PERP-INTX",
+    "UNI": "UNI-PERP-INTX",
+    "APT": "APT-PERP-INTX",
+    "INJ": "INJ-PERP-INTX",
     "OP": "OP-PERP-INTX",
     "ARB": "ARB-PERP-INTX",
-    "SUI": "SUI-PERP-INTX",
-    "INJ": "INJ-PERP-INTX",
-    "TON": "TON-PERP-INTX",
-    "ALGO": "ALGO-PERP-INTX",
-    "AXS": "AXS-PERP-INTX",
-    "COMP": "COMP-PERP-INTX",
-    "CRV": "CRV-PERP-INTX",
-    "DASH": "DASH-PERP-INTX",
-    "ENS": "ENS-PERP-INTX",
-    "FET": "FET-PERP-INTX",
-    "FLOW": "FLOW-PERP-INTX",
-    "GRT": "GRT-PERP-INTX",
-    "HBAR": "HBAR-PERP-INTX",
-    "ICP": "ICP-PERP-INTX",
-    "IMX": "IMX-PERP-INTX",
-    "JASMY": "JASMY-PERP-INTX",
-    "LDO": "LDO-PERP-INTX",
-    "NEO": "NEO-PERP-INTX",
-    "ONDO": "ONDO-PERP-INTX",
-    "ORDI": "ORDI-PERP-INTX",
+    "FIL": "FIL-PERP-INTX",
     "RENDER": "RENDER-PERP-INTX",
-    "RUNE": "RUNE-PERP-INTX",
-    "SAND": "SAND-PERP-INTX",
-    "SEI": "SEI-PERP-INTX",
-    "SNX": "SNX-PERP-INTX",
-    "STX": "STX-PERP-INTX",
-    "SUSHI": "SUSHI-PERP-INTX",
-    "THETA": "THETA-PERP-INTX",
+    "HBAR": "HBAR-PERP-INTX",
+    "FET": "FET-PERP-INTX",
     "TIA": "TIA-PERP-INTX",
+    "SEI": "SEI-PERP-INTX",
+    "AAVE": "AAVE-PERP-INTX",
+    "STX": "STX-PERP-INTX",
+    "IMX": "IMX-PERP-INTX",
     "WIF": "WIF-PERP-INTX",
+    "SUSHI": "SUSHI-PERP-INTX",
+    "RUNE": "RUNE-PERP-INTX",
+    "CRV": "CRV-PERP-INTX",
+    "LDO": "LDO-PERP-INTX",
+    "SNX": "SNX-PERP-INTX",
+    "ONDO": "ONDO-PERP-INTX",
     "WLD": "WLD-PERP-INTX",
-    "XTZ": "XTZ-PERP-INTX",
-    "ZEC": "ZEC-PERP-INTX",
-    "ZEN": "ZEN-PERP-INTX",
 }
 
 def get_coinbase_client():
@@ -256,29 +237,6 @@ def scan_crypto(timeframe, title):
                 f2u_list.append(ticker)
             if f2 == "Failed 2D":
                 f2d_list.append(ticker)
-            
-            daily = get_closed_candles(client, product_id, "ONE_DAY", limit=3)
-            weekly = get_closed_candles(client, product_id, "ONE_WEEK", limit=3) if timeframe != "ONE_WEEK" else candles
-            monthly = get_closed_candles(client, product_id, "ONE_MONTH", limit=3) if timeframe != "ONE_MONTH" else candles
-            
-            if daily and weekly and monthly:
-                arrows = arrow(direction(monthly[-1])) + arrow(direction(weekly[-1])) + arrow(direction(daily[-1]))
-                prev_type = strat_type(prev, prev2)
-                is_double_inside = prev3 and prev_type == "1" and strat_type(prev2, prev3) == "1"
-                
-                if is_double_inside:
-                    aplus[ticker] = f"M/W/D {arrows} — II-F2U" if f2 == "Failed 2U" else f"M/W/D {arrows} — II-F2D"
-                elif prev_type == "1":
-                    aplus[ticker] = f"M/W/D {arrows} — 1-F2U" if f2 == "Failed 2U" else f"M/W/D {arrows} — 1-F2D"
-                elif prev_type == "3":
-                    aplus[ticker] = f"M/W/D {arrows} — 3-F2U" if f2 == "Failed 2U" else f"M/W/D {arrows} — 3-F2D"
-                else:
-                    ftfc = ftfc_pass(daily[-1], weekly[-1], monthly[-1])
-                    if ftfc:
-                        if f2 == "Failed 2U" and ftfc == "DOWN":
-                            aplus[ticker] = f"M/W/D {arrows} — F2U"
-                        if f2 == "Failed 2D" and ftfc == "UP":
-                            aplus[ticker] = f"M/W/D {arrows} — F2D"
         
         time.sleep(0.3)
     
