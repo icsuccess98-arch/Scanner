@@ -12,6 +12,13 @@ THRESHOLDS = {
     "NHL": 0.5
 }
 
+SPREAD_THRESHOLDS = {
+    "NBA": 6.0,
+    "CBB": 6.0,
+    "NFL": 3.0,
+    "NHL": 1.0
+}
+
 def send_discord(msg):
     if not DISCORD_WEBHOOK:
         print("WARNING: DISCORD_WEBHOOK not set")
@@ -273,12 +280,26 @@ def fetch_espn_games_with_odds(sport, league_key):
                 odds_data = odds_resp.json()
                 
                 over_under = None
+                spread = None
+                spread_team = None
                 for odds_item in odds_data.get("items", []):
                     if "overUnder" in odds_item:
                         over_under = odds_item.get("overUnder")
+                    if "spread" in odds_item:
+                        spread = odds_item.get("spread")
+                    if "spreadLeader" in odds_item:
+                        leader_ref = odds_item.get("spreadLeader", {}).get("$ref", "")
+                        if leader_ref:
+                            try:
+                                leader_resp = requests.get(leader_ref, timeout=10)
+                                leader_data = leader_resp.json()
+                                spread_team = leader_data.get("displayName", "")
+                            except:
+                                pass
+                    if over_under and spread:
                         break
                 
-                if over_under and len(competitors) == 2:
+                if (over_under or spread) and len(competitors) == 2:
                     home_team = next((c for c in competitors if c["homeAway"] == "home"), None)
                     away_team = next((c for c in competitors if c["homeAway"] == "away"), None)
                     
@@ -312,6 +333,8 @@ def fetch_espn_games_with_odds(sport, league_key):
                             "away_team_id": away_team["id"],
                             "away_team": away_team["name"],
                             "over_under": over_under,
+                            "spread": spread,
+                            "spread_team": spread_team,
                             "game_time": game_time,
                             "game_status": game_status,
                             "total_score": total_score
@@ -378,6 +401,54 @@ def calculate_bet(team_a_stats, team_b_stats, line, league):
     
     return None
 
+def calculate_spread_bet(home_stats, away_stats, spread, spread_team, home_team, away_team, league):
+    if not home_stats or not away_stats or spread is None:
+        return None
+    
+    threshold = SPREAD_THRESHOLDS[league]
+    
+    expected_home = (home_stats["ppg"] + away_stats["opp_ppg"]) / 2
+    expected_away = (away_stats["ppg"] + home_stats["opp_ppg"]) / 2
+    projected_margin = expected_home - expected_away
+    
+    if spread_team and spread_team.lower() in home_team.lower():
+        home_spread = -abs(spread)
+        away_spread = abs(spread)
+    elif spread_team and spread_team.lower() in away_team.lower():
+        home_spread = abs(spread)
+        away_spread = -abs(spread)
+    else:
+        home_spread = spread
+        away_spread = -spread
+    
+    home_cover = projected_margin + home_spread
+    away_cover = -projected_margin + away_spread
+    
+    if home_cover >= threshold:
+        return {
+            "expected_home": expected_home,
+            "expected_away": expected_away,
+            "projected_margin": projected_margin,
+            "spread": home_spread,
+            "edge": home_cover,
+            "pick_team": home_team,
+            "pick_spread": home_spread,
+            "decision": "SPREAD"
+        }
+    elif away_cover >= threshold:
+        return {
+            "expected_home": expected_home,
+            "expected_away": expected_away,
+            "projected_margin": projected_margin,
+            "spread": away_spread,
+            "edge": away_cover,
+            "pick_team": away_team,
+            "pick_spread": away_spread,
+            "decision": "SPREAD"
+        }
+    
+    return None
+
 def format_output(away_team, home_team, away_stats, home_stats, line, league, result, game_time=""):
     diff_sign = "+" if result['difference'] > 0 else ""
     time_str = f" ({game_time})" if game_time else ""
@@ -385,6 +456,17 @@ def format_output(away_team, home_team, away_stats, home_stats, line, league, re
     msg = f"• {away_team} @ {home_team}{time_str}\n"
     msg += f"  Line: {line} | Proj: {result['projected_total']:.1f} | {diff_sign}{result['difference']:.1f}\n"
     msg += f"  PICK: {result['decision']} {line}"
+    
+    return msg
+
+def format_spread_output(away_team, home_team, result, game_time=""):
+    time_str = f" ({game_time})" if game_time else ""
+    margin_sign = "+" if result['projected_margin'] > 0 else ""
+    spread_sign = "+" if result['pick_spread'] > 0 else ""
+    
+    msg = f"• {away_team} @ {home_team}{time_str}\n"
+    msg += f"  Proj Margin: {margin_sign}{result['projected_margin']:.1f} | Edge: +{result['edge']:.1f}\n"
+    msg += f"  PICK: {result['pick_team']} {spread_sign}{result['pick_spread']}"
     
     return msg
 
@@ -436,16 +518,17 @@ def scan_nba():
     team_stats = fetch_nba_stats()
     
     if not team_stats:
-        return []
+        return {"totals": [], "spreads": []}
     
     print("Fetching NBA games with odds...")
     games = fetch_espn_games_with_odds("basketball", "nba")
     
     if not games:
         print("No NBA games with odds")
-        return []
+        return {"totals": [], "spreads": []}
     
-    qualified_bets = []
+    total_bets = []
+    spread_bets = []
     
     for game in games:
         home_stats = find_team_stats(game["home_team"], game["home_team_id"], team_stats)
@@ -454,34 +537,49 @@ def scan_nba():
         if not home_stats or not away_stats:
             continue
         
-        result = calculate_bet(away_stats, home_stats, game["over_under"], "NBA")
+        if game.get("over_under"):
+            result = calculate_bet(away_stats, home_stats, game["over_under"], "NBA")
+            if result:
+                output = format_output(
+                    game["away_team"], game["home_team"],
+                    away_stats, home_stats,
+                    game["over_under"], "NBA", result,
+                    game.get("game_time", "")
+                )
+                total_bets.append(output)
         
-        if result:
-            output = format_output(
-                game["away_team"], game["home_team"],
-                away_stats, home_stats,
-                game["over_under"], "NBA", result,
-                game.get("game_time", "")
+        if game.get("spread"):
+            spread_result = calculate_spread_bet(
+                home_stats, away_stats,
+                game["spread"], game.get("spread_team"),
+                game["home_team"], game["away_team"],
+                "NBA"
             )
-            qualified_bets.append(output)
+            if spread_result:
+                output = format_spread_output(
+                    game["away_team"], game["home_team"],
+                    spread_result, game.get("game_time", "")
+                )
+                spread_bets.append(output)
     
-    return qualified_bets
+    return {"totals": total_bets, "spreads": spread_bets}
 
 def scan_nfl():
     print("Fetching NFL stats...")
     team_stats = fetch_nfl_stats()
     
     if not team_stats:
-        return []
+        return {"totals": [], "spreads": []}
     
     print("Fetching NFL games with odds...")
     games = fetch_espn_games_with_odds("football", "nfl")
     
     if not games:
         print("No NFL games with odds")
-        return []
+        return {"totals": [], "spreads": []}
     
-    qualified_bets = []
+    total_bets = []
+    spread_bets = []
     
     for game in games:
         home_stats = find_team_stats(game["home_team"], game["home_team_id"], team_stats)
@@ -490,34 +588,49 @@ def scan_nfl():
         if not home_stats or not away_stats:
             continue
         
-        result = calculate_bet(away_stats, home_stats, game["over_under"], "NFL")
+        if game.get("over_under"):
+            result = calculate_bet(away_stats, home_stats, game["over_under"], "NFL")
+            if result:
+                output = format_output(
+                    game["away_team"], game["home_team"],
+                    away_stats, home_stats,
+                    game["over_under"], "NFL", result,
+                    game.get("game_time", "")
+                )
+                total_bets.append(output)
         
-        if result:
-            output = format_output(
-                game["away_team"], game["home_team"],
-                away_stats, home_stats,
-                game["over_under"], "NFL", result,
-                game.get("game_time", "")
+        if game.get("spread"):
+            spread_result = calculate_spread_bet(
+                home_stats, away_stats,
+                game["spread"], game.get("spread_team"),
+                game["home_team"], game["away_team"],
+                "NFL"
             )
-            qualified_bets.append(output)
+            if spread_result:
+                output = format_spread_output(
+                    game["away_team"], game["home_team"],
+                    spread_result, game.get("game_time", "")
+                )
+                spread_bets.append(output)
     
-    return qualified_bets
+    return {"totals": total_bets, "spreads": spread_bets}
 
 def scan_nhl():
     print("Fetching NHL stats...")
     team_stats = fetch_nhl_stats()
     
     if not team_stats:
-        return []
+        return {"totals": [], "spreads": []}
     
     print("Fetching NHL games with odds...")
     games = fetch_espn_games_with_odds("hockey", "nhl")
     
     if not games:
         print("No NHL games with odds")
-        return []
+        return {"totals": [], "spreads": []}
     
-    qualified_bets = []
+    total_bets = []
+    spread_bets = []
     
     for game in games:
         home_stats = find_team_stats(game["home_team"], game["home_team_id"], team_stats)
@@ -526,34 +639,49 @@ def scan_nhl():
         if not home_stats or not away_stats:
             continue
         
-        result = calculate_bet(away_stats, home_stats, game["over_under"], "NHL")
+        if game.get("over_under"):
+            result = calculate_bet(away_stats, home_stats, game["over_under"], "NHL")
+            if result:
+                output = format_output(
+                    game["away_team"], game["home_team"],
+                    away_stats, home_stats,
+                    game["over_under"], "NHL", result,
+                    game.get("game_time", "")
+                )
+                total_bets.append(output)
         
-        if result:
-            output = format_output(
-                game["away_team"], game["home_team"],
-                away_stats, home_stats,
-                game["over_under"], "NHL", result,
-                game.get("game_time", "")
+        if game.get("spread"):
+            spread_result = calculate_spread_bet(
+                home_stats, away_stats,
+                game["spread"], game.get("spread_team"),
+                game["home_team"], game["away_team"],
+                "NHL"
             )
-            qualified_bets.append(output)
+            if spread_result:
+                output = format_spread_output(
+                    game["away_team"], game["home_team"],
+                    spread_result, game.get("game_time", "")
+                )
+                spread_bets.append(output)
     
-    return qualified_bets
+    return {"totals": total_bets, "spreads": spread_bets}
 
 def scan_cbb():
     print("Fetching CBB stats...")
     team_stats = fetch_cbb_stats()
     
     if not team_stats:
-        return []
+        return {"totals": [], "spreads": []}
     
     print("Fetching CBB games with odds...")
     games = fetch_espn_games_with_odds("basketball", "mens-college-basketball")
     
     if not games:
         print("No CBB games with odds")
-        return []
+        return {"totals": [], "spreads": []}
     
-    qualified_bets = []
+    total_bets = []
+    spread_bets = []
     
     for game in games:
         home_stats = find_team_stats(game["home_team"], game["home_team_id"], team_stats)
@@ -562,78 +690,112 @@ def scan_cbb():
         if not home_stats or not away_stats:
             continue
         
-        result = calculate_bet(away_stats, home_stats, game["over_under"], "CBB")
+        if game.get("over_under"):
+            result = calculate_bet(away_stats, home_stats, game["over_under"], "CBB")
+            if result:
+                output = format_output(
+                    game["away_team"], game["home_team"],
+                    away_stats, home_stats,
+                    game["over_under"], "CBB", result,
+                    game.get("game_time", "")
+                )
+                total_bets.append(output)
         
-        if result:
-            output = format_output(
-                game["away_team"], game["home_team"],
-                away_stats, home_stats,
-                game["over_under"], "CBB", result,
-                game.get("game_time", "")
+        if game.get("spread"):
+            spread_result = calculate_spread_bet(
+                home_stats, away_stats,
+                game["spread"], game.get("spread_team"),
+                game["home_team"], game["away_team"],
+                "CBB"
             )
-            qualified_bets.append(output)
+            if spread_result:
+                output = format_spread_output(
+                    game["away_team"], game["home_team"],
+                    spread_result, game.get("game_time", "")
+                )
+                spread_bets.append(output)
     
-    return qualified_bets
+    return {"totals": total_bets, "spreads": spread_bets}
 
 def scan_all_leagues():
-    league_bets = {}
+    league_totals = {}
+    league_spreads = {}
     
     print("\n=== Scanning NBA ===")
     bets = scan_nba()
-    if bets:
-        league_bets["NBA"] = bets
-        print(f"Found {len(bets)} qualified bet(s)")
-    else:
-        print("No qualified bets")
+    total_count = len(bets.get("totals", []))
+    spread_count = len(bets.get("spreads", []))
+    if bets.get("totals"):
+        league_totals["NBA"] = bets["totals"]
+    if bets.get("spreads"):
+        league_spreads["NBA"] = bets["spreads"]
+    print(f"Found {total_count} total bet(s), {spread_count} spread bet(s)")
     
     time.sleep(1)
     
     print("\n=== Scanning CBB ===")
     bets = scan_cbb()
-    if bets:
-        league_bets["CBB"] = bets
-        print(f"Found {len(bets)} qualified bet(s)")
-    else:
-        print("No qualified bets")
+    total_count = len(bets.get("totals", []))
+    spread_count = len(bets.get("spreads", []))
+    if bets.get("totals"):
+        league_totals["CBB"] = bets["totals"]
+    if bets.get("spreads"):
+        league_spreads["CBB"] = bets["spreads"]
+    print(f"Found {total_count} total bet(s), {spread_count} spread bet(s)")
     
     time.sleep(1)
     
     print("\n=== Scanning NFL ===")
     bets = scan_nfl()
-    if bets:
-        league_bets["NFL"] = bets
-        print(f"Found {len(bets)} qualified bet(s)")
-    else:
-        print("No qualified bets")
+    total_count = len(bets.get("totals", []))
+    spread_count = len(bets.get("spreads", []))
+    if bets.get("totals"):
+        league_totals["NFL"] = bets["totals"]
+    if bets.get("spreads"):
+        league_spreads["NFL"] = bets["spreads"]
+    print(f"Found {total_count} total bet(s), {spread_count} spread bet(s)")
     
     time.sleep(1)
     
     print("\n=== Scanning NHL ===")
     bets = scan_nhl()
-    if bets:
-        league_bets["NHL"] = bets
-        print(f"Found {len(bets)} qualified bet(s)")
-    else:
-        print("No qualified bets")
+    total_count = len(bets.get("totals", []))
+    spread_count = len(bets.get("spreads", []))
+    if bets.get("totals"):
+        league_totals["NHL"] = bets["totals"]
+    if bets.get("spreads"):
+        league_spreads["NHL"] = bets["spreads"]
+    print(f"Found {total_count} total bet(s), {spread_count} spread bet(s)")
     
-    if league_bets:
+    headers = {
+        "NBA": "🏀 NBA",
+        "CBB": "🏀 CBB",
+        "NFL": "🏈 NFL",
+        "NHL": "🏒 NHL"
+    }
+    
+    if league_totals or league_spreads:
         print("\n" + "=" * 50)
         print("QUALIFIED BETS:")
         print("=" * 50)
         
-        headers = {
-            "NBA": "🏀 NBA PICKS 🏀",
-            "CBB": "🏀 CBB PICKS 🏀",
-            "NFL": "🏈 NFL PICKS 🏈",
-            "NHL": "🏒 NHL PICKS 🏒"
-        }
-        
         full_msg = ""
-        for league in ["NBA", "CBB", "NFL", "NHL"]:
-            if league in league_bets:
-                full_msg += f"\n{headers[league]}\n\n"
-                full_msg += "\n\n".join(league_bets[league])
-                full_msg += "\n"
+        
+        if league_totals:
+            full_msg += "📊 TOTALS (O/U)\n"
+            for league in ["NBA", "CBB", "NFL", "NHL"]:
+                if league in league_totals:
+                    full_msg += f"\n{headers[league]} TOTALS\n\n"
+                    full_msg += "\n\n".join(league_totals[league])
+                    full_msg += "\n"
+        
+        if league_spreads:
+            full_msg += "\n📈 SPREADS\n"
+            for league in ["NBA", "CBB", "NFL", "NHL"]:
+                if league in league_spreads:
+                    full_msg += f"\n{headers[league]} SPREADS\n\n"
+                    full_msg += "\n\n".join(league_spreads[league])
+                    full_msg += "\n"
         
         print(full_msg)
         send_discord(full_msg)
