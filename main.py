@@ -108,11 +108,7 @@ FOREX = [
 METALS = ["XAU_USD", "XAG_USD"]
 OIL = ["WTICO_USD"]
 INDICES = ["NAS100_USD", "US30_USD", "SPX500_USD"]
-CRYPTOS = [
-    "BTC_USD", "ETH_USD", "SOL_USD", "LTC_USD", "BCH_USD",
-    "LINK_USD", "DOGE_USD", "ADA_USD", "DOT_USD", "UNI_USD",
-    "AVAX_USD", "XRP_USD"
-]
+CRYPTOS = ["BTC_USD", "ETH_USD", "SOL_USD"]
 
 OANDA_SYMBOLS = FOREX + METALS + OIL + INDICES + CRYPTOS
 
@@ -510,12 +506,15 @@ def scan_crypto(title, granularity):
         time.sleep(0.2)
 
     today = datetime.now()
+    yesterday = today - timedelta(days=1)
     date_header = today.strftime("%b %d, %Y")
-    header = f"🪙 **Crypto {title} Strat — {date_header}**\n\n"
+    from_day = yesterday.strftime("%a %b %d")
+    dc_header = f"🗓 <b>Crypto {title} Actionable Strat — {date_header}</b>\n"
+    dc_header += f"(From {from_day} close)\n\n"
     msg = ""
 
     if aplus:
-        msg += "🔥 **A++ Setups**\n\n"
+        msg += "🔥 <b>A++ Setups</b>\n\n"
         ups = []
         dns = []
         for sym, lbl in aplus.items():
@@ -529,48 +528,48 @@ def scan_crypto(title, granularity):
             else:
                 dns.append((sym, lbl_short))
         if ups:
-            msg += "__**🟢 Upside**__\n"
+            msg += "<u><b>🟢 Upside</b></u>\n"
             for sym, lbl in ups:
-                msg += f"• **{pretty(sym)}** — {lbl}\n"
+                msg += f"• <b>{pretty(sym)}</b> — {lbl}\n"
             msg += "\n"
         if dns:
-            msg += "__**🔴 Downside**__\n"
+            msg += "<u><b>🔴 Downside</b></u>\n"
             for sym, lbl in dns:
-                msg += f"• **{pretty(sym)}** — {lbl}\n"
+                msg += f"• <b>{pretty(sym)}</b> — {lbl}\n"
             msg += "\n"
 
     if double_inside:
-        msg += "**🟪 Double Inside (II)**\n"
+        msg += "<b>🟪 Double Inside (II)</b>\n"
         for x in double_inside:
             msg += f"• {pretty(x)}\n"
         msg += "\n"
 
     if inside:
-        msg += "**📘 Inside (1)**\n"
+        msg += "<b>📘 Inside (1)</b>\n"
         for x in inside:
             msg += f"• {pretty(x)}\n"
         msg += "\n"
 
     if outside:
-        msg += "**📕 Outside (3)**\n"
+        msg += "<b>📕 Outside (3)</b>\n"
         for x in outside:
             msg += f"• {pretty(x)}\n"
         msg += "\n"
 
     if f2u:
-        msg += "**🔴 F2U**\n"
+        msg += "<b>🔴 F2U</b>\n"
         for x in f2u:
             msg += f"• {pretty(x)}\n"
         msg += "\n"
 
     if f2d:
-        msg += "**🟢 F2D**\n"
+        msg += "<b>🟢 F2D</b>\n"
         for x in f2d:
             msg += f"• {pretty(x)}\n"
         msg += "\n"
 
     if msg:
-        full_msg = header + msg.strip()
+        full_msg = dc_header + msg.strip()
         send_discord(full_msg, CRYPTO_WEBHOOK)
         all_symbols = list(set(double_inside + inside + outside + f2u + f2d + list(aplus.keys())))
         send_discord_csv(all_symbols, f"Crypto {title}", CRYPTO_WEBHOOK)
