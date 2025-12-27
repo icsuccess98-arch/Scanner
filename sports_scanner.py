@@ -681,6 +681,131 @@ def scan_cfb():
     
     return total_bets
 
+def get_bovada_name(team_name):
+    """Convert ESPN team name to Bovada-style short name (no mascots)"""
+    bovada_names = {
+        "uconn huskies": "UConn",
+        "connecticut huskies": "UConn",
+        "army black knights": "Army",
+        "navy midshipmen": "Navy",
+        "miami (oh) redhawks": "Miami OH",
+        "fresno state bulldogs": "Fresno St",
+        "virginia cavaliers": "Virginia",
+        "missouri tigers": "Missouri",
+        "clemson tigers": "Clemson",
+        "lsu tigers": "LSU",
+        "houston cougars": "Houston",
+        "pittsburgh panthers": "Pittsburgh",
+        "penn state nittany lions": "Penn State",
+        "east carolina pirates": "East Carolina",
+        "stanford cardinal": "Stanford",
+        "cal state northridge matadors": "CS Northridge",
+        "baltimore ravens": "Ravens",
+        "green bay packers": "Packers",
+        "chicago bears": "Bears",
+        "detroit lions": "Lions",
+        "minnesota vikings": "Vikings",
+        "dallas cowboys": "Cowboys",
+        "new york giants": "Giants",
+        "philadelphia eagles": "Eagles",
+        "washington commanders": "Commanders",
+        "atlanta falcons": "Falcons",
+        "carolina panthers": "Panthers",
+        "new orleans saints": "Saints",
+        "tampa bay buccaneers": "Buccaneers",
+        "san francisco 49ers": "49ers",
+        "seattle seahawks": "Seahawks",
+        "los angeles rams": "Rams",
+        "arizona cardinals": "Cardinals",
+        "new england patriots": "Patriots",
+        "new york jets": "Jets",
+        "miami dolphins": "Dolphins",
+        "buffalo bills": "Bills",
+        "pittsburgh steelers": "Steelers",
+        "cleveland browns": "Browns",
+        "cincinnati bengals": "Bengals",
+        "kansas city chiefs": "Chiefs",
+        "las vegas raiders": "Raiders",
+        "los angeles chargers": "Chargers",
+        "denver broncos": "Broncos",
+        "houston texans": "Texans",
+        "indianapolis colts": "Colts",
+        "tennessee titans": "Titans",
+        "jacksonville jaguars": "Jaguars",
+        "atlanta hawks": "Hawks",
+        "boston celtics": "Celtics",
+        "brooklyn nets": "Nets",
+        "charlotte hornets": "Hornets",
+        "chicago bulls": "Bulls",
+        "cleveland cavaliers": "Cavaliers",
+        "dallas mavericks": "Mavericks",
+        "denver nuggets": "Nuggets",
+        "detroit pistons": "Pistons",
+        "golden state warriors": "Warriors",
+        "houston rockets": "Rockets",
+        "indiana pacers": "Pacers",
+        "los angeles clippers": "Clippers",
+        "los angeles lakers": "Lakers",
+        "memphis grizzlies": "Grizzlies",
+        "miami heat": "Heat",
+        "milwaukee bucks": "Bucks",
+        "minnesota timberwolves": "Timberwolves",
+        "new orleans pelicans": "Pelicans",
+        "new york knicks": "Knicks",
+        "oklahoma city thunder": "Thunder",
+        "orlando magic": "Magic",
+        "philadelphia 76ers": "76ers",
+        "phoenix suns": "Suns",
+        "portland trail blazers": "Trail Blazers",
+        "sacramento kings": "Kings",
+        "san antonio spurs": "Spurs",
+        "toronto raptors": "Raptors",
+        "utah jazz": "Jazz",
+        "washington wizards": "Wizards",
+        "anaheim ducks": "Ducks",
+        "boston bruins": "Bruins",
+        "buffalo sabres": "Sabres",
+        "calgary flames": "Flames",
+        "carolina hurricanes": "Hurricanes",
+        "chicago blackhawks": "Blackhawks",
+        "colorado avalanche": "Avalanche",
+        "columbus blue jackets": "Blue Jackets",
+        "dallas stars": "Stars",
+        "detroit red wings": "Red Wings",
+        "edmonton oilers": "Oilers",
+        "florida panthers": "Panthers",
+        "los angeles kings": "Kings",
+        "minnesota wild": "Wild",
+        "montreal canadiens": "Canadiens",
+        "nashville predators": "Predators",
+        "new jersey devils": "Devils",
+        "new york islanders": "Islanders",
+        "new york rangers": "Rangers",
+        "ottawa senators": "Senators",
+        "philadelphia flyers": "Flyers",
+        "pittsburgh penguins": "Penguins",
+        "san jose sharks": "Sharks",
+        "seattle kraken": "Kraken",
+        "st. louis blues": "Blues",
+        "tampa bay lightning": "Lightning",
+        "toronto maple leafs": "Maple Leafs",
+        "vancouver canucks": "Canucks",
+        "vegas golden knights": "Golden Knights",
+        "washington capitals": "Capitals",
+        "winnipeg jets": "Jets",
+    }
+    
+    name_lower = team_name.lower()
+    
+    for full_name, short_name in bovada_names.items():
+        if full_name in name_lower:
+            return short_name
+    
+    words = team_name.split()
+    if len(words) >= 2:
+        return " ".join(words[:-1]) if len(words[-1]) > 4 else team_name
+    return team_name
+
 def get_team_abbrev(team_name):
     """Convert full team name to abbreviation"""
     name_lower = team_name.lower()
@@ -908,20 +1033,24 @@ def scan_all_leagues(top_n=5):
                     time_short = format_time_short(pick["game_time"])
                     ou_letter = "O" if pick["decision"] == "OVER" else "U"
                     line_val = int(pick["line"]) if pick["line"] == int(pick["line"]) else pick["line"]
-                    full_msg += f"{pick['away_team']}/{pick['home_team']} ({time_short})\n"
+                    away_name = get_bovada_name(pick['away_team'])
+                    home_name = get_bovada_name(pick['home_team'])
+                    full_msg += f"{away_name}/{home_name} ({time_short})\n"
                     full_msg += f"Game Total {ou_letter}{line_val}\n\n"
                     
-                    print(f"{pick['away_team']}/{pick['home_team']} ({time_short}) - {ou_letter}{line_val}")
+                    print(f"{away_name}/{home_name} ({time_short}) - {ou_letter}{line_val}")
         
         if lock_of_day:
             time_short = format_time_short(lock_of_day["game_time"])
             ou_letter = "O" if lock_of_day["decision"] == "OVER" else "U"
             line_val = int(lock_of_day["line"]) if lock_of_day["line"] == int(lock_of_day["line"]) else lock_of_day["line"]
+            away_name = get_bovada_name(lock_of_day['away_team'])
+            home_name = get_bovada_name(lock_of_day['home_team'])
             full_msg += f"🔒 Lock Of The Day:\n"
-            full_msg += f"{lock_of_day['away_team']}/{lock_of_day['home_team']} ({time_short})\n"
+            full_msg += f"{away_name}/{home_name} ({time_short})\n"
             full_msg += f"Game Total {ou_letter}{line_val}\n"
             
-            print(f"\n🔒 Lock Of The Day: {lock_of_day['away_team']}/{lock_of_day['home_team']} {ou_letter}{line_val}")
+            print(f"\n🔒 Lock Of The Day: {away_name}/{home_name} {ou_letter}{line_val}")
         
         print(f"\nTotal qualified: {len(all_picks)} | Sending top {len(top_picks)}")
         send_discord(full_msg)
