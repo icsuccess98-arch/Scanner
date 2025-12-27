@@ -908,20 +908,20 @@ def scan_all_leagues(top_n=5):
                     time_short = format_time_short(pick["game_time"])
                     ou_letter = "O" if pick["decision"] == "OVER" else "U"
                     line_val = int(pick["line"]) if pick["line"] == int(pick["line"]) else pick["line"]
-                    full_msg += f"{pick['away_abbr']}/{pick['home_abbr']} ({time_short})\n"
+                    full_msg += f"{pick['away_team']}/{pick['home_team']} ({time_short})\n"
                     full_msg += f"Game Total {ou_letter}{line_val}\n\n"
                     
-                    print(f"{pick['away_abbr']}/{pick['home_abbr']} ({time_short}) - {ou_letter}{line_val}")
+                    print(f"{pick['away_team']}/{pick['home_team']} ({time_short}) - {ou_letter}{line_val}")
         
         if lock_of_day:
             time_short = format_time_short(lock_of_day["game_time"])
             ou_letter = "O" if lock_of_day["decision"] == "OVER" else "U"
             line_val = int(lock_of_day["line"]) if lock_of_day["line"] == int(lock_of_day["line"]) else lock_of_day["line"]
             full_msg += f"🔒 Lock Of The Day:\n"
-            full_msg += f"{lock_of_day['away_abbr']}/{lock_of_day['home_abbr']} ({time_short})\n"
+            full_msg += f"{lock_of_day['away_team']}/{lock_of_day['home_team']} ({time_short})\n"
             full_msg += f"Game Total {ou_letter}{line_val}\n"
             
-            print(f"\n🔒 Lock Of The Day: {lock_of_day['away_abbr']}/{lock_of_day['home_abbr']} {ou_letter}{line_val}")
+            print(f"\n🔒 Lock Of The Day: {lock_of_day['away_team']}/{lock_of_day['home_team']} {ou_letter}{line_val}")
         
         print(f"\nTotal qualified: {len(all_picks)} | Sending top {len(top_picks)}")
         send_discord(full_msg)
