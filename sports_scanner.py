@@ -681,68 +681,102 @@ def scan_cfb():
     
     return total_bets
 
-def scan_all_leagues():
-    league_totals = {}
-    
-    print("\n=== Scanning NBA ===")
-    bets = scan_nba()
-    if bets:
-        league_totals["NBA"] = bets
-    print(f"Found {len(bets)} O/U bet(s)")
-    
-    time.sleep(1)
-    
-    print("\n=== Scanning CBB ===")
-    bets = scan_cbb()
-    if bets:
-        league_totals["CBB"] = bets
-    print(f"Found {len(bets)} O/U bet(s)")
-    
-    time.sleep(1)
-    
-    print("\n=== Scanning NFL ===")
-    bets = scan_nfl()
-    if bets:
-        league_totals["NFL"] = bets
-    print(f"Found {len(bets)} O/U bet(s)")
-    
-    time.sleep(1)
-    
-    print("\n=== Scanning CFB ===")
-    bets = scan_cfb()
-    if bets:
-        league_totals["CFB"] = bets
-    print(f"Found {len(bets)} O/U bet(s)")
-    
-    time.sleep(1)
-    
-    print("\n=== Scanning NHL ===")
-    bets = scan_nhl()
-    if bets:
-        league_totals["NHL"] = bets
-    print(f"Found {len(bets)} O/U bet(s)")
+def scan_all_leagues(top_n=5):
+    """Scan all leagues and send only the TOP picks with highest edge to Discord"""
+    all_picks = []
     
     headers = {
         "NBA": "🏀 NBA",
-        "CBB": "🏀 CBB",
+        "CBB": "🏀 CBB", 
         "NFL": "🏈 NFL",
         "CFB": "🏈 CFB",
         "NHL": "🏒 NHL"
     }
     
-    if league_totals:
-        print("\n" + "=" * 50)
-        print("QUALIFIED BETS:")
-        print("=" * 50)
+    league_configs = [
+        ("NBA", "basketball", "nba", fetch_nba_stats),
+        ("CBB", "basketball", "mens-college-basketball", fetch_cbb_stats),
+        ("NFL", "football", "nfl", fetch_nfl_stats),
+        ("CFB", "football", "college-football", fetch_cfb_stats),
+        ("NHL", "hockey", "nhl", fetch_nhl_stats),
+    ]
+    
+    for league, sport, league_key, stats_func in league_configs:
+        print(f"\n=== Scanning {league} ===")
+        team_stats = stats_func()
+        if not team_stats:
+            continue
+            
+        games = fetch_espn_games_with_odds(sport, league_key)
+        if not games:
+            print(f"No {league} games with odds")
+            continue
         
-        full_msg = "📊 TOTALS (O/U)\n"
-        for league in ["NBA", "CBB", "NFL", "CFB", "NHL"]:
-            if league in league_totals:
-                full_msg += f"\n{headers[league]}\n\n"
-                full_msg += "\n\n".join(league_totals[league])
-                full_msg += "\n"
+        count = 0
+        for game in games:
+            home_stats = find_team_stats(game["home_team"], game["home_team_id"], team_stats)
+            away_stats = find_team_stats(game["away_team"], game["away_team_id"], team_stats)
+            
+            if not home_stats or not away_stats:
+                continue
+            
+            if game.get("over_under"):
+                line = game["over_under"]
+                threshold = THRESHOLDS[league]
+                
+                expected_a = (away_stats["ppg"] + home_stats["opp_ppg"]) / 2
+                expected_b = (home_stats["ppg"] + away_stats["opp_ppg"]) / 2
+                projected = expected_a + expected_b
+                edge = projected - line
+                abs_edge = abs(edge)
+                
+                if abs_edge >= threshold:
+                    decision = "OVER" if edge > 0 else "UNDER"
+                    edge_multiple = abs_edge / threshold
+                    count += 1
+                    
+                    all_picks.append({
+                        "league": league,
+                        "header": headers[league],
+                        "away_team": game["away_team"],
+                        "home_team": game["home_team"],
+                        "game_time": game.get("game_time", ""),
+                        "line": line,
+                        "projected": projected,
+                        "edge": edge,
+                        "abs_edge": abs_edge,
+                        "edge_multiple": edge_multiple,
+                        "decision": decision,
+                        "threshold": threshold
+                    })
         
-        print(full_msg)
+        print(f"Found {count} qualified O/U bet(s)")
+        time.sleep(1)
+    
+    all_picks.sort(key=lambda x: x["abs_edge"], reverse=True)
+    top_picks = all_picks[:top_n]
+    
+    if top_picks:
+        print("\n" + "=" * 60)
+        print(f"TOP {len(top_picks)} BEST PICKS (sending to Discord)")
+        print("=" * 60)
+        
+        full_msg = f"🎯 TOP {len(top_picks)} BEST PLAYS\n"
+        full_msg += "Sorted by highest edge/certainty\n\n"
+        
+        for i, pick in enumerate(top_picks, 1):
+            edge_sign = "+" if pick["edge"] > 0 else ""
+            
+            full_msg += f"#{i} {pick['header']} - {pick['away_team']} @ {pick['home_team']}\n"
+            full_msg += f"⏰ {pick['game_time']}\n"
+            full_msg += f"Line: {pick['line']} | Proj: {pick['projected']:.1f} | Edge: {edge_sign}{pick['edge']:.1f}\n"
+            full_msg += f"🔥 PICK: {pick['decision']} {pick['line']} ({pick['edge_multiple']:.1f}x threshold)\n\n"
+            
+            print(f"\n#{i} {pick['header']} - {pick['away_team']} @ {pick['home_team']}")
+            print(f"   Line: {pick['line']} | Proj: {pick['projected']:.1f} | Edge: {edge_sign}{pick['edge']:.1f}")
+            print(f"   PICK: {pick['decision']} {pick['line']} ({pick['edge_multiple']:.1f}x threshold)")
+        
+        print(f"\nTotal qualified: {len(all_picks)} | Sending top {len(top_picks)}")
         send_discord(full_msg)
     else:
         print("\nNo qualified bets found across all leagues.")
