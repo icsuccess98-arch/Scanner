@@ -681,6 +681,127 @@ def scan_cfb():
     
     return total_bets
 
+def get_team_abbrev(team_name):
+    """Convert full team name to abbreviation"""
+    name_lower = team_name.lower()
+    
+    full_name_abbrevs = {
+        "miami (oh) redhawks": "M-OH",
+        "miami ohio redhawks": "M-OH", 
+        "fresno state bulldogs": "FRES",
+        "virginia cavaliers": "UVA",
+        "missouri tigers": "MIZ",
+        "clemson tigers": "CLEM",
+        "lsu tigers": "LSU",
+        "houston cougars": "HOU",
+        "pittsburgh panthers": "PITT",
+        "florida panthers": "FLA",
+        "carolina panthers": "CAR",
+        "carolina hurricanes": "CAR",
+        "miami hurricanes": "CANES",
+        "stanford cardinal": "STAN",
+        "cal state northridge matadors": "CSUN",
+        "connecticut huskies": "UCONN",
+        "uconn huskies": "UCONN",
+        "army black knights": "ARMY",
+        "east carolina pirates": "ECU",
+        "penn state nittany lions": "PSU",
+        "baltimore ravens": "BAL",
+        "green bay packers": "GB",
+        "atlanta hawks": "ATL",
+        "atlanta falcons": "ATL",
+        "georgia bulldogs": "UGA",
+        "los angeles kings": "LAK",
+        "sacramento kings": "SAC",
+        "anaheim ducks": "ANA",
+        "chicago blackhawks": "CHI",
+        "dallas stars": "DAL",
+        "new york rangers": "NYR",
+        "new york islanders": "NYI",
+        "toronto maple leafs": "TOR",
+        "ottawa senators": "OTT",
+        "detroit red wings": "DET",
+        "edmonton oilers": "EDM",
+        "calgary flames": "CGY",
+        "san jose sharks": "SJS",
+        "vancouver canucks": "VAN",
+        "minnesota wild": "MIN",
+        "tampa bay lightning": "TB",
+        "boston bruins": "BOS",
+        "buffalo sabres": "BUF",
+        "colorado avalanche": "COL",
+        "nashville predators": "NSH",
+        "st. louis blues": "STL",
+        "washington capitals": "WSH",
+        "new jersey devils": "NJD",
+        "philadelphia flyers": "PHI",
+        "vegas golden knights": "VGK",
+    }
+    
+    for full_name, abbr in full_name_abbrevs.items():
+        if full_name in name_lower:
+            return abbr
+    
+    partial_abbrevs = [
+        ("northridge", "CSUN"), ("fresno", "FRES"), ("stanford", "STAN"),
+        ("missouri", "MIZ"), ("clemson", "CLEM"), ("virginia", "UVA"),
+        ("uconn", "UCONN"), ("army", "ARMY"), ("navy", "NAVY"),
+        ("ravens", "BAL"), ("packers", "GB"), ("texans", "HOU"),
+        ("chargers", "LAC"), ("chiefs", "KC"), ("broncos", "DEN"),
+        ("raiders", "LV"), ("cowboys", "DAL"), ("eagles", "PHI"),
+        ("giants", "NYG"), ("commanders", "WAS"), ("seahawks", "SEA"),
+        ("49ers", "SF"), ("rams", "LAR"), ("cardinals", "ARI"),
+        ("dolphins", "MIA"), ("bills", "BUF"), ("patriots", "NE"),
+        ("jets", "NYJ"), ("steelers", "PIT"), ("bengals", "CIN"),
+        ("browns", "CLE"), ("titans", "TEN"), ("colts", "IND"),
+        ("jaguars", "JAX"), ("lions", "DET"), ("bears", "CHI"),
+        ("vikings", "MIN"), ("saints", "NO"), ("buccaneers", "TB"),
+        ("celtics", "BOS"), ("nets", "BKN"), ("knicks", "NYK"),
+        ("76ers", "PHI"), ("raptors", "TOR"), ("bulls", "CHI"),
+        ("cavaliers", "CLE"), ("pistons", "DET"), ("pacers", "IND"),
+        ("bucks", "MIL"), ("heat", "MIA"), ("magic", "ORL"),
+        ("wizards", "WAS"), ("hawks", "ATL"), ("hornets", "CHA"),
+        ("pelicans", "NOP"), ("grizzlies", "MEM"), ("mavericks", "DAL"),
+        ("rockets", "HOU"), ("spurs", "SAS"), ("thunder", "OKC"),
+        ("nuggets", "DEN"), ("jazz", "UTA"), ("timberwolves", "MIN"),
+        ("trail blazers", "POR"), ("warriors", "GSW"), ("suns", "PHX"),
+        ("lakers", "LAL"), ("clippers", "LAC"), ("kings", "SAC"),
+    ]
+    
+    for key, abbr in partial_abbrevs:
+        if key in name_lower:
+            return abbr
+    
+    words = team_name.split()
+    if len(words) >= 2:
+        return words[-1][:4].upper()
+    return team_name[:4].upper()
+
+def parse_time_for_sort(time_str):
+    """Parse time string for sorting (returns minutes from midnight)"""
+    try:
+        if not time_str:
+            return 9999
+        time_part = time_str.replace(" ET", "").strip()
+        if ":" in time_part:
+            parts = time_part.replace(" PM", "").replace(" AM", "").split(":")
+            hour = int(parts[0])
+            minute = int(parts[1])
+            if "PM" in time_str and hour != 12:
+                hour += 12
+            elif "AM" in time_str and hour == 12:
+                hour = 0
+            return hour * 60 + minute
+    except:
+        pass
+    return 9999
+
+def format_time_short(time_str):
+    """Convert '2:15 PM ET' to '2:15'"""
+    if not time_str:
+        return ""
+    return time_str.replace(" PM ET", "").replace(" AM ET", "").replace(" ET", "")
+
 def scan_all_leagues(top_n=5):
     """Scan all leagues and send only the TOP picks with highest edge to Discord"""
     all_picks = []
@@ -735,12 +856,18 @@ def scan_all_leagues(top_n=5):
                     edge_multiple = abs_edge / threshold
                     count += 1
                     
+                    away_abbr = get_team_abbrev(game["away_team"])
+                    home_abbr = get_team_abbrev(game["home_team"])
+                    
                     all_picks.append({
                         "league": league,
                         "header": headers[league],
                         "away_team": game["away_team"],
                         "home_team": game["home_team"],
+                        "away_abbr": away_abbr,
+                        "home_abbr": home_abbr,
                         "game_time": game.get("game_time", ""),
+                        "time_sort": parse_time_for_sort(game.get("game_time", "")),
                         "line": line,
                         "projected": projected,
                         "edge": edge,
@@ -755,26 +882,46 @@ def scan_all_leagues(top_n=5):
     
     all_picks.sort(key=lambda x: x["abs_edge"], reverse=True)
     top_picks = all_picks[:top_n]
+    lock_of_day = all_picks[0] if all_picks else None
     
     if top_picks:
         print("\n" + "=" * 60)
-        print(f"TOP {len(top_picks)} BEST PICKS (sending to Discord)")
+        print(f"PICKS OF THE DAY (sending to Discord)")
         print("=" * 60)
         
-        full_msg = f"🎯 TOP {len(top_picks)} BEST PLAYS\n"
-        full_msg += "Sorted by highest edge/certainty\n\n"
+        league_order = ["CFB", "NFL", "NBA", "CBB", "NHL"]
+        picks_by_league = {}
+        for pick in top_picks:
+            if pick["league"] not in picks_by_league:
+                picks_by_league[pick["league"]] = []
+            picks_by_league[pick["league"]].append(pick)
         
-        for i, pick in enumerate(top_picks, 1):
-            edge_sign = "+" if pick["edge"] > 0 else ""
+        for league in picks_by_league:
+            picks_by_league[league].sort(key=lambda x: x["time_sort"])
+        
+        full_msg = "🎯 PICKS OF THE DAY\n\n"
+        
+        for league in league_order:
+            if league in picks_by_league:
+                full_msg += f"{headers[league]}\n"
+                for pick in picks_by_league[league]:
+                    time_short = format_time_short(pick["game_time"])
+                    ou_letter = "O" if pick["decision"] == "OVER" else "U"
+                    line_val = int(pick["line"]) if pick["line"] == int(pick["line"]) else pick["line"]
+                    full_msg += f"{pick['away_abbr']}/{pick['home_abbr']} ({time_short})\n"
+                    full_msg += f"Game Total {ou_letter}{line_val}\n\n"
+                    
+                    print(f"{pick['away_abbr']}/{pick['home_abbr']} ({time_short}) - {ou_letter}{line_val}")
+        
+        if lock_of_day:
+            time_short = format_time_short(lock_of_day["game_time"])
+            ou_letter = "O" if lock_of_day["decision"] == "OVER" else "U"
+            line_val = int(lock_of_day["line"]) if lock_of_day["line"] == int(lock_of_day["line"]) else lock_of_day["line"]
+            full_msg += f"🔒 Lock Of The Day:\n"
+            full_msg += f"{lock_of_day['away_abbr']}/{lock_of_day['home_abbr']} ({time_short})\n"
+            full_msg += f"Game Total {ou_letter}{line_val}\n"
             
-            full_msg += f"#{i} {pick['header']} - {pick['away_team']} @ {pick['home_team']}\n"
-            full_msg += f"⏰ {pick['game_time']}\n"
-            full_msg += f"Line: {pick['line']} | Proj: {pick['projected']:.1f} | Edge: {edge_sign}{pick['edge']:.1f}\n"
-            full_msg += f"🔥 PICK: {pick['decision']} {pick['line']} ({pick['edge_multiple']:.1f}x threshold)\n\n"
-            
-            print(f"\n#{i} {pick['header']} - {pick['away_team']} @ {pick['home_team']}")
-            print(f"   Line: {pick['line']} | Proj: {pick['projected']:.1f} | Edge: {edge_sign}{pick['edge']:.1f}")
-            print(f"   PICK: {pick['decision']} {pick['line']} ({pick['edge_multiple']:.1f}x threshold)")
+            print(f"\n🔒 Lock Of The Day: {lock_of_day['away_abbr']}/{lock_of_day['home_abbr']} {ou_letter}{line_val}")
         
         print(f"\nTotal qualified: {len(all_picks)} | Sending top {len(top_picks)}")
         send_discord(full_msg)
