@@ -747,5 +747,102 @@ def scan_all_leagues():
     else:
         print("\nNo qualified bets found across all leagues.")
 
+def scan_top_picks(top_n=10):
+    """Scan all leagues and return only the highest-edge picks sorted by certainty"""
+    all_picks = []
+    
+    headers = {
+        "NBA": "🏀 NBA",
+        "CBB": "🏀 CBB", 
+        "NFL": "🏈 NFL",
+        "CFB": "🏈 CFB",
+        "NHL": "🏒 NHL"
+    }
+    
+    league_configs = [
+        ("NBA", "basketball", "nba", fetch_nba_stats),
+        ("CBB", "basketball", "mens-college-basketball", fetch_cbb_stats),
+        ("NFL", "football", "nfl", fetch_nfl_stats),
+        ("CFB", "football", "college-football", fetch_cfb_stats),
+        ("NHL", "hockey", "nhl", fetch_nhl_stats),
+    ]
+    
+    for league, sport, league_key, stats_func in league_configs:
+        print(f"\n=== Scanning {league} ===")
+        team_stats = stats_func()
+        if not team_stats:
+            continue
+            
+        games = fetch_espn_games_with_odds(sport, league_key)
+        if not games:
+            print(f"No {league} games with odds")
+            continue
+        
+        for game in games:
+            home_stats = find_team_stats(game["home_team"], game["home_team_id"], team_stats)
+            away_stats = find_team_stats(game["away_team"], game["away_team_id"], team_stats)
+            
+            if not home_stats or not away_stats:
+                continue
+            
+            if game.get("over_under"):
+                line = game["over_under"]
+                threshold = THRESHOLDS[league]
+                
+                expected_a = (away_stats["ppg"] + home_stats["opp_ppg"]) / 2
+                expected_b = (home_stats["ppg"] + away_stats["opp_ppg"]) / 2
+                projected = expected_a + expected_b
+                edge = projected - line
+                abs_edge = abs(edge)
+                
+                if abs_edge >= threshold:
+                    decision = "OVER" if edge > 0 else "UNDER"
+                    edge_pct = (abs_edge / threshold) * 100
+                    
+                    all_picks.append({
+                        "league": league,
+                        "header": headers[league],
+                        "away_team": game["away_team"],
+                        "home_team": game["home_team"],
+                        "game_time": game.get("game_time", ""),
+                        "line": line,
+                        "projected": projected,
+                        "edge": edge,
+                        "abs_edge": abs_edge,
+                        "edge_pct": edge_pct,
+                        "decision": decision,
+                        "threshold": threshold
+                    })
+        
+        time.sleep(1)
+    
+    all_picks.sort(key=lambda x: x["abs_edge"], reverse=True)
+    top_picks = all_picks[:top_n]
+    
+    if top_picks:
+        print("\n" + "=" * 60)
+        print(f"TOP {len(top_picks)} HIGHEST CERTAINTY PICKS")
+        print("=" * 60)
+        
+        for i, pick in enumerate(top_picks, 1):
+            edge_sign = "+" if pick["edge"] > 0 else ""
+            edge_over_threshold = pick["abs_edge"] / pick["threshold"]
+            confidence = min(edge_over_threshold * 50 + 50, 99)
+            
+            print(f"\n#{i} {pick['header']} - {pick['away_team']} @ {pick['home_team']}")
+            print(f"   Time: {pick['game_time']}")
+            print(f"   Line: {pick['line']} | Proj: {pick['projected']:.1f} | Edge: {edge_sign}{pick['edge']:.1f}")
+            print(f"   PICK: {pick['decision']} {pick['line']}")
+            print(f"   Confidence: {confidence:.0f}% ({pick['abs_edge']:.1f} pts over {pick['threshold']} threshold)")
+    else:
+        print("\nNo qualified picks found.")
+    
+    return top_picks
+
 if __name__ == "__main__":
-    scan_all_leagues()
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "--top":
+        n = int(sys.argv[2]) if len(sys.argv) > 2 else 10
+        scan_top_picks(n)
+    else:
+        scan_all_leagues()
