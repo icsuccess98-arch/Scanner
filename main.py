@@ -392,12 +392,8 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
         msg += "\n"
 
     msg = msg.strip()
-    tg_msg = tg_header + msg
     dc_msg = dc_header + msg
     
-    discord_only = os.environ.get("DISCORD_ONLY", "").upper() == "TRUE"
-    if not discord_only:
-        send_telegram(tg_msg, topic_id)
     send_discord(dc_msg, discord_webhook)
     
     # Send TradingView watchlist CSV to Discord immediately after
@@ -417,4 +413,4 @@ if RUN_MODE in ("WEEKLY", "ALL"):
 if RUN_MODE in ("MONTHLY", "ALL"):
     scan("Monthly", "M", TOPIC_MONTHLY, WEBHOOK_MONTHLY)
 
-print("DONE (Telegram + Discord)")
+print("DONE (Discord)")
