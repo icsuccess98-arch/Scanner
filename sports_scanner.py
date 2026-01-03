@@ -6,8 +6,8 @@ import time
 DISCORD_WEBHOOK = os.environ.get("SPORTS_DISCORD_WEBHOOK", "")
 
 THRESHOLDS = {
-    "NBA": 8.0,
-    "CBB": 8.0,
+    "NBA": 5.0,
+    "CBB": 5.0,
     "NFL": 3.5,
     "CFB": 3.5,
     "NHL": 0.5
@@ -38,7 +38,7 @@ def fetch_nba_stats():
     teams = {}
     try:
         offense = leaguedashteamstats.LeagueDashTeamStats(
-            season='2024-25',
+            season='2025-26',
             season_type_all_star='Regular Season',
             measure_type_detailed_defense='Base',
             per_mode_detailed='PerGame'
@@ -46,7 +46,7 @@ def fetch_nba_stats():
         off_df = offense.get_data_frames()[0]
         
         defense = leaguedashteamstats.LeagueDashTeamStats(
-            season='2024-25',
+            season='2025-26',
             season_type_all_star='Regular Season',
             measure_type_detailed_defense='Opponent',
             per_mode_detailed='PerGame'
@@ -64,14 +64,21 @@ def fetch_nba_stats():
             opp_ppg = opp_dict.get(team_id)
             
             if ppg and opp_ppg:
-                teams[team_name.lower()] = {
+                team_entry = {
                     "name": team_name,
                     "ppg": ppg,
                     "opp_ppg": opp_ppg
                 }
-                teams[str(team_id)] = teams[team_name.lower()]
+                teams[team_name.lower()] = team_entry
+                teams[str(team_id)] = team_entry
+                nick = team_name.split()[-1].lower()
+                teams[nick] = team_entry
+                if "76ers" in team_name:
+                    teams["76ers"] = team_entry
+                if "Trail Blazers" in team_name:
+                    teams["blazers"] = team_entry
         
-        print(f"Loaded {len(teams)//2} NBA teams with stats")
+        print(f"Loaded {len(off_df)} NBA teams with stats")
         
     except Exception as e:
         print(f"Error fetching NBA stats: {e}")
@@ -297,6 +304,7 @@ def fetch_espn_games_with_odds(sport, league_key):
                 if game_date != today:
                     continue
                 
+                event_id = event_data.get("id")
                 competitions = event_data.get("competitions", [])
                 if not competitions:
                     continue
@@ -321,7 +329,7 @@ def fetch_espn_games_with_odds(sport, league_key):
                                 "homeAway": competitor.get("homeAway", "")
                             })
                 
-                odds_url = f"http://sports.core.api.espn.com/v2/sports/{sport}/leagues/{league_key}/events/{comp_id}/competitions/{comp_id}/odds"
+                odds_url = f"http://sports.core.api.espn.com/v2/sports/{sport}/leagues/{league_key}/events/{event_id}/competitions/{comp_id}/odds"
                 odds_resp = requests.get(odds_url, timeout=10)
                 odds_data = odds_resp.json()
                 
