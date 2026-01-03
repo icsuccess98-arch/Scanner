@@ -6,8 +6,8 @@ import time
 DISCORD_WEBHOOK = os.environ.get("SPORTS_DISCORD_WEBHOOK", "")
 
 THRESHOLDS = {
-    "NBA": 5.0,
-    "CBB": 5.0,
+    "NBA": 8.0,
+    "CBB": 8.0,
     "NFL": 3.5,
     "CFB": 3.5,
     "NHL": 0.5
