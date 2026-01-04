@@ -111,21 +111,26 @@ def fetch_nfl_stats():
                 opp_ppg = None
                 
                 for item in items:
-                    for stat in item.get("stats", []):
-                        if stat.get("name") == "pointsFor":
-                            games = next((s.get("value") for s in item.get("stats", []) if s.get("name") == "gamesPlayed"), 1)
-                            ppg = stat.get("value", 0) / max(games, 1)
-                        if stat.get("name") == "pointsAgainst":
-                            games = next((s.get("value") for s in item.get("stats", []) if s.get("name") == "gamesPlayed"), 1)
-                            opp_ppg = stat.get("value", 0) / max(games, 1)
+                    if item.get("type") == "total":
+                        for stat in item.get("stats", []):
+                            if stat.get("name") == "avgPointsFor":
+                                ppg = stat.get("value")
+                            if stat.get("name") == "avgPointsAgainst":
+                                opp_ppg = stat.get("value")
+                        break
                 
                 if ppg and opp_ppg:
-                    teams[team_name.lower()] = {
+                    team_entry = {
                         "name": team_name,
                         "ppg": ppg,
                         "opp_ppg": opp_ppg
                     }
-                    teams[str(team_id)] = teams[team_name.lower()]
+                    teams[team_name.lower()] = team_entry
+                    teams[str(team_id)] = team_entry
+                    nick = team_name.split()[-1].lower()
+                    teams[nick] = team_entry
+                    if "49ers" in team_name:
+                        teams["49ers"] = team_entry
                     
             except Exception:
                 continue
@@ -133,7 +138,7 @@ def fetch_nfl_stats():
     except Exception as e:
         print(f"Error fetching NFL stats: {e}")
     
-    print(f"Loaded {len(teams)//2} NFL teams with stats")
+    print(f"Loaded {len(teams)//3} NFL teams with stats")
     return teams
 
 def fetch_nhl_stats():
@@ -152,11 +157,20 @@ def fetch_nhl_stats():
                 opp_ppg = team.get("goalsAgainst", 0) / games
                 
                 if ppg and opp_ppg:
-                    teams[team_name.lower()] = {
+                    team_entry = {
                         "name": team_name,
                         "ppg": ppg,
                         "opp_ppg": opp_ppg
                     }
+                    teams[team_name.lower()] = team_entry
+                    nick = team_name.split()[-1].lower()
+                    teams[nick] = team_entry
+                    if "blue jackets" in team_name.lower():
+                        teams["jackets"] = team_entry
+                    if "maple leafs" in team_name.lower():
+                        teams["leafs"] = team_entry
+                    if "golden knights" in team_name.lower():
+                        teams["knights"] = team_entry
         
         print(f"Loaded {len(teams)} NHL teams with stats")
         
@@ -313,6 +327,7 @@ def fetch_espn_games_with_odds(sport, league_key):
                 comp_id = comp.get("id")
                 
                 competitors = []
+                comp_data = None
                 comp_ref = comp.get("$ref", "")
                 if comp_ref:
                     comp_resp = requests.get(comp_ref, timeout=10)
@@ -360,7 +375,7 @@ def fetch_espn_games_with_odds(sport, league_key):
                     game_status = event_data.get("status", {}).get("type", {}).get("name", "")
                     total_score = None
                     
-                    if game_status == "STATUS_FINAL":
+                    if game_status == "STATUS_FINAL" and comp_data:
                         try:
                             home_score = 0
                             away_score = 0
