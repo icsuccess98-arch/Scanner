@@ -7,6 +7,9 @@ Three independent trading systems:
 3. Crypto perpetuals trading system (Coinbase Advanced Trade API)
 
 ## Recent Changes
+- January 4, 2026: Fixed NFL stats (avgPointsFor/avgPointsAgainst), added team nicknames
+- January 4, 2026: Fixed NHL season to 2025-26, added team nickname aliases
+- January 4, 2026: Fixed LSP error (comp_data unbound)
 - January 3, 2026: Updated basketball thresholds to 8.0 points
 - January 3, 2026: Fixed NBA stats to use OPP_PTS column from opponent stats
 - January 3, 2026: Removed Telegram from Forex workflows (Discord only)
@@ -68,6 +71,7 @@ A bet is ONLY valid if the absolute value of the Difference meets or exceeds:
 - **NBA: ±8.0 points**
 - **CBB: ±8.0 points**
 - **NFL: ±3.5 points**
+- **CFB: ±3.5 points**
 - **NHL: ±0.5 points**
 
 If the threshold is NOT met:
@@ -87,7 +91,7 @@ No confidence language.
 You must return results in this exact structure:
 ```
 Game: Team A vs Team B
-League: NBA / CBB / NFL / NHL
+League: NBA / CBB / NFL / CFB / NHL
 - Team A PPG:
 - Team A Opp PPG:
 - Team B PPG:
