@@ -139,7 +139,7 @@ def fetch_nfl_stats():
 def fetch_nhl_stats():
     teams = {}
     try:
-        url = "https://api.nhle.com/stats/rest/en/team/summary?cayenneExp=seasonId=20242025"
+        url = "https://api.nhle.com/stats/rest/en/team/summary?cayenneExp=seasonId=20252026"
         resp = requests.get(url, timeout=30)
         data = resp.json()
         
