@@ -100,7 +100,8 @@ def dashboard():
     Game.query.filter(Game.date < today).delete()
     db.session.commit()
     
-    all_games = Game.query.filter_by(date=today).order_by(Game.edge.desc()).all()
+    all_games_db = Game.query.filter_by(date=today).order_by(Game.edge.desc()).all()
+    all_games = [g for g in all_games_db if is_game_upcoming(g)]
     qualified = [g for g in all_games if g.is_qualified]
     lock = qualified[0] if qualified else None
     
@@ -113,7 +114,7 @@ def dashboard():
     analytics = {
         'league_breakdown': {},
         'edge_tiers': {'elite': 0, 'strong': 0, 'standard': 0},
-        'total_edge': 0,
+        'best_edge': 0,
         'avg_edge': 0,
         'over_count': 0,
         'under_count': 0,
@@ -128,9 +129,12 @@ def dashboard():
             'qualified': len(league_qualified)
         }
     
+    edge_sum = 0
     for g in qualified:
         if g.edge:
-            analytics['total_edge'] += g.edge
+            edge_sum += g.edge
+            if g.edge > analytics['best_edge']:
+                analytics['best_edge'] = g.edge
             if g.edge >= 12:
                 analytics['edge_tiers']['elite'] += 1
             elif g.edge >= 10:
@@ -143,7 +147,7 @@ def dashboard():
             analytics['under_count'] += 1
     
     if qualified:
-        analytics['avg_edge'] = analytics['total_edge'] / len(qualified)
+        analytics['avg_edge'] = edge_sum / len(qualified)
         analytics['top_picks'] = qualified[:5]
     
     global last_game_count
