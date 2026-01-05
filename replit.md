@@ -7,12 +7,23 @@ Three independent trading systems:
 3. Crypto perpetuals trading system (Coinbase Advanced Trade API)
 
 ## Recent Changes
+- January 5, 2026: Full automation for Sports Model
+  - Daily automation runs on schedule (no manual intervention needed)
+  - Stats refresh from ESPN on every fetch (PPG, Opp PPG always current)
+  - Finished games filtered out automatically
+  - Old games (before today) auto-deleted on dashboard load
 - January 5, 2026: Created Sports Model web app (sports_app.py)
-  - Flask app with dark theme UI
-  - Auto-fetch today's NBA/NHL games with stats
-  - Manual line input with instant projection calculation
+  - Flask app with "730's Locks" branding, dark theme UI
+  - Edge Analysis dashboard (Avg Edge, Best Edge, Direction Split, Tiers)
+  - Auto-fetch today's NBA/NHL/CBB/CFB games with stats
   - Locked formulas and thresholds enforced
   - Discord posting with pick history tracking
+
+## Daily Automation Schedule (ET)
+- **8:00 AM** - Fetch all games with fresh ESPN stats
+- **10:00 AM** - Fetch betting odds from The Odds API
+- **11:00 AM** - Post top 5 qualified picks to Discord
+- **2:00 PM** - Afternoon refresh (stats + odds update)
 - January 4, 2026: Fixed NFL stats (avgPointsFor/avgPointsAgainst), added team nicknames
 - January 4, 2026: Fixed NHL season to 2025-26, added team nickname aliases
 - January 4, 2026: Fixed LSP error (comp_data unbound)

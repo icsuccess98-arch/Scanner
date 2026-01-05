@@ -48,6 +48,10 @@ args = "Crypto Monthly"
 task = "workflow.run"
 args = "Sports App"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Sports Automation"
+
 [[workflows.workflow]]
 name = "Run Daily"
 author = "agent"
@@ -136,6 +140,17 @@ waitForPort = 5000
 
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow]]
+name = "Sports Automation"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python sports_automation.py"
+
+[workflows.workflow.metadata]
+outputType = "console"
 
 [userenv]
 
