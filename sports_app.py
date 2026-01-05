@@ -98,9 +98,46 @@ def dashboard():
     else:
         games = all_games
     
+    # Edge Analytics
+    analytics = {
+        'league_breakdown': {},
+        'edge_tiers': {'elite': 0, 'strong': 0, 'standard': 0},
+        'total_edge': 0,
+        'avg_edge': 0,
+        'over_count': 0,
+        'under_count': 0,
+        'top_picks': []
+    }
+    
+    for league in ['NBA', 'CBB', 'NFL', 'CFB', 'NHL']:
+        league_games = [g for g in all_games if g.league == league]
+        league_qualified = [g for g in league_games if g.is_qualified]
+        analytics['league_breakdown'][league] = {
+            'total': len(league_games),
+            'qualified': len(league_qualified)
+        }
+    
+    for g in qualified:
+        if g.edge:
+            analytics['total_edge'] += g.edge
+            if g.edge >= 12:
+                analytics['edge_tiers']['elite'] += 1
+            elif g.edge >= 10:
+                analytics['edge_tiers']['strong'] += 1
+            else:
+                analytics['edge_tiers']['standard'] += 1
+        if g.direction == 'O':
+            analytics['over_count'] += 1
+        else:
+            analytics['under_count'] += 1
+    
+    if qualified:
+        analytics['avg_edge'] = analytics['total_edge'] / len(qualified)
+        analytics['top_picks'] = qualified[:5]
+    
     return render_template('dashboard.html', games=games, qualified=qualified, lock=lock, 
                           today=today, thresholds=THRESHOLDS, total_games=len(all_games),
-                          show_only_qualified=show_only_qualified)
+                          show_only_qualified=show_only_qualified, analytics=analytics)
 
 @app.route('/add_game', methods=['POST'])
 def add_game():

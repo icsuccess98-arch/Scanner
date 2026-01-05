@@ -241,41 +241,79 @@
         }
         .filter-toggle a:hover { color: var(--text); }
         .filter-toggle a.active { background: var(--accent); color: white; }
-        .add-game-section {
+        .analytics-section {
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 1.25rem;
+            border-radius: 16px;
+            padding: 1.5rem;
             margin-bottom: 2rem;
         }
-        .add-game-section .form-control, .add-game-section .form-select {
+        .analytics-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.25rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .analytics-title { font-weight: 700; font-size: 1rem; }
+        .analytics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+        @media (max-width: 992px) { .analytics-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 576px) { .analytics-grid { grid-template-columns: 1fr; } }
+        .analytics-card {
             background: var(--bg-input);
-            border: 1px solid var(--border);
-            color: var(--text);
-            font-size: 0.875rem;
+            border-radius: 12px;
+            padding: 1rem;
+            text-align: center;
         }
-        .add-game-section .form-control:focus, .add-game-section .form-select:focus {
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(76, 130, 255, 0.15);
-        }
-        .add-game-section label { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem; }
-        .btn-add {
-            background: var(--accent);
-            border: none;
-            color: white;
+        .analytics-card-value { font-size: 1.75rem; font-weight: 800; margin-bottom: 0.25rem; }
+        .analytics-card-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+        .league-bar-container { margin-bottom: 0.5rem; }
+        .league-bar-header { display: flex; justify-content: space-between; margin-bottom: 0.25rem; font-size: 0.75rem; }
+        .league-bar-name { font-weight: 600; }
+        .league-bar-count { color: var(--text-muted); }
+        .league-bar { height: 8px; background: var(--bg-dark); border-radius: 4px; overflow: hidden; }
+        .league-bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s ease; }
+        .league-bar-fill.nba { background: var(--nba); }
+        .league-bar-fill.cbb { background: var(--cbb); }
+        .league-bar-fill.nfl { background: var(--nfl); }
+        .league-bar-fill.cfb { background: var(--cfb); }
+        .league-bar-fill.nhl { background: var(--nhl); }
+        .tier-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.375rem 0.625rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
             font-weight: 600;
-            padding: 0.5rem 1.5rem;
-            border-radius: 8px;
-            transition: all 0.2s;
         }
-        .btn-add:hover { background: #3A6FE8; transform: translateY(-1px); }
+        .tier-badge.elite { background: rgba(255, 215, 0, 0.2); color: var(--gold); }
+        .tier-badge.strong { background: rgba(33, 197, 93, 0.2); color: var(--green); }
+        .tier-badge.standard { background: rgba(76, 130, 255, 0.2); color: var(--accent); }
+        .tier-count { font-weight: 800; font-size: 1rem; }
+        .direction-chip { padding: 0.25rem 0.5rem; border-radius: 4px; font-weight: 700; font-size: 0.75rem; }
+        .direction-chip.over { background: rgba(33, 197, 93, 0.15); color: var(--green); }
+        .direction-chip.under { background: rgba(255, 77, 79, 0.15); color: var(--red); }
+        .top-pick-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.8rem;
+        }
+        .top-pick-row:last-child { border-bottom: none; }
+        .top-pick-matchup { font-weight: 500; flex: 1; }
+        .top-pick-edge { font-weight: 700; color: var(--green); margin-left: 0.5rem; }
         .btn-clear {
             background: transparent;
             border: 1px solid var(--red);
             color: var(--red);
-            font-size: 0.875rem;
-            padding: 0.375rem 0.75rem;
-            border-radius: 8px;
+            font-size: 0.75rem;
+            padding: 0.25rem 0.625rem;
+            border-radius: 6px;
+            transition: all 0.2s;
         }
         .btn-clear:hover { background: rgba(255, 77, 79, 0.1); color: var(--red); }
         .empty-state {
@@ -371,62 +409,77 @@
         </div>
         {% endif %}
 
-        <div class="add-game-section">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h6 class="mb-0"><i class="bi bi-plus-circle"></i> Add Game Manually</h6>
+        <div class="analytics-section">
+            <div class="analytics-header">
+                <div class="analytics-title"><i class="bi bi-graph-up-arrow"></i> Edge Analysis</div>
                 <form action="/clear_games" method="post" class="d-inline">
                     <button type="submit" class="btn-clear" onclick="return confirm('Clear all games?')">
-                        <i class="bi bi-trash"></i> Clear All
+                        <i class="bi bi-trash"></i> Reset
                     </button>
                 </form>
             </div>
-            <form action="/add_game" method="post" class="row g-2 align-items-end">
-                <div class="col-md-1">
-                    <label>League</label>
-                    <select name="league" class="form-select form-select-sm" required>
-                        <option value="NBA">NBA</option>
-                        <option value="CBB">CBB</option>
-                        <option value="NFL">NFL</option>
-                        <option value="CFB">CFB</option>
-                        <option value="NHL">NHL</option>
-                    </select>
+            
+            <div class="analytics-grid">
+                <div class="analytics-card">
+                    <div class="analytics-card-value" style="color: var(--green);">{{ "%.1f"|format(analytics.avg_edge) if analytics.avg_edge else '0.0' }}</div>
+                    <div class="analytics-card-label">Avg Edge</div>
                 </div>
-                <div class="col-md-2">
-                    <label>Away Team</label>
-                    <input type="text" name="away_team" class="form-control form-control-sm" required>
+                <div class="analytics-card">
+                    <div class="analytics-card-value" style="color: var(--gold);">{{ "%.1f"|format(analytics.total_edge) if analytics.total_edge else '0.0' }}</div>
+                    <div class="analytics-card-label">Total Edge</div>
                 </div>
-                <div class="col-md-2">
-                    <label>Home Team</label>
-                    <input type="text" name="home_team" class="form-control form-control-sm" required>
+                <div class="analytics-card">
+                    <div class="d-flex justify-content-center gap-2 mb-1">
+                        <span class="direction-chip over">O {{ analytics.over_count }}</span>
+                        <span class="direction-chip under">U {{ analytics.under_count }}</span>
+                    </div>
+                    <div class="analytics-card-label">Direction Split</div>
                 </div>
-                <div class="col-md-1">
-                    <label>Time</label>
-                    <input type="text" name="game_time" class="form-control form-control-sm" placeholder="7:00 PM">
+                <div class="analytics-card">
+                    <div class="d-flex justify-content-center gap-2 flex-wrap mb-1">
+                        <span class="tier-badge elite"><span class="tier-count">{{ analytics.edge_tiers.elite }}</span> Elite</span>
+                        <span class="tier-badge strong"><span class="tier-count">{{ analytics.edge_tiers.strong }}</span> Strong</span>
+                    </div>
+                    <div class="analytics-card-label">Edge Tiers (12+ / 10+)</div>
                 </div>
-                <div class="col-md-1">
-                    <label>Line</label>
-                    <input type="number" step="0.5" name="line" class="form-control form-control-sm" required>
+            </div>
+            
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <div class="mb-2" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">LEAGUE BREAKDOWN</div>
+                    {% for league in ['NBA', 'CBB', 'NFL', 'CFB', 'NHL'] %}
+                    {% set data = analytics.league_breakdown.get(league, {'total': 0, 'qualified': 0}) %}
+                    {% if data.total > 0 %}
+                    <div class="league-bar-container">
+                        <div class="league-bar-header">
+                            <span class="league-bar-name">{{ league }}</span>
+                            <span class="league-bar-count">{{ data.qualified }}/{{ data.total }} qualified</span>
+                        </div>
+                        <div class="league-bar">
+                            <div class="league-bar-fill {{ league|lower }}" style="width: {{ (data.qualified / data.total * 100) if data.total > 0 else 0 }}%"></div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                    {% if total_games == 0 %}
+                    <div class="text-muted" style="font-size: 0.8rem;">No games loaded yet</div>
+                    {% endif %}
                 </div>
-                <div class="col-md-1">
-                    <label>Away PPG</label>
-                    <input type="number" step="0.1" name="away_ppg" class="form-control form-control-sm" required>
+                <div class="col-md-6">
+                    <div class="mb-2" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">TOP 5 EDGES</div>
+                    {% for pick in analytics.top_picks %}
+                    <div class="top-pick-row">
+                        <span class="badge league-icon {{ pick.league|lower }}" style="width: 36px; height: 24px; font-size: 0.65rem;">{{ pick.league }}</span>
+                        <span class="top-pick-matchup ms-2">{{ pick.away_team }} @ {{ pick.home_team }}</span>
+                        <span class="direction-chip {% if pick.direction == 'O' %}over{% else %}under{% endif %}">{{ pick.direction }}{{ pick.line }}</span>
+                        <span class="top-pick-edge">+{{ "%.1f"|format(pick.edge) }}</span>
+                    </div>
+                    {% endfor %}
+                    {% if not analytics.top_picks %}
+                    <div class="text-muted" style="font-size: 0.8rem;">No qualified picks yet</div>
+                    {% endif %}
                 </div>
-                <div class="col-md-1">
-                    <label>Away Opp</label>
-                    <input type="number" step="0.1" name="away_opp_ppg" class="form-control form-control-sm" required>
-                </div>
-                <div class="col-md-1">
-                    <label>Home PPG</label>
-                    <input type="number" step="0.1" name="home_ppg" class="form-control form-control-sm" required>
-                </div>
-                <div class="col-md-1">
-                    <label>Home Opp</label>
-                    <input type="number" step="0.1" name="home_opp_ppg" class="form-control form-control-sm" required>
-                </div>
-                <div class="col-md-1">
-                    <button type="submit" class="btn-add w-100">Add</button>
-                </div>
-            </form>
+            </div>
         </div>
 
         <div class="section-header">
