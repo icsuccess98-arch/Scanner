@@ -376,11 +376,24 @@ def fetch_games():
                     home_name = home.get("team", {}).get("shortDisplayName", "")
                     game_time = event.get("status", {}).get("type", {}).get("shortDetail", "")
                     
+                    away_s = find_team_stats(away_name, nba_stats)
+                    home_s = find_team_stats(home_name, nba_stats)
+                    
                     existing = Game.query.filter_by(date=today, league="NBA", away_team=away_name, home_team=home_name).first()
-                    if not existing:
-                        away_s = find_team_stats(away_name, nba_stats)
-                        home_s = find_team_stats(home_name, nba_stats)
-                        
+                    if existing:
+                        existing.game_time = game_time
+                        existing.away_ppg = away_s["ppg"] if away_s else existing.away_ppg
+                        existing.away_opp_ppg = away_s["opp_ppg"] if away_s else existing.away_opp_ppg
+                        existing.home_ppg = home_s["ppg"] if home_s else existing.home_ppg
+                        existing.home_opp_ppg = home_s["opp_ppg"] if home_s else existing.home_opp_ppg
+                        if all([existing.away_ppg, existing.away_opp_ppg, existing.home_ppg, existing.home_opp_ppg]):
+                            existing.projected_total = calculate_projection(existing.away_ppg, existing.away_opp_ppg, existing.home_ppg, existing.home_opp_ppg)
+                            if existing.line:
+                                qualified, direction, edge = check_qualification(existing.projected_total, existing.line, "NBA")
+                                existing.is_qualified = qualified
+                                existing.direction = direction
+                                existing.edge = edge
+                    else:
                         game = Game(
                             date=today, league="NBA", away_team=away_name, home_team=home_name,
                             game_time=game_time,
@@ -407,11 +420,24 @@ def fetch_games():
                     start_time = game_data.get("startTimeUTC", "")
                     
                     if away_name and home_name:
+                        away_s = find_team_stats(away_name, nhl_stats)
+                        home_s = find_team_stats(home_name, nhl_stats)
+                        
                         existing = Game.query.filter_by(date=today, league="NHL", away_team=away_name, home_team=home_name).first()
-                        if not existing:
-                            away_s = find_team_stats(away_name, nhl_stats)
-                            home_s = find_team_stats(home_name, nhl_stats)
-                            
+                        if existing:
+                            existing.game_time = start_time[:10] if start_time else existing.game_time
+                            existing.away_ppg = away_s["ppg"] if away_s else existing.away_ppg
+                            existing.away_opp_ppg = away_s["opp_ppg"] if away_s else existing.away_opp_ppg
+                            existing.home_ppg = home_s["ppg"] if home_s else existing.home_ppg
+                            existing.home_opp_ppg = home_s["opp_ppg"] if home_s else existing.home_opp_ppg
+                            if all([existing.away_ppg, existing.away_opp_ppg, existing.home_ppg, existing.home_opp_ppg]):
+                                existing.projected_total = calculate_projection(existing.away_ppg, existing.away_opp_ppg, existing.home_ppg, existing.home_opp_ppg)
+                                if existing.line:
+                                    qualified, direction, edge = check_qualification(existing.projected_total, existing.line, "NHL")
+                                    existing.is_qualified = qualified
+                                    existing.direction = direction
+                                    existing.edge = edge
+                        else:
                             game = Game(
                                 date=today, league="NHL", away_team=away_name, home_team=home_name,
                                 game_time=start_time[:10] if start_time else "",
@@ -443,11 +469,24 @@ def fetch_games():
                     home_id = home.get("team", {}).get("id")
                     game_time = event.get("status", {}).get("type", {}).get("shortDetail", "")
                     
+                    away_ppg, away_opp = fetch_cbb_team_stats(away_id)
+                    home_ppg, home_opp = fetch_cbb_team_stats(home_id)
+                    
                     existing = Game.query.filter_by(date=today, league="CBB", away_team=away_name, home_team=home_name).first()
-                    if not existing:
-                        away_ppg, away_opp = fetch_cbb_team_stats(away_id)
-                        home_ppg, home_opp = fetch_cbb_team_stats(home_id)
-                        
+                    if existing:
+                        existing.game_time = game_time
+                        existing.away_ppg = away_ppg if away_ppg else existing.away_ppg
+                        existing.away_opp_ppg = away_opp if away_opp else existing.away_opp_ppg
+                        existing.home_ppg = home_ppg if home_ppg else existing.home_ppg
+                        existing.home_opp_ppg = home_opp if home_opp else existing.home_opp_ppg
+                        if all([existing.away_ppg, existing.away_opp_ppg, existing.home_ppg, existing.home_opp_ppg]):
+                            existing.projected_total = calculate_projection(existing.away_ppg, existing.away_opp_ppg, existing.home_ppg, existing.home_opp_ppg)
+                            if existing.line:
+                                qualified, direction, edge = check_qualification(existing.projected_total, existing.line, "CBB")
+                                existing.is_qualified = qualified
+                                existing.direction = direction
+                                existing.edge = edge
+                    else:
                         game = Game(
                             date=today, league="CBB", away_team=away_name, home_team=home_name,
                             game_time=game_time,
@@ -477,11 +516,24 @@ def fetch_games():
                     home_id = home.get("team", {}).get("id")
                     game_time = event.get("status", {}).get("type", {}).get("shortDetail", "")
                     
+                    away_ppg, away_opp = fetch_cfb_team_stats(away_id)
+                    home_ppg, home_opp = fetch_cfb_team_stats(home_id)
+                    
                     existing = Game.query.filter_by(date=today, league="CFB", away_team=away_name, home_team=home_name).first()
-                    if not existing:
-                        away_ppg, away_opp = fetch_cfb_team_stats(away_id)
-                        home_ppg, home_opp = fetch_cfb_team_stats(home_id)
-                        
+                    if existing:
+                        existing.game_time = game_time
+                        existing.away_ppg = away_ppg if away_ppg else existing.away_ppg
+                        existing.away_opp_ppg = away_opp if away_opp else existing.away_opp_ppg
+                        existing.home_ppg = home_ppg if home_ppg else existing.home_ppg
+                        existing.home_opp_ppg = home_opp if home_opp else existing.home_opp_ppg
+                        if all([existing.away_ppg, existing.away_opp_ppg, existing.home_ppg, existing.home_opp_ppg]):
+                            existing.projected_total = calculate_projection(existing.away_ppg, existing.away_opp_ppg, existing.home_ppg, existing.home_opp_ppg)
+                            if existing.line:
+                                qualified, direction, edge = check_qualification(existing.projected_total, existing.line, "CFB")
+                                existing.is_qualified = qualified
+                                existing.direction = direction
+                                existing.edge = edge
+                    else:
                         game = Game(
                             date=today, league="CFB", away_team=away_name, home_team=home_name,
                             game_time=game_time,
