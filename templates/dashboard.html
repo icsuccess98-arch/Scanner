@@ -3,377 +3,529 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sports Betting Calculator</title>
+    <title>730's Locks</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-dark: #0d1117;
-            --bg-card: #161b22;
-            --bg-input: #21262d;
-            --border: #30363d;
-            --text: #c9d1d9;
-            --text-muted: #8b949e;
-            --accent: #58a6ff;
-            --green: #3fb950;
-            --red: #f85149;
-            --yellow: #d29922;
+            --bg-dark: #090C12;
+            --bg-card: #111822;
+            --bg-input: #1B2330;
+            --border: #2A3444;
+            --text: #E8ECF1;
+            --text-muted: #8B95A5;
+            --accent: #4C82FF;
+            --green: #21C55D;
+            --red: #FF4D4F;
+            --gold: #FFD700;
+            --nba: #F44336;
+            --cbb: #3F51B5;
+            --nfl: #0B3D91;
+            --cfb: #8B0000;
+            --nhl: #00BCD4;
         }
+        * { box-sizing: border-box; }
         body {
             background: var(--bg-dark);
             color: var(--text);
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
         }
-        .card {
+        .navbar {
+            background: linear-gradient(180deg, #0F1318 0%, var(--bg-dark) 100%);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 0;
+        }
+        .brand {
+            font-size: 1.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--gold) 0%, #FFA500 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .brand i { -webkit-text-fill-color: var(--gold); margin-right: 8px; }
+        .nav-link { color: var(--text-muted); font-weight: 500; transition: color 0.2s; }
+        .nav-link:hover, .nav-link.active { color: var(--text); }
+        .header-section {
+            background: linear-gradient(135deg, #0F1318 0%, #151C26 100%);
+            border-bottom: 1px solid var(--border);
+            padding: 2rem 0;
+        }
+        .date-display {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+        .stat-pill {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 50px;
+            padding: 0.5rem 1.25rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .stat-pill .value { font-weight: 700; font-size: 1.25rem; }
+        .stat-pill.qualified .value { color: var(--green); }
+        .btn-fetch {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.625rem 1.25rem;
+            border-radius: 10px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .btn-fetch:hover { background: var(--bg-card); border-color: var(--accent); color: var(--text); transform: translateY(-1px); }
+        .btn-fetch.odds { border-color: var(--gold); color: var(--gold); }
+        .btn-fetch.odds:hover { background: rgba(255, 215, 0, 0.1); }
+        .btn-discord {
+            background: linear-gradient(135deg, #5865F2 0%, #7289DA 100%);
+            border: none;
+            color: white;
+            padding: 0.625rem 1.25rem;
+            border-radius: 10px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .btn-discord:hover { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(88, 101, 242, 0.4); color: white; }
+        .btn-discord:disabled { opacity: 0.5; transform: none; }
+        .lock-hero {
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.15) 0%, rgba(255, 180, 0, 0.05) 100%);
+            border: 2px solid var(--gold);
+            border-radius: 16px;
+            padding: 1.5rem 2rem;
+            margin: 2rem 0;
+            position: relative;
+            overflow: hidden;
+        }
+        .lock-hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255, 215, 0, 0.1) 0%, transparent 60%);
+            animation: pulse 3s ease-in-out infinite;
+        }
+        @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+        .lock-badge {
+            background: linear-gradient(135deg, var(--gold) 0%, #FFB400 100%);
+            color: #000;
+            font-weight: 800;
+            font-size: 0.75rem;
+            padding: 0.375rem 0.75rem;
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .lock-matchup { font-size: 1.5rem; font-weight: 700; position: relative; }
+        .lock-pick {
+            font-size: 2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--green) 0%, #10B981 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .lock-pick.under {
+            background: linear-gradient(135deg, var(--red) 0%, #EF4444 100%);
+            -webkit-background-clip: text;
+        }
+        .lock-edge { color: var(--text-muted); font-size: 0.875rem; }
+        .league-section { margin-bottom: 2rem; }
+        .league-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem 0;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 1rem;
+        }
+        .league-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.875rem;
+            color: white;
+        }
+        .league-icon.nba { background: var(--nba); }
+        .league-icon.cbb { background: var(--cbb); }
+        .league-icon.nfl { background: var(--nfl); }
+        .league-icon.cfb { background: var(--cfb); }
+        .league-icon.nhl { background: var(--nhl); }
+        .league-title { font-size: 1.25rem; font-weight: 700; }
+        .league-count { color: var(--text-muted); font-size: 0.875rem; }
+        .game-card {
             background: var(--bg-card);
             border: 1px solid var(--border);
             border-radius: 12px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 0.75rem;
+            transition: all 0.2s;
         }
-        .card-header {
-            background: transparent;
-            border-bottom: 1px solid var(--border);
-            font-weight: 600;
+        .game-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+        .game-card.qualified {
+            border-left: 4px solid var(--green);
+            background: linear-gradient(90deg, rgba(33, 197, 93, 0.08) 0%, var(--bg-card) 30%);
         }
-        .table {
-            color: var(--text);
-            margin-bottom: 0;
+        .game-card.lock-card {
+            border: 2px solid var(--gold);
+            background: linear-gradient(90deg, rgba(255, 215, 0, 0.1) 0%, var(--bg-card) 30%);
         }
-        .table th {
-            border-color: var(--border);
-            color: var(--text-muted);
-            font-weight: 500;
-            font-size: 0.85rem;
-        }
-        .table td {
-            border-color: var(--border);
-            vertical-align: middle;
-        }
-        .form-control, .form-select {
+        .matchup { font-weight: 600; font-size: 1rem; }
+        .game-time { color: var(--text-muted); font-size: 0.8rem; }
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin: 0.75rem 0; }
+        .stat-item { text-align: center; }
+        .stat-label { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; }
+        .stat-value { font-weight: 600; font-size: 0.875rem; }
+        .line-input {
             background: var(--bg-input);
             border: 1px solid var(--border);
             color: var(--text);
-        }
-        .form-control:focus, .form-select:focus {
-            background: var(--bg-input);
-            border-color: var(--accent);
-            color: var(--text);
-            box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
-        }
-        .btn-primary {
-            background: var(--accent);
-            border: none;
-        }
-        .btn-primary:hover {
-            background: #4493e9;
-        }
-        .btn-outline-secondary {
-            color: var(--text-muted);
-            border-color: var(--border);
-        }
-        .btn-outline-secondary:hover {
-            background: var(--bg-input);
-            color: var(--text);
-            border-color: var(--border);
-        }
-        .badge-qualified {
-            background: var(--green);
-            color: #000;
-            font-weight: 600;
-        }
-        .badge-no {
-            background: var(--border);
-            color: var(--text-muted);
-        }
-        .badge-over {
-            background: var(--green);
-            color: #000;
-        }
-        .badge-under {
-            background: var(--red);
-            color: #fff;
-        }
-        .lock-badge {
-            background: linear-gradient(135deg, #ffd700, #ffb700);
-            color: #000;
-            font-weight: 700;
-        }
-        .league-badge {
-            font-size: 0.75rem;
-            padding: 4px 8px;
-        }
-        .nba { background: #c9082a; }
-        .cbb { background: #1e90ff; }
-        .nfl { background: #013369; }
-        .cfb { background: #8b0000; }
-        .nhl { background: #000; border: 1px solid #fff; }
-        .stats-mini {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-        }
-        .edge-value {
-            font-weight: 700;
-            font-size: 1.1rem;
-        }
-        .edge-high { color: var(--green); }
-        .edge-low { color: var(--text-muted); }
-        .line-input {
             width: 80px;
             text-align: center;
+            border-radius: 8px;
+            padding: 0.375rem;
+            font-weight: 600;
         }
-        .nav-link {
+        .line-input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px rgba(76, 130, 255, 0.15); }
+        .projection-box { text-align: center; }
+        .projection-value { font-size: 1.25rem; font-weight: 700; }
+        .edge-value { font-size: 1rem; font-weight: 700; }
+        .edge-value.high { color: var(--green); }
+        .edge-value.low { color: var(--text-muted); }
+        .pick-chip {
+            padding: 0.375rem 0.75rem;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 0.875rem;
+        }
+        .pick-chip.over { background: rgba(33, 197, 93, 0.2); color: var(--green); }
+        .pick-chip.under { background: rgba(255, 77, 79, 0.2); color: var(--red); }
+        .pick-chip.no-bet { background: var(--bg-input); color: var(--text-muted); }
+        .btn-delete {
+            background: transparent;
+            border: 1px solid var(--border);
             color: var(--text-muted);
-        }
-        .nav-link:hover, .nav-link.active {
-            color: var(--text);
-        }
-        .qualified-row {
-            background: rgba(63, 185, 80, 0.1) !important;
-        }
-        .lock-row {
-            background: rgba(255, 215, 0, 0.15) !important;
-            border-left: 3px solid #ffd700;
-        }
-        .header-stats {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
             display: flex;
-            gap: 20px;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
         }
-        .stat-box {
-            text-align: center;
-            padding: 10px 20px;
+        .btn-delete:hover { border-color: var(--red); color: var(--red); background: rgba(255, 77, 79, 0.1); }
+        .filter-toggle {
+            display: inline-flex;
             background: var(--bg-input);
+            border-radius: 10px;
+            padding: 4px;
+            border: 1px solid var(--border);
+        }
+        .filter-toggle a {
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+        .filter-toggle a:hover { color: var(--text); }
+        .filter-toggle a.active { background: var(--accent); color: white; }
+        .add-game-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-bottom: 2rem;
+        }
+        .add-game-section .form-control, .add-game-section .form-select {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-size: 0.875rem;
+        }
+        .add-game-section .form-control:focus, .add-game-section .form-select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(76, 130, 255, 0.15);
+        }
+        .add-game-section label { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem; }
+        .btn-add {
+            background: var(--accent);
+            border: none;
+            color: white;
+            font-weight: 600;
+            padding: 0.5rem 1.5rem;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+        .btn-add:hover { background: #3A6FE8; transform: translateY(-1px); }
+        .btn-clear {
+            background: transparent;
+            border: 1px solid var(--red);
+            color: var(--red);
+            font-size: 0.875rem;
+            padding: 0.375rem 0.75rem;
             border-radius: 8px;
         }
-        .stat-value {
-            font-size: 1.5rem;
-            font-weight: 700;
+        .btn-clear:hover { background: rgba(255, 77, 79, 0.1); color: var(--red); }
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-muted);
         }
-        .stat-label {
+        .empty-state i { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .thresholds-badge {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            padding: 0.375rem 0.75rem;
+            border-radius: 6px;
             font-size: 0.75rem;
             color: var(--text-muted);
+        }
+        @media (max-width: 768px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .lock-hero { padding: 1rem; }
+            .lock-matchup { font-size: 1.25rem; }
+            .lock-pick { font-size: 1.5rem; }
         }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-dark bg-dark border-bottom" style="border-color: var(--border) !important;">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="/"><i class="bi bi-calculator"></i> Sports Model</a>
-            <div class="d-flex gap-3">
+    <nav class="navbar">
+        <div class="container">
+            <a class="navbar-brand brand" href="/"><i class="bi bi-lock-fill"></i>730's Locks</a>
+            <div class="d-flex gap-4">
                 <a href="/" class="nav-link active">Dashboard</a>
                 <a href="/history" class="nav-link">History</a>
             </div>
         </div>
     </nav>
 
-    <div class="container-fluid py-4">
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
-                    <div>
-                        <h4 class="mb-1">{{ today.strftime('%B %d, %Y') }}</h4>
-                        <p class="text-muted mb-0">{{ games|length }} games loaded</p>
+    <div class="header-section">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div>
+                    <div class="date-display">{{ today.strftime('%B %d, %Y') }}</div>
+                    <div class="text-muted">{{ total_games }} games loaded</div>
+                </div>
+                <div class="d-flex gap-3 align-items-center">
+                    <div class="stat-pill qualified">
+                        <span class="value">{{ qualified|length }}</span>
+                        <span class="text-muted">Qualified</span>
                     </div>
-                    <div class="header-stats">
-                        <div class="stat-box">
-                            <div class="stat-value text-success">{{ qualified|length }}</div>
-                            <div class="stat-label">QUALIFIED</div>
-                        </div>
-                        <div class="stat-box">
-                            <div class="stat-value">{{ total_games }}</div>
-                            <div class="stat-label">TOTAL GAMES</div>
-                        </div>
+                    <div class="stat-pill">
+                        <span class="value">{{ total_games }}</span>
+                        <span class="text-muted">Total</span>
                     </div>
-                    <div class="d-flex gap-2">
-                        <button class="btn btn-outline-secondary" onclick="fetchGames()">
-                            <i class="bi bi-download"></i> Fetch Games
-                        </button>
-                        <button class="btn btn-outline-warning" onclick="fetchOdds()">
-                            <i class="bi bi-currency-dollar"></i> Fetch Odds
-                        </button>
-                        <button class="btn btn-primary" {% if not qualified %}disabled{% endif %} onclick="postDiscord()">
-                            <i class="bi bi-discord"></i> Post to Discord
-                        </button>
-                    </div>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn-fetch" onclick="fetchGames()">
+                        <i class="bi bi-arrow-repeat"></i> Fetch Games
+                    </button>
+                    <button class="btn-fetch odds" onclick="fetchOdds()">
+                        <i class="bi bi-currency-dollar"></i> Fetch Odds
+                    </button>
+                    <button class="btn-discord" {% if not qualified %}disabled{% endif %} onclick="postDiscord()">
+                        <i class="bi bi-discord"></i> Post to Discord
+                    </button>
                 </div>
             </div>
         </div>
+    </div>
 
+    <div class="container py-4">
         {% if lock %}
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card border-warning" style="border-color: #ffd700 !important;">
-                    <div class="card-body d-flex justify-content-between align-items-center">
-                        <div>
-                            <span class="badge lock-badge me-2"><i class="bi bi-lock-fill"></i> LOCK OF THE DAY</span>
-                            <span class="badge league-badge {{ lock.league|lower }}">{{ lock.league }}</span>
-                        </div>
-                        <div class="text-center">
-                            <h5 class="mb-0">{{ lock.away_team }} @ {{ lock.home_team }}</h5>
-                            <small class="text-muted">{{ lock.game_time }}</small>
-                        </div>
-                        <div class="text-end">
-                            <span class="badge badge-{% if lock.direction == 'O' %}over{% else %}under{% endif %} fs-5">
-                                {{ lock.direction }}{{ lock.line }}
-                            </span>
-                            <div class="stats-mini mt-1">Edge: {{ "%.1f"|format(lock.edge) }}</div>
-                        </div>
+        <div class="lock-hero">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div>
+                    <span class="lock-badge"><i class="bi bi-lock-fill"></i> LOCK OF THE DAY</span>
+                    <span class="badge league-icon {{ lock.league|lower }} ms-2">{{ lock.league }}</span>
+                </div>
+                <div class="text-center flex-grow-1">
+                    <div class="lock-matchup">{{ lock.away_team }} @ {{ lock.home_team }}</div>
+                    <div class="game-time">{{ lock.game_time }}</div>
+                </div>
+                <div class="text-end">
+                    <div class="lock-pick {% if lock.direction == 'U' %}under{% endif %}">
+                        {{ lock.direction }}{{ lock.line }}
                     </div>
+                    <div class="lock-edge">Edge: {{ "%.1f"|format(lock.edge) }}</div>
                 </div>
             </div>
         </div>
         {% endif %}
 
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <span><i class="bi bi-plus-circle"></i> Add Game</span>
-                        <form action="/clear_games" method="post" class="d-inline">
-                            <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Clear all games?')">
-                                <i class="bi bi-trash"></i> Clear All
-                            </button>
-                        </form>
-                    </div>
-                    <div class="card-body">
-                        <form action="/add_game" method="post" class="row g-2 align-items-end">
-                            <div class="col-md-1">
-                                <label class="form-label small">League</label>
-                                <select name="league" class="form-select form-select-sm" required>
-                                    <option value="NBA">NBA</option>
-                                    <option value="CBB">CBB</option>
-                                    <option value="NFL">NFL</option>
-                                    <option value="CFB">CFB</option>
-                                    <option value="NHL">NHL</option>
-                                </select>
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label small">Away Team</label>
-                                <input type="text" name="away_team" class="form-control form-control-sm" required>
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label small">Home Team</label>
-                                <input type="text" name="home_team" class="form-control form-control-sm" required>
-                            </div>
-                            <div class="col-md-1">
-                                <label class="form-label small">Time</label>
-                                <input type="text" name="game_time" class="form-control form-control-sm" placeholder="7:00 PM">
-                            </div>
-                            <div class="col-md-1">
-                                <label class="form-label small">Line</label>
-                                <input type="number" step="0.5" name="line" class="form-control form-control-sm" required>
-                            </div>
-                            <div class="col-md-1">
-                                <label class="form-label small">Away PPG</label>
-                                <input type="number" step="0.1" name="away_ppg" class="form-control form-control-sm" required>
-                            </div>
-                            <div class="col-md-1">
-                                <label class="form-label small">Away Opp</label>
-                                <input type="number" step="0.1" name="away_opp_ppg" class="form-control form-control-sm" required>
-                            </div>
-                            <div class="col-md-1">
-                                <label class="form-label small">Home PPG</label>
-                                <input type="number" step="0.1" name="home_ppg" class="form-control form-control-sm" required>
-                            </div>
-                            <div class="col-md-1">
-                                <label class="form-label small">Home Opp</label>
-                                <input type="number" step="0.1" name="home_opp_ppg" class="form-control form-control-sm" required>
-                            </div>
-                            <div class="col-md-1">
-                                <button type="submit" class="btn btn-primary btn-sm w-100">Add</button>
-                            </div>
-                        </form>
-                    </div>
+        <div class="add-game-section">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="mb-0"><i class="bi bi-plus-circle"></i> Add Game Manually</h6>
+                <form action="/clear_games" method="post" class="d-inline">
+                    <button type="submit" class="btn-clear" onclick="return confirm('Clear all games?')">
+                        <i class="bi bi-trash"></i> Clear All
+                    </button>
+                </form>
+            </div>
+            <form action="/add_game" method="post" class="row g-2 align-items-end">
+                <div class="col-md-1">
+                    <label>League</label>
+                    <select name="league" class="form-select form-select-sm" required>
+                        <option value="NBA">NBA</option>
+                        <option value="CBB">CBB</option>
+                        <option value="NFL">NFL</option>
+                        <option value="CFB">CFB</option>
+                        <option value="NHL">NHL</option>
+                    </select>
                 </div>
+                <div class="col-md-2">
+                    <label>Away Team</label>
+                    <input type="text" name="away_team" class="form-control form-control-sm" required>
+                </div>
+                <div class="col-md-2">
+                    <label>Home Team</label>
+                    <input type="text" name="home_team" class="form-control form-control-sm" required>
+                </div>
+                <div class="col-md-1">
+                    <label>Time</label>
+                    <input type="text" name="game_time" class="form-control form-control-sm" placeholder="7:00 PM">
+                </div>
+                <div class="col-md-1">
+                    <label>Line</label>
+                    <input type="number" step="0.5" name="line" class="form-control form-control-sm" required>
+                </div>
+                <div class="col-md-1">
+                    <label>Away PPG</label>
+                    <input type="number" step="0.1" name="away_ppg" class="form-control form-control-sm" required>
+                </div>
+                <div class="col-md-1">
+                    <label>Away Opp</label>
+                    <input type="number" step="0.1" name="away_opp_ppg" class="form-control form-control-sm" required>
+                </div>
+                <div class="col-md-1">
+                    <label>Home PPG</label>
+                    <input type="number" step="0.1" name="home_ppg" class="form-control form-control-sm" required>
+                </div>
+                <div class="col-md-1">
+                    <label>Home Opp</label>
+                    <input type="number" step="0.1" name="home_opp_ppg" class="form-control form-control-sm" required>
+                </div>
+                <div class="col-md-1">
+                    <button type="submit" class="btn-add w-100">Add</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="section-header">
+            <div class="d-flex align-items-center gap-3">
+                <h5 class="mb-0"><i class="bi bi-list-ul"></i> Games</h5>
+                <span class="thresholds-badge">NBA/CBB: 8.0 | NFL/CFB: 3.5 | NHL: 0.5</span>
+            </div>
+            <div class="filter-toggle">
+                <a href="/" class="{% if not show_only_qualified %}active{% endif %}">All Games</a>
+                <a href="/?qualified=1" class="{% if show_only_qualified %}active{% endif %}">Qualified Only</a>
             </div>
         </div>
 
-        <div class="row">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <span>
-                            <i class="bi bi-list-ul"></i> Games
-                            <span class="badge bg-secondary ms-2">Thresholds: NBA/CBB 8.0 | NFL/CFB 3.5 | NHL 0.5</span>
-                        </span>
-                        <div class="btn-group btn-group-sm">
-                            <a href="/" class="btn btn-outline-secondary{% if not show_only_qualified %} active{% endif %}">All Games</a>
-                            <a href="/?qualified=1" class="btn btn-outline-success{% if show_only_qualified %} active{% endif %}">Qualified Only</a>
-                        </div>
-                    </div>
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>League</th>
-                                    <th>Matchup</th>
-                                    <th>Time</th>
-                                    <th>Away Stats</th>
-                                    <th>Home Stats</th>
-                                    <th>Line</th>
-                                    <th>Projected</th>
-                                    <th>Edge</th>
-                                    <th>Pick</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for game in games %}
-                                <tr class="{% if game.is_qualified %}{% if loop.first and game.is_qualified %}lock-row{% else %}qualified-row{% endif %}{% endif %}">
-                                    <td><span class="badge league-badge {{ game.league|lower }}">{{ game.league }}</span></td>
-                                    <td>
-                                        <strong>{{ game.away_team }}</strong> @ <strong>{{ game.home_team }}</strong>
-                                    </td>
-                                    <td class="text-muted">{{ game.game_time }}</td>
-                                    <td class="stats-mini">
-                                        PPG: {{ "%.1f"|format(game.away_ppg) if game.away_ppg else '-' }}<br>
-                                        Opp: {{ "%.1f"|format(game.away_opp_ppg) if game.away_opp_ppg else '-' }}
-                                    </td>
-                                    <td class="stats-mini">
-                                        PPG: {{ "%.1f"|format(game.home_ppg) if game.home_ppg else '-' }}<br>
-                                        Opp: {{ "%.1f"|format(game.home_opp_ppg) if game.home_opp_ppg else '-' }}
-                                    </td>
-                                    <td>
-                                        <input type="number" step="0.5" class="form-control form-control-sm line-input"
-                                               value="{{ game.line if game.line else '' }}" onchange="updateLine({{ game.id }}, this.value)">
-                                    </td>
-                                    <td>
-                                        <span class="edge-value">{{ "%.1f"|format(game.projected_total) if game.projected_total else '-' }}</span>
-                                    </td>
-                                    <td>
-                                        <span class="edge-value {% if game.is_qualified %}edge-high{% else %}edge-low{% endif %}">
-                                            {{ "%.1f"|format(game.edge) if game.edge else '-' }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        {% if game.is_qualified %}
-                                        <span class="badge badge-{% if game.direction == 'O' %}over{% else %}under{% endif %}">
-                                            {{ game.direction }}{{ game.line }}
-                                        </span>
-                                        {% else %}
-                                        <span class="badge badge-no">NO BET</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <form action="/delete_game/{{ game.id }}" method="post" class="d-inline">
-                                            <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete?')">
-                                                <i class="bi bi-x"></i>
-                                            </button>
-                                        </form>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                                {% if not games %}
-                                <tr>
-                                    <td colspan="10" class="text-center text-muted py-4">
-                                        No games added yet. Add games manually or fetch stats from APIs.
-                                    </td>
-                                </tr>
-                                {% endif %}
-                            </tbody>
-                        </table>
+        {% set leagues = ['NBA', 'CBB', 'NFL', 'CFB', 'NHL'] %}
+        {% for league in leagues %}
+            {% set league_games = games|selectattr('league', 'equalto', league)|list %}
+            {% if league_games|length > 0 %}
+            <div class="league-section">
+                <div class="league-header">
+                    <div class="league-icon {{ league|lower }}">{{ league }}</div>
+                    <div>
+                        <div class="league-title">{{ {'NBA': 'NBA Basketball', 'CBB': 'College Basketball', 'NFL': 'NFL Football', 'CFB': 'College Football', 'NHL': 'NHL Hockey'}[league] }}</div>
+                        <div class="league-count">{{ league_games|length }} game{% if league_games|length != 1 %}s{% endif %} | {{ league_games|selectattr('is_qualified')|list|length }} qualified</div>
                     </div>
                 </div>
+                
+                {% for game in league_games %}
+                <div class="game-card {% if game.is_qualified %}qualified{% endif %} {% if lock and game.id == lock.id %}lock-card{% endif %}">
+                    <div class="row align-items-center">
+                        <div class="col-md-3">
+                            <div class="matchup">{{ game.away_team }} @ {{ game.home_team }}</div>
+                            <div class="game-time">{{ game.game_time }}</div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stats-grid">
+                                <div class="stat-item">
+                                    <div class="stat-label">Away PPG</div>
+                                    <div class="stat-value">{{ "%.1f"|format(game.away_ppg) if game.away_ppg else '-' }}</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">Away Opp</div>
+                                    <div class="stat-value">{{ "%.1f"|format(game.away_opp_ppg) if game.away_opp_ppg else '-' }}</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">Home PPG</div>
+                                    <div class="stat-value">{{ "%.1f"|format(game.home_ppg) if game.home_ppg else '-' }}</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">Home Opp</div>
+                                    <div class="stat-value">{{ "%.1f"|format(game.home_opp_ppg) if game.home_opp_ppg else '-' }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-2 text-center">
+                            <div class="stat-label">Line</div>
+                            <input type="number" step="0.5" class="line-input"
+                                   value="{{ game.line if game.line else '' }}" 
+                                   onchange="updateLine({{ game.id }}, this.value)">
+                        </div>
+                        <div class="col-md-1 text-center">
+                            <div class="stat-label">Projected</div>
+                            <div class="projection-value">{{ "%.1f"|format(game.projected_total) if game.projected_total else '-' }}</div>
+                        </div>
+                        <div class="col-md-1 text-center">
+                            <div class="stat-label">Edge</div>
+                            <div class="edge-value {% if game.is_qualified %}high{% else %}low{% endif %}">
+                                {{ "%.1f"|format(game.edge) if game.edge else '-' }}
+                            </div>
+                        </div>
+                        <div class="col-md-1 text-center">
+                            {% if game.is_qualified %}
+                            <span class="pick-chip {% if game.direction == 'O' %}over{% else %}under{% endif %}">
+                                {{ game.direction }}{{ game.line }}
+                            </span>
+                            {% else %}
+                            <span class="pick-chip no-bet">NO BET</span>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-1 text-end">
+                            <form action="/delete_game/{{ game.id }}" method="post" class="d-inline">
+                                <button type="submit" class="btn-delete" onclick="return confirm('Delete?')">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
             </div>
+            {% endif %}
+        {% endfor %}
+
+        {% if not games %}
+        <div class="empty-state">
+            <i class="bi bi-calendar-x"></i>
+            <h5>No games loaded</h5>
+            <p>Click "Fetch Games" to load today's games, then "Fetch Odds" to get betting lines.</p>
         </div>
+        {% endif %}
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -391,9 +543,9 @@
         }
 
         function fetchGames() {
-            const btn = event.target;
+            const btn = event.target.closest('button');
             btn.disabled = true;
-            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Fetching...';
+            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Loading...';
             
             fetch('/fetch_games', {method: 'POST'})
             .then(r => r.json())
@@ -403,9 +555,9 @@
         }
 
         function fetchOdds() {
-            const btn = event.target;
+            const btn = event.target.closest('button');
             btn.disabled = true;
-            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Fetching...';
+            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Loading...';
             
             fetch('/fetch_odds', {method: 'POST'})
             .then(r => r.json())
@@ -421,7 +573,7 @@
         }
 
         function postDiscord() {
-            const btn = event.target;
+            const btn = event.target.closest('button');
             btn.disabled = true;
             btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Posting...';
             
