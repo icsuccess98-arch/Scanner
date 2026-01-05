@@ -6,6 +6,7 @@ packages = ["cargo", "libiconv", "libxcrypt", "openssl", "pkg-config", "rustc"]
 
 [agent]
 expertMode = true
+integrations = ["python_database:1.0.0"]
 
 [workflows]
 runButton = "Project"
@@ -42,6 +43,10 @@ args = "Crypto Weekly"
 [[workflows.workflow.tasks]]
 task = "workflow.run"
 args = "Crypto Monthly"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Sports App"
 
 [[workflows.workflow]]
 name = "Run Daily"
@@ -120,8 +125,24 @@ args = "CRYPTO_RUN_MODE=MONTHLY python crypto_main.py"
 [workflows.workflow.metadata]
 outputType = "console"
 
+[[workflows.workflow]]
+name = "Sports App"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python sports_app.py"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
 [userenv]
 
 [userenv.shared]
 RUN_MODE = "ALL"
 CRYPTO_DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1454128407293071393/kxpMSHKwzCqgcCdt-P3S3pqqJ_oCYaJ8wCujtzYI42c4-4hxpmxI59pPNM5ppoqueXC4"
+
+[[ports]]
+localPort = 5000
+externalPort = 80

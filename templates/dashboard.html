@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sports Betting Calculator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0d1117;
+            --bg-card: #161b22;
+            --bg-input: #21262d;
+            --border: #30363d;
+            --text: #c9d1d9;
+            --text-muted: #8b949e;
+            --accent: #58a6ff;
+            --green: #3fb950;
+            --red: #f85149;
+            --yellow: #d29922;
+        }
+        body {
+            background: var(--bg-dark);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+        }
+        .card-header {
+            background: transparent;
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+        }
+        .table {
+            color: var(--text);
+            margin-bottom: 0;
+        }
+        .table th {
+            border-color: var(--border);
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 0.85rem;
+        }
+        .table td {
+            border-color: var(--border);
+            vertical-align: middle;
+        }
+        .form-control, .form-select {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            color: var(--text);
+        }
+        .form-control:focus, .form-select:focus {
+            background: var(--bg-input);
+            border-color: var(--accent);
+            color: var(--text);
+            box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
+        }
+        .btn-primary {
+            background: var(--accent);
+            border: none;
+        }
+        .btn-primary:hover {
+            background: #4493e9;
+        }
+        .btn-outline-secondary {
+            color: var(--text-muted);
+            border-color: var(--border);
+        }
+        .btn-outline-secondary:hover {
+            background: var(--bg-input);
+            color: var(--text);
+            border-color: var(--border);
+        }
+        .badge-qualified {
+            background: var(--green);
+            color: #000;
+            font-weight: 600;
+        }
+        .badge-no {
+            background: var(--border);
+            color: var(--text-muted);
+        }
+        .badge-over {
+            background: var(--green);
+            color: #000;
+        }
+        .badge-under {
+            background: var(--red);
+            color: #fff;
+        }
+        .lock-badge {
+            background: linear-gradient(135deg, #ffd700, #ffb700);
+            color: #000;
+            font-weight: 700;
+        }
+        .league-badge {
+            font-size: 0.75rem;
+            padding: 4px 8px;
+        }
+        .nba { background: #c9082a; }
+        .cbb { background: #1e90ff; }
+        .nfl { background: #013369; }
+        .cfb { background: #8b0000; }
+        .nhl { background: #000; border: 1px solid #fff; }
+        .stats-mini {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        .edge-value {
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+        .edge-high { color: var(--green); }
+        .edge-low { color: var(--text-muted); }
+        .line-input {
+            width: 80px;
+            text-align: center;
+        }
+        .nav-link {
+            color: var(--text-muted);
+        }
+        .nav-link:hover, .nav-link.active {
+            color: var(--text);
+        }
+        .qualified-row {
+            background: rgba(63, 185, 80, 0.1) !important;
+        }
+        .lock-row {
+            background: rgba(255, 215, 0, 0.15) !important;
+            border-left: 3px solid #ffd700;
+        }
+        .header-stats {
+            display: flex;
+            gap: 20px;
+        }
+        .stat-box {
+            text-align: center;
+            padding: 10px 20px;
+            background: var(--bg-input);
+            border-radius: 8px;
+        }
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-dark border-bottom" style="border-color: var(--border) !important;">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/"><i class="bi bi-calculator"></i> Sports Model</a>
+            <div class="d-flex gap-3">
+                <a href="/" class="nav-link active">Dashboard</a>
+                <a href="/history" class="nav-link">History</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid py-4">
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                    <div>
+                        <h4 class="mb-1">{{ today.strftime('%B %d, %Y') }}</h4>
+                        <p class="text-muted mb-0">{{ games|length }} games loaded</p>
+                    </div>
+                    <div class="header-stats">
+                        <div class="stat-box">
+                            <div class="stat-value text-success">{{ qualified|length }}</div>
+                            <div class="stat-label">QUALIFIED</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value">{{ games|length }}</div>
+                            <div class="stat-label">TOTAL GAMES</div>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-secondary" onclick="fetchGames()">
+                            <i class="bi bi-download"></i> Fetch Today's Games
+                        </button>
+                        <button class="btn btn-primary" {% if not qualified %}disabled{% endif %} onclick="postDiscord()">
+                            <i class="bi bi-discord"></i> Post to Discord
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if lock %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-warning" style="border-color: #ffd700 !important;">
+                    <div class="card-body d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="badge lock-badge me-2"><i class="bi bi-lock-fill"></i> LOCK OF THE DAY</span>
+                            <span class="badge league-badge {{ lock.league|lower }}">{{ lock.league }}</span>
+                        </div>
+                        <div class="text-center">
+                            <h5 class="mb-0">{{ lock.away_team }} @ {{ lock.home_team }}</h5>
+                            <small class="text-muted">{{ lock.game_time }}</small>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge badge-{% if lock.direction == 'O' %}over{% else %}under{% endif %} fs-5">
+                                {{ lock.direction }}{{ lock.line }}
+                            </span>
+                            <div class="stats-mini mt-1">Edge: {{ "%.1f"|format(lock.edge) }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-plus-circle"></i> Add Game</span>
+                        <form action="/clear_games" method="post" class="d-inline">
+                            <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Clear all games?')">
+                                <i class="bi bi-trash"></i> Clear All
+                            </button>
+                        </form>
+                    </div>
+                    <div class="card-body">
+                        <form action="/add_game" method="post" class="row g-2 align-items-end">
+                            <div class="col-md-1">
+                                <label class="form-label small">League</label>
+                                <select name="league" class="form-select form-select-sm" required>
+                                    <option value="NBA">NBA</option>
+                                    <option value="CBB">CBB</option>
+                                    <option value="NFL">NFL</option>
+                                    <option value="CFB">CFB</option>
+                                    <option value="NHL">NHL</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small">Away Team</label>
+                                <input type="text" name="away_team" class="form-control form-control-sm" required>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small">Home Team</label>
+                                <input type="text" name="home_team" class="form-control form-control-sm" required>
+                            </div>
+                            <div class="col-md-1">
+                                <label class="form-label small">Time</label>
+                                <input type="text" name="game_time" class="form-control form-control-sm" placeholder="7:00 PM">
+                            </div>
+                            <div class="col-md-1">
+                                <label class="form-label small">Line</label>
+                                <input type="number" step="0.5" name="line" class="form-control form-control-sm" required>
+                            </div>
+                            <div class="col-md-1">
+                                <label class="form-label small">Away PPG</label>
+                                <input type="number" step="0.1" name="away_ppg" class="form-control form-control-sm" required>
+                            </div>
+                            <div class="col-md-1">
+                                <label class="form-label small">Away Opp</label>
+                                <input type="number" step="0.1" name="away_opp_ppg" class="form-control form-control-sm" required>
+                            </div>
+                            <div class="col-md-1">
+                                <label class="form-label small">Home PPG</label>
+                                <input type="number" step="0.1" name="home_ppg" class="form-control form-control-sm" required>
+                            </div>
+                            <div class="col-md-1">
+                                <label class="form-label small">Home Opp</label>
+                                <input type="number" step="0.1" name="home_opp_ppg" class="form-control form-control-sm" required>
+                            </div>
+                            <div class="col-md-1">
+                                <button type="submit" class="btn btn-primary btn-sm w-100">Add</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="bi bi-list-ul"></i> Games
+                        <span class="badge bg-secondary ms-2">Thresholds: NBA/CBB 8.0 | NFL/CFB 3.5 | NHL 0.5</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>League</th>
+                                    <th>Matchup</th>
+                                    <th>Time</th>
+                                    <th>Away Stats</th>
+                                    <th>Home Stats</th>
+                                    <th>Line</th>
+                                    <th>Projected</th>
+                                    <th>Edge</th>
+                                    <th>Pick</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for game in games %}
+                                <tr class="{% if game.is_qualified %}{% if loop.first and game.is_qualified %}lock-row{% else %}qualified-row{% endif %}{% endif %}">
+                                    <td><span class="badge league-badge {{ game.league|lower }}">{{ game.league }}</span></td>
+                                    <td>
+                                        <strong>{{ game.away_team }}</strong> @ <strong>{{ game.home_team }}</strong>
+                                    </td>
+                                    <td class="text-muted">{{ game.game_time }}</td>
+                                    <td class="stats-mini">
+                                        PPG: {{ "%.1f"|format(game.away_ppg) if game.away_ppg else '-' }}<br>
+                                        Opp: {{ "%.1f"|format(game.away_opp_ppg) if game.away_opp_ppg else '-' }}
+                                    </td>
+                                    <td class="stats-mini">
+                                        PPG: {{ "%.1f"|format(game.home_ppg) if game.home_ppg else '-' }}<br>
+                                        Opp: {{ "%.1f"|format(game.home_opp_ppg) if game.home_opp_ppg else '-' }}
+                                    </td>
+                                    <td>
+                                        <input type="number" step="0.5" class="form-control form-control-sm line-input"
+                                               value="{{ game.line }}" onchange="updateLine({{ game.id }}, this.value)">
+                                    </td>
+                                    <td>
+                                        <span class="edge-value">{{ "%.1f"|format(game.projected_total) if game.projected_total else '-' }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="edge-value {% if game.is_qualified %}edge-high{% else %}edge-low{% endif %}">
+                                            {{ "%.1f"|format(game.edge) if game.edge else '-' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if game.is_qualified %}
+                                        <span class="badge badge-{% if game.direction == 'O' %}over{% else %}under{% endif %}">
+                                            {{ game.direction }}{{ game.line }}
+                                        </span>
+                                        {% else %}
+                                        <span class="badge badge-no">NO BET</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <form action="/delete_game/{{ game.id }}" method="post" class="d-inline">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete?')">
+                                                <i class="bi bi-x"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                {% if not games %}
+                                <tr>
+                                    <td colspan="10" class="text-center text-muted py-4">
+                                        No games added yet. Add games manually or fetch stats from APIs.
+                                    </td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function updateLine(gameId, value) {
+            fetch(`/update_line/${gameId}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({line: value})
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) location.reload();
+            });
+        }
+
+        function fetchGames() {
+            const btn = event.target;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Fetching...';
+            
+            fetch('/fetch_games', {method: 'POST'})
+            .then(r => r.json())
+            .then(data => {
+                if (data.games_added > 0) {
+                    alert(`Added ${data.games_added} games with stats!`);
+                    location.reload();
+                } else {
+                    alert('No new games to add (may already be loaded)');
+                }
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-download"></i> Fetch Today\'s Games';
+            });
+        }
+
+        function postDiscord() {
+            const btn = event.target;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Posting...';
+            
+            fetch('/post_discord', {method: 'POST'})
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`Posted ${data.picks_count} picks to Discord!`);
+                } else {
+                    alert(data.message || 'Failed to post');
+                }
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-discord"></i> Post to Discord';
+            });
+        }
+    </script>
+</body>
+</html>

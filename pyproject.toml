@@ -5,9 +5,14 @@ description = "Add your description here"
 requires-python = ">=3.11"
 dependencies = [
     "cached-property>=2.0.1",
+    "coinbase>=2.1.0",
     "coinbase-advanced-py>=1.8.2",
     "cryptography>=46.0.3",
+    "flask>=3.1.2",
+    "flask-sqlalchemy>=3.1.1",
+    "gunicorn>=23.0.0",
     "nba-api>=1.11.3",
+    "psycopg2-binary>=2.9.11",
     "pyjwt>=2.10.1",
     "pytz>=2025.2",
     "requests>=2.32.5",
