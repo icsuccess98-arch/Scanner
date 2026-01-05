@@ -178,7 +178,7 @@
                             <div class="stat-label">QUALIFIED</div>
                         </div>
                         <div class="stat-box">
-                            <div class="stat-value">{{ games|length }}</div>
+                            <div class="stat-value">{{ total_games }}</div>
                             <div class="stat-label">TOTAL GAMES</div>
                         </div>
                     </div>
@@ -289,9 +289,15 @@
         <div class="row">
             <div class="col-12">
                 <div class="card">
-                    <div class="card-header">
-                        <i class="bi bi-list-ul"></i> Games
-                        <span class="badge bg-secondary ms-2">Thresholds: NBA/CBB 8.0 | NFL/CFB 3.5 | NHL 0.5</span>
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>
+                            <i class="bi bi-list-ul"></i> Games
+                            <span class="badge bg-secondary ms-2">Thresholds: NBA/CBB 8.0 | NFL/CFB 3.5 | NHL 0.5</span>
+                        </span>
+                        <div class="btn-group btn-group-sm">
+                            <a href="/" class="btn btn-outline-secondary{% if not show_only_qualified %} active{% endif %}">All Games</a>
+                            <a href="/?qualified=1" class="btn btn-outline-success{% if show_only_qualified %} active{% endif %}">Qualified Only</a>
+                        </div>
                     </div>
                     <div class="table-responsive">
                         <table class="table table-hover">
@@ -327,7 +333,7 @@
                                     </td>
                                     <td>
                                         <input type="number" step="0.5" class="form-control form-control-sm line-input"
-                                               value="{{ game.line }}" onchange="updateLine({{ game.id }}, this.value)">
+                                               value="{{ game.line if game.line else '' }}" onchange="updateLine({{ game.id }}, this.value)">
                                     </td>
                                     <td>
                                         <span class="edge-value">{{ "%.1f"|format(game.projected_total) if game.projected_total else '-' }}</span>
@@ -392,14 +398,7 @@
             fetch('/fetch_games', {method: 'POST'})
             .then(r => r.json())
             .then(data => {
-                if (data.games_added > 0) {
-                    alert(`Added ${data.games_added} games with stats!`);
-                    location.reload();
-                } else {
-                    alert('No new games to add (may already be loaded)');
-                }
-                btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-download"></i> Fetch Games';
+                window.location.href = '/';
             });
         }
 
@@ -412,13 +411,12 @@
             .then(r => r.json())
             .then(data => {
                 if (data.success) {
-                    alert(`Updated ${data.lines_updated} lines from Pinnacle/DraftKings!`);
-                    location.reload();
+                    window.location.href = '/?qualified=1';
                 } else {
                     alert(data.message || 'Failed to fetch odds');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-currency-dollar"></i> Fetch Odds';
                 }
-                btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-currency-dollar"></i> Fetch Odds';
             });
         }
 

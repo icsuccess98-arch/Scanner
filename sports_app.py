@@ -76,10 +76,20 @@ def check_qualification(projected, line, league):
 def dashboard():
     et = pytz.timezone('America/New_York')
     today = datetime.now(et).date()
-    games = Game.query.filter_by(date=today).order_by(Game.edge.desc()).all()
-    qualified = [g for g in games if g.is_qualified]
+    show_only_qualified = request.args.get('qualified', '0') == '1'
+    
+    all_games = Game.query.filter_by(date=today).order_by(Game.edge.desc()).all()
+    qualified = [g for g in all_games if g.is_qualified]
     lock = qualified[0] if qualified else None
-    return render_template('dashboard.html', games=games, qualified=qualified, lock=lock, today=today, thresholds=THRESHOLDS)
+    
+    if show_only_qualified:
+        games = qualified
+    else:
+        games = all_games
+    
+    return render_template('dashboard.html', games=games, qualified=qualified, lock=lock, 
+                          today=today, thresholds=THRESHOLDS, total_games=len(all_games),
+                          show_only_qualified=show_only_qualified)
 
 @app.route('/add_game', methods=['POST'])
 def add_game():
