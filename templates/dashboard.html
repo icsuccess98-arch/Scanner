@@ -184,7 +184,10 @@
                     </div>
                     <div class="d-flex gap-2">
                         <button class="btn btn-outline-secondary" onclick="fetchGames()">
-                            <i class="bi bi-download"></i> Fetch Today's Games
+                            <i class="bi bi-download"></i> Fetch Games
+                        </button>
+                        <button class="btn btn-outline-warning" onclick="fetchOdds()">
+                            <i class="bi bi-currency-dollar"></i> Fetch Odds
                         </button>
                         <button class="btn btn-primary" {% if not qualified %}disabled{% endif %} onclick="postDiscord()">
                             <i class="bi bi-discord"></i> Post to Discord
@@ -396,7 +399,26 @@
                     alert('No new games to add (may already be loaded)');
                 }
                 btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-download"></i> Fetch Today\'s Games';
+                btn.innerHTML = '<i class="bi bi-download"></i> Fetch Games';
+            });
+        }
+
+        function fetchOdds() {
+            const btn = event.target;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Fetching...';
+            
+            fetch('/fetch_odds', {method: 'POST'})
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`Updated ${data.lines_updated} lines from Pinnacle/DraftKings!`);
+                    location.reload();
+                } else {
+                    alert(data.message || 'Failed to fetch odds');
+                }
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-currency-dollar"></i> Fetch Odds';
             });
         }
 

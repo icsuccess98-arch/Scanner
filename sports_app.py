@@ -402,6 +402,85 @@ def fetch_stats():
     stats = get_team_stats()
     return jsonify({"success": True, "stats": stats, "counts": {k: len(v) for k, v in stats.items()}})
 
+@app.route('/fetch_odds', methods=['POST'])
+def fetch_odds():
+    api_key = os.environ.get("ODDS_API_KEY")
+    if not api_key:
+        return jsonify({"success": False, "message": "ODDS_API_KEY not configured. Get a free key at the-odds-api.com"})
+    
+    et = pytz.timezone('America/New_York')
+    today = datetime.now(et).date()
+    
+    sport_map = {
+        "NBA": "basketball_nba",
+        "NHL": "icehockey_nhl",
+        "CBB": "basketball_ncaab",
+        "CFB": "americanfootball_ncaaf"
+    }
+    
+    lines_updated = 0
+    
+    for league, sport_key in sport_map.items():
+        try:
+            url = f"https://api.the-odds-api.com/v4/sports/{sport_key}/odds/"
+            params = {
+                "apiKey": api_key,
+                "regions": "us",
+                "markets": "totals",
+                "oddsFormat": "american",
+                "bookmakers": "pinnacle,draftkings,fanduel,bovada"
+            }
+            resp = requests.get(url, params=params, timeout=30)
+            if resp.status_code != 200:
+                continue
+            
+            events = resp.json()
+            
+            for event in events:
+                away_team = event.get("away_team", "")
+                home_team = event.get("home_team", "")
+                
+                games = Game.query.filter_by(date=today, league=league).all()
+                
+                for game in games:
+                    away_match = any(part.lower() in away_team.lower() or away_team.lower() in part.lower() 
+                                    for part in game.away_team.split() if len(part) > 3)
+                    home_match = any(part.lower() in home_team.lower() or home_team.lower() in part.lower() 
+                                    for part in game.home_team.split() if len(part) > 3)
+                    
+                    if away_match or home_match:
+                        bookmakers = event.get("bookmakers", [])
+                        for book in bookmakers:
+                            if book.get("key") in ["pinnacle", "draftkings", "fanduel", "bovada"]:
+                                markets = book.get("markets", [])
+                                for market in markets:
+                                    if market.get("key") == "totals":
+                                        outcomes = market.get("outcomes", [])
+                                        for outcome in outcomes:
+                                            if outcome.get("name") == "Over":
+                                                line = outcome.get("point")
+                                                if line and not game.line:
+                                                    game.line = line
+                                                    if all([game.away_ppg, game.away_opp_ppg, game.home_ppg, game.home_opp_ppg]):
+                                                        game.projected_total = calculate_projection(
+                                                            game.away_ppg, game.away_opp_ppg, 
+                                                            game.home_ppg, game.home_opp_ppg
+                                                        )
+                                                        qualified, direction, edge = check_qualification(
+                                                            game.projected_total, game.line, game.league
+                                                        )
+                                                        game.is_qualified = qualified
+                                                        game.direction = direction
+                                                        game.edge = edge
+                                                    lines_updated += 1
+                                                break
+                                break
+        except Exception as e:
+            print(f"Odds fetch error for {league}: {e}")
+    
+    db.session.commit()
+    return jsonify({"success": True, "lines_updated": lines_updated})
+
 @app.route('/post_discord', methods=['POST'])
 def post_discord():
     et = pytz.timezone('America/New_York')
