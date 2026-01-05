@@ -97,8 +97,10 @@ def dashboard():
     today = datetime.now(et).date()
     show_only_qualified = request.args.get('qualified', '0') == '1'
     
-    all_games_db = Game.query.filter_by(date=today).order_by(Game.edge.desc()).all()
-    all_games = [g for g in all_games_db if is_game_upcoming(g)]
+    Game.query.filter(Game.date < today).delete()
+    db.session.commit()
+    
+    all_games = Game.query.filter_by(date=today).order_by(Game.edge.desc()).all()
     qualified = [g for g in all_games if g.is_qualified]
     lock = qualified[0] if qualified else None
     
