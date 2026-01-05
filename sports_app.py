@@ -581,7 +581,8 @@ def post_discord():
     today = datetime.now(et).date()
     today_str = today.strftime("%B %d, %Y")
     
-    games = Game.query.filter_by(date=today, is_qualified=True).order_by(Game.edge.desc()).limit(5).all()
+    all_qualified = Game.query.filter_by(date=today, is_qualified=True).order_by(Game.edge.desc()).all()
+    games = [g for g in all_qualified if not (g.game_time and 'final' in g.game_time.lower())][:5]
     
     if not games:
         return jsonify({"success": False, "message": "No qualified picks to post"})
