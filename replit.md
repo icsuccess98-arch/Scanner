@@ -7,6 +7,12 @@ Three independent trading systems:
 3. Crypto perpetuals trading system (Coinbase Advanced Trade API)
 
 ## Recent Changes
+- January 5, 2026: Created Sports Model web app (sports_app.py)
+  - Flask app with dark theme UI
+  - Auto-fetch today's NBA/NHL games with stats
+  - Manual line input with instant projection calculation
+  - Locked formulas and thresholds enforced
+  - Discord posting with pick history tracking
 - January 4, 2026: Fixed NFL stats (avgPointsFor/avgPointsAgainst), added team nicknames
 - January 4, 2026: Fixed NHL season to 2025-26, added team nickname aliases
 - January 4, 2026: Fixed LSP error (comp_data unbound)
