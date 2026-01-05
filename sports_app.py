@@ -145,7 +145,7 @@ def get_team_stats():
     from nba_api.stats.endpoints import leaguedashteamstats
     import time
     
-    stats = {"nba": {}, "nhl": {}, "cbb": {}}
+    stats = {"nba": {}, "nhl": {}, "cbb": {}, "cfb": {}}
     
     try:
         time.sleep(1)
@@ -188,6 +188,54 @@ def get_team_stats():
                 stats["nhl"][nick] = {"name": name, "ppg": ppg, "opp_ppg": opp_ppg}
     except Exception as e:
         print(f"NHL stats error: {e}")
+    
+    try:
+        url = "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/teams?limit=500"
+        resp = requests.get(url, timeout=60)
+        team_list = resp.json().get("sports", [{}])[0].get("leagues", [{}])[0].get("teams", [])
+        for td in team_list:
+            team = td.get("team", {})
+            team_id = team.get("id")
+            team_name = team.get("displayName", "")
+            try:
+                record_url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/teams/{team_id}"
+                record_resp = requests.get(record_url, timeout=10)
+                items = record_resp.json().get("team", {}).get("record", {}).get("items", [])
+                ppg = opp_ppg = None
+                for item in items:
+                    if item.get("type") == "total":
+                        for stat in item.get("stats", []):
+                            if stat.get("name") == "avgPointsFor": ppg = stat.get("value")
+                            if stat.get("name") == "avgPointsAgainst": opp_ppg = stat.get("value")
+                if ppg and opp_ppg:
+                    stats["cbb"][team_name.lower()] = {"name": team_name, "ppg": ppg, "opp_ppg": opp_ppg}
+            except: pass
+    except Exception as e:
+        print(f"CBB stats error: {e}")
+    
+    try:
+        url = "https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams?limit=500"
+        resp = requests.get(url, timeout=60)
+        team_list = resp.json().get("sports", [{}])[0].get("leagues", [{}])[0].get("teams", [])
+        for td in team_list:
+            team = td.get("team", {})
+            team_id = team.get("id")
+            team_name = team.get("displayName", "")
+            try:
+                record_url = f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams/{team_id}"
+                record_resp = requests.get(record_url, timeout=10)
+                items = record_resp.json().get("team", {}).get("record", {}).get("items", [])
+                ppg = opp_ppg = None
+                for item in items:
+                    if item.get("type") == "total":
+                        for stat in item.get("stats", []):
+                            if stat.get("name") == "avgPointsFor": ppg = stat.get("value")
+                            if stat.get("name") == "avgPointsAgainst": opp_ppg = stat.get("value")
+                if ppg and opp_ppg:
+                    stats["cfb"][team_name.lower()] = {"name": team_name, "ppg": ppg, "opp_ppg": opp_ppg}
+            except: pass
+    except Exception as e:
+        print(f"CFB stats error: {e}")
     
     return stats
 
@@ -277,6 +325,74 @@ def fetch_games():
                             games_added += 1
     except Exception as e:
         print(f"NHL games error: {e}")
+    
+    try:
+        cbb_url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates={today_str}&limit=100"
+        resp = requests.get(cbb_url, timeout=30)
+        events = resp.json().get("events", [])
+        
+        for event in events:
+            comps = event.get("competitions", [{}])[0]
+            teams = comps.get("competitors", [])
+            if len(teams) == 2:
+                away = next((t for t in teams if t.get("homeAway") == "away"), None)
+                home = next((t for t in teams if t.get("homeAway") == "home"), None)
+                if away and home:
+                    away_name = away.get("team", {}).get("shortDisplayName", "")
+                    home_name = home.get("team", {}).get("shortDisplayName", "")
+                    game_time = event.get("status", {}).get("type", {}).get("shortDetail", "")
+                    
+                    existing = Game.query.filter_by(date=today, league="CBB", away_team=away_name, home_team=home_name).first()
+                    if not existing:
+                        away_stats = find_team_stats(away_name, stats["cbb"])
+                        home_stats = find_team_stats(home_name, stats["cbb"])
+                        
+                        game = Game(
+                            date=today, league="CBB", away_team=away_name, home_team=home_name,
+                            game_time=game_time,
+                            away_ppg=away_stats["ppg"] if away_stats else None,
+                            away_opp_ppg=away_stats["opp_ppg"] if away_stats else None,
+                            home_ppg=home_stats["ppg"] if home_stats else None,
+                            home_opp_ppg=home_stats["opp_ppg"] if home_stats else None
+                        )
+                        db.session.add(game)
+                        games_added += 1
+    except Exception as e:
+        print(f"CBB games error: {e}")
+    
+    try:
+        cfb_url = f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates={today_str}&limit=100"
+        resp = requests.get(cfb_url, timeout=30)
+        events = resp.json().get("events", [])
+        
+        for event in events:
+            comps = event.get("competitions", [{}])[0]
+            teams = comps.get("competitors", [])
+            if len(teams) == 2:
+                away = next((t for t in teams if t.get("homeAway") == "away"), None)
+                home = next((t for t in teams if t.get("homeAway") == "home"), None)
+                if away and home:
+                    away_name = away.get("team", {}).get("shortDisplayName", "")
+                    home_name = home.get("team", {}).get("shortDisplayName", "")
+                    game_time = event.get("status", {}).get("type", {}).get("shortDetail", "")
+                    
+                    existing = Game.query.filter_by(date=today, league="CFB", away_team=away_name, home_team=home_name).first()
+                    if not existing:
+                        away_stats = find_team_stats(away_name, stats["cfb"])
+                        home_stats = find_team_stats(home_name, stats["cfb"])
+                        
+                        game = Game(
+                            date=today, league="CFB", away_team=away_name, home_team=home_name,
+                            game_time=game_time,
+                            away_ppg=away_stats["ppg"] if away_stats else None,
+                            away_opp_ppg=away_stats["opp_ppg"] if away_stats else None,
+                            home_ppg=home_stats["ppg"] if home_stats else None,
+                            home_opp_ppg=home_stats["opp_ppg"] if home_stats else None
+                        )
+                        db.session.add(game)
+                        games_added += 1
+    except Exception as e:
+        print(f"CFB games error: {e}")
     
     db.session.commit()
     return jsonify({"success": True, "games_added": games_added})
