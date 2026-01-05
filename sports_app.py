@@ -358,7 +358,7 @@ def fetch_games():
         print(f"NHL games error: {e}")
     
     try:
-        cbb_url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates={today_str}&limit=500"
+        cbb_url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates={today_str}&limit=500&groups=50"
         resp = requests.get(cbb_url, timeout=60)
         events = resp.json().get("events", [])
         
