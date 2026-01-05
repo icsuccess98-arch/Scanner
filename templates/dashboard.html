@@ -359,8 +359,8 @@
         <div class="container">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
                 <div>
-                    <div class="date-display">{{ today.strftime('%B %d, %Y') }}</div>
-                    <div class="text-muted">{{ total_games }} games loaded</div>
+                    <div class="date-display" id="current-date">{{ today.strftime('%B %d, %Y') }}</div>
+                    <div class="text-muted"><span id="games-count">{{ total_games }}</span> games loaded</div>
                 </div>
                 <div class="d-flex gap-3 align-items-center">
                     <div class="stat-pill qualified">
@@ -583,6 +583,37 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        let lastDate = new Date().toDateString();
+        
+        function formatDate(date) {
+            const months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                          'July', 'August', 'September', 'October', 'November', 'December'];
+            return `${months[date.getMonth()]} ${String(date.getDate()).padStart(2, '0')}, ${date.getFullYear()}`;
+        }
+        
+        function checkDateChange() {
+            const currentDate = new Date().toDateString();
+            if (currentDate !== lastDate) {
+                lastDate = currentDate;
+                document.getElementById('current-date').textContent = formatDate(new Date());
+                location.reload();
+            }
+        }
+        
+        function autoRefreshData() {
+            fetch('/api/status')
+            .then(r => r.json())
+            .then(data => {
+                if (data.games_changed) {
+                    location.reload();
+                }
+            })
+            .catch(() => {});
+        }
+        
+        setInterval(checkDateChange, 60000);
+        setInterval(autoRefreshData, 300000);
+        
         function updateLine(gameId, value) {
             fetch(`/update_line/${gameId}`, {
                 method: 'POST',

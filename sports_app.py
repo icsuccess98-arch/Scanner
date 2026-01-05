@@ -1,6 +1,6 @@
 import os
 from datetime import datetime
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, make_response
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 import requests
@@ -18,6 +18,15 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_pre_ping": True,
 }
 db.init_app(app)
+
+last_game_count = {}
+
+@app.after_request
+def add_cache_headers(response):
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 THRESHOLDS = {"NBA": 8.0, "CBB": 8.0, "NFL": 3.5, "CFB": 3.5, "NHL": 0.5}
 
@@ -135,9 +144,25 @@ def dashboard():
         analytics['avg_edge'] = analytics['total_edge'] / len(qualified)
         analytics['top_picks'] = qualified[:5]
     
+    global last_game_count
+    last_game_count['count'] = len(all_games)
+    last_game_count['qualified'] = len(qualified)
+    
     return render_template('dashboard.html', games=games, qualified=qualified, lock=lock, 
                           today=today, thresholds=THRESHOLDS, total_games=len(all_games),
                           show_only_qualified=show_only_qualified, analytics=analytics)
+
+@app.route('/api/status')
+def api_status():
+    et = pytz.timezone('America/New_York')
+    today = datetime.now(et).date()
+    current_count = Game.query.filter_by(date=today).count()
+    games_changed = last_game_count.get('count', 0) != current_count
+    return jsonify({
+        'date': today.strftime('%B %d, %Y'),
+        'games_count': current_count,
+        'games_changed': games_changed
+    })
 
 @app.route('/add_game', methods=['POST'])
 def add_game():
