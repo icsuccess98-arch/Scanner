@@ -72,13 +72,24 @@ def check_qualification(projected, line, league):
         return True, "U", edge
     return False, None, edge
 
+def is_game_upcoming(game):
+    if not game.game_time:
+        return True
+    time_str = game.game_time.lower()
+    finished_indicators = ['final', 'end', 'ft', 'aet', 'postponed', 'canceled', 'cancelled']
+    for indicator in finished_indicators:
+        if indicator in time_str:
+            return False
+    return True
+
 @app.route('/')
 def dashboard():
     et = pytz.timezone('America/New_York')
     today = datetime.now(et).date()
     show_only_qualified = request.args.get('qualified', '0') == '1'
     
-    all_games = Game.query.filter_by(date=today).order_by(Game.edge.desc()).all()
+    all_games_db = Game.query.filter_by(date=today).order_by(Game.edge.desc()).all()
+    all_games = [g for g in all_games_db if is_game_upcoming(g)]
     qualified = [g for g in all_games if g.is_qualified]
     lock = qualified[0] if qualified else None
     
