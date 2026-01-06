@@ -18,116 +18,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Run Daily"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Run Weekly"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Run Monthly"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Sports Scanner"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Crypto Daily"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Crypto Weekly"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Crypto Monthly"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "Sports App"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Sports Automation"
-
-[[workflows.workflow]]
-name = "Run Daily"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "RUN_MODE=DAILY python main.py"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow]]
-name = "Run Weekly"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "RUN_MODE=WEEKLY python main.py"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow]]
-name = "Run Monthly"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "RUN_MODE=MONTHLY python main.py"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow]]
-name = "Sports Scanner"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "python sports_scanner.py"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow]]
-name = "Crypto Daily"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "CRYPTO_RUN_MODE=DAILY python crypto_main.py"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow]]
-name = "Crypto Weekly"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "CRYPTO_RUN_MODE=WEEKLY python crypto_main.py"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow]]
-name = "Crypto Monthly"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "CRYPTO_RUN_MODE=MONTHLY python crypto_main.py"
-
-[workflows.workflow.metadata]
-outputType = "console"
 
 [[workflows.workflow]]
 name = "Sports App"
@@ -140,17 +31,6 @@ waitForPort = 5000
 
 [workflows.workflow.metadata]
 outputType = "webview"
-
-[[workflows.workflow]]
-name = "Sports Automation"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "python sports_automation.py"
-
-[workflows.workflow.metadata]
-outputType = "console"
 
 [userenv]
 
