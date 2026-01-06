@@ -7,16 +7,14 @@ Three independent trading systems:
 3. Crypto perpetuals trading system (Coinbase Advanced Trade API)
 
 ## Recent Changes
-- January 6, 2026: Major feature enhancements
+- January 6, 2026: Code quality improvements
+  - Added logging, type hints, docstrings, and validation
+  - Added database indexes for faster queries
+  - Simplified history page to 3 stat cards (Wins, Losses, Win Rate)
+  - Removed filters, units, pushes, streak from history page
   - NFL and CFB result checking added to check_pick_results()
-  - Push handling: result = "P" when actual total equals line exactly
-  - Discord posts and saves top 3 picks (not all qualified, consistent tracking)
-  - History page: 6 stat cards (Wins, Losses, Pushes, Win Rate, Units, Streak)
-  - Date range filters (All Time, Last 7 Days, Last 30 Days)
-  - League filters (All, NBA, CBB, NFL, CFB, NHL)
+  - Discord posts and saves top 3 picks consistently
   - Live score auto-refresh every 30 seconds during games
-  - Browser push notifications when picks posted to Discord
-  - Live scores match against database game records for accurate key alignment
 - January 5, 2026: Full automation for Sports Model
   - Daily automation runs on schedule (no manual intervention needed)
   - Stats refresh from ESPN on every fetch (PPG, Opp PPG always current)

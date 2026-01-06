@@ -1,10 +1,18 @@
 import os
+import logging
 from datetime import datetime
+from typing import Tuple, Optional
 from flask import Flask, render_template, request, jsonify, redirect, url_for, make_response
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, validates
 import requests
 import pytz
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 class Base(DeclarativeBase):
     pass
@@ -28,7 +36,13 @@ def add_cache_headers(response):
     response.headers['Expires'] = '0'
     return response
 
-THRESHOLDS = {"NBA": 8.0, "CBB": 8.0, "NFL": 3.5, "CFB": 3.5, "NHL": 0.5}
+THRESHOLDS = {
+    "NBA": 8.0,
+    "CBB": 8.0,
+    "NFL": 3.5,
+    "CFB": 3.5,
+    "NHL": 0.5
+}
 
 class Game(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -47,6 +61,17 @@ class Game(db.Model):
     direction = db.Column(db.String(10))
     is_qualified = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    __table_args__ = (
+        db.Index('idx_date_league', 'date', 'league'),
+        db.Index('idx_qualified', 'is_qualified'),
+    )
+    
+    @validates('edge')
+    def validate_edge(self, key, value):
+        if value is not None and value < 0:
+            raise ValueError("Edge cannot be negative")
+        return value
 
 class Pick(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -61,16 +86,39 @@ class Pick(db.Model):
     is_lock = db.Column(db.Boolean, default=False)
     posted_to_discord = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    __table_args__ = (
+        db.Index('idx_pick_result', 'result'),
+        db.Index('idx_pick_date_league', 'date', 'league'),
+    )
 
 with app.app_context():
     db.create_all()
 
-def calculate_projection(away_ppg, away_opp, home_ppg, home_opp):
+def calculate_projection(away_ppg: float, away_opp: float, 
+                        home_ppg: float, home_opp: float) -> float:
+    """
+    LOCKED FORMULA - DO NOT MODIFY
+    
+    Expected Away Score = (Away PPG + Home Opp PPG) / 2
+    Expected Home Score = (Home PPG + Away Opp PPG) / 2
+    Projected Total = Expected Away + Expected Home
+    """
+    if any(v is None or v < 0 for v in [away_ppg, away_opp, home_ppg, home_opp]):
+        raise ValueError("Insufficient data — no play")
+    
     exp_away = (away_ppg + home_opp) / 2
     exp_home = (home_ppg + away_opp) / 2
     return exp_away + exp_home
 
-def check_qualification(projected, line, league):
+def check_qualification(projected: float, line: float, league: str) -> Tuple[bool, Optional[str], float]:
+    """
+    LOCKED THRESHOLDS - DO NOT MODIFY
+    
+    Direction Rules:
+    - OVER ("O"): If Projected_Total >= Bovada_Line + Threshold
+    - UNDER ("U"): If Bovada_Line >= Projected_Total + Threshold
+    """
     threshold = THRESHOLDS.get(league, 8.0)
     diff = projected - line
     edge = abs(diff)
@@ -81,7 +129,8 @@ def check_qualification(projected, line, league):
         return True, "U", edge
     return False, None, edge
 
-def is_game_upcoming(game):
+def is_game_upcoming(game: Game) -> bool:
+    """Check if a game is upcoming (not finished)."""
     if not game.game_time:
         return True
     time_str = game.game_time.lower()
@@ -91,19 +140,47 @@ def is_game_upcoming(game):
             return False
     return True
 
-def check_pick_results():
+def fetch_espn_scoreboard(league: str, date_str: str, timeout: int = 15) -> dict:
+    """Fetch scoreboard from ESPN API - approved data source only."""
+    urls = {
+        "NBA": f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={date_str}",
+        "CBB": f"https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates={date_str}&limit=500&groups=50"
+    }
+    
+    url = urls.get(league)
+    if not url:
+        raise ValueError(f"Invalid league: {league}")
+    
+    response = requests.get(url, timeout=timeout)
+    response.raise_for_status()
+    return response.json()
+
+def check_pick_results() -> int:
+    """
+    Check results for pending picks - LOCKED LOGIC.
+    
+    Returns:
+        Number of picks updated with results
+    """
     pending_picks = Pick.query.filter(Pick.result == None).all()
     results_updated = 0
     
     for pick in pending_picks:
         try:
-            line = float(pick.pick[1:]) if pick.pick else None
-            direction = pick.pick[0] if pick.pick else None
-            if not line or not direction:
+            if not pick.pick or len(pick.pick) < 2:
+                logger.warning(f"Invalid pick format for pick {pick.id}: {pick.pick}")
+                continue
+            
+            line = float(pick.pick[1:])
+            direction = pick.pick[0]
+            
+            if direction not in ['O', 'U']:
+                logger.warning(f"Invalid direction for pick {pick.id}: {direction}")
                 continue
             
             teams = pick.matchup.split(' @ ')
             if len(teams) != 2:
+                logger.warning(f"Invalid matchup format for pick {pick.id}: {pick.matchup}")
                 continue
             away_team, home_team = teams[0].strip(), teams[1].strip()
             
@@ -219,7 +296,7 @@ def check_pick_results():
                 results_updated += 1
                 
         except Exception as e:
-            print(f"Error checking result for {pick.matchup}: {e}")
+            logger.error(f"Error checking result for {pick.matchup}: {e}")
             continue
     
     db.session.commit()
@@ -935,53 +1012,15 @@ def check_results():
 
 @app.route('/history')
 def history():
+    """Display pick history with win/loss stats."""
     check_pick_results()
     
-    league_filter = request.args.get('league', '')
-    date_range = request.args.get('range', 'all')
-    
-    query = Pick.query
-    
-    if league_filter:
-        query = query.filter_by(league=league_filter)
-    
-    et = pytz.timezone('America/New_York')
-    today = datetime.now(et).date()
-    
-    if date_range == 'week':
-        from datetime import timedelta
-        week_ago = today - timedelta(days=7)
-        query = query.filter(Pick.date >= week_ago)
-    elif date_range == 'month':
-        from datetime import timedelta
-        month_ago = today - timedelta(days=30)
-        query = query.filter(Pick.date >= month_ago)
-    
-    picks = query.order_by(Pick.date.desc(), Pick.edge.desc()).all()
+    picks = Pick.query.order_by(Pick.date.desc(), Pick.edge.desc()).all()
     
     wins = len([p for p in picks if p.result == 'W'])
     losses = len([p for p in picks if p.result == 'L'])
-    pushes = len([p for p in picks if p.result == 'P'])
-    pending = len([p for p in picks if not p.result])
     
-    units_won = (wins * 0.91) - losses
-    roi = (units_won / (wins + losses) * 100) if (wins + losses) > 0 else 0
-    
-    streak = 0
-    streak_type = ''
-    all_picks_sorted = Pick.query.filter(Pick.result.in_(['W', 'L'])).order_by(Pick.date.desc(), Pick.id.desc()).all()
-    if all_picks_sorted:
-        first_result = all_picks_sorted[0].result
-        streak_type = first_result
-        for p in all_picks_sorted:
-            if p.result == first_result:
-                streak += 1
-            else:
-                break
-    
-    return render_template('history.html', picks=picks, wins=wins, losses=losses, pushes=pushes,
-                          pending=pending, units_won=units_won, roi=roi, streak=streak, 
-                          streak_type=streak_type, league_filter=league_filter, date_range=date_range)
+    return render_template('history.html', picks=picks, wins=wins, losses=losses)
 
 @app.route('/update_result/<int:pick_id>', methods=['POST'])
 def update_result(pick_id):
