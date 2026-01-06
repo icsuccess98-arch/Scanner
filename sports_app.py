@@ -666,17 +666,20 @@ def post_discord():
         resp = requests.post(webhook, json={"content": msg})
         
         for g in games:
-            pick = Pick(
-                game_id=g.id,
-                date=today,
-                league=g.league,
-                matchup=f"{g.away_team} @ {g.home_team}",
-                pick=f"{g.direction}{g.line}",
-                edge=g.edge,
-                is_lock=(g.id == lock.id),
-                posted_to_discord=True
-            )
-            db.session.add(pick)
+            matchup = f"{g.away_team} @ {g.home_team}"
+            existing_pick = Pick.query.filter_by(date=today, matchup=matchup).first()
+            if not existing_pick:
+                pick = Pick(
+                    game_id=g.id,
+                    date=today,
+                    league=g.league,
+                    matchup=matchup,
+                    pick=f"{g.direction}{g.line}",
+                    edge=g.edge,
+                    is_lock=(g.id == lock.id),
+                    posted_to_discord=True
+                )
+                db.session.add(pick)
         db.session.commit()
         
         return jsonify({"success": True, "status": resp.status_code, "picks_count": len(games)})
