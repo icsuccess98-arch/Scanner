@@ -1015,12 +1015,21 @@ def fetch_odds():
                 games = Game.query.filter_by(date=today, league=league).all()
                 
                 for game in games:
-                    away_match = any(part.lower() in away_team.lower() or away_team.lower() in part.lower() 
-                                    for part in game.away_team.split() if len(part) > 3)
-                    home_match = any(part.lower() in home_team.lower() or home_team.lower() in part.lower() 
-                                    for part in game.home_team.split() if len(part) > 3)
+                    def normalize_team(name):
+                        return set(w.lower() for w in name.replace("'", "").split() if len(w) > 2)
                     
-                    if away_match or home_match:
+                    game_away_words = normalize_team(game.away_team)
+                    game_home_words = normalize_team(game.home_team)
+                    odds_away_words = normalize_team(away_team)
+                    odds_home_words = normalize_team(home_team)
+                    
+                    away_match = bool(game_away_words & odds_away_words)
+                    home_match = bool(game_home_words & odds_home_words)
+                    
+                    away_match_rev = bool(game_away_words & odds_home_words)
+                    home_match_rev = bool(game_home_words & odds_away_words)
+                    
+                    if (away_match and home_match) or (away_match_rev and home_match_rev):
                         bookmakers = event.get("bookmakers", [])
                         for book in bookmakers:
                             if book.get("key") in ["pinnacle", "draftkings", "fanduel", "bovada"]:
