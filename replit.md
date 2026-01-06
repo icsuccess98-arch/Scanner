@@ -7,6 +7,13 @@ Three independent trading systems:
 3. Crypto perpetuals trading system (Coinbase Advanced Trade API)
 
 ## Recent Changes
+- January 6, 2026: Robust team name matching
+  - Unified teams_match() function with directional prefix validation
+  - Prevents Eastern/Western/Central/Northern/Southern Michigan confusion
+  - Same logic used for both odds fetching and result checking
+  - Lines always update on Fetch Odds (not one-time only)
+  - Fixed edge serialization for 0.0 values
+  - Added favicon route
 - January 6, 2026: Code quality improvements
   - Added logging, type hints, docstrings, and validation
   - Added database indexes for faster queries

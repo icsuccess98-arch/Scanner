@@ -46,37 +46,66 @@ THRESHOLDS = {
     "NHL": 0.5
 }
 
-def normalize_team_name(name: str) -> set:
-    """
-    Normalize team name for fuzzy matching.
-    Returns a set of tokens for comparison.
-    """
+DIRECTIONAL_PREFIXES = {'eastern', 'western', 'central', 'northern', 'southern', 
+                         'southeast', 'southwest', 'northeast', 'northwest'}
+DIRECTIONAL_ABBREVS = {'e': 'eastern', 'w': 'western', 'c': 'central', 'n': 'northern', 
+                       's': 'southern', 'se': 'southeast', 'sw': 'southwest', 
+                       'ne': 'northeast', 'nw': 'northwest'}
+
+def normalize_team_name(name: str) -> str:
+    """Normalize team name for matching."""
     if not name:
-        return set()
-    name = name.lower()
-    name = name.replace("'", "").replace("-", " ").replace(".", "")
-    common_prefixes = ["los angeles", "new york", "san francisco", "new orleans", 
-                       "golden state", "san antonio", "oklahoma city", "kansas city"]
-    for prefix in common_prefixes:
-        if name.startswith(prefix + " "):
-            name = name[len(prefix):].strip()
-            break
-    tokens = set(name.split())
-    tokens.discard("st")
-    tokens.discard("state")
-    return tokens
+        return ""
+    n = name.lower().replace("'", "").replace("-", " ").replace(".", "").strip()
+    n = n.replace(" st ", " state ").replace(" st", " state")
+    return n
+
+def get_team_tokens(name: str) -> set:
+    """Get tokens from team name, excluding stop words."""
+    stop_words = {'the', 'of', 'at', 'vs', 'and'}
+    words = normalize_team_name(name).split()
+    return set(w for w in words if w not in stop_words and len(w) > 1)
+
+def get_directional_prefix(name: str) -> Optional[str]:
+    """Extract directional prefix (Eastern, Western, etc) from team name."""
+    n = normalize_team_name(name)
+    words = n.split()
+    if not words:
+        return None
+    first = words[0]
+    if first in DIRECTIONAL_PREFIXES:
+        return first
+    if first in DIRECTIONAL_ABBREVS:
+        return DIRECTIONAL_ABBREVS[first]
+    return None
 
 def teams_match(name1: str, name2: str) -> bool:
     """
-    Check if two team names match using token overlap.
-    Handles variations like 'Lakers' vs 'LA Lakers'.
+    Check if two team names match using token overlap with directional prefix validation.
+    Prevents Eastern Michigan from matching Central Michigan, etc.
     """
-    tokens1 = normalize_team_name(name1)
-    tokens2 = normalize_team_name(name2)
+    tokens1 = get_team_tokens(name1)
+    tokens2 = get_team_tokens(name2)
     if not tokens1 or not tokens2:
         return False
+    
+    dir1 = get_directional_prefix(name1)
+    dir2 = get_directional_prefix(name2)
+    if dir1 and dir2 and dir1 != dir2:
+        return False
+    if dir1 and not dir2:
+        return False
+    if dir2 and not dir1:
+        return False
+    
     overlap = tokens1 & tokens2
-    return len(overlap) >= min(len(tokens1), len(tokens2))
+    if not overlap:
+        return False
+    if tokens1 <= tokens2 or tokens2 <= tokens1:
+        return True
+    if len(overlap) >= min(len(tokens1), len(tokens2)):
+        return True
+    return False
 
 class Game(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -1053,62 +1082,10 @@ def fetch_odds():
                 games = Game.query.filter_by(date=today, league=league).all()
                 
                 for game in games:
-                    def normalize_name(name):
-                        n = name.lower().replace("'", "").replace("-", " ").replace(".", "").strip()
-                        n = n.replace(" st ", " state ").replace(" st", " state")
-                        return n
-                    
-                    def get_tokens(name):
-                        stop_words = {'the', 'of', 'at', 'vs', 'and'}
-                        words = normalize_name(name).split()
-                        return set(w for w in words if w not in stop_words and len(w) > 1)
-                    
-                    def get_directional(name):
-                        n = normalize_name(name)
-                        directional = {'eastern', 'western', 'central', 'northern', 'southern', 'southeast', 'southwest', 'northeast', 'northwest'}
-                        abbrevs = {'e': 'eastern', 'w': 'western', 'c': 'central', 'n': 'northern', 's': 'southern', 'se': 'southeast', 'sw': 'southwest', 'ne': 'northeast', 'nw': 'northwest'}
-                        words = n.split()
-                        if words and words[0] in directional:
-                            return words[0]
-                        if words and words[0] in abbrevs:
-                            return abbrevs[words[0]]
-                        return None
-                    
-                    game_away_tokens = get_tokens(game.away_team)
-                    game_home_tokens = get_tokens(game.home_team)
-                    odds_away_tokens = get_tokens(away_team)
-                    odds_home_tokens = get_tokens(home_team)
-                    
-                    game_away_dir = get_directional(game.away_team)
-                    game_home_dir = get_directional(game.home_team)
-                    odds_away_dir = get_directional(away_team)
-                    odds_home_dir = get_directional(home_team)
-                    
-                    def teams_match(game_tokens, odds_tokens, game_dir, odds_dir):
-                        if not game_tokens or not odds_tokens:
-                            return False
-                        if game_dir and odds_dir and game_dir != odds_dir:
-                            return False
-                        if game_dir and not odds_dir:
-                            return False
-                        if odds_dir and not game_dir:
-                            return False
-                        overlap = game_tokens & odds_tokens
-                        if not overlap:
-                            return False
-                        if game_tokens <= odds_tokens or odds_tokens <= game_tokens:
-                            return True
-                        if len(overlap) >= 1 and len(game_tokens) <= 2:
-                            return True
-                        if len(overlap) >= 2:
-                            return True
-                        return False
-                    
-                    away_match = teams_match(game_away_tokens, odds_away_tokens, game_away_dir, odds_away_dir)
-                    home_match = teams_match(game_home_tokens, odds_home_tokens, game_home_dir, odds_home_dir)
-                    
-                    away_match_rev = teams_match(game_away_tokens, odds_home_tokens, game_away_dir, odds_home_dir)
-                    home_match_rev = teams_match(game_home_tokens, odds_away_tokens, game_home_dir, odds_away_dir)
+                    away_match = teams_match(game.away_team, away_team)
+                    home_match = teams_match(game.home_team, home_team)
+                    away_match_rev = teams_match(game.away_team, home_team)
+                    home_match_rev = teams_match(game.home_team, away_team)
                     
                     if (away_match and home_match) or (away_match_rev and home_match_rev):
                         bookmakers = event.get("bookmakers", [])
