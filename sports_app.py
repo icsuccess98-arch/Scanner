@@ -248,6 +248,10 @@ def dashboard():
                           today=today, thresholds=THRESHOLDS, total_games=len(all_games),
                           show_only_qualified=show_only_qualified, analytics=analytics)
 
+@app.route('/health')
+def health():
+    return jsonify({"status": "ok"})
+
 @app.route('/api/status')
 def api_status():
     et = pytz.timezone('America/New_York')
