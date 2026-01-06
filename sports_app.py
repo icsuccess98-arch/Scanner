@@ -1,7 +1,9 @@
 import os
 import logging
+import time
 from datetime import datetime
 from typing import Tuple, Optional
+from functools import wraps
 from flask import Flask, render_template, request, jsonify, redirect, url_for, make_response
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase, validates
@@ -140,6 +142,32 @@ def is_game_upcoming(game: Game) -> bool:
             return False
     return True
 
+def retry_request(max_retries: int = 3, backoff_factor: float = 1.0):
+    """Decorator for retrying failed HTTP requests with exponential backoff."""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            last_exception = None
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except (requests.RequestException, requests.Timeout) as e:
+                    last_exception = e
+                    wait_time = backoff_factor * (2 ** attempt)
+                    logger.warning(f"Request failed (attempt {attempt + 1}/{max_retries}): {e}. Retrying in {wait_time}s...")
+                    time.sleep(wait_time)
+            logger.error(f"All {max_retries} attempts failed: {last_exception}")
+            raise last_exception
+        return wrapper
+    return decorator
+
+@retry_request(max_retries=3, backoff_factor=1.0)
+def fetch_url(url: str, timeout: int = 15) -> dict:
+    """Fetch URL with retry logic."""
+    response = requests.get(url, timeout=timeout)
+    response.raise_for_status()
+    return response.json()
+
 def fetch_espn_scoreboard(league: str, date_str: str, timeout: int = 15) -> dict:
     """Fetch scoreboard from ESPN API - approved data source only."""
     urls = {
@@ -151,9 +179,7 @@ def fetch_espn_scoreboard(league: str, date_str: str, timeout: int = 15) -> dict
     if not url:
         raise ValueError(f"Invalid league: {league}")
     
-    response = requests.get(url, timeout=timeout)
-    response.raise_for_status()
-    return response.json()
+    return fetch_url(url, timeout)
 
 def check_pick_results() -> int:
     """
@@ -372,6 +398,17 @@ def dashboard():
 @app.route('/health')
 def health():
     return jsonify({"status": "ok"})
+
+@app.route('/sw.js')
+def service_worker():
+    response = make_response(app.send_static_file('sw.js'))
+    response.headers['Cache-Control'] = 'no-cache'
+    response.headers['Content-Type'] = 'application/javascript'
+    return response
+
+@app.route('/offline.html')
+def offline():
+    return app.send_static_file('offline.html')
 
 @app.route('/api/status')
 def api_status():
