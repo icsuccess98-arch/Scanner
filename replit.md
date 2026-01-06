@@ -7,6 +7,16 @@ Three independent trading systems:
 3. Crypto perpetuals trading system (Coinbase Advanced Trade API)
 
 ## Recent Changes
+- January 6, 2026: Major feature enhancements
+  - NFL and CFB result checking added to check_pick_results()
+  - Push handling: result = "P" when actual total equals line exactly
+  - Discord posts and saves top 3 picks (not all qualified, consistent tracking)
+  - History page: 6 stat cards (Wins, Losses, Pushes, Win Rate, Units, Streak)
+  - Date range filters (All Time, Last 7 Days, Last 30 Days)
+  - League filters (All, NBA, CBB, NFL, CFB, NHL)
+  - Live score auto-refresh every 30 seconds during games
+  - Browser push notifications when picks posted to Discord
+  - Live scores match against database game records for accurate key alignment
 - January 5, 2026: Full automation for Sports Model
   - Daily automation runs on schedule (no manual intervention needed)
   - Stats refresh from ESPN on every fetch (PPG, Opp PPG always current)
@@ -22,7 +32,7 @@ Three independent trading systems:
 ## Daily Automation Schedule (ET)
 - **8:00 AM** - Fetch all games with fresh ESPN stats
 - **10:00 AM** - Fetch betting odds from The Odds API
-- **11:00 AM** - Post top 5 qualified picks to Discord
+- **11:00 AM** - Post top 3 qualified picks to Discord
 - **2:00 PM** - Afternoon refresh (stats + odds update)
 - January 4, 2026: Fixed NFL stats (avgPointsFor/avgPointsAgainst), added team nicknames
 - January 4, 2026: Fixed NHL season to 2025-26, added team nickname aliases
