@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>History - 730's Locks</title>
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#090C12">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -19,6 +21,7 @@
             --green: #21C55D;
             --red: #FF4D4F;
             --gold: #FFD700;
+            --orange: #FF8C00;
             --nba: #F44336;
             --cbb: #3F51B5;
             --nfl: #0B3D91;
@@ -52,14 +55,18 @@
             background: var(--bg-card);
             border: 1px solid var(--border);
             border-radius: 16px;
-            padding: 1.5rem;
+            padding: 1.25rem;
             text-align: center;
         }
-        .stat-value { font-size: 2.5rem; font-weight: 800; }
+        .stat-value { font-size: 2rem; font-weight: 800; }
         .stat-value.wins { color: var(--green); }
         .stat-value.losses { color: var(--red); }
+        .stat-value.pushes { color: var(--orange); }
         .stat-value.rate { color: var(--accent); }
-        .stat-label { font-size: 0.875rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-value.units { color: var(--gold); }
+        .stat-value.streak-w { color: var(--green); }
+        .stat-value.streak-l { color: var(--red); }
+        .stat-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
         .card {
             background: var(--bg-card);
             border: 1px solid var(--border);
@@ -71,6 +78,33 @@
             font-weight: 600;
             padding: 1.25rem;
         }
+        .filter-bar {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .filter-btn {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .filter-btn:hover, .filter-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+        .filter-btn.league-nba.active { background: var(--nba); border-color: var(--nba); }
+        .filter-btn.league-cbb.active { background: var(--cbb); border-color: var(--cbb); }
+        .filter-btn.league-nfl.active { background: var(--nfl); border-color: var(--nfl); }
+        .filter-btn.league-cfb.active { background: var(--cfb); border-color: var(--cfb); }
+        .filter-btn.league-nhl.active { background: var(--nhl); border-color: var(--nhl); }
         .table { color: var(--text); margin-bottom: 0; }
         .table th {
             border-color: var(--border);
@@ -129,6 +163,13 @@
             padding: 0.375rem 0.75rem;
             border-radius: 6px;
         }
+        .badge-push {
+            background: rgba(255, 140, 0, 0.2);
+            color: var(--orange);
+            font-weight: 600;
+            padding: 0.375rem 0.75rem;
+            border-radius: 6px;
+        }
         .badge-pending {
             background: var(--bg-input);
             color: var(--text-muted);
@@ -151,6 +192,7 @@
         }
         .btn-result.win:hover { background: rgba(33, 197, 93, 0.2); border-color: var(--green); color: var(--green); }
         .btn-result.loss:hover { background: rgba(255, 77, 79, 0.2); border-color: var(--red); color: var(--red); }
+        .btn-result.push:hover { background: rgba(255, 140, 0, 0.2); border-color: var(--orange); color: var(--orange); }
         .empty-state {
             text-align: center;
             padding: 4rem;
@@ -159,6 +201,12 @@
         .empty-state i { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
         .pick-text { font-weight: 700; }
         .edge-text { color: var(--text-muted); font-size: 0.875rem; }
+        @media (max-width: 768px) {
+            .stat-value { font-size: 1.5rem; }
+            .stat-card { padding: 1rem; }
+            .table td, .table th { padding: 0.75rem 0.5rem; font-size: 0.875rem; }
+            .filter-bar { justify-content: center; }
+        }
     </style>
 </head>
 <body>
@@ -173,26 +221,26 @@
     </nav>
 
     <div class="container py-4">
-        <div class="row g-4 mb-4">
-            <div class="col-md-3">
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-md-2">
                 <div class="stat-card">
                     <div class="stat-value wins">{{ wins }}</div>
                     <div class="stat-label">Wins</div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-6 col-md-2">
                 <div class="stat-card">
                     <div class="stat-value losses">{{ losses }}</div>
                     <div class="stat-label">Losses</div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-6 col-md-2">
                 <div class="stat-card">
-                    <div class="stat-value">{{ pending }}</div>
-                    <div class="stat-label">Pending</div>
+                    <div class="stat-value pushes">{{ pushes }}</div>
+                    <div class="stat-label">Pushes</div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-6 col-md-2">
                 <div class="stat-card">
                     <div class="stat-value rate">
                         {% if wins + losses > 0 %}
@@ -204,11 +252,46 @@
                     <div class="stat-label">Win Rate</div>
                 </div>
             </div>
+            <div class="col-6 col-md-2">
+                <div class="stat-card">
+                    <div class="stat-value units {% if units_won >= 0 %}wins{% else %}losses{% endif %}">
+                        {{ "%+.1f"|format(units_won) }}u
+                    </div>
+                    <div class="stat-label">Units</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <div class="stat-card">
+                    <div class="stat-value {% if streak_type == 'W' %}streak-w{% else %}streak-l{% endif %}">
+                        {% if streak > 0 %}{{ streak }}{{ streak_type }}{% else %}-{% endif %}
+                    </div>
+                    <div class="stat-label">Streak</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <span><i class="bi bi-funnel"></i> Filters</span>
+                <div class="filter-bar">
+                    <a href="/history?range=all&league={{ league_filter }}" class="filter-btn {{ 'active' if date_range == 'all' else '' }}">All Time</a>
+                    <a href="/history?range=week&league={{ league_filter }}" class="filter-btn {{ 'active' if date_range == 'week' else '' }}">Last 7 Days</a>
+                    <a href="/history?range=month&league={{ league_filter }}" class="filter-btn {{ 'active' if date_range == 'month' else '' }}">Last 30 Days</a>
+                    <span class="text-muted mx-2">|</span>
+                    <a href="/history?range={{ date_range }}&league=" class="filter-btn {{ 'active' if not league_filter else '' }}">All</a>
+                    <a href="/history?range={{ date_range }}&league=NBA" class="filter-btn league-nba {{ 'active' if league_filter == 'NBA' else '' }}">NBA</a>
+                    <a href="/history?range={{ date_range }}&league=CBB" class="filter-btn league-cbb {{ 'active' if league_filter == 'CBB' else '' }}">CBB</a>
+                    <a href="/history?range={{ date_range }}&league=NFL" class="filter-btn league-nfl {{ 'active' if league_filter == 'NFL' else '' }}">NFL</a>
+                    <a href="/history?range={{ date_range }}&league=CFB" class="filter-btn league-cfb {{ 'active' if league_filter == 'CFB' else '' }}">CFB</a>
+                    <a href="/history?range={{ date_range }}&league=NHL" class="filter-btn league-nhl {{ 'active' if league_filter == 'NHL' else '' }}">NHL</a>
+                </div>
+            </div>
         </div>
 
         <div class="card">
-            <div class="card-header">
-                <i class="bi bi-clock-history"></i> Pick History
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-clock-history"></i> Pick History</span>
+                <span class="text-muted">{{ picks|length }} picks</span>
             </div>
             <div class="table-responsive">
                 <table class="table">
@@ -219,7 +302,7 @@
                             <th>Matchup</th>
                             <th>Pick</th>
                             <th>Edge</th>
-                            <th>Actual Total</th>
+                            <th>Actual</th>
                             <th>Result</th>
                             <th></th>
                         </tr>
@@ -245,6 +328,8 @@
                                 <span class="badge-win">WIN</span>
                                 {% elif pick.result == 'L' %}
                                 <span class="badge-loss">LOSS</span>
+                                {% elif pick.result == 'P' %}
+                                <span class="badge-push">PUSH</span>
                                 {% else %}
                                 <span class="badge-pending">PENDING</span>
                                 {% endif %}
@@ -253,6 +338,7 @@
                                 <div class="d-flex gap-1">
                                     <button class="btn-result win" onclick="updateResult({{ pick.id }}, 'W')">W</button>
                                     <button class="btn-result loss" onclick="updateResult({{ pick.id }}, 'L')">L</button>
+                                    <button class="btn-result push" onclick="updateResult({{ pick.id }}, 'P')">P</button>
                                 </div>
                             </td>
                         </tr>

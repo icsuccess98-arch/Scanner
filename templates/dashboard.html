@@ -512,11 +512,12 @@
                 </div>
                 
                 {% for game in league_games %}
-                <div class="game-card {% if game.is_qualified %}qualified{% endif %} {% if lock and game.id == lock.id %}lock-card{% endif %}">
+                <div class="game-card game-row {% if game.is_qualified %}qualified{% endif %} {% if lock and game.id == lock.id %}lock-card{% endif %}" data-away="{{ game.away_team }}" data-home="{{ game.home_team }}">
                     <div class="row align-items-center">
                         <div class="col-md-3">
                             <div class="matchup">{{ game.away_team }} @ {{ game.home_team }}</div>
                             <div class="game-time">{{ game.game_time }}</div>
+                            <div class="live-score" style="display:none; margin-top:0.5rem; font-size:0.875rem; color:#21C55D;"></div>
                         </div>
                         <div class="col-md-3">
                             <div class="stats-grid">
@@ -619,6 +620,42 @@
         setInterval(checkDateChange, 60000);
         setInterval(autoRefreshData, 300000);
         
+        function fetchLiveScores() {
+            fetch('/api/live_scores')
+            .then(r => r.json())
+            .then(data => {
+                if (data.count > 0) {
+                    document.querySelectorAll('.game-row').forEach(row => {
+                        const awayTeam = row.dataset.away;
+                        const homeTeam = row.dataset.home;
+                        const key = `${awayTeam}@${homeTeam}`;
+                        const scoreData = data.live_scores[key];
+                        if (scoreData) {
+                            const liveEl = row.querySelector('.live-score');
+                            if (liveEl) {
+                                liveEl.innerHTML = `<span class="badge bg-danger me-2">LIVE</span>${scoreData.away_score}-${scoreData.home_score} (${scoreData.total}) ${scoreData.period} ${scoreData.clock}`;
+                                liveEl.style.display = 'block';
+                            }
+                        }
+                    });
+                }
+            })
+            .catch(() => {});
+        }
+        
+        setInterval(fetchLiveScores, 30000);
+        fetchLiveScores();
+        
+        if ('Notification' in window && 'serviceWorker' in navigator) {
+            Notification.requestPermission();
+        }
+        
+        function sendNotification(title, body) {
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification(title, { body: body, icon: '/static/icon-512.png' });
+            }
+        }
+        
         function updateLine(gameId, value) {
             fetch(`/update_line/${gameId}`, {
                 method: 'POST',
@@ -671,6 +708,7 @@
             .then(data => {
                 if (data.success) {
                     alert(`Posted ${data.picks_count} picks to Discord!`);
+                    sendNotification("730's Locks", `${data.picks_count} picks posted to Discord!`);
                 } else {
                     alert(data.message || 'Failed to post');
                 }

@@ -166,9 +166,53 @@ def check_pick_results():
                         actual_total = away_score + home_score
                         break
             
+            elif pick.league == "NFL":
+                url = f"https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates={date_str}"
+                resp = requests.get(url, timeout=15)
+                for event in resp.json().get("events", []):
+                    status = event.get("status", {}).get("type", {}).get("name", "")
+                    if status != "STATUS_FINAL":
+                        continue
+                    comps = event.get("competitions", [{}])[0]
+                    teams_data = comps.get("competitors", [])
+                    if len(teams_data) == 2:
+                        away = next((t for t in teams_data if t.get("homeAway") == "away"), None)
+                        home = next((t for t in teams_data if t.get("homeAway") == "home"), None)
+                        if away and home:
+                            away_name = away.get("team", {}).get("shortDisplayName", "")
+                            home_name = home.get("team", {}).get("shortDisplayName", "")
+                            if away_name == away_team and home_name == home_team:
+                                away_score = int(away.get("score", 0))
+                                home_score = int(home.get("score", 0))
+                                actual_total = away_score + home_score
+                                break
+            
+            elif pick.league == "CFB":
+                url = f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates={date_str}&limit=100"
+                resp = requests.get(url, timeout=15)
+                for event in resp.json().get("events", []):
+                    status = event.get("status", {}).get("type", {}).get("name", "")
+                    if status != "STATUS_FINAL":
+                        continue
+                    comps = event.get("competitions", [{}])[0]
+                    teams_data = comps.get("competitors", [])
+                    if len(teams_data) == 2:
+                        away = next((t for t in teams_data if t.get("homeAway") == "away"), None)
+                        home = next((t for t in teams_data if t.get("homeAway") == "home"), None)
+                        if away and home:
+                            away_name = away.get("team", {}).get("shortDisplayName", "")
+                            home_name = home.get("team", {}).get("shortDisplayName", "")
+                            if away_name == away_team and home_name == home_team:
+                                away_score = int(away.get("score", 0))
+                                home_score = int(home.get("score", 0))
+                                actual_total = away_score + home_score
+                                break
+            
             if actual_total is not None:
                 pick.actual_total = actual_total
-                if direction == "O":
+                if actual_total == line:
+                    pick.result = "P"
+                elif direction == "O":
                     pick.result = "W" if actual_total > line else "L"
                 else:
                     pick.result = "W" if actual_total < line else "L"
@@ -263,6 +307,108 @@ def api_status():
         'games_count': current_count,
         'games_changed': games_changed
     })
+
+@app.route('/api/live_scores')
+def api_live_scores():
+    et = pytz.timezone('America/New_York')
+    today = datetime.now(et).date()
+    today_str = today.strftime("%Y%m%d")
+    
+    games_db = Game.query.filter_by(date=today).all()
+    live_scores = {}
+    
+    try:
+        nba_url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={today_str}"
+        resp = requests.get(nba_url, timeout=10)
+        for event in resp.json().get("events", []):
+            status = event.get("status", {})
+            state = status.get("type", {}).get("state", "")
+            if state == "in":
+                comps = event.get("competitions", [{}])[0]
+                teams = comps.get("competitors", [])
+                if len(teams) == 2:
+                    away = next((t for t in teams if t.get("homeAway") == "away"), None)
+                    home = next((t for t in teams if t.get("homeAway") == "home"), None)
+                    if away and home:
+                        away_name = away.get("team", {}).get("shortDisplayName", "")
+                        home_name = home.get("team", {}).get("shortDisplayName", "")
+                        away_score = int(away.get("score", 0))
+                        home_score = int(home.get("score", 0))
+                        period = status.get("period", 0)
+                        clock = status.get("displayClock", "")
+                        for g in games_db:
+                            if g.league == "NBA" and g.away_team == away_name and g.home_team == home_name:
+                                live_scores[f"{g.away_team}@{g.home_team}"] = {
+                                    "away_score": away_score,
+                                    "home_score": home_score,
+                                    "total": away_score + home_score,
+                                    "period": f"Q{period}",
+                                    "clock": clock,
+                                    "league": "NBA"
+                                }
+                                break
+    except:
+        pass
+    
+    try:
+        cbb_url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates={today_str}&limit=100&groups=50"
+        resp = requests.get(cbb_url, timeout=15)
+        for event in resp.json().get("events", []):
+            status = event.get("status", {})
+            state = status.get("type", {}).get("state", "")
+            if state == "in":
+                comps = event.get("competitions", [{}])[0]
+                teams = comps.get("competitors", [])
+                if len(teams) == 2:
+                    away = next((t for t in teams if t.get("homeAway") == "away"), None)
+                    home = next((t for t in teams if t.get("homeAway") == "home"), None)
+                    if away and home:
+                        away_name = away.get("team", {}).get("shortDisplayName", "")
+                        home_name = home.get("team", {}).get("shortDisplayName", "")
+                        away_score = int(away.get("score", 0))
+                        home_score = int(home.get("score", 0))
+                        period = status.get("period", 0)
+                        clock = status.get("displayClock", "")
+                        for g in games_db:
+                            if g.league == "CBB" and g.away_team == away_name and g.home_team == home_name:
+                                live_scores[f"{g.away_team}@{g.home_team}"] = {
+                                    "away_score": away_score,
+                                    "home_score": home_score,
+                                    "total": away_score + home_score,
+                                    "period": f"H{period}",
+                                    "clock": clock,
+                                    "league": "CBB"
+                                }
+                                break
+    except:
+        pass
+    
+    try:
+        nhl_url = f"https://api-web.nhle.com/v1/score/{today.strftime('%Y-%m-%d')}"
+        resp = requests.get(nhl_url, timeout=10)
+        for game in resp.json().get("games", []):
+            if game.get("gameState") == "LIVE":
+                away_name = game.get("awayTeam", {}).get("placeName", {}).get("default", "")
+                home_name = game.get("homeTeam", {}).get("placeName", {}).get("default", "")
+                away_score = game.get("awayTeam", {}).get("score", 0)
+                home_score = game.get("homeTeam", {}).get("score", 0)
+                period = game.get("periodDescriptor", {}).get("number", 0)
+                clock = game.get("clock", {}).get("timeRemaining", "")
+                for g in games_db:
+                    if g.league == "NHL" and g.away_team == away_name and g.home_team == home_name:
+                        live_scores[f"{g.away_team}@{g.home_team}"] = {
+                            "away_score": away_score,
+                            "home_score": home_score,
+                            "total": away_score + home_score,
+                            "period": f"P{period}",
+                            "clock": clock,
+                            "league": "NHL"
+                        }
+                        break
+    except:
+        pass
+    
+    return jsonify({"live_scores": live_scores, "count": len(live_scores)})
 
 @app.route('/add_game', methods=['POST'])
 def add_game():
@@ -739,10 +885,12 @@ def post_discord():
     if not games:
         return jsonify({"success": False, "message": "No qualified picks to post"})
     
+    top_picks = games[:3]
+    
     msg = f"🎯 PICKS OF THE DAY - {today_str}\n\n"
     
     for league in ["NBA", "CBB", "CFB", "NHL"]:
-        league_games = [g for g in games if g.league == league]
+        league_games = [g for g in top_picks if g.league == league]
         if league_games:
             emoji = {"NBA": "🏀", "CBB": "🏀", "CFB": "🏈", "NHL": "🏒"}.get(league, "🎯")
             msg += f"{emoji} {league}\n"
@@ -750,7 +898,7 @@ def post_discord():
                 msg += f"{g.away_team}/{g.home_team} ({g.game_time})\n"
                 msg += f"Game Total {g.direction}{g.line}\n\n"
     
-    lock = games[0]
+    lock = top_picks[0]
     msg += f"🔒 Lock Of The Day:\n"
     msg += f"{lock.away_team}/{lock.home_team} ({lock.game_time})\n"
     msg += f"Game Total {lock.direction}{lock.line}\n"
@@ -759,23 +907,24 @@ def post_discord():
     if webhook:
         resp = requests.post(webhook, json={"content": msg})
         
-        matchup = f"{lock.away_team} @ {lock.home_team}"
-        existing_pick = Pick.query.filter_by(date=today, matchup=matchup).first()
-        if not existing_pick:
-            pick = Pick(
-                game_id=lock.id,
-                date=today,
-                league=lock.league,
-                matchup=matchup,
-                pick=f"{lock.direction}{lock.line}",
-                edge=lock.edge,
-                is_lock=True,
-                posted_to_discord=True
-            )
-            db.session.add(pick)
+        for i, g in enumerate(top_picks):
+            matchup = f"{g.away_team} @ {g.home_team}"
+            existing_pick = Pick.query.filter_by(date=today, matchup=matchup).first()
+            if not existing_pick:
+                pick = Pick(
+                    game_id=g.id,
+                    date=today,
+                    league=g.league,
+                    matchup=matchup,
+                    pick=f"{g.direction}{g.line}",
+                    edge=g.edge,
+                    is_lock=(i == 0),
+                    posted_to_discord=True
+                )
+                db.session.add(pick)
         db.session.commit()
         
-        return jsonify({"success": True, "status": resp.status_code, "picks_count": len(games)})
+        return jsonify({"success": True, "status": resp.status_code, "picks_count": len(top_picks)})
     
     return jsonify({"success": False, "message": "Discord webhook not configured"})
 
@@ -787,11 +936,52 @@ def check_results():
 @app.route('/history')
 def history():
     check_pick_results()
-    picks = Pick.query.order_by(Pick.date.desc(), Pick.edge.desc()).all()
+    
+    league_filter = request.args.get('league', '')
+    date_range = request.args.get('range', 'all')
+    
+    query = Pick.query
+    
+    if league_filter:
+        query = query.filter_by(league=league_filter)
+    
+    et = pytz.timezone('America/New_York')
+    today = datetime.now(et).date()
+    
+    if date_range == 'week':
+        from datetime import timedelta
+        week_ago = today - timedelta(days=7)
+        query = query.filter(Pick.date >= week_ago)
+    elif date_range == 'month':
+        from datetime import timedelta
+        month_ago = today - timedelta(days=30)
+        query = query.filter(Pick.date >= month_ago)
+    
+    picks = query.order_by(Pick.date.desc(), Pick.edge.desc()).all()
+    
     wins = len([p for p in picks if p.result == 'W'])
     losses = len([p for p in picks if p.result == 'L'])
+    pushes = len([p for p in picks if p.result == 'P'])
     pending = len([p for p in picks if not p.result])
-    return render_template('history.html', picks=picks, wins=wins, losses=losses, pending=pending)
+    
+    units_won = (wins * 0.91) - losses
+    roi = (units_won / (wins + losses) * 100) if (wins + losses) > 0 else 0
+    
+    streak = 0
+    streak_type = ''
+    all_picks_sorted = Pick.query.filter(Pick.result.in_(['W', 'L'])).order_by(Pick.date.desc(), Pick.id.desc()).all()
+    if all_picks_sorted:
+        first_result = all_picks_sorted[0].result
+        streak_type = first_result
+        for p in all_picks_sorted:
+            if p.result == first_result:
+                streak += 1
+            else:
+                break
+    
+    return render_template('history.html', picks=picks, wins=wins, losses=losses, pushes=pushes,
+                          pending=pending, units_won=units_won, roi=roi, streak=streak, 
+                          streak_type=streak_type, league_filter=league_filter, date_range=date_range)
 
 @app.route('/update_result/<int:pick_id>', methods=['POST'])
 def update_result(pick_id):
