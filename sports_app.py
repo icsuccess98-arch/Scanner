@@ -1063,7 +1063,7 @@ def fetch_odds():
                                     for outcome in outcomes:
                                         if outcome.get("name") == "Over":
                                             line = outcome.get("point")
-                                            if line and not game.line:
+                                            if line:
                                                 game.line = line
                                                 if all([game.away_ppg, game.away_opp_ppg, game.home_ppg, game.home_opp_ppg]):
                                                     game.projected_total = calculate_projection(
