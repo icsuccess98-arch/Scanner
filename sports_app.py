@@ -334,8 +334,11 @@ def dashboard():
     today = datetime.now(et).date()
     show_only_qualified = request.args.get('qualified', '0') == '1'
     
-    Game.query.filter(Game.date < today).delete()
-    db.session.commit()
+    old_game_ids = [g.id for g in Game.query.filter(Game.date < today).all()]
+    if old_game_ids:
+        Pick.query.filter(Pick.game_id.in_(old_game_ids)).update({Pick.game_id: None}, synchronize_session=False)
+        Game.query.filter(Game.id.in_(old_game_ids)).delete(synchronize_session=False)
+        db.session.commit()
     
     all_games_db = Game.query.filter_by(date=today).order_by(Game.edge.desc()).all()
     all_games = [g for g in all_games_db if is_game_upcoming(g)]
