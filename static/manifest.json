@@ -1,0 +1,17 @@
+{
+  "name": "730's Locks",
+  "short_name": "730 Locks",
+  "description": "Sports betting edge calculator",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d1117",
+  "theme_color": "#d4af37",
+  "icons": [
+    {
+      "src": "/static/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
