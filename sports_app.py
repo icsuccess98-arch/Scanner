@@ -46,6 +46,38 @@ THRESHOLDS = {
     "NHL": 0.5
 }
 
+def normalize_team_name(name: str) -> set:
+    """
+    Normalize team name for fuzzy matching.
+    Returns a set of tokens for comparison.
+    """
+    if not name:
+        return set()
+    name = name.lower()
+    name = name.replace("'", "").replace("-", " ").replace(".", "")
+    common_prefixes = ["los angeles", "new york", "san francisco", "new orleans", 
+                       "golden state", "san antonio", "oklahoma city", "kansas city"]
+    for prefix in common_prefixes:
+        if name.startswith(prefix + " "):
+            name = name[len(prefix):].strip()
+            break
+    tokens = set(name.split())
+    tokens.discard("st")
+    tokens.discard("state")
+    return tokens
+
+def teams_match(name1: str, name2: str) -> bool:
+    """
+    Check if two team names match using token overlap.
+    Handles variations like 'Lakers' vs 'LA Lakers'.
+    """
+    tokens1 = normalize_team_name(name1)
+    tokens2 = normalize_team_name(name2)
+    if not tokens1 or not tokens2:
+        return False
+    overlap = tokens1 & tokens2
+    return len(overlap) >= min(len(tokens1), len(tokens2))
+
 class Game(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     date = db.Column(db.Date, nullable=False)
@@ -147,7 +179,7 @@ def retry_request(max_retries: int = 3, backoff_factor: float = 1.0):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            last_exception = None
+            last_exception: Optional[Exception] = None
             for attempt in range(max_retries):
                 try:
                     return func(*args, **kwargs)
@@ -157,7 +189,9 @@ def retry_request(max_retries: int = 3, backoff_factor: float = 1.0):
                     logger.warning(f"Request failed (attempt {attempt + 1}/{max_retries}): {e}. Retrying in {wait_time}s...")
                     time.sleep(wait_time)
             logger.error(f"All {max_retries} attempts failed: {last_exception}")
-            raise last_exception
+            if last_exception:
+                raise last_exception
+            raise RuntimeError("Unexpected retry failure")
         return wrapper
     return decorator
 
@@ -228,7 +262,7 @@ def check_pick_results() -> int:
                         if away and home:
                             away_name = away.get("team", {}).get("shortDisplayName", "")
                             home_name = home.get("team", {}).get("shortDisplayName", "")
-                            if away_name == away_team and home_name == home_team:
+                            if teams_match(away_name, away_team) and teams_match(home_name, home_team):
                                 away_score = int(away.get("score", 0))
                                 home_score = int(home.get("score", 0))
                                 actual_total = away_score + home_score
@@ -249,7 +283,7 @@ def check_pick_results() -> int:
                         if away and home:
                             away_name = away.get("team", {}).get("shortDisplayName", "")
                             home_name = home.get("team", {}).get("shortDisplayName", "")
-                            if away_name == away_team and home_name == home_team:
+                            if teams_match(away_name, away_team) and teams_match(home_name, home_team):
                                 away_score = int(away.get("score", 0))
                                 home_score = int(home.get("score", 0))
                                 actual_total = away_score + home_score
@@ -263,7 +297,7 @@ def check_pick_results() -> int:
                         continue
                     away_name = game.get("awayTeam", {}).get("placeName", {}).get("default", "")
                     home_name = game.get("homeTeam", {}).get("placeName", {}).get("default", "")
-                    if away_name == away_team and home_name == home_team:
+                    if teams_match(away_name, away_team) and teams_match(home_name, home_team):
                         away_score = game.get("awayTeam", {}).get("score", 0)
                         home_score = game.get("homeTeam", {}).get("score", 0)
                         actual_total = away_score + home_score
@@ -284,7 +318,7 @@ def check_pick_results() -> int:
                         if away and home:
                             away_name = away.get("team", {}).get("shortDisplayName", "")
                             home_name = home.get("team", {}).get("shortDisplayName", "")
-                            if away_name == away_team and home_name == home_team:
+                            if teams_match(away_name, away_team) and teams_match(home_name, home_team):
                                 away_score = int(away.get("score", 0))
                                 home_score = int(home.get("score", 0))
                                 actual_total = away_score + home_score
@@ -305,7 +339,7 @@ def check_pick_results() -> int:
                         if away and home:
                             away_name = away.get("team", {}).get("shortDisplayName", "")
                             home_name = home.get("team", {}).get("shortDisplayName", "")
-                            if away_name == away_team and home_name == home_team:
+                            if teams_match(away_name, away_team) and teams_match(home_name, home_team):
                                 away_score = int(away.get("score", 0))
                                 home_score = int(home.get("score", 0))
                                 actual_total = away_score + home_score
@@ -408,6 +442,10 @@ def service_worker():
     response.headers['Cache-Control'] = 'no-cache'
     response.headers['Content-Type'] = 'application/javascript'
     return response
+
+@app.route('/favicon.ico')
+def favicon():
+    return app.send_static_file('icon-512.png')
 
 @app.route('/offline.html')
 def offline():
@@ -574,8 +612,8 @@ def update_line(game_id):
     db.session.commit()
     return jsonify({
         'success': True,
-        'projected': round(game.projected_total, 1) if game.projected_total else None,
-        'edge': round(game.edge, 1) if game.edge else None,
+        'projected': round(game.projected_total, 1) if game.projected_total is not None else None,
+        'edge': round(game.edge, 1) if game.edge is not None else None,
         'qualified': game.is_qualified,
         'direction': game.direction
     })
