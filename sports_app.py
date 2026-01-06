@@ -1000,7 +1000,7 @@ def fetch_odds():
                 "regions": "us",
                 "markets": "totals",
                 "oddsFormat": "american",
-                "bookmakers": "pinnacle,draftkings,fanduel,bovada"
+                "bookmakers": "bovada"
             }
             resp = requests.get(url, params=params, timeout=30)
             if resp.status_code != 200:
@@ -1032,7 +1032,7 @@ def fetch_odds():
                     if (away_match and home_match) or (away_match_rev and home_match_rev):
                         bookmakers = event.get("bookmakers", [])
                         for book in bookmakers:
-                            if book.get("key") in ["pinnacle", "draftkings", "fanduel", "bovada"]:
+                            if book.get("key") == "bovada":
                                 markets = book.get("markets", [])
                                 for market in markets:
                                     if market.get("key") == "totals":
