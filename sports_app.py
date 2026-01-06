@@ -52,12 +52,35 @@ DIRECTIONAL_ABBREVS = {'e': 'eastern', 'w': 'western', 'c': 'central', 'n': 'nor
                        's': 'southern', 'se': 'southeast', 'sw': 'southwest', 
                        'ne': 'northeast', 'nw': 'northwest'}
 
+TEAM_ALIASES = {
+    'umass': 'massachusetts', 'uconn': 'connecticut', 'usc': 'southern california',
+    'ucla': 'california los angeles', 'unlv': 'nevada las vegas', 'utep': 'texas el paso',
+    'utsa': 'texas san antonio', 'unc': 'north carolina', 'lsu': 'louisiana state',
+    'ole miss': 'mississippi', 'gw': 'george washington', 'g washington': 'george washington',
+    'siue': 'siu edwardsville', 'siu e': 'siu edwardsville', 'ucf': 'central florida',
+    'usf': 'south florida', 'fiu': 'florida international', 'fau': 'florida atlantic',
+    'byu': 'brigham young', 'tcu': 'texas christian', 'smu': 'southern methodist',
+    'vcu': 'virginia commonwealth', 'mtsu': 'middle tennessee', 'etsu': 'east tennessee',
+    'bgsu': 'bowling green', 'niu': 'northern illinois', 'wku': 'western kentucky',
+    'app state': 'appalachian state', 'app st': 'appalachian state',
+    'ga southern': 'georgia southern', 'ga tech': 'georgia tech',
+    'miami oh': 'miami ohio', 'miami fl': 'miami florida',
+}
+
 def normalize_team_name(name: str) -> str:
-    """Normalize team name for matching."""
+    """Normalize team name for matching, expanding common abbreviations."""
     if not name:
         return ""
     n = name.lower().replace("'", "").replace("-", " ").replace(".", "").strip()
-    n = n.replace(" st ", " state ").replace(" st", " state")
+    n = n.replace("(", " ").replace(")", " ")
+    n = " ".join(n.split())
+    if n.endswith(" st"):
+        n = n[:-3] + " state"
+    n = n.replace(" st ", " state ")
+    for abbrev, full in TEAM_ALIASES.items():
+        if n == abbrev or n.startswith(abbrev + " "):
+            n = n.replace(abbrev, full, 1)
+            break
     return n
 
 def get_team_tokens(name: str) -> set:
@@ -695,8 +718,14 @@ def get_nhl_stats():
             if games_played > 0:
                 ppg = team.get("goalsFor", 0) / games_played
                 opp_ppg = team.get("goalsAgainst", 0) / games_played
+                stat_entry = {"name": name, "ppg": ppg, "opp_ppg": opp_ppg}
                 nick = name.split()[-1].lower()
-                stats[nick] = {"name": name, "ppg": ppg, "opp_ppg": opp_ppg}
+                stats[nick] = stat_entry
+                parts = name.lower().split()
+                if len(parts) >= 2:
+                    place = " ".join(parts[:-1])
+                    stats[place] = stat_entry
+                stats[name.lower()] = stat_entry
     except Exception as e:
         print(f"NHL stats error: {e}")
     return stats
