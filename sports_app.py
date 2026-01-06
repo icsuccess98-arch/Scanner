@@ -707,6 +707,21 @@ def fetch_cfb_team_stats(team_id):
     except:
         return None, None
 
+def fetch_nfl_team_stats(team_id):
+    try:
+        url = f"https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/{team_id}"
+        resp = requests.get(url, timeout=10)
+        items = resp.json().get("team", {}).get("record", {}).get("items", [])
+        ppg = opp_ppg = None
+        for item in items:
+            if item.get("type") == "total":
+                for stat in item.get("stats", []):
+                    if stat.get("name") == "avgPointsFor": ppg = stat.get("value")
+                    if stat.get("name") == "avgPointsAgainst": opp_ppg = stat.get("value")
+        return ppg, opp_ppg
+    except:
+        return None, None
+
 @app.route('/fetch_games', methods=['POST'])
 def fetch_games():
     et = pytz.timezone('America/New_York')
@@ -902,6 +917,53 @@ def fetch_games():
     except Exception as e:
         print(f"CFB games error: {e}")
     
+    try:
+        nfl_url = f"https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates={today_str}"
+        resp = requests.get(nfl_url, timeout=30)
+        events = resp.json().get("events", [])
+        
+        for event in events:
+            comps = event.get("competitions", [{}])[0]
+            teams = comps.get("competitors", [])
+            if len(teams) == 2:
+                away = next((t for t in teams if t.get("homeAway") == "away"), None)
+                home = next((t for t in teams if t.get("homeAway") == "home"), None)
+                if away and home:
+                    away_name = away.get("team", {}).get("shortDisplayName", "")
+                    home_name = home.get("team", {}).get("shortDisplayName", "")
+                    away_id = away.get("team", {}).get("id")
+                    home_id = home.get("team", {}).get("id")
+                    game_time = event.get("status", {}).get("type", {}).get("shortDetail", "")
+                    
+                    away_ppg, away_opp = fetch_nfl_team_stats(away_id)
+                    home_ppg, home_opp = fetch_nfl_team_stats(home_id)
+                    
+                    existing = Game.query.filter_by(date=today, league="NFL", away_team=away_name, home_team=home_name).first()
+                    if existing:
+                        existing.game_time = game_time
+                        existing.away_ppg = away_ppg if away_ppg else existing.away_ppg
+                        existing.away_opp_ppg = away_opp if away_opp else existing.away_opp_ppg
+                        existing.home_ppg = home_ppg if home_ppg else existing.home_ppg
+                        existing.home_opp_ppg = home_opp if home_opp else existing.home_opp_ppg
+                        if all([existing.away_ppg, existing.away_opp_ppg, existing.home_ppg, existing.home_opp_ppg]):
+                            existing.projected_total = calculate_projection(existing.away_ppg, existing.away_opp_ppg, existing.home_ppg, existing.home_opp_ppg)
+                            if existing.line:
+                                qualified, direction, edge = check_qualification(existing.projected_total, existing.line, "NFL")
+                                existing.is_qualified = qualified
+                                existing.direction = direction
+                                existing.edge = edge
+                    else:
+                        game = Game(
+                            date=today, league="NFL", away_team=away_name, home_team=home_name,
+                            game_time=game_time,
+                            away_ppg=away_ppg, away_opp_ppg=away_opp,
+                            home_ppg=home_ppg, home_opp_ppg=home_opp
+                        )
+                        db.session.add(game)
+                        games_added += 1
+    except Exception as e:
+        print(f"NFL games error: {e}")
+    
     db.session.commit()
     return jsonify({"success": True, "games_added": games_added})
 
@@ -924,7 +986,8 @@ def fetch_odds():
         "NBA": "basketball_nba",
         "NHL": "icehockey_nhl",
         "CBB": "basketball_ncaab",
-        "CFB": "americanfootball_ncaaf"
+        "CFB": "americanfootball_ncaaf",
+        "NFL": "americanfootball_nfl"
     }
     
     lines_updated = 0
