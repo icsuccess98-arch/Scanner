@@ -554,8 +554,8 @@ def api_live_scores():
                                     "league": "NBA"
                                 }
                                 break
-    except:
-        pass
+    except Exception as e:
+        logger.debug(f"NBA live scores fetch: {e}")
     
     try:
         cbb_url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates={today_str}&limit=100&groups=50"
@@ -587,8 +587,8 @@ def api_live_scores():
                                     "league": "CBB"
                                 }
                                 break
-    except:
-        pass
+    except Exception as e:
+        logger.debug(f"CBB live scores fetch: {e}")
     
     try:
         nhl_url = f"https://api-web.nhle.com/v1/score/{today.strftime('%Y-%m-%d')}"
@@ -612,8 +612,8 @@ def api_live_scores():
                             "league": "NHL"
                         }
                         break
-    except:
-        pass
+    except Exception as e:
+        logger.debug(f"NHL live scores fetch: {e}")
     
     return jsonify({"live_scores": live_scores, "count": len(live_scores)})
 
@@ -785,7 +785,7 @@ def fetch_cbb_team_stats(team_id):
                     if stat.get("name") == "avgPointsFor": ppg = stat.get("value")
                     if stat.get("name") == "avgPointsAgainst": opp_ppg = stat.get("value")
         return ppg, opp_ppg
-    except:
+    except Exception:
         return None, None
 
 def fetch_cfb_team_stats(team_id):
@@ -800,7 +800,7 @@ def fetch_cfb_team_stats(team_id):
                     if stat.get("name") == "avgPointsFor": ppg = stat.get("value")
                     if stat.get("name") == "avgPointsAgainst": opp_ppg = stat.get("value")
         return ppg, opp_ppg
-    except:
+    except Exception:
         return None, None
 
 def fetch_nfl_team_stats(team_id):
@@ -815,7 +815,7 @@ def fetch_nfl_team_stats(team_id):
                     if stat.get("name") == "avgPointsFor": ppg = stat.get("value")
                     if stat.get("name") == "avgPointsAgainst": opp_ppg = stat.get("value")
         return ppg, opp_ppg
-    except:
+    except Exception:
         return None, None
 
 @app.route('/fetch_games', methods=['POST'])

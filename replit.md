@@ -7,9 +7,16 @@ Three independent trading systems:
 3. Crypto perpetuals trading system (Coinbase Advanced Trade API)
 
 ## Recent Changes
+- January 6, 2026: Comprehensive debug and optimization
+  - Fixed all bare except clauses with proper logging
+  - Added team alias expansion (UMass, UCF, SIUE, GW, etc.)
+  - Fixed parentheses handling in team names (Miami OH matches Miami (OH))
+  - Fixed "St" to "state" replacement bug (no more "stateate")
+  - NHL stats now indexed by place name AND nickname
+  - 100% line coverage on all leagues with available odds
 - January 6, 2026: Robust team name matching
   - Unified teams_match() function with directional prefix validation
-  - Prevents Eastern/Western/Central/Northern/Southern Michigan confusion
+  - Prevents Eastern/Western/Central/Northern/Southern confusion
   - Same logic used for both odds fetching and result checking
   - Lines always update on Fetch Odds (not one-time only)
   - Fixed edge serialization for 0.0 values
