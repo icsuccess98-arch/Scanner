@@ -1000,7 +1000,7 @@ def fetch_odds():
                 "regions": "us",
                 "markets": "totals",
                 "oddsFormat": "american",
-                "bookmakers": "bovada"
+                "bookmakers": "bovada,fanduel"
             }
             resp = requests.get(url, params=params, timeout=30)
             if resp.status_code != 200:
@@ -1020,68 +1020,65 @@ def fetch_odds():
                         n = n.replace(" st ", " state ").replace(" st", " state")
                         return n
                     
-                    def get_key_words(name):
+                    def get_tokens(name):
+                        stop_words = {'the', 'of', 'at', 'vs', 'and'}
                         words = normalize_name(name).split()
-                        return [w for w in words if w not in ['the', 'of', 'at', 'vs']]
+                        return set(w for w in words if w not in stop_words and len(w) > 1)
                     
-                    game_away_words = get_key_words(game.away_team)
-                    game_home_words = get_key_words(game.home_team)
-                    odds_away_words = get_key_words(away_team)
-                    odds_home_words = get_key_words(home_team)
+                    game_away_tokens = get_tokens(game.away_team)
+                    game_home_tokens = get_tokens(game.home_team)
+                    odds_away_tokens = get_tokens(away_team)
+                    odds_home_tokens = get_tokens(home_team)
                     
-                    def teams_match(game_words, odds_words):
-                        if not game_words or not odds_words:
+                    def teams_match(game_tokens, odds_tokens):
+                        if not game_tokens or not odds_tokens:
                             return False
-                        game_key = game_words[-1] if len(game_words) > 0 else ""
-                        odds_key = odds_words[-1] if len(odds_words) > 0 else ""
-                        if game_key == odds_key:
+                        overlap = game_tokens & odds_tokens
+                        if not overlap:
+                            return False
+                        if game_tokens <= odds_tokens or odds_tokens <= game_tokens:
                             return True
-                        game_full = " ".join(game_words)
-                        odds_full = " ".join(odds_words)
-                        if game_full == odds_full:
+                        if len(overlap) >= 1 and len(game_tokens) <= 2:
                             return True
-                        if len(game_words) == 1 and len(odds_words) > 1:
-                            if game_words[0] == odds_words[0] or game_words[0] == odds_words[-1]:
-                                return True
-                        if len(odds_words) == 1 and len(game_words) > 1:
-                            if odds_words[0] == game_words[0] or odds_words[0] == game_words[-1]:
-                                return True
+                        if len(overlap) >= 2:
+                            return True
                         return False
                     
-                    away_match = teams_match(game_away_words, odds_away_words)
-                    home_match = teams_match(game_home_words, odds_home_words)
+                    away_match = teams_match(game_away_tokens, odds_away_tokens)
+                    home_match = teams_match(game_home_tokens, odds_home_tokens)
                     
-                    away_match_rev = teams_match(game_away_words, odds_home_words)
-                    home_match_rev = teams_match(game_home_words, odds_away_words)
+                    away_match_rev = teams_match(game_away_tokens, odds_home_tokens)
+                    home_match_rev = teams_match(game_home_tokens, odds_away_tokens)
                     
                     if (away_match and home_match) or (away_match_rev and home_match_rev):
-                        logger.info(f"ODDS MATCH: {game.away_team} @ {game.home_team} <- {away_team} vs {home_team}")
                         bookmakers = event.get("bookmakers", [])
-                        for book in bookmakers:
-                            if book.get("key") == "bovada":
-                                markets = book.get("markets", [])
-                                for market in markets:
-                                    if market.get("key") == "totals":
-                                        outcomes = market.get("outcomes", [])
-                                        for outcome in outcomes:
-                                            if outcome.get("name") == "Over":
-                                                line = outcome.get("point")
-                                                if line and not game.line:
-                                                    game.line = line
-                                                    if all([game.away_ppg, game.away_opp_ppg, game.home_ppg, game.home_opp_ppg]):
-                                                        game.projected_total = calculate_projection(
-                                                            game.away_ppg, game.away_opp_ppg, 
-                                                            game.home_ppg, game.home_opp_ppg
-                                                        )
-                                                        qualified, direction, edge = check_qualification(
-                                                            game.projected_total, game.line, game.league
-                                                        )
-                                                        game.is_qualified = qualified
-                                                        game.direction = direction
-                                                        game.edge = edge
-                                                    lines_updated += 1
-                                                break
-                                break
+                        bovada_book = next((b for b in bookmakers if b.get("key") == "bovada"), None)
+                        fanduel_book = next((b for b in bookmakers if b.get("key") == "fanduel"), None)
+                        book = bovada_book or fanduel_book
+                        if book:
+                            markets = book.get("markets", [])
+                            for market in markets:
+                                if market.get("key") == "totals":
+                                    outcomes = market.get("outcomes", [])
+                                    for outcome in outcomes:
+                                        if outcome.get("name") == "Over":
+                                            line = outcome.get("point")
+                                            if line and not game.line:
+                                                game.line = line
+                                                if all([game.away_ppg, game.away_opp_ppg, game.home_ppg, game.home_opp_ppg]):
+                                                    game.projected_total = calculate_projection(
+                                                        game.away_ppg, game.away_opp_ppg, 
+                                                        game.home_ppg, game.home_opp_ppg
+                                                    )
+                                                    qualified, direction, edge = check_qualification(
+                                                        game.projected_total, game.line, game.league
+                                                    )
+                                                    game.is_qualified = qualified
+                                                    game.direction = direction
+                                                    game.edge = edge
+                                                lines_updated += 1
+                                            break
+                                    break
         except Exception as e:
             print(f"Odds fetch error for {league}: {e}")
     
@@ -1104,10 +1101,10 @@ def post_discord():
     
     msg = f"🎯 PICKS OF THE DAY - {today_str}\n\n"
     
-    for league in ["NBA", "CBB", "CFB", "NHL"]:
+    for league in ["NBA", "CBB", "NFL", "CFB", "NHL"]:
         league_games = [g for g in top_picks if g.league == league]
         if league_games:
-            emoji = {"NBA": "🏀", "CBB": "🏀", "CFB": "🏈", "NHL": "🏒"}.get(league, "🎯")
+            emoji = {"NBA": "🏀", "CBB": "🏀", "NFL": "🏈", "CFB": "🏈", "NHL": "🏒"}.get(league, "🎯")
             msg += f"{emoji} {league}\n"
             for g in league_games:
                 msg += f"{g.away_team}/{g.home_team} ({g.game_time})\n"
