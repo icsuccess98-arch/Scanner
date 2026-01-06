@@ -51,6 +51,15 @@ def run_daily_automation():
             except Exception as e:
                 print(f"Error in afternoon refresh: {e}")
         
+        if current_hour == 23 and current_minute == 0:
+            print(f"[{now}] Checking pick results...")
+            try:
+                resp = requests.post(f"{BASE_URL}/check_results", timeout=120)
+                data = resp.json()
+                print(f"Updated {data.get('results_updated', 0)} pick results")
+            except Exception as e:
+                print(f"Error checking results: {e}")
+        
         time.sleep(60)
 
 if __name__ == "__main__":
@@ -60,4 +69,5 @@ if __name__ == "__main__":
     print("  10:00 AM - Fetch odds")
     print("  11:00 AM - Post picks to Discord")
     print("  2:00 PM - Afternoon refresh")
+    print("  11:00 PM - Check pick results (W/L)")
     run_daily_automation()

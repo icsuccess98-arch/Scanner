@@ -91,6 +91,96 @@ def is_game_upcoming(game):
             return False
     return True
 
+def check_pick_results():
+    pending_picks = Pick.query.filter(Pick.result == None).all()
+    results_updated = 0
+    
+    for pick in pending_picks:
+        try:
+            line = float(pick.pick[1:]) if pick.pick else None
+            direction = pick.pick[0] if pick.pick else None
+            if not line or not direction:
+                continue
+            
+            teams = pick.matchup.split(' @ ')
+            if len(teams) != 2:
+                continue
+            away_team, home_team = teams[0].strip(), teams[1].strip()
+            
+            date_str = pick.date.strftime("%Y%m%d")
+            actual_total = None
+            
+            if pick.league == "NBA":
+                url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={date_str}"
+                resp = requests.get(url, timeout=15)
+                for event in resp.json().get("events", []):
+                    status = event.get("status", {}).get("type", {}).get("name", "")
+                    if status != "STATUS_FINAL":
+                        continue
+                    comps = event.get("competitions", [{}])[0]
+                    teams_data = comps.get("competitors", [])
+                    if len(teams_data) == 2:
+                        away = next((t for t in teams_data if t.get("homeAway") == "away"), None)
+                        home = next((t for t in teams_data if t.get("homeAway") == "home"), None)
+                        if away and home:
+                            away_name = away.get("team", {}).get("shortDisplayName", "")
+                            home_name = home.get("team", {}).get("shortDisplayName", "")
+                            if away_name == away_team and home_name == home_team:
+                                away_score = int(away.get("score", 0))
+                                home_score = int(home.get("score", 0))
+                                actual_total = away_score + home_score
+                                break
+            
+            elif pick.league == "CBB":
+                url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates={date_str}&limit=500&groups=50"
+                resp = requests.get(url, timeout=30)
+                for event in resp.json().get("events", []):
+                    status = event.get("status", {}).get("type", {}).get("name", "")
+                    if status != "STATUS_FINAL":
+                        continue
+                    comps = event.get("competitions", [{}])[0]
+                    teams_data = comps.get("competitors", [])
+                    if len(teams_data) == 2:
+                        away = next((t for t in teams_data if t.get("homeAway") == "away"), None)
+                        home = next((t for t in teams_data if t.get("homeAway") == "home"), None)
+                        if away and home:
+                            away_name = away.get("team", {}).get("shortDisplayName", "")
+                            home_name = home.get("team", {}).get("shortDisplayName", "")
+                            if away_name == away_team and home_name == home_team:
+                                away_score = int(away.get("score", 0))
+                                home_score = int(home.get("score", 0))
+                                actual_total = away_score + home_score
+                                break
+            
+            elif pick.league == "NHL":
+                url = f"https://api-web.nhle.com/v1/score/{pick.date.strftime('%Y-%m-%d')}"
+                resp = requests.get(url, timeout=15)
+                for game in resp.json().get("games", []):
+                    if game.get("gameState") != "OFF":
+                        continue
+                    away_name = game.get("awayTeam", {}).get("placeName", {}).get("default", "")
+                    home_name = game.get("homeTeam", {}).get("placeName", {}).get("default", "")
+                    if away_name == away_team and home_name == home_team:
+                        away_score = game.get("awayTeam", {}).get("score", 0)
+                        home_score = game.get("homeTeam", {}).get("score", 0)
+                        actual_total = away_score + home_score
+                        break
+            
+            if actual_total is not None:
+                pick.actual_total = actual_total
+                if direction == "O":
+                    pick.result = "W" if actual_total > line else "L"
+                else:
+                    pick.result = "W" if actual_total < line else "L"
+                results_updated += 1
+                
+        except Exception as e:
+            print(f"Error checking result for {pick.matchup}: {e}")
+            continue
+    
+    db.session.commit()
+    return results_updated
+
 @app.route('/')
 def dashboard():
     et = pytz.timezone('America/New_York')
@@ -686,8 +776,14 @@ def post_discord():
     
     return jsonify({"success": False, "message": "Discord webhook not configured"})
 
+@app.route('/check_results', methods=['POST'])
+def check_results():
+    updated = check_pick_results()
+    return jsonify({"success": True, "results_updated": updated})
+
 @app.route('/history')
 def history():
+    check_pick_results()
     picks = Pick.query.order_by(Pick.date.desc(), Pick.edge.desc()).all()
     wins = len([p for p in picks if p.result == 'W'])
     losses = len([p for p in picks if p.result == 'L'])
