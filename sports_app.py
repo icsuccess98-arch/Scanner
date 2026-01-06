@@ -1015,21 +1015,47 @@ def fetch_odds():
                 games = Game.query.filter_by(date=today, league=league).all()
                 
                 for game in games:
-                    def normalize_team(name):
-                        return set(w.lower() for w in name.replace("'", "").split() if len(w) > 2)
+                    def normalize_name(name):
+                        n = name.lower().replace("'", "").replace("-", " ").replace(".", "").strip()
+                        n = n.replace(" st ", " state ").replace(" st", " state")
+                        return n
                     
-                    game_away_words = normalize_team(game.away_team)
-                    game_home_words = normalize_team(game.home_team)
-                    odds_away_words = normalize_team(away_team)
-                    odds_home_words = normalize_team(home_team)
+                    def get_key_words(name):
+                        words = normalize_name(name).split()
+                        return [w for w in words if w not in ['the', 'of', 'at', 'vs']]
                     
-                    away_match = bool(game_away_words & odds_away_words)
-                    home_match = bool(game_home_words & odds_home_words)
+                    game_away_words = get_key_words(game.away_team)
+                    game_home_words = get_key_words(game.home_team)
+                    odds_away_words = get_key_words(away_team)
+                    odds_home_words = get_key_words(home_team)
                     
-                    away_match_rev = bool(game_away_words & odds_home_words)
-                    home_match_rev = bool(game_home_words & odds_away_words)
+                    def teams_match(game_words, odds_words):
+                        if not game_words or not odds_words:
+                            return False
+                        game_key = game_words[-1] if len(game_words) > 0 else ""
+                        odds_key = odds_words[-1] if len(odds_words) > 0 else ""
+                        if game_key == odds_key:
+                            return True
+                        game_full = " ".join(game_words)
+                        odds_full = " ".join(odds_words)
+                        if game_full == odds_full:
+                            return True
+                        if len(game_words) == 1 and len(odds_words) > 1:
+                            if game_words[0] == odds_words[0] or game_words[0] == odds_words[-1]:
+                                return True
+                        if len(odds_words) == 1 and len(game_words) > 1:
+                            if odds_words[0] == game_words[0] or odds_words[0] == game_words[-1]:
+                                return True
+                        return False
+                    
+                    away_match = teams_match(game_away_words, odds_away_words)
+                    home_match = teams_match(game_home_words, odds_home_words)
+                    
+                    away_match_rev = teams_match(game_away_words, odds_home_words)
+                    home_match_rev = teams_match(game_home_words, odds_away_words)
                     
                     if (away_match and home_match) or (away_match_rev and home_match_rev):
+                        logger.info(f"ODDS MATCH: {game.away_team} @ {game.home_team} <- {away_team} vs {home_team}")
                         bookmakers = event.get("bookmakers", [])
                         for book in bookmakers:
                             if book.get("key") == "bovada":
