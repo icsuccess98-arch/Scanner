@@ -1,0 +1,121 @@
+Date,Type,Description,Amount,Balance
+Dec 31 2025,Interest Earned,Interest earned,0.04,99.04
+Dec 31 2025,Other,To SoFi Crypto,-10.94,99.00
+Dec 31 2025,Other,From SoFi Crypto,30.00,109.94
+Dec 31 2025,Deposit,From Savings - 0604,16.00,79.94
+Dec 31 2025,Other,From SoFi Crypto,50.00,63.94
+Dec 31 2025,Withdrawal,To Savings - 0604,-16.62,13.94
+Dec 31 2025,Other,From SoFi Crypto,30.00,30.56
+Dec 30 2025,Wire Transfer,AMP Global Clearing LLC Customer Segregated Funds,-273.00,0.56
+Dec 30 2025,Fee,Wire transfer fee,-30.00,273.56
+Dec 30 2025,Roundup,Roundup *LONGHORN STEAK 0125097,-0.16,303.56
+Dec 30 2025,Roundup,Roundup *UBR* PENDING.UBER.COM,-0.03,303.72
+Dec 30 2025,Roundup,Roundup *CITGO QUICK SHOP,-0.24,303.75
+Dec 30 2025,Debit Card,LONGHORN STEAK 0125097,-68.84,303.99
+Dec 30 2025,Debit Card,UBR* PENDING.UBER.COM,-13.97,372.83
+Dec 30 2025,Debit Card,CITGO QUICK SHOP,-5.76,386.80
+Dec 29 2025,Other,From SoFi Crypto,300.00,392.56
+Dec 29 2025,Roundup,Roundup *UBR* PENDING.UBER.COM,-0.03,92.56
+Dec 29 2025,Roundup,Roundup *LYFT *TEMP AUTH HOLD,-0.10,92.59
+Dec 29 2025,Roundup,Roundup *APPLE.COM/BILL,-0.01,92.69
+Dec 29 2025,Roundup,Roundup *STRIKE,-0.11,92.70
+Dec 29 2025,Debit Card,APPLE.COM/BILL,-0.99,92.81
+Dec 29 2025,Debit Card,LYFT *TEMP AUTH HOLD,-19.90,93.80
+Dec 29 2025,Debit Card,UBR* PENDING.UBER.COM,-22.97,113.70
+Dec 29 2025,Debit Card,STRIKE,-198.89,136.67
+Dec 28 2025,Pay a Friend,Nya Howard,-490.00,335.56
+Dec 28 2025,Deposit,From Bills & Runway Vault,490.00,825.56
+Dec 28 2025,Deposit,From Bills & Runway Vault,10.00,335.56
+Dec 28 2025,Debit Card,STRIKE,-188.69,325.56
+Dec 28 2025,Debit Card,CITGO QUICK SHOP,-2.69,514.25
+Dec 28 2025,Debit Card,CITGO QUICK SHOP,-6.66,516.94
+Dec 28 2025,Debit Card,REPLIT INC.,-50.32,523.60
+Dec 28 2025,Other,To SoFi Crypto,-100.00,573.92
+Dec 28 2025,Deposit,From Bills & Runway Vault,100.00,673.92
+Dec 28 2025,Other,To SoFi Crypto,-17.00,573.92
+Dec 28 2025,Deposit,From Bills & Runway Vault,17.00,590.92
+Dec 27 2025,Withdrawal,To Bills & Runway Vault,-42.31,573.92
+Dec 27 2025,Deposit,From Bills & Runway Vault,25.00,616.23
+Dec 27 2025,Deposit,From BTC Savings Vault,86.00,591.23
+Dec 27 2025,Withdrawal,To BTC Savings Vault,-86.00,505.23
+Dec 27 2025,Deposit,From Bills & Runway Vault,75.00,591.23
+Dec 27 2025,Deposit,From Bills & Runway Vault,25.00,516.23
+Dec 27 2025,Deposit,From Bills & Runway Vault,200.00,491.23
+Dec 27 2025,Other,To SoFi Crypto,-12.52,291.23
+Dec 27 2025,Deposit,From Bills & Runway Vault,5.50,303.75
+Dec 27 2025,Roundup,Roundup *STRIKE,-0.01,298.25
+Dec 27 2025,Debit Card,STRIKE,-16.99,298.26
+Dec 26 2025,Deposit,From Bills & Runway Vault,5.00,315.25
+Dec 26 2025,Deposit,From Bills & Runway Vault,10.00,310.25
+Dec 26 2025,Deposit,From Savings - 0604,17.69,300.25
+Dec 26 2025,Withdrawal,To Savings - 0604,-17.69,282.56
+Dec 26 2025,ATM,000000000332817,-23.25,300.25
+Dec 26 2025,Deposit,From Bills & Runway Vault,40.00,323.50
+Dec 26 2025,Deposit,From Bills & Runway Vault,20.00,283.50
+Dec 26 2025,Other,To SoFi Crypto,-13.00,263.50
+Dec 26 2025,Deposit,From Bills & Runway Vault,20.00,276.50
+Dec 26 2025,Deposit,From Bills & Runway Vault,189.00,256.50
+Dec 26 2025,Deposit,From Bills & Runway Vault,0.50,67.50
+Dec 26 2025,Deposit,From Bills & Runway Vault,50.00,67.00
+Dec 26 2025,Deposit,From Bills & Runway Vault,17.00,17.00
+Dec 26 2025,Withdrawal,To Bills & Runway Vault,-1257.00,0.00
+Dec 26 2025,Direct Deposit,SKOOL SKOOL,1257.00,1257.00
+Dec 24 2025,Roundup,Roundup *CITGO QUICK SHOP,-0.34,0.00
+Dec 24 2025,Debit Card,CITGO QUICK SHOP,-4.11,0.34
+Dec 22 2025,Other,SoFi Rewards Redemption,2.65,4.45
+Dec 22 2025,Deposit,From Zakat Vault,1.80,1.80
+Dec 20 2025,Debit Card,CITGO QUICK SHOP,-9.17,0.00
+Dec 18 2025,Withdrawal,Withdrawal to Stacking - 5370,-14.91,9.17
+Dec 18 2025,Deposit,From Bills & Runway Vault,9.00,24.08
+Dec 18 2025,Deposit,From Bills & Runway Vault,15.00,15.08
+Dec 17 2025,Withdrawal,To Bills & Runway Vault,-24.00,0.08
+Dec 17 2025,Direct Deposit,SKOOL SKOOL,24.00,24.08
+Dec 16 2025,Roundup,Roundup *LYFT *TEMP AUTH HOLD,-0.05,0.08
+Dec 16 2025,Debit Card,LYFT *TEMP AUTH HOLD,-13.95,0.13
+Dec 14 2025,Pay a Friend,Nya Howard,-483.00,14.08
+Dec 14 2025,Deposit,From Bills & Runway Vault,482.00,497.08
+Dec 14 2025,Roundup,Roundup *STRIKE,-0.03,15.08
+Dec 14 2025,Debit Card,STRIKE,-305.97,15.11
+Dec 13 2025,Deposit,From Bills & Runway Vault,15.00,321.08
+Dec 13 2025,Debit Card,JROK BETS,-9.00,306.08
+Dec 13 2025,Debit Card,LYFT *TEMP AUTH HOLD,-20.21,315.08
+Dec 13 2025,Debit Card,CITGO QUICK SHOP,-2.56,335.29
+Dec 12 2025,Withdrawal,To Bills & Runway Vault,-29.00,337.85
+Dec 12 2025,Deposit,From Bills & Runway Vault,25.00,366.85
+Dec 12 2025,Deposit,From Bills & Runway Vault,310.00,341.85
+Dec 11 2025,Withdrawal,To Bills & Runway Vault,-23.00,31.85
+Dec 11 2025,Deposit,From Bills & Runway Vault,20.00,54.85
+Dec 11 2025,Deposit,From Bills & Runway Vault,4.85,34.85
+Dec 11 2025,Deposit,From Bills & Runway Vault,8.00,30.00
+Dec 10 2025,Withdrawal,To Bills & Runway Vault,-371.90,22.00
+Dec 10 2025,Withdrawal,To Bills & Runway Vault,-126.95,393.90
+Dec 10 2025,Direct Deposit,SKOOL SKOOL,371.90,520.85
+Dec 10 2025,Direct Deposit,CREDIT DYNO LLC EDI PYMNTS,126.95,148.95
+Dec 10 2025,Deposit,From Bills & Runway Vault,12.00,22.00
+Dec 10 2025,Deposit,From Bills & Runway Vault,10.00,10.00
+Dec 09 2025,Withdrawal,To Bills & Runway Vault,-25.00,0.00
+Dec 09 2025,Deposit,From Bills & Runway Vault,25.00,25.00
+Dec 09 2025,Roundup,Roundup *LYFT *TEMP AUTH HOLD,-0.09,0.00
+Dec 09 2025,Debit Card,LYFT *TEMP AUTH HOLD,-26.61,0.09
+Dec 08 2025,Debit Card,REPLIT INC.,-25.00,26.70
+Dec 07 2025,Roundup,Roundup *J.R. WINGS & THINGS,-0.74,51.70
+Dec 07 2025,Debit Card,J.R. WINGS & THINGS,-29.30,52.44
+Dec 07 2025,Debit Card,J.R. WINGS & THINGS,-3.26,81.74
+Dec 06 2025,Deposit,From Bills & Runway Vault,25.00,85.00
+Dec 06 2025,Deposit,From Bills & Runway Vault,8.00,60.00
+Dec 06 2025,ATM,PAI ATM,-23.00,52.00
+Dec 06 2025,Deposit,From Bills & Runway Vault,20.00,75.00
+Dec 06 2025,Deposit,From Bills & Runway Vault,20.00,55.00
+Dec 05 2025,Deposit,From Bills & Runway Vault,5.00,35.00
+Dec 05 2025,Deposit,From Bills & Runway Vault,30.00,30.00
+Dec 05 2025,ATM,PAI ATM,-63.00,0.00
+Dec 05 2025,Deposit,From Bills & Runway Vault,8.00,63.00
+Dec 05 2025,Deposit,From Bills & Runway Vault,55.00,55.00
+Dec 05 2025,Roundup,Roundup *CITGO QUICK SHOP,-0.89,0.00
+Dec 05 2025,Debit Card,CITGO QUICK SHOP,-4.11,0.89
+Dec 05 2025,Debit Card,CITGO QUICK SHOP,-3.08,5.00
+Dec 04 2025,Withdrawal,To Bills & Runway Vault,-507.00,8.08
+Dec 04 2025,Direct Deposit,SKOOL SKOOL,507.00,515.08
+Dec 01 2025,Deposit,From Savings - 0604,0.38,8.08
+Dec 01 2025,Deposit,From Bills & Runway Vault,0.94,7.70
+Dec 01 2025,Deposit,From Zakat Vault,6.17,6.76
