@@ -909,9 +909,18 @@ def fetch_games():
                         away_s = find_team_stats(away_name, nhl_stats)
                         home_s = find_team_stats(home_name, nhl_stats)
                         
+                        nhl_game_time = ""
+                        if start_time:
+                            try:
+                                utc_dt = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+                                et_dt = utc_dt.astimezone(et)
+                                nhl_game_time = et_dt.strftime("%-m/%-d - %-I:%M %p EST")
+                            except Exception:
+                                nhl_game_time = start_time[:10]
+                        
                         game = Game(
                             date=today, league="NHL", away_team=away_name, home_team=home_name,
-                            game_time=start_time[:10] if start_time else "",
+                            game_time=nhl_game_time,
                             away_ppg=away_s["ppg"] if away_s else None,
                             away_opp_ppg=away_s["opp_ppg"] if away_s else None,
                             home_ppg=home_s["ppg"] if home_s else None,
