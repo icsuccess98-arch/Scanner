@@ -7,6 +7,13 @@ Three independent trading systems:
 3. Crypto perpetuals trading system (Coinbase Advanced Trade API)
 
 ## Recent Changes
+- January 7, 2026: Critical production stability fixes
+  - Added ESPN event date validation (prevents stale games from wrong dates)
+  - Games now cleared per-league before each refresh (no stale data persistence)
+  - Added commence_time validation for Odds API (only today's games matched)
+  - Database initialization at startup (prevents health check failures)
+  - Gunicorn timeout increased to 120s with 2 workers for deployment reliability
+  - Added logging for empty game fetches (alerts when no games found for today)
 - January 6, 2026: Comprehensive debug and optimization
   - Fixed all bare except clauses with proper logging
   - Added team alias expansion (UMass, UCF, SIUE, GW, etc.)

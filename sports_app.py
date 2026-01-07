@@ -1,7 +1,7 @@
 import os
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, date
 from typing import Tuple, Optional
 from functools import wraps
 from flask import Flask, render_template, request, jsonify, redirect, url_for, make_response
@@ -818,6 +818,22 @@ def fetch_nfl_team_stats(team_id):
     except Exception:
         return None, None
 
+def validate_espn_event_date(event: dict, today: date, et) -> bool:
+    """Check if ESPN event date matches today (ET)."""
+    try:
+        event_date_str = event.get("date", "")
+        if event_date_str:
+            event_dt = datetime.fromisoformat(event_date_str.replace("Z", "+00:00"))
+            event_date = event_dt.astimezone(et).date()
+            return event_date == today
+        comp_date = event.get("competitions", [{}])[0].get("date", "")
+        if comp_date:
+            comp_dt = datetime.fromisoformat(comp_date.replace("Z", "+00:00"))
+            return comp_dt.astimezone(et).date() == today
+    except Exception:
+        pass
+    return False
+
 @app.route('/fetch_games', methods=['POST'])
 def fetch_games():
     et = pytz.timezone('America/New_York')
@@ -827,13 +843,22 @@ def fetch_games():
     nba_stats = get_nba_stats()
     nhl_stats = get_nhl_stats()
     games_added = 0
+    leagues_cleared = []
     
     try:
+        Game.query.filter_by(date=today, league="NBA").delete()
+        leagues_cleared.append("NBA")
+        
         nba_url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={today_str}"
         resp = requests.get(nba_url, timeout=30)
         events = resp.json().get("events", [])
+        nba_today_count = 0
         
         for event in events:
+            if not validate_espn_event_date(event, today, et):
+                continue
+            nba_today_count += 1
+            
             comps = event.get("competitions", [{}])[0]
             teams = comps.get("competitors", [])
             if len(teams) == 2:
@@ -847,38 +872,30 @@ def fetch_games():
                     away_s = find_team_stats(away_name, nba_stats)
                     home_s = find_team_stats(home_name, nba_stats)
                     
-                    existing = Game.query.filter_by(date=today, league="NBA", away_team=away_name, home_team=home_name).first()
-                    if existing:
-                        existing.game_time = game_time
-                        existing.away_ppg = away_s["ppg"] if away_s else existing.away_ppg
-                        existing.away_opp_ppg = away_s["opp_ppg"] if away_s else existing.away_opp_ppg
-                        existing.home_ppg = home_s["ppg"] if home_s else existing.home_ppg
-                        existing.home_opp_ppg = home_s["opp_ppg"] if home_s else existing.home_opp_ppg
-                        if all([existing.away_ppg, existing.away_opp_ppg, existing.home_ppg, existing.home_opp_ppg]):
-                            existing.projected_total = calculate_projection(existing.away_ppg, existing.away_opp_ppg, existing.home_ppg, existing.home_opp_ppg)
-                            if existing.line:
-                                qualified, direction, edge = check_qualification(existing.projected_total, existing.line, "NBA")
-                                existing.is_qualified = qualified
-                                existing.direction = direction
-                                existing.edge = edge
-                    else:
-                        game = Game(
-                            date=today, league="NBA", away_team=away_name, home_team=home_name,
-                            game_time=game_time,
-                            away_ppg=away_s["ppg"] if away_s else None,
-                            away_opp_ppg=away_s["opp_ppg"] if away_s else None,
-                            home_ppg=home_s["ppg"] if home_s else None,
-                            home_opp_ppg=home_s["opp_ppg"] if home_s else None
-                        )
-                        db.session.add(game)
-                        games_added += 1
+                    game = Game(
+                        date=today, league="NBA", away_team=away_name, home_team=home_name,
+                        game_time=game_time,
+                        away_ppg=away_s["ppg"] if away_s else None,
+                        away_opp_ppg=away_s["opp_ppg"] if away_s else None,
+                        home_ppg=home_s["ppg"] if home_s else None,
+                        home_opp_ppg=home_s["opp_ppg"] if home_s else None
+                    )
+                    db.session.add(game)
+                    games_added += 1
+        
+        if nba_today_count == 0:
+            print(f"NBA: No games found for today ({today})")
     except Exception as e:
         print(f"NBA games error: {e}")
     
     try:
+        Game.query.filter_by(date=today, league="NHL").delete()
+        leagues_cleared.append("NHL")
+        
         nhl_url = f"https://api-web.nhle.com/v1/schedule/{today.strftime('%Y-%m-%d')}"
         resp = requests.get(nhl_url, timeout=30)
         game_weeks = resp.json().get("gameWeek", [])
+        nhl_today_count = 0
         
         for gw in game_weeks:
             if gw.get("date") == today.strftime("%Y-%m-%d"):
@@ -888,43 +905,40 @@ def fetch_games():
                     start_time = game_data.get("startTimeUTC", "")
                     
                     if away_name and home_name:
+                        nhl_today_count += 1
                         away_s = find_team_stats(away_name, nhl_stats)
                         home_s = find_team_stats(home_name, nhl_stats)
                         
-                        existing = Game.query.filter_by(date=today, league="NHL", away_team=away_name, home_team=home_name).first()
-                        if existing:
-                            existing.game_time = start_time[:10] if start_time else existing.game_time
-                            existing.away_ppg = away_s["ppg"] if away_s else existing.away_ppg
-                            existing.away_opp_ppg = away_s["opp_ppg"] if away_s else existing.away_opp_ppg
-                            existing.home_ppg = home_s["ppg"] if home_s else existing.home_ppg
-                            existing.home_opp_ppg = home_s["opp_ppg"] if home_s else existing.home_opp_ppg
-                            if all([existing.away_ppg, existing.away_opp_ppg, existing.home_ppg, existing.home_opp_ppg]):
-                                existing.projected_total = calculate_projection(existing.away_ppg, existing.away_opp_ppg, existing.home_ppg, existing.home_opp_ppg)
-                                if existing.line:
-                                    qualified, direction, edge = check_qualification(existing.projected_total, existing.line, "NHL")
-                                    existing.is_qualified = qualified
-                                    existing.direction = direction
-                                    existing.edge = edge
-                        else:
-                            game = Game(
-                                date=today, league="NHL", away_team=away_name, home_team=home_name,
-                                game_time=start_time[:10] if start_time else "",
-                                away_ppg=away_s["ppg"] if away_s else None,
-                                away_opp_ppg=away_s["opp_ppg"] if away_s else None,
-                                home_ppg=home_s["ppg"] if home_s else None,
-                                home_opp_ppg=home_s["opp_ppg"] if home_s else None
-                            )
-                            db.session.add(game)
-                            games_added += 1
+                        game = Game(
+                            date=today, league="NHL", away_team=away_name, home_team=home_name,
+                            game_time=start_time[:10] if start_time else "",
+                            away_ppg=away_s["ppg"] if away_s else None,
+                            away_opp_ppg=away_s["opp_ppg"] if away_s else None,
+                            home_ppg=home_s["ppg"] if home_s else None,
+                            home_opp_ppg=home_s["opp_ppg"] if home_s else None
+                        )
+                        db.session.add(game)
+                        games_added += 1
+        
+        if nhl_today_count == 0:
+            print(f"NHL: No games found for today ({today})")
     except Exception as e:
         print(f"NHL games error: {e}")
     
     try:
+        Game.query.filter_by(date=today, league="CBB").delete()
+        leagues_cleared.append("CBB")
+        
         cbb_url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates={today_str}&limit=500&groups=50"
         resp = requests.get(cbb_url, timeout=60)
         events = resp.json().get("events", [])
+        cbb_today_count = 0
         
         for event in events:
+            if not validate_espn_event_date(event, today, et):
+                continue
+            cbb_today_count += 1
+            
             comps = event.get("competitions", [{}])[0]
             teams = comps.get("competitors", [])
             if len(teams) == 2:
@@ -940,38 +954,34 @@ def fetch_games():
                     away_ppg, away_opp = fetch_cbb_team_stats(away_id)
                     home_ppg, home_opp = fetch_cbb_team_stats(home_id)
                     
-                    existing = Game.query.filter_by(date=today, league="CBB", away_team=away_name, home_team=home_name).first()
-                    if existing:
-                        existing.game_time = game_time
-                        existing.away_ppg = away_ppg if away_ppg else existing.away_ppg
-                        existing.away_opp_ppg = away_opp if away_opp else existing.away_opp_ppg
-                        existing.home_ppg = home_ppg if home_ppg else existing.home_ppg
-                        existing.home_opp_ppg = home_opp if home_opp else existing.home_opp_ppg
-                        if all([existing.away_ppg, existing.away_opp_ppg, existing.home_ppg, existing.home_opp_ppg]):
-                            existing.projected_total = calculate_projection(existing.away_ppg, existing.away_opp_ppg, existing.home_ppg, existing.home_opp_ppg)
-                            if existing.line:
-                                qualified, direction, edge = check_qualification(existing.projected_total, existing.line, "CBB")
-                                existing.is_qualified = qualified
-                                existing.direction = direction
-                                existing.edge = edge
-                    else:
-                        game = Game(
-                            date=today, league="CBB", away_team=away_name, home_team=home_name,
-                            game_time=game_time,
-                            away_ppg=away_ppg, away_opp_ppg=away_opp,
-                            home_ppg=home_ppg, home_opp_ppg=home_opp
-                        )
-                        db.session.add(game)
-                        games_added += 1
+                    game = Game(
+                        date=today, league="CBB", away_team=away_name, home_team=home_name,
+                        game_time=game_time,
+                        away_ppg=away_ppg, away_opp_ppg=away_opp,
+                        home_ppg=home_ppg, home_opp_ppg=home_opp
+                    )
+                    db.session.add(game)
+                    games_added += 1
+        
+        if cbb_today_count == 0:
+            print(f"CBB: No games found for today ({today})")
     except Exception as e:
         print(f"CBB games error: {e}")
     
     try:
+        Game.query.filter_by(date=today, league="CFB").delete()
+        leagues_cleared.append("CFB")
+        
         cfb_url = f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates={today_str}&limit=100"
         resp = requests.get(cfb_url, timeout=30)
         events = resp.json().get("events", [])
+        cfb_today_count = 0
         
         for event in events:
+            if not validate_espn_event_date(event, today, et):
+                continue
+            cfb_today_count += 1
+            
             comps = event.get("competitions", [{}])[0]
             teams = comps.get("competitors", [])
             if len(teams) == 2:
@@ -987,38 +997,34 @@ def fetch_games():
                     away_ppg, away_opp = fetch_cfb_team_stats(away_id)
                     home_ppg, home_opp = fetch_cfb_team_stats(home_id)
                     
-                    existing = Game.query.filter_by(date=today, league="CFB", away_team=away_name, home_team=home_name).first()
-                    if existing:
-                        existing.game_time = game_time
-                        existing.away_ppg = away_ppg if away_ppg else existing.away_ppg
-                        existing.away_opp_ppg = away_opp if away_opp else existing.away_opp_ppg
-                        existing.home_ppg = home_ppg if home_ppg else existing.home_ppg
-                        existing.home_opp_ppg = home_opp if home_opp else existing.home_opp_ppg
-                        if all([existing.away_ppg, existing.away_opp_ppg, existing.home_ppg, existing.home_opp_ppg]):
-                            existing.projected_total = calculate_projection(existing.away_ppg, existing.away_opp_ppg, existing.home_ppg, existing.home_opp_ppg)
-                            if existing.line:
-                                qualified, direction, edge = check_qualification(existing.projected_total, existing.line, "CFB")
-                                existing.is_qualified = qualified
-                                existing.direction = direction
-                                existing.edge = edge
-                    else:
-                        game = Game(
-                            date=today, league="CFB", away_team=away_name, home_team=home_name,
-                            game_time=game_time,
-                            away_ppg=away_ppg, away_opp_ppg=away_opp,
-                            home_ppg=home_ppg, home_opp_ppg=home_opp
-                        )
-                        db.session.add(game)
-                        games_added += 1
+                    game = Game(
+                        date=today, league="CFB", away_team=away_name, home_team=home_name,
+                        game_time=game_time,
+                        away_ppg=away_ppg, away_opp_ppg=away_opp,
+                        home_ppg=home_ppg, home_opp_ppg=home_opp
+                    )
+                    db.session.add(game)
+                    games_added += 1
+        
+        if cfb_today_count == 0:
+            print(f"CFB: No games found for today ({today})")
     except Exception as e:
         print(f"CFB games error: {e}")
     
     try:
+        Game.query.filter_by(date=today, league="NFL").delete()
+        leagues_cleared.append("NFL")
+        
         nfl_url = f"https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates={today_str}"
         resp = requests.get(nfl_url, timeout=30)
         events = resp.json().get("events", [])
+        nfl_today_count = 0
         
         for event in events:
+            if not validate_espn_event_date(event, today, et):
+                continue
+            nfl_today_count += 1
+            
             comps = event.get("competitions", [{}])[0]
             teams = comps.get("competitors", [])
             if len(teams) == 2:
@@ -1034,34 +1040,23 @@ def fetch_games():
                     away_ppg, away_opp = fetch_nfl_team_stats(away_id)
                     home_ppg, home_opp = fetch_nfl_team_stats(home_id)
                     
-                    existing = Game.query.filter_by(date=today, league="NFL", away_team=away_name, home_team=home_name).first()
-                    if existing:
-                        existing.game_time = game_time
-                        existing.away_ppg = away_ppg if away_ppg else existing.away_ppg
-                        existing.away_opp_ppg = away_opp if away_opp else existing.away_opp_ppg
-                        existing.home_ppg = home_ppg if home_ppg else existing.home_ppg
-                        existing.home_opp_ppg = home_opp if home_opp else existing.home_opp_ppg
-                        if all([existing.away_ppg, existing.away_opp_ppg, existing.home_ppg, existing.home_opp_ppg]):
-                            existing.projected_total = calculate_projection(existing.away_ppg, existing.away_opp_ppg, existing.home_ppg, existing.home_opp_ppg)
-                            if existing.line:
-                                qualified, direction, edge = check_qualification(existing.projected_total, existing.line, "NFL")
-                                existing.is_qualified = qualified
-                                existing.direction = direction
-                                existing.edge = edge
-                    else:
-                        game = Game(
-                            date=today, league="NFL", away_team=away_name, home_team=home_name,
-                            game_time=game_time,
-                            away_ppg=away_ppg, away_opp_ppg=away_opp,
-                            home_ppg=home_ppg, home_opp_ppg=home_opp
-                        )
-                        db.session.add(game)
-                        games_added += 1
+                    game = Game(
+                        date=today, league="NFL", away_team=away_name, home_team=home_name,
+                        game_time=game_time,
+                        away_ppg=away_ppg, away_opp_ppg=away_opp,
+                        home_ppg=home_ppg, home_opp_ppg=home_opp
+                    )
+                    db.session.add(game)
+                    games_added += 1
+        
+        if nfl_today_count == 0:
+            print(f"NFL: No games found for today ({today})")
     except Exception as e:
         print(f"NFL games error: {e}")
     
     db.session.commit()
-    return jsonify({"success": True, "games_added": games_added})
+    print(f"Fetch complete: {games_added} games added, leagues cleared: {leagues_cleared}")
+    return jsonify({"success": True, "games_added": games_added, "leagues_cleared": leagues_cleared})
 
 @app.route('/fetch_stats', methods=['POST'])
 def fetch_stats():
