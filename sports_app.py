@@ -1105,6 +1105,15 @@ def fetch_odds():
             events = resp.json()
             
             for event in events:
+                commence_time = event.get("commence_time", "")
+                if commence_time:
+                    try:
+                        event_date = datetime.fromisoformat(commence_time.replace("Z", "+00:00")).astimezone(et).date()
+                        if event_date != today:
+                            continue
+                    except Exception:
+                        continue
+                
                 away_team = event.get("away_team", "")
                 home_team = event.get("home_team", "")
                 
