@@ -2458,13 +2458,13 @@ def post_discord():
         })
     # Sort by: 1) edge (desc), 2) away_favorite priority (True first)
     combined.sort(key=lambda x: (x['edge'], 1 if x['away_favorite'] else 0), reverse=True)
-    top_5 = combined[:5]
+    top_3 = combined[:3]
     
-    if not top_5:
+    if not top_3:
         return jsonify({"success": False, "message": "No qualified picks to post"})
     
     # SUPERMAX = best overall pick
-    supermax = top_5[0]
+    supermax = top_3[0]
     emoji_map = {"NBA": "🏀", "CBB": "🏀", "NFL": "🏈", "CFB": "🏈", "NHL": "🏒"}
     
     # Build clean Discord message
@@ -2505,14 +2505,15 @@ def post_discord():
     msg += f"{sm_emoji} {sm.away_team}/{sm.home_team} {sm_time}\n"
     msg += f"{format_pick(supermax)}\n\n"
     
-    # Top Picks (skip #1 since it's the lock)
-    msg += f"📊 TOP PICKS\n"
-    for p in top_5[1:5]:
-        g = p['game']
-        emoji = emoji_map.get(g.league, "🎯")
-        g_time = short_time(g.game_time)
-        msg += f"{emoji} {g.away_team}/{g.home_team} {g_time}\n"
-        msg += f"{format_pick(p)}\n\n"
+    # Top Picks (skip #1 since it's the lock) - only 2 more for 3 total
+    if len(top_3) > 1:
+        msg += f"📊 TOP PICKS\n"
+        for p in top_3[1:3]:
+            g = p['game']
+            emoji = emoji_map.get(g.league, "🎯")
+            g_time = short_time(g.game_time)
+            msg += f"{emoji} {g.away_team}/{g.home_team} {g_time}\n"
+            msg += f"{format_pick(p)}\n\n"
     
     webhook = os.environ.get("SPORTS_DISCORD_WEBHOOK")
     if webhook:
