@@ -5,7 +5,7 @@
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#090C12",
+  "background_color": "#0a0a12",
   "theme_color": "#d4af37",
   "categories": ["sports", "utilities"],
   "icons": [
