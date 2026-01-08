@@ -485,7 +485,7 @@ def dashboard():
     et = pytz.timezone('America/New_York')
     today = datetime.now(et).date()
     show_only_qualified = request.args.get('qualified', '0') == '1'
-    show_with_lines = request.args.get('with_lines', '0') == '1'  # Default to showing all games
+    # Always filter to games with lines (Bovada only)
     
     old_game_ids = [g.id for g in Game.query.filter(Game.date < today).all()]
     if old_game_ids:
@@ -496,9 +496,8 @@ def dashboard():
     all_games_db = Game.query.filter_by(date=today).order_by(Game.edge.desc()).all()
     all_games = [g for g in all_games_db if is_game_upcoming(g)]
     
-    # Filter to only games with lines (on Bovada) if enabled
-    if show_with_lines:
-        all_games = [g for g in all_games if g.line is not None or g.spread_line is not None]
+    # Only show games with Bovada lines
+    all_games = [g for g in all_games if g.line is not None or g.spread_line is not None]
     
     qualified = [g for g in all_games if g.is_qualified]
     
@@ -587,14 +586,11 @@ def dashboard():
     last_game_count['count'] = len(all_games)
     last_game_count['qualified'] = len(qualified)
     
-    games_with_lines = len([g for g in all_games if g.line is not None or g.spread_line is not None])
-    
     return render_template('dashboard.html', games=games, qualified=qualified,
                           supermax_lock=supermax_lock, supermax_type=supermax_type,
                           today=today, thresholds=THRESHOLDS, total_games=len(all_games),
                           show_only_qualified=show_only_qualified, analytics=analytics,
-                          spread_qualified=spread_qualified, show_with_lines=show_with_lines,
-                          games_with_lines=games_with_lines)
+                          spread_qualified=spread_qualified)
 
 @app.route('/health')
 def health():

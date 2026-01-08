@@ -708,8 +708,7 @@
                 <h5 class="mb-0"><i class="bi bi-list-ul"></i> Games</h5>
             </div>
             <div class="filter-toggle">
-                <a href="/" class="{% if not show_only_qualified and not show_with_lines %}active{% endif %}">All Games</a>
-                <a href="/?with_lines=1" class="{% if not show_only_qualified and show_with_lines %}active{% endif %}">With Lines</a>
+                <a href="/" class="{% if not show_only_qualified %}active{% endif %}">All Games</a>
                 <a href="/?qualified=1" class="{% if show_only_qualified %}active{% endif %}">Qualified Only</a>
             </div>
         </div>
