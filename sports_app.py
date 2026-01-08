@@ -1314,18 +1314,16 @@ def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_s
     """
     Find the best alternate line with NEGATIVE odds only (no + money).
     Odds must be between -180 and -100 (no positive odds, no worse than -180).
-    Positive odds = gambling, negative odds = lock value.
     
-    For totals: direction is OVER/UNDER
-    For spreads: direction is HOME/AWAY, need to find team-specific line
+    For OVER totals: Find the LOWEST alt line (easier to hit)
+    For UNDER totals: Find the HIGHEST alt line (easier to hit)
+    For spreads: Find better number for the pick direction
     
     Returns (best_line, best_odds) or (None, None) if no valid line found.
     """
     MAX_ODDS = -180  # Floor - no worse than -180
     MIN_ODDS = -100  # No positive odds allowed
-    best_line = None
-    best_odds = None
-    best_value = None
+    candidates = []
     
     for outcome in outcomes:
         odds = outcome.get("price", 0)
@@ -1342,22 +1340,39 @@ def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_s
                 continue
             if direction == "AWAY" and is_home_outcome:
                 continue
-            value = abs(point - current_line) if current_line else abs(point)
+            candidates.append((point, odds))
         else:
-            if direction == "OVER" and name != "Over":
+            # Direction is stored as "O" or "U" in database
+            is_over = direction in ("OVER", "O")
+            is_under = direction in ("UNDER", "U")
+            if is_over and name != "Over":
                 continue
-            if direction == "UNDER" and name != "Under":
+            if is_under and name != "Under":
                 continue
-            if direction == "OVER":
-                value = current_line - point if current_line else -point
-            else:
-                value = point - current_line if current_line else point
-        
-        if value > 0 and (best_value is None or value > best_value):
-            best_value = value
-            best_line = point
-            best_odds = odds
+            # For OVER: only keep lines LOWER than main (easier to hit)
+            # For UNDER: only keep lines HIGHER than main (easier to hit)
+            if current_line:
+                if is_over and point >= current_line:
+                    continue
+                if is_under and point <= current_line:
+                    continue
+            candidates.append((point, odds))
     
+    if not candidates:
+        return None, None
+    
+    # For OVER: pick the LOWEST line (sort ascending)
+    # For UNDER: pick the HIGHEST line (sort descending)
+    # For spreads: pick best value (most different from current)
+    is_over = direction in ("OVER", "O")
+    if is_spread:
+        candidates.sort(key=lambda x: abs(x[0] - current_line) if current_line else abs(x[0]), reverse=True)
+    elif is_over:
+        candidates.sort(key=lambda x: x[0])  # Ascending - lowest first
+    else:
+        candidates.sort(key=lambda x: x[0], reverse=True)  # Descending - highest first
+    
+    best_line, best_odds = candidates[0]
     return best_line, best_odds
 
 def fetch_alt_lines_internal() -> dict:
