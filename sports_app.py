@@ -2191,7 +2191,7 @@ def fetch_history():
     result = fetch_history_internal()
     return jsonify({"success": True, **result})
 
-def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_spread: bool = False, home_team: str = "") -> tuple:
+def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_spread: bool = False, home_team: str = "", debug_game: str = "") -> tuple:
     """
     Find the best alternate line with NEGATIVE odds only (no + money).
     Odds must be between -200 and -100 (no positive odds, no worse than -200).
@@ -2205,11 +2205,16 @@ def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_s
     MAX_ODDS = -180  # Floor - no worse than -180, anything worse is not a lock
     MIN_ODDS = -100  # No positive odds allowed
     candidates = []
+    all_valid_lines = []  # For debug logging
+    all_raw_lines = []  # ALL lines before any filtering
     
     for outcome in outcomes:
         odds = outcome.get("price", 0)
         point = outcome.get("point")
         name = outcome.get("name", "")
+        
+        if point is not None:
+            all_raw_lines.append((point, odds, name))
         
         # Only accept negative odds between -180 and -100 (no + money)
         if point is None or odds < MAX_ODDS or odds > MIN_ODDS:
@@ -2221,6 +2226,7 @@ def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_s
                 continue
             if direction == "AWAY" and is_home_outcome:
                 continue
+            all_valid_lines.append((point, odds, name))
             candidates.append((point, odds))
         else:
             # Direction is stored as "O" or "U" in database
@@ -2230,6 +2236,7 @@ def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_s
                 continue
             if is_under and name != "Under":
                 continue
+            all_valid_lines.append((point, odds, name))
             # For OVER: only keep lines LOWER than main (easier to hit)
             # For UNDER: only keep lines HIGHER than main (easier to hit)
             if current_line:
@@ -2238,6 +2245,20 @@ def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_s
                 if is_under and point <= current_line:
                     continue
             candidates.append((point, odds))
+    
+    # Log all valid lines for debugging
+    if debug_game:
+        is_over_dir = direction in ("OVER", "O")
+        filter_name = "Over" if is_over_dir else "Under" if direction in ("UNDER", "U") else direction
+        logger.info(f"Alt lines for {debug_game}: direction={direction}, main_line={current_line}")
+        # Show all raw lines that match the direction
+        raw_matching = [x for x in all_raw_lines if filter_name in x[2] or is_spread]
+        for line, odds, name in sorted(raw_matching, key=lambda x: x[0]):
+            odds_status = "OK" if MAX_ODDS <= odds <= MIN_ODDS else f"FILTERED (odds={odds})"
+            logger.info(f"  {name} {line} ({odds}) - {odds_status}")
+        if all_valid_lines:
+            logger.info(f"  Valid lines (passed odds filter): {sorted(all_valid_lines, key=lambda x: x[0])}")
+        logger.info(f"  Candidates (passed line filter): {sorted(candidates, key=lambda x: x[0])}")
     
     if not candidates:
         return None, None
@@ -2260,6 +2281,7 @@ def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_s
         candidates.sort(key=lambda x: x[0], reverse=True)  # Descending - highest first
     
     best_line, best_odds = candidates[0]
+    logger.info(f"  Selected: {best_line} ({best_odds})")
     return best_line, best_odds
 
 def fetch_alt_lines_internal() -> dict:
@@ -2318,30 +2340,31 @@ def fetch_alt_lines_internal() -> dict:
             markets = book.get("markets", [])
             home_team = data.get("home_team", game.home_team)
             
+            game_name = f"{game.away_team}@{game.home_team}"
             for market in markets:
                 market_key = market.get("key")
                 outcomes = market.get("outcomes", [])
                 
                 if market_key == "alternate_totals" and game.is_qualified and game.direction:
                     alt_line, alt_odds = find_best_alt_line(
-                        outcomes, game.direction, game.line, is_spread=False
+                        outcomes, game.direction, game.line, is_spread=False, debug_game=game_name
                     )
                     if alt_line is not None:
                         game.alt_total_line = alt_line
                         game.alt_total_odds = alt_odds
                         alt_lines_found += 1
-                        logger.info(f"Alt total found: {game.away_team}@{game.home_team} {game.direction}{alt_line} ({alt_odds})")
+                        logger.info(f"Alt total found: {game_name} {game.direction}{alt_line} ({alt_odds})")
                 
                 elif market_key == "alternate_spreads" and game.spread_is_qualified and game.spread_direction:
                     alt_line, alt_odds = find_best_alt_line(
                         outcomes, game.spread_direction, game.spread_line, 
-                        is_spread=True, home_team=home_team
+                        is_spread=True, home_team=home_team, debug_game=game_name
                     )
                     if alt_line is not None:
                         game.alt_spread_line = alt_line
                         game.alt_spread_odds = alt_odds
                         alt_lines_found += 1
-                        logger.info(f"Alt spread found: {game.away_team}@{game.home_team} {game.spread_direction} {alt_line} ({alt_odds})")
+                        logger.info(f"Alt spread found: {game_name} {game.spread_direction} {alt_line} ({alt_odds})")
                         
         except Exception as e:
             logger.error(f"Alt lines error for {game.away_team}@{game.home_team}: {e}")
