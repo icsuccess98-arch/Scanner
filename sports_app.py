@@ -2029,7 +2029,7 @@ def fetch_history():
 def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_spread: bool = False, home_team: str = "") -> tuple:
     """
     Find the best alternate line with NEGATIVE odds only (no + money).
-    Odds must be between -180 and -100 (no positive odds, no worse than -180).
+    Odds must be between -200 and -100 (no positive odds, no worse than -200).
     
     For OVER totals: Find the LOWEST alt line (easier to hit)
     For UNDER totals: Find the HIGHEST alt line (easier to hit)
@@ -2037,7 +2037,7 @@ def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_s
     
     Returns (best_line, best_odds) or (None, None) if no valid line found.
     """
-    MAX_ODDS = -180  # Floor - no worse than -180
+    MAX_ODDS = -200  # Floor - no worse than -200 (widened from -180)
     MIN_ODDS = -100  # No positive odds allowed
     candidates = []
     
@@ -2101,6 +2101,7 @@ def fetch_alt_lines_internal() -> dict:
     """Internal function to fetch alternate lines for qualified games."""
     api_key = os.environ.get("ODDS_API_KEY")
     if not api_key:
+        logger.warning("No ODDS_API_KEY for alt lines fetch")
         return {"alt_lines_found": 0, "games_checked": 0}
     
     et = pytz.timezone('America/New_York')
@@ -2119,6 +2120,7 @@ def fetch_alt_lines_internal() -> dict:
     ).all()
     
     all_qualified = list(set(qualified_totals + qualified_spreads))
+    logger.info(f"Alt lines: checking {len(all_qualified)} qualified games")
     
     alt_lines_found = 0
     
@@ -2137,7 +2139,7 @@ def fetch_alt_lines_internal() -> dict:
             }
             resp = requests.get(url, params=params, timeout=30)
             if resp.status_code != 200:
-                print(f"Alt lines API error for {game.away_team}@{game.home_team}: {resp.status_code}")
+                logger.warning(f"Alt lines API error for {game.away_team}@{game.home_team}: {resp.status_code}")
                 continue
             
             data = resp.json()
@@ -2145,6 +2147,7 @@ def fetch_alt_lines_internal() -> dict:
             
             book = next((b for b in bookmakers if b.get("key") in ["fanduel", "draftkings"]), None)
             if not book:
+                logger.debug(f"No FanDuel/DraftKings book for {game.away_team}@{game.home_team}")
                 continue
             
             markets = book.get("markets", [])
@@ -2162,6 +2165,7 @@ def fetch_alt_lines_internal() -> dict:
                         game.alt_total_line = alt_line
                         game.alt_total_odds = alt_odds
                         alt_lines_found += 1
+                        logger.info(f"Alt total found: {game.away_team}@{game.home_team} {game.direction}{alt_line} ({alt_odds})")
                 
                 elif market_key == "alternate_spreads" and game.spread_is_qualified and game.spread_direction:
                     alt_line, alt_odds = find_best_alt_line(
@@ -2172,9 +2176,10 @@ def fetch_alt_lines_internal() -> dict:
                         game.alt_spread_line = alt_line
                         game.alt_spread_odds = alt_odds
                         alt_lines_found += 1
+                        logger.info(f"Alt spread found: {game.away_team}@{game.home_team} {game.spread_direction} {alt_line} ({alt_odds})")
                         
         except Exception as e:
-            print(f"Alt lines error for {game.away_team}@{game.home_team}: {e}")
+            logger.error(f"Alt lines error for {game.away_team}@{game.home_team}: {e}")
     
     db.session.commit()
     return {"alt_lines_found": alt_lines_found, "games_checked": len(all_qualified)}
