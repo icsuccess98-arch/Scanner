@@ -9,8 +9,12 @@ Three independent trading systems:
 ## Recent Changes
 - January 8, 2026: Added automatic alternate lines
   - Fetches alternate spreads/totals automatically during Fetch Odds
-  - Finds best value lines not exceeding -180 odds
-  - Displays alt line as PRIMARY pick (e.g., "Rutgers +25.5" not "+22.0")
+  - **NEGATIVE ODDS ONLY** - No positive odds (+ money = gambling, not locks)
+  - Valid odds range: -180 to -100 (no worse than -180, no positive)
+  - Finds best VALUE line that makes pick MORE of a lock
+  - E.g., Rutgers +25.5 (-172) instead of +22.0 is MORE favorable
+  - E.g., O126.5 instead of O132 for OVER is EASIER to hit
+  - Displays alt line as PRIMARY pick with odds badge
   - Discord posts use alternate lines automatically
   - Stores event_id and sport_key for API lookups
 - January 8, 2026: Added spread betting functionality

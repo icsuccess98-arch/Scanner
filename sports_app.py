@@ -1279,13 +1279,17 @@ def fetch_odds():
 
 def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_spread: bool = False, home_team: str = "") -> tuple:
     """
-    Find the best alternate line with odds not exceeding -180.
+    Find the best alternate line with NEGATIVE odds only (no + money).
+    Odds must be between -180 and -100 (no positive odds, no worse than -180).
+    Positive odds = gambling, negative odds = lock value.
+    
     For totals: direction is OVER/UNDER
     For spreads: direction is HOME/AWAY, need to find team-specific line
     
     Returns (best_line, best_odds) or (None, None) if no valid line found.
     """
-    MAX_ODDS = -180
+    MAX_ODDS = -180  # Floor - no worse than -180
+    MIN_ODDS = -100  # No positive odds allowed
     best_line = None
     best_odds = None
     best_value = None
@@ -1295,7 +1299,8 @@ def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_s
         point = outcome.get("point")
         name = outcome.get("name", "")
         
-        if point is None or odds < MAX_ODDS:
+        # Only accept negative odds between -180 and -100 (no + money)
+        if point is None or odds < MAX_ODDS or odds > MIN_ODDS:
             continue
         
         if is_spread:
