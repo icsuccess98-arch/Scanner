@@ -1213,7 +1213,7 @@ def fetch_odds():
                 "regions": "us",
                 "markets": "totals,spreads",
                 "oddsFormat": "american",
-                "bookmakers": "bovada,fanduel"
+                "bookmakers": "bovada"
             }
             resp = requests.get(url, params=params, timeout=30)
             if resp.status_code != 200:
@@ -1247,8 +1247,9 @@ def fetch_odds():
                         game.sport_key = sport_key
                         bookmakers = event.get("bookmakers", [])
                         bovada_book = next((b for b in bookmakers if b.get("key") == "bovada"), None)
-                        fanduel_book = next((b for b in bookmakers if b.get("key") == "fanduel"), None)
-                        book = bovada_book or fanduel_book
+                        if not bovada_book:
+                            continue  # Skip games not on Bovada
+                        book = bovada_book
                         if book:
                             markets = book.get("markets", [])
                             for market in markets:
