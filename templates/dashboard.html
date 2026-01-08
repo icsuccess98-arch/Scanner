@@ -443,7 +443,11 @@
                 <div class="d-flex gap-3 align-items-center">
                     <div class="stat-pill qualified">
                         <span class="value">{{ qualified|length }}</span>
-                        <span class="label">Qualified</span>
+                        <span class="label">Totals</span>
+                    </div>
+                    <div class="stat-pill" style="background: linear-gradient(135deg, rgba(74, 144, 226, 0.2) 0%, rgba(107, 159, 255, 0.1) 100%); border-color: var(--accent);">
+                        <span class="value" style="color: var(--accent);">{{ spread_qualified|length }}</span>
+                        <span class="label">Spreads</span>
                     </div>
                     <div class="stat-pill">
                         <span class="value">{{ total_games }}</span>
