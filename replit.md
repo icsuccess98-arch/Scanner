@@ -2,11 +2,19 @@
 
 ## Overview
 Three independent trading systems:
-1. Sports betting calculator (O/U totals only)
+1. Sports betting calculator (O/U totals AND spreads)
 2. Forex/metals/indices trading bot (Discord only)
 3. Crypto perpetuals trading system (Coinbase Advanced Trade API)
 
 ## Recent Changes
+- January 8, 2026: Added spread betting functionality
+  - Same locked formula calculates expected scores for each team
+  - Projected margin = Expected_Home - Expected_Away
+  - Spread qualification uses same thresholds (NBA/CBB: 8.0, NFL/CFB: 3.5, NHL: 0.5)
+  - Dashboard shows separate Totals Lock and Spread Lock
+  - Spread Analysis section with qualified count, best edge, home/away split
+  - Discord posting includes both totals and spread picks
+  - Pick model updated with pick_type (total/spread) for history tracking
 - January 7, 2026: Critical production stability fixes
   - Added ESPN event date validation (prevents stale games from wrong dates)
   - Games now cleared per-league before each refresh (no stale data persistence)

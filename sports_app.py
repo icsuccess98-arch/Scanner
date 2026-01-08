@@ -245,36 +245,33 @@ def check_spread_qualification(expected_away: float, expected_home: float,
     LOCKED THRESHOLDS - Same thresholds as totals
     
     Spread line is from home team perspective (negative = home favored)
-    Projected margin = expected_home - expected_away (positive = home wins by X)
+    E.g., Home -13 means home is favored by 13, must win by 14+ to cover
+    
+    Convert to home margin frame:
+    line_margin = -spread_line (what the line implies home margin should be)
+    E.g., spread -13 -> line_margin = 13 (line says home wins by 13)
+    
+    projected_margin = expected_home - expected_away (positive = home wins by X)
     
     Direction Rules:
-    - Take HOME if: projected_margin > spread_line + threshold (home covers)
-    - Take AWAY if: spread_line > projected_margin + threshold (away covers)
+    - Take HOME if: projected_margin >= line_margin + threshold (we think home wins by MORE than the line)
+    - Take AWAY if: projected_margin <= line_margin - threshold (we think home wins by LESS than the line)
     
-    Example: Home expected to win by 3, but spread is Home -13
-    projected_margin = 3, spread_line = -13
-    We expect home to win by 3, but they need to win by 13+ to cover
-    So: spread_line (-13) is NOT > projected_margin (3) + threshold
-    But: projected_margin (3) is NOT > spread_line (-13) + threshold
-    Actually: projected_margin (3) > spread_line (-13) + threshold (3.5) = -9.5? Yes!
-    So bet HOME? No wait, that's backwards...
-    
-    Let me reconsider:
-    If home expected to win by 3, spread is -13 (home gives 13)
-    We think home wins by 3, but line says they need to win by 14+
-    So AWAY +13 is the value (they lose by 3 but cover +13)
-    
-    Formula:
-    - AWAY covers if: spread_line < projected_margin - threshold
-    - HOME covers if: spread_line > projected_margin + threshold
+    Example: Home expected to win by 3, spread is Home -13
+    line_margin = 13, projected_margin = 3
+    We expect home to win by 3, but line says home wins by 13
+    Difference = 10 points of value on AWAY side
+    projected_margin (3) <= line_margin (13) - threshold (8) = 5? Yes!
+    Bet AWAY +13 (they lose by 3 but cover +13)
     """
     threshold = THRESHOLDS.get(league, 8.0)
     projected_margin = expected_home - expected_away
-    edge = abs(projected_margin - spread_line)
+    line_margin = -spread_line
+    edge = abs(projected_margin - line_margin)
     
-    if spread_line > projected_margin + threshold:
+    if projected_margin >= line_margin + threshold:
         return True, "HOME", edge
-    elif spread_line < projected_margin - threshold:
+    elif projected_margin <= line_margin - threshold:
         return True, "AWAY", edge
     return False, None, edge
 
@@ -1273,26 +1270,51 @@ def post_discord():
     all_qualified = Game.query.filter_by(date=today, is_qualified=True).order_by(Game.edge.desc()).all()
     games = [g for g in all_qualified if not (g.game_time and 'final' in g.game_time.lower())][:5]
     
-    if not games:
+    spread_qualified = Game.query.filter_by(date=today, spread_is_qualified=True).order_by(Game.spread_edge.desc()).all()
+    spread_games = [g for g in spread_qualified if not (g.game_time and 'final' in g.game_time.lower())][:3]
+    
+    if not games and not spread_games:
         return jsonify({"success": False, "message": "No qualified picks to post"})
     
     top_picks = games[:3]
     
     msg = f"🎯 PICKS OF THE DAY - {today_str}\n\n"
     
-    for league in ["NBA", "CBB", "NFL", "CFB", "NHL"]:
-        league_games = [g for g in top_picks if g.league == league]
-        if league_games:
-            emoji = {"NBA": "🏀", "CBB": "🏀", "NFL": "🏈", "CFB": "🏈", "NHL": "🏒"}.get(league, "🎯")
-            msg += f"{emoji} {league}\n"
-            for g in league_games:
-                msg += f"{g.away_team}/{g.home_team} ({g.game_time})\n"
-                msg += f"Game Total {g.direction}{g.line}\n\n"
+    if top_picks:
+        msg += "📊 **TOTALS**\n"
+        for league in ["NBA", "CBB", "NFL", "CFB", "NHL"]:
+            league_games = [g for g in top_picks if g.league == league]
+            if league_games:
+                emoji = {"NBA": "🏀", "CBB": "🏀", "NFL": "🏈", "CFB": "🏈", "NHL": "🏒"}.get(league, "🎯")
+                msg += f"{emoji} {league}\n"
+                for g in league_games:
+                    msg += f"{g.away_team}/{g.home_team} ({g.game_time})\n"
+                    msg += f"Game Total {g.direction}{g.line}\n\n"
+        
+        lock = top_picks[0]
+        msg += f"🔒 Totals Lock:\n"
+        msg += f"{lock.away_team}/{lock.home_team} ({lock.game_time})\n"
+        msg += f"Game Total {lock.direction}{lock.line}\n\n"
     
-    lock = top_picks[0]
-    msg += f"🔒 Lock Of The Day:\n"
-    msg += f"{lock.away_team}/{lock.home_team} ({lock.game_time})\n"
-    msg += f"Game Total {lock.direction}{lock.line}\n"
+    if spread_games:
+        msg += "📈 **SPREADS**\n"
+        for g in spread_games:
+            emoji = {"NBA": "🏀", "CBB": "🏀", "NFL": "🏈", "CFB": "🏈", "NHL": "🏒"}.get(g.league, "🎯")
+            if g.spread_direction == 'HOME':
+                pick_str = f"{g.home_team} {g.spread_line:+.1f}" if g.spread_line else g.home_team
+            else:
+                pick_str = f"{g.away_team} {-g.spread_line:+.1f}" if g.spread_line else g.away_team
+            msg += f"{emoji} {g.away_team}/{g.home_team}\n"
+            msg += f"{pick_str}\n\n"
+        
+        spread_lock = spread_games[0]
+        if spread_lock.spread_direction == 'HOME':
+            lock_pick = f"{spread_lock.home_team} {spread_lock.spread_line:+.1f}" if spread_lock.spread_line else spread_lock.home_team
+        else:
+            lock_pick = f"{spread_lock.away_team} {-spread_lock.spread_line:+.1f}" if spread_lock.spread_line else spread_lock.away_team
+        msg += f"📈 Spread Lock:\n"
+        msg += f"{spread_lock.away_team}/{spread_lock.home_team}\n"
+        msg += f"{lock_pick}\n"
     
     webhook = os.environ.get("SPORTS_DISCORD_WEBHOOK")
     if webhook:
@@ -1300,7 +1322,7 @@ def post_discord():
         
         for i, g in enumerate(top_picks):
             matchup = f"{g.away_team} @ {g.home_team}"
-            existing_pick = Pick.query.filter_by(date=today, matchup=matchup).first()
+            existing_pick = Pick.query.filter_by(date=today, matchup=matchup, pick_type="total").first()
             if not existing_pick:
                 pick = Pick(
                     game_id=g.id,
@@ -1310,12 +1332,37 @@ def post_discord():
                     pick=f"{g.direction}{g.line}",
                     edge=g.edge,
                     is_lock=(i == 0),
-                    posted_to_discord=True
+                    posted_to_discord=True,
+                    pick_type="total",
+                    line_value=g.line
                 )
                 db.session.add(pick)
+        
+        for i, g in enumerate(spread_games):
+            matchup = f"{g.away_team} @ {g.home_team}"
+            existing_pick = Pick.query.filter_by(date=today, matchup=matchup, pick_type="spread").first()
+            if not existing_pick:
+                if g.spread_direction == 'HOME':
+                    pick_str = f"{g.home_team} {g.spread_line:+.1f}" if g.spread_line else g.home_team
+                else:
+                    pick_str = f"{g.away_team} {-g.spread_line:+.1f}" if g.spread_line else g.away_team
+                pick = Pick(
+                    game_id=g.id,
+                    date=today,
+                    league=g.league,
+                    matchup=matchup,
+                    pick=pick_str,
+                    edge=g.spread_edge,
+                    is_lock=(i == 0),
+                    posted_to_discord=True,
+                    pick_type="spread",
+                    line_value=g.spread_line
+                )
+                db.session.add(pick)
+        
         db.session.commit()
         
-        return jsonify({"success": True, "status": resp.status_code, "picks_count": len(top_picks)})
+        return jsonify({"success": True, "status": resp.status_code, "picks_count": len(top_picks) + len(spread_games)})
     
     return jsonify({"success": False, "message": "Discord webhook not configured"})
 

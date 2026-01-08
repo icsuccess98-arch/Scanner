@@ -495,9 +495,9 @@
                 <div class="text-end">
                     <div class="lock-pick" style="background: linear-gradient(135deg, var(--accent) 0%, #6B9FFF 100%); -webkit-background-clip: text;">
                         {% if spread_lock.spread_direction == 'HOME' %}
-                        {{ spread_lock.home_team }} {{ spread_lock.spread_line|round(1) }}
+                        {{ spread_lock.home_team }} {{ "%+.1f"|format(spread_lock.spread_line) if spread_lock.spread_line else '' }}
                         {% else %}
-                        {{ spread_lock.away_team }} {{ (spread_lock.spread_line * -1)|round(1) if spread_lock.spread_line else '' }}
+                        {{ spread_lock.away_team }} {{ "%+.1f"|format(-spread_lock.spread_line) if spread_lock.spread_line else '' }}
                         {% endif %}
                     </div>
                     <div class="lock-edge">Edge: {{ "%.1f"|format(spread_lock.spread_edge) }}</div>
@@ -611,9 +611,9 @@
                         <span class="top-pick-matchup ms-2">{{ pick.away_team }} @ {{ pick.home_team }}</span>
                         <span class="direction-chip" style="background: rgba(76, 130, 255, 0.15); color: var(--accent);">
                             {% if pick.spread_direction == 'HOME' %}
-                            {{ pick.home_team[:8] }} {{ pick.spread_line|round(1) }}
+                            {{ pick.home_team[:8] }} {{ "%+.1f"|format(pick.spread_line) if pick.spread_line else '' }}
                             {% else %}
-                            {{ pick.away_team[:8] }} {{ (pick.spread_line * -1)|round(1) if pick.spread_line else '' }}
+                            {{ pick.away_team[:8] }} {{ "%+.1f"|format(-pick.spread_line) if pick.spread_line else '' }}
                             {% endif %}
                         </span>
                         <span class="top-pick-edge">+{{ "%.1f"|format(pick.spread_edge) }}</span>
