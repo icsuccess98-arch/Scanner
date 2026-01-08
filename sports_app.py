@@ -2322,7 +2322,7 @@ def fetch_alt_lines_internal() -> dict:
                 "regions": "us",
                 "markets": "alternate_totals,alternate_spreads",
                 "oddsFormat": "american",
-                "bookmakers": "fanduel"
+                "bookmakers": "bovada"
             }
             resp = requests.get(url, params=params, timeout=30)
             if resp.status_code != 200:
@@ -2332,9 +2332,9 @@ def fetch_alt_lines_internal() -> dict:
             data = resp.json()
             bookmakers = data.get("bookmakers", [])
             
-            book = next((b for b in bookmakers if b.get("key") in ["fanduel", "draftkings"]), None)
+            book = next((b for b in bookmakers if b.get("key") == "bovada"), None)
             if not book:
-                logger.debug(f"No FanDuel/DraftKings book for {game.away_team}@{game.home_team}")
+                logger.debug(f"No Bovada alt lines for {game.away_team}@{game.home_team}")
                 continue
             
             markets = book.get("markets", [])
