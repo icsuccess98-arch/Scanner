@@ -1949,15 +1949,11 @@ def fetch_odds():
     
     alt_lines_result = fetch_alt_lines_internal()
     
-    # Automatically fetch historical data for qualified games (85% threshold)
-    history_result = fetch_history_internal()
-    
     return jsonify({
         "success": True, 
         "lines_updated": lines_updated, 
         "spreads_updated": spreads_updated,
-        "alt_lines_found": alt_lines_result.get("alt_lines_found", 0),
-        "history_qualified": history_result.get("history_qualified", 0)
+        "alt_lines_found": alt_lines_result.get("alt_lines_found", 0)
     })
 
 def fetch_history_internal() -> dict:
