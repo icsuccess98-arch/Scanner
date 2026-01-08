@@ -7,6 +7,16 @@ Three independent trading systems:
 3. Crypto perpetuals trading system (Coinbase Advanced Trade API)
 
 ## Recent Changes
+- January 8, 2026: History Tracking + Weekend Scheduling
+  - History now only tracks the Supermax/Lock of the Day (not all picks)
+  - Weekend scheduling (Fri-Sun) posts 3 staggered locks:
+    - 10:00 AM - EARLY lock (games before 1pm)
+    - 12:30 PM - MIDDAY lock (games 1-6pm)
+    - 5:00 PM - LATE lock (games after 6pm)
+  - Weekdays: Single Lock of the Day at 11 AM
+  - Added game_window field to Pick model for tracking EARLY/MID/LATE slots
+  - New endpoint: /post_discord_window/<window> for window-based posting
+  - Removed Qualification Rate from Edge Analysis
 - January 8, 2026: Bovada Alt Lines + Better Value Selection
   - Switched alt lines source from FanDuel to Bovada (better odds availability)
   - Alt lines now correctly select best value under/over the main line
@@ -109,10 +119,22 @@ Three independent trading systems:
   - Discord posting with pick history tracking
 
 ## Daily Automation Schedule (ET)
+
+### Weekdays (Mon-Thu)
 - **8:00 AM** - Fetch all games with fresh ESPN stats
-- **10:00 AM** - Fetch betting odds from The Odds API
-- **11:00 AM** - Post top 3 qualified picks to Discord
+- **9:30 AM** - Fetch betting odds from The Odds API  
+- **11:00 AM** - Post Lock of the Day to Discord
 - **2:00 PM** - Afternoon refresh (stats + odds update)
+- **11:00 PM** - Check pick results
+
+### Weekends (Fri-Sun) - Big Slate Days
+- **8:00 AM** - Fetch all games with fresh ESPN stats
+- **9:30 AM** - Fetch betting odds from The Odds API
+- **10:00 AM** - Post EARLY Lock (games before 1pm)
+- **12:30 PM** - Post MIDDAY Lock (games 1-6pm)
+- **5:00 PM** - Post LATE Lock (games after 6pm)
+- **2:00 PM** - Afternoon refresh (stats + odds update)
+- **11:00 PM** - Check pick results
 - January 4, 2026: Fixed NFL stats (avgPointsFor/avgPointsAgainst), added team nicknames
 - January 4, 2026: Fixed NHL season to 2025-26, added team nickname aliases
 - January 4, 2026: Fixed LSP error (comp_data unbound)
