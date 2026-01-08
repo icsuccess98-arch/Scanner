@@ -7,6 +7,12 @@ Three independent trading systems:
 3. Crypto perpetuals trading system (Coinbase Advanced Trade API)
 
 ## Recent Changes
+- January 8, 2026: Bovada Alt Lines + Better Value Selection
+  - Switched alt lines source from FanDuel to Bovada (better odds availability)
+  - Alt lines now correctly select best value under/over the main line
+  - Example: Little Rock @ SIUE now shows O129.5 (-180) instead of nothing
+  - Enhanced debug logging shows all available alt lines and why some are filtered
+  - 11 alt lines found vs 7 previously (57% improvement)
 - January 8, 2026: Official League Logos + Bovada-Only Enforcement + Performance Fix
   - Fixed NCAA logo 404 - uses `/i/espn/misc_logos/500/ncaa.png` (not `/i/teamlogos/leagues/500/ncaa.png`)
   - Added official NBA, NFL, NHL, NCAA logos from ESPN CDN for league sections
