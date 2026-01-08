@@ -7,9 +7,11 @@ Three independent trading systems:
 3. Crypto perpetuals trading system (Coinbase Advanced Trade API)
 
 ## Recent Changes
-- January 8, 2026: Official League Logos + Bovada-Only Enforcement
+- January 8, 2026: Official League Logos + Bovada-Only Enforcement + Performance Fix
   - Fixed NCAA logo 404 - uses `/i/espn/misc_logos/500/ncaa.png` (not `/i/teamlogos/leagues/500/ncaa.png`)
   - Added official NBA, NFL, NHL, NCAA logos from ESPN CDN for league sections
+  - Fixed history page 2.4s delay - removed blocking API calls on page load (now 42ms)
+  - Added "Check Results" button to history page for manual result updates
   - League-specific gradient colors on game card left borders (NBA red/blue, NFL blue/red, NHL black/silver, etc.)
   - Game cards have hover effects with shadows for FanDuel-like interactivity
   - Lock card now has golden glow effect

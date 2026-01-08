@@ -2345,8 +2345,6 @@ def check_results():
 @app.route('/history')
 def history():
     """Display pick history with win/loss stats."""
-    check_pick_results()
-    
     picks = Pick.query.order_by(Pick.date.desc(), Pick.edge.desc()).all()
     
     wins = len([p for p in picks if p.result == 'W'])
