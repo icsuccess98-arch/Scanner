@@ -166,9 +166,12 @@ class Game(db.Model):
     home_ou_pct = db.Column(db.Float)  # Home team's O/U hit rate
     away_spread_pct = db.Column(db.Float)  # Away team's spread cover rate
     home_spread_pct = db.Column(db.Float)  # Home team's spread cover rate
+    away_avg_margin = db.Column(db.Float)  # Away team's average margin (+ = wins, - = losses)
+    home_avg_margin = db.Column(db.Float)  # Home team's average margin (+ = wins, - = losses)
     h2h_ou_pct = db.Column(db.Float)  # Head-to-head O/U hit rate
     h2h_spread_pct = db.Column(db.Float)  # Head-to-head spread cover rate
     history_qualified = db.Column(db.Boolean, default=None)  # NULL = not checked, True/False = checked
+    spread_history_qualified = db.Column(db.Boolean, default=None)  # Spread-specific historical qualification
     
     __table_args__ = (
         db.Index('idx_date_league', 'date', 'league'),
@@ -839,6 +842,18 @@ def calculate_ou_hit_rate(games: list, direction: str, threshold: float = 0) -> 
     
     return (hits / len(games)) * 100
 
+def calculate_avg_margin(games: list) -> float:
+    """
+    Calculate team's average margin of victory/defeat over last N games.
+    Positive = average wins by X points
+    Negative = average losses by X points
+    """
+    if len(games) < 5:
+        return 0.0
+    
+    margins = [g["margin"] for g in games]
+    return sum(margins) / len(margins)
+
 def calculate_spread_cover_rate(games: list, spread_direction: str = None, avg_spread: float = None) -> float:
     """
     Calculate what percentage of games the team would have covered the spread.
@@ -982,26 +997,23 @@ def fetch_h2h_history(team1: str, team2: str, league: str, direction: str = "O")
 def update_game_historical_data(game: Game) -> bool:
     """
     Fetch and update historical percentages for a game.
-    Returns True if game meets 60% threshold.
+    Returns True if game meets thresholds.
     
-    60% threshold applies to TOTALS picks only (O/U).
-    Qualification requires:
-    1. Both teams' last 10 games O/U hit rate >= 60%
-    2. H2H O/U hit rate >= 60% (if 3+ H2H games exist)
+    TOTALS: 60% O/U hit rate required (either team)
+    SPREADS: Average margin must support the spread line
     
-    For SPREADS: Cannot calculate ATS without historical spread data, so spreads
-    are NOT subject to the historical threshold.
+    For spreads, we use average margin as a proxy:
+    - If picking HOME favorite (spread_line < 0): Home avg margin should exceed spread
+    - If picking AWAY underdog (spread_line > 0): Away avg margin should support the points
     """
     try:
-        if not game.is_qualified:
-            return True
-        
         away_games = fetch_team_last_10_games(game.away_team, game.league)
         home_games = fetch_team_last_10_games(game.home_team, game.league)
         
         if len(away_games) < 5 or len(home_games) < 5:
             logger.info(f"Insufficient history for {game.away_team} @ {game.home_team}: {len(away_games)}/{len(home_games)} games")
             game.history_qualified = False
+            game.spread_history_qualified = False
             return False
         
         direction = game.direction or "O"
@@ -1009,6 +1021,8 @@ def update_game_historical_data(game: Game) -> bool:
         game.home_ou_pct = calculate_ou_hit_rate(home_games, direction)
         game.away_spread_pct = calculate_spread_cover_rate(away_games)
         game.home_spread_pct = calculate_spread_cover_rate(home_games)
+        game.away_avg_margin = calculate_avg_margin(away_games)
+        game.home_avg_margin = calculate_avg_margin(home_games)
         
         h2h = fetch_h2h_history(game.away_team, game.home_team, game.league, direction)
         game.h2h_ou_pct = h2h["ou_pct"]
@@ -1020,15 +1034,34 @@ def update_game_historical_data(game: Game) -> bool:
         if h2h_games >= 3:
             h2h_qualified = (game.h2h_ou_pct or 0) >= 60
             game.history_qualified = teams_qualified and h2h_qualified
-            logger.info(f"{game.away_team} @ {game.home_team}: Teams O/U {game.away_ou_pct:.1f}%/{game.home_ou_pct:.1f}%, H2H {game.h2h_ou_pct:.1f}% ({h2h_games} games), qualified={game.history_qualified}")
         else:
             game.history_qualified = teams_qualified
-            logger.info(f"{game.away_team} @ {game.home_team}: Teams O/U {game.away_ou_pct:.1f}%/{game.home_ou_pct:.1f}%, H2H insufficient ({h2h_games} games), qualified={game.history_qualified}")
         
-        return game.history_qualified
+        spread_qualified = False
+        if game.spread_is_qualified and game.spread_line is not None:
+            spread_line = game.spread_line
+            away_margin = game.away_avg_margin or 0
+            home_margin = game.home_avg_margin or 0
+            
+            if game.spread_direction == "HOME":
+                spread_qualified = home_margin >= abs(spread_line) * 0.5
+            elif game.spread_direction == "AWAY":
+                spread_qualified = away_margin >= -abs(spread_line) * 0.5 or away_margin > 0
+            else:
+                spread_qualified = True
+            
+            game.spread_history_qualified = spread_qualified
+            logger.info(f"{game.away_team} @ {game.home_team}: Margins Away={away_margin:.1f}/Home={home_margin:.1f}, Spread={spread_line}, spread_qualified={spread_qualified}")
+        else:
+            game.spread_history_qualified = False
+        
+        logger.info(f"{game.away_team} @ {game.home_team}: O/U {game.away_ou_pct:.1f}%/{game.home_ou_pct:.1f}%, qualified={game.history_qualified}, spread_qualified={game.spread_history_qualified}")
+        
+        return game.history_qualified or game.spread_history_qualified
     except Exception as e:
         logger.error(f"Error updating historical data for {game.away_team} @ {game.home_team}: {e}")
         game.history_qualified = False
+        game.spread_history_qualified = False
         return False
 
 def check_spread_pick_result(pick) -> int:
@@ -1315,9 +1348,9 @@ def dashboard():
     # If history_qualified is False, hide the game
     qualified = [g for g in edge_qualified if g.history_qualified == True]
     
-    # SPREADS: Also require historical qualification (same as totals)
-    # Must have history_qualified = True to be shown
-    spread_qualified = [g for g in edge_spread_qualified if g.history_qualified == True]
+    # SPREADS: Use spread_history_qualified based on average margin
+    # Must have spread_history_qualified = True to be shown
+    spread_qualified = [g for g in edge_spread_qualified if g.spread_history_qualified == True]
     spread_qualified.sort(key=lambda x: x.spread_edge or 0, reverse=True)
     
     # SUPERMAX = single best edge across both totals and spreads
@@ -1341,10 +1374,10 @@ def dashboard():
             supermax_type = 'spread'
             supermax_edge = best_spread.spread_edge
     
-    # Combined qualified: games that qualify for EITHER totals OR spreads AND pass historical threshold
+    # Combined qualified: games that qualify for EITHER totals OR spreads AND pass respective historical threshold
     all_qualified_games = [g for g in all_games if 
-        ((g.is_qualified or g.spread_is_qualified) and 
-         g.history_qualified == True)]
+        ((g.is_qualified and g.history_qualified == True) or 
+         (g.spread_is_qualified and g.spread_history_qualified == True))]
     
     if show_only_qualified:
         games = all_qualified_games
@@ -1373,9 +1406,11 @@ def dashboard():
     
     for league in ['NBA', 'CBB', 'NFL', 'CFB', 'NHL']:
         league_games = [g for g in all_games if g.league == league]
-        league_totals_qualified = [g for g in league_games if g.is_qualified]
-        league_spread_qualified = [g for g in league_games if g.spread_is_qualified]
-        league_any_qualified = [g for g in league_games if g.is_qualified or g.spread_is_qualified]
+        league_totals_qualified = [g for g in league_games if g.is_qualified and g.history_qualified == True]
+        league_spread_qualified = [g for g in league_games if g.spread_is_qualified and g.spread_history_qualified == True]
+        league_any_qualified = [g for g in league_games if 
+            (g.is_qualified and g.history_qualified == True) or 
+            (g.spread_is_qualified and g.spread_history_qualified == True)]
         analytics['league_breakdown'][league] = {
             'total': len(league_games),
             'qualified': len(league_any_qualified),
@@ -2448,7 +2483,7 @@ def post_discord():
     all_qualified = Game.query.filter_by(date=today, is_qualified=True, history_qualified=True).order_by(Game.edge.desc()).all()
     games = [g for g in all_qualified if not (g.game_time and 'final' in g.game_time.lower())]
     
-    spread_qualified = Game.query.filter_by(date=today, spread_is_qualified=True, history_qualified=True).order_by(Game.spread_edge.desc()).all()
+    spread_qualified = Game.query.filter_by(date=today, spread_is_qualified=True, spread_history_qualified=True).order_by(Game.spread_edge.desc()).all()
     spread_games = [g for g in spread_qualified if not (g.game_time and 'final' in g.game_time.lower())]
     
     if not games and not spread_games:
@@ -2603,7 +2638,7 @@ def post_discord_window(window: str):
     
     # Get qualified games for this window (must pass historical qualification)
     all_qualified = Game.query.filter_by(date=today, is_qualified=True, history_qualified=True).order_by(Game.edge.desc()).all()
-    spread_qualified = Game.query.filter_by(date=today, spread_is_qualified=True, history_qualified=True).order_by(Game.spread_edge.desc()).all()
+    spread_qualified = Game.query.filter_by(date=today, spread_is_qualified=True, spread_history_qualified=True).order_by(Game.spread_edge.desc()).all()
     
     # Filter by window and exclude finished games
     window_games = [g for g in all_qualified if get_game_window(g.game_time) == window 

@@ -7,9 +7,17 @@ Three independent trading systems:
 3. Crypto perpetuals trading system (Coinbase Advanced Trade API)
 
 ## Recent Changes
+- January 8, 2026: Average Margin for Spread Qualification
+  - Added average margin of victory/loss tracking for each team (last 10 games)
+  - Spreads now use margin-based validation instead of no validation
+  - HOME favorite picks: team's avg margin must be >= 50% of spread line
+  - AWAY underdog picks: team's avg margin supports getting points OR team is profitable
+  - New fields: away_avg_margin, home_avg_margin, spread_history_qualified
+  - Both TOTALS (60% O/U rate) and SPREADS (margin validation) require history to qualify
+  - Building toward ATS tracking: spread picks now saved with line for future performance data
 - January 8, 2026: Speed Optimization + Historical Qualification for ALL Picks
   - Parallel alt line fetching (10 concurrent workers) - reduced fetch time from 17s to ~12-15s
-  - Both TOTALS and SPREADS now require history_qualified=True to display
+  - Both TOTALS and SPREADS now require historical validation to display
   - History check runs automatically after fetch (no manual button needed)
   - Games show 0 qualified until historical data is fetched (conservative approach)
   - Discord only posts picks that pass both edge threshold AND historical check
