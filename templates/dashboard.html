@@ -574,6 +574,9 @@
                         {{ supermax_lock.away_team }} {{ "%+.1f"|format(away_spread) if away_spread else '' }}{% if supermax_lock.alt_spread_odds %} <span class="pick-odds">{{ supermax_lock.alt_spread_odds }}</span>{% endif %}
                         {% endif %}
                     </div>
+                    {% if supermax_lock.projected_margin is not none %}
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Model: {{ "%+.1f"|format(supermax_lock.projected_margin) }}</div>
+                    {% endif %}
                     {% endif %}
                 </div>
             </div>
