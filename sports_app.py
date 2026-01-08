@@ -154,6 +154,12 @@ class Game(db.Model):
     expected_away = db.Column(db.Float)
     expected_home = db.Column(db.Float)
     projected_margin = db.Column(db.Float)
+    event_id = db.Column(db.String(64))
+    sport_key = db.Column(db.String(50))
+    alt_total_line = db.Column(db.Float)
+    alt_total_odds = db.Column(db.Integer)
+    alt_spread_line = db.Column(db.Float)
+    alt_spread_odds = db.Column(db.Integer)
     
     __table_args__ = (
         db.Index('idx_date_league', 'date', 'league'),
@@ -1201,6 +1207,8 @@ def fetch_odds():
                     home_match_rev = teams_match(game.home_team, away_team)
                     
                     if (away_match and home_match) or (away_match_rev and home_match_rev):
+                        game.event_id = event.get("id")
+                        game.sport_key = sport_key
                         bookmakers = event.get("bookmakers", [])
                         bovada_book = next((b for b in bookmakers if b.get("key") == "bovada"), None)
                         fanduel_book = next((b for b in bookmakers if b.get("key") == "fanduel"), None)
@@ -1260,6 +1268,134 @@ def fetch_odds():
     
     db.session.commit()
     return jsonify({"success": True, "lines_updated": lines_updated, "spreads_updated": spreads_updated})
+
+def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_spread: bool = False, home_team: str = "") -> tuple:
+    """
+    Find the best alternate line with odds not exceeding -180.
+    For totals: direction is OVER/UNDER
+    For spreads: direction is HOME/AWAY, need to find team-specific line
+    
+    Returns (best_line, best_odds) or (None, None) if no valid line found.
+    """
+    MAX_ODDS = -180
+    best_line = None
+    best_odds = None
+    best_value = None
+    
+    for outcome in outcomes:
+        odds = outcome.get("price", 0)
+        point = outcome.get("point")
+        name = outcome.get("name", "")
+        
+        if point is None or odds < MAX_ODDS:
+            continue
+        
+        if is_spread:
+            is_home_outcome = teams_match(name, home_team)
+            if direction == "HOME" and not is_home_outcome:
+                continue
+            if direction == "AWAY" and is_home_outcome:
+                continue
+            value = abs(point - current_line) if current_line else abs(point)
+        else:
+            if direction == "OVER" and name != "Over":
+                continue
+            if direction == "UNDER" and name != "Under":
+                continue
+            if direction == "OVER":
+                value = current_line - point if current_line else -point
+            else:
+                value = point - current_line if current_line else point
+        
+        if value > 0 and (best_value is None or value > best_value):
+            best_value = value
+            best_line = point
+            best_odds = odds
+    
+    return best_line, best_odds
+
+@app.route('/fetch_alt_lines', methods=['POST'])
+def fetch_alt_lines():
+    """Fetch alternate lines for qualified games to find better value."""
+    api_key = os.environ.get("ODDS_API_KEY")
+    if not api_key:
+        return jsonify({"success": False, "message": "ODDS_API_KEY not configured"})
+    
+    et = pytz.timezone('America/New_York')
+    today = datetime.now(et).date()
+    
+    qualified_totals = Game.query.filter(
+        Game.date == today,
+        Game.is_qualified == True,
+        Game.event_id.isnot(None)
+    ).all()
+    
+    qualified_spreads = Game.query.filter(
+        Game.date == today,
+        Game.spread_is_qualified == True,
+        Game.event_id.isnot(None)
+    ).all()
+    
+    all_qualified = list(set(qualified_totals + qualified_spreads))
+    
+    alt_lines_found = 0
+    
+    for game in all_qualified:
+        if not game.event_id or not game.sport_key:
+            continue
+            
+        try:
+            url = f"https://api.the-odds-api.com/v4/sports/{game.sport_key}/events/{game.event_id}/odds"
+            params = {
+                "apiKey": api_key,
+                "regions": "us",
+                "markets": "alternate_totals,alternate_spreads",
+                "oddsFormat": "american",
+                "bookmakers": "fanduel,draftkings"
+            }
+            resp = requests.get(url, params=params, timeout=30)
+            if resp.status_code != 200:
+                print(f"Alt lines API error for {game.away_team}@{game.home_team}: {resp.status_code}")
+                continue
+            
+            data = resp.json()
+            bookmakers = data.get("bookmakers", [])
+            
+            book = next((b for b in bookmakers if b.get("key") in ["fanduel", "draftkings"]), None)
+            if not book:
+                continue
+            
+            markets = book.get("markets", [])
+            home_team = data.get("home_team", game.home_team)
+            
+            for market in markets:
+                market_key = market.get("key")
+                outcomes = market.get("outcomes", [])
+                
+                if market_key == "alternate_totals" and game.is_qualified and game.direction:
+                    alt_line, alt_odds = find_best_alt_line(
+                        outcomes, game.direction, game.line, is_spread=False
+                    )
+                    if alt_line is not None:
+                        game.alt_total_line = alt_line
+                        game.alt_total_odds = alt_odds
+                        alt_lines_found += 1
+                
+                elif market_key == "alternate_spreads" and game.spread_is_qualified and game.spread_direction:
+                    alt_line, alt_odds = find_best_alt_line(
+                        outcomes, game.spread_direction, game.spread_line, 
+                        is_spread=True, home_team=home_team
+                    )
+                    if alt_line is not None:
+                        game.alt_spread_line = alt_line
+                        game.alt_spread_odds = alt_odds
+                        alt_lines_found += 1
+                        
+        except Exception as e:
+            print(f"Alt lines error for {game.away_team}@{game.home_team}: {e}")
+    
+    db.session.commit()
+    return jsonify({"success": True, "alt_lines_found": alt_lines_found, "games_checked": len(all_qualified)})
 
 @app.route('/post_discord', methods=['POST'])
 def post_discord():

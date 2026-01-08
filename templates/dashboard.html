@@ -90,6 +90,10 @@
         .btn-fetch:hover { background: var(--bg-card); border-color: var(--accent); color: var(--text); transform: translateY(-1px); }
         .btn-fetch.odds { border-color: var(--gold); color: var(--gold); }
         .btn-fetch.odds:hover { background: rgba(255, 215, 0, 0.1); }
+        .btn-fetch.alt { border-color: #9333EA; color: #9333EA; }
+        .btn-fetch.alt:hover { background: rgba(147, 51, 234, 0.1); }
+        .alt-line { color: #9333EA; font-size: 0.8rem; margin-top: 4px; }
+        .alt-line .odds { background: rgba(147, 51, 234, 0.2); padding: 2px 6px; border-radius: 4px; }
         .btn-discord {
             background: linear-gradient(135deg, #5865F2 0%, #7289DA 100%);
             border: none;
@@ -451,6 +455,9 @@
                     <button class="btn-fetch odds" onclick="fetchOdds()">
                         <i class="bi bi-currency-dollar"></i> Fetch Odds
                     </button>
+                    <button class="btn-fetch alt" onclick="fetchAltLines()">
+                        <i class="bi bi-lightning"></i> Alt Lines
+                    </button>
                     <button class="btn-discord" {% if not qualified %}disabled{% endif %} onclick="postDiscord()">
                         <i class="bi bi-discord"></i> Post to Discord
                     </button>
@@ -476,6 +483,9 @@
                         {{ lock.direction }}{{ lock.line }}
                     </div>
                     <div class="lock-edge">Edge: {{ "%.1f"|format(lock.edge) }}</div>
+                    {% if lock.alt_total_line %}
+                    <div class="alt-line">Alt: {{ lock.direction }}{{ lock.alt_total_line }} <span class="odds">{{ lock.alt_total_odds }}</span></div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -501,6 +511,9 @@
                         {% endif %}
                     </div>
                     <div class="lock-edge">Edge: {{ "%.1f"|format(spread_lock.spread_edge) }}</div>
+                    {% if spread_lock.alt_spread_line %}
+                    <div class="alt-line">Alt: {{ "%+.1f"|format(spread_lock.alt_spread_line) }} <span class="odds">{{ spread_lock.alt_spread_odds }}</span></div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -854,6 +867,27 @@
                     btn.disabled = false;
                     btn.innerHTML = '<i class="bi bi-currency-dollar"></i> Fetch Odds';
                 }
+            });
+        }
+
+        function fetchAltLines() {
+            const btn = event.target.closest('button');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Loading...';
+            showLoading();
+            
+            fetch('/fetch_alt_lines', {method: 'POST'})
+            .then(r => r.json())
+            .then(data => {
+                hideLoading();
+                if (data.success) {
+                    alert(`Found ${data.alt_lines_found} alternate lines (checked ${data.games_checked} games)`);
+                    window.location.reload();
+                } else {
+                    alert(data.message || 'Failed to fetch alt lines');
+                }
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-lightning"></i> Alt Lines';
             });
         }
 
