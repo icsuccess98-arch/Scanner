@@ -1486,59 +1486,76 @@ def post_discord():
     today_str = today.strftime("%B %d, %Y")
     
     all_qualified = Game.query.filter_by(date=today, is_qualified=True).order_by(Game.edge.desc()).all()
-    games = [g for g in all_qualified if not (g.game_time and 'final' in g.game_time.lower())][:5]
+    games = [g for g in all_qualified if not (g.game_time and 'final' in g.game_time.lower())]
     
     spread_qualified = Game.query.filter_by(date=today, spread_is_qualified=True).order_by(Game.spread_edge.desc()).all()
-    spread_games = [g for g in spread_qualified if not (g.game_time and 'final' in g.game_time.lower())][:3]
+    spread_games = [g for g in spread_qualified if not (g.game_time and 'final' in g.game_time.lower())]
     
     if not games and not spread_games:
         return jsonify({"success": False, "message": "No qualified picks to post"})
     
-    top_picks = games[:3]
-    
-    msg = f"🎯 PICKS OF THE DAY - {today_str}\n\n"
-    
-    if top_picks:
-        msg += "📊 **TOTALS**\n"
-        for league in ["NBA", "CBB", "NFL", "CFB", "NHL"]:
-            league_games = [g for g in top_picks if g.league == league]
-            if league_games:
-                emoji = {"NBA": "🏀", "CBB": "🏀", "NFL": "🏈", "CFB": "🏈", "NHL": "🏒"}.get(league, "🎯")
-                msg += f"{emoji} {league}\n"
-                for g in league_games:
-                    line_val = g.alt_total_line if g.alt_total_line else g.line
-                    msg += f"{g.away_team}/{g.home_team} ({g.game_time})\n"
-                    msg += f"Game Total {g.direction}{line_val}\n\n"
-        
-        lock = top_picks[0]
-        lock_line = lock.alt_total_line if lock.alt_total_line else lock.line
-        msg += f"🔒 Totals Lock:\n"
-        msg += f"{lock.away_team}/{lock.home_team} ({lock.game_time})\n"
-        msg += f"Game Total {lock.direction}{lock_line}\n\n"
-    
-    if spread_games:
-        msg += "📈 **SPREADS**\n"
-        for g in spread_games:
-            emoji = {"NBA": "🏀", "CBB": "🏀", "NFL": "🏈", "CFB": "🏈", "NHL": "🏒"}.get(g.league, "🎯")
-            if g.spread_direction == 'HOME':
-                spread_val = g.alt_spread_line if g.alt_spread_line else g.spread_line
-                pick_str = f"{g.home_team} {spread_val:+.1f}" if spread_val else g.home_team
-            else:
-                spread_val = g.alt_spread_line if g.alt_spread_line else -g.spread_line
-                pick_str = f"{g.away_team} {spread_val:+.1f}" if spread_val else g.away_team
-            msg += f"{emoji} {g.away_team}/{g.home_team}\n"
-            msg += f"{pick_str}\n\n"
-        
-        spread_lock = spread_games[0]
-        if spread_lock.spread_direction == 'HOME':
-            lock_spread_val = spread_lock.alt_spread_line if spread_lock.alt_spread_line else spread_lock.spread_line
-            lock_pick = f"{spread_lock.home_team} {lock_spread_val:+.1f}" if lock_spread_val else spread_lock.home_team
+    # Build combined picks list sorted by edge
+    combined = []
+    for g in games:
+        line_val = g.alt_total_line if g.alt_total_line else g.line
+        combined.append({
+            'game': g,
+            'edge': g.edge or 0,
+            'pick_type': 'total',
+            'pick_str': f"{g.direction}{line_val}",
+            'line_val': line_val
+        })
+    for g in spread_games:
+        if g.spread_direction == 'HOME':
+            spread_val = g.alt_spread_line if g.alt_spread_line else g.spread_line
+            pick_str = f"{g.home_team} {spread_val:+.1f}" if spread_val else g.home_team
         else:
-            lock_spread_val = spread_lock.alt_spread_line if spread_lock.alt_spread_line else -spread_lock.spread_line
-            lock_pick = f"{spread_lock.away_team} {lock_spread_val:+.1f}" if lock_spread_val else spread_lock.away_team
-        msg += f"📈 Spread Lock:\n"
-        msg += f"{spread_lock.away_team}/{spread_lock.home_team}\n"
-        msg += f"{lock_pick}\n"
+            spread_val = abs(g.alt_spread_line) if g.alt_spread_line else abs(g.spread_line) if g.spread_line else 0
+            pick_str = f"{g.away_team} +{spread_val:.1f}" if spread_val else g.away_team
+        combined.append({
+            'game': g,
+            'edge': g.spread_edge or 0,
+            'pick_type': 'spread',
+            'pick_str': pick_str,
+            'line_val': spread_val
+        })
+    combined.sort(key=lambda x: x['edge'], reverse=True)
+    top_5 = combined[:5]
+    
+    if not top_5:
+        return jsonify({"success": False, "message": "No qualified picks to post"})
+    
+    # SUPERMAX = best overall pick
+    supermax = top_5[0]
+    emoji_map = {"NBA": "🏀", "CBB": "🏀", "NFL": "🏈", "CFB": "🏈", "NHL": "🏒"}
+    
+    # Build clean Discord message
+    msg = f"# 🔒 730's LOCKS\n"
+    msg += f"**{today_str}**\n\n"
+    
+    # SUPERMAX Lock
+    sm = supermax['game']
+    sm_emoji = emoji_map.get(sm.league, "🎯")
+    sm_type = "TOTAL" if supermax['pick_type'] == 'total' else "SPREAD"
+    msg += f"## ⚡ SUPERMAX\n"
+    msg += f"{sm_emoji} **{sm.away_team} @ {sm.home_team}**\n"
+    msg += f"📍 {supermax['pick_str']} • {sm_type}\n"
+    msg += f"💰 Edge: +{supermax['edge']:.1f} pts\n\n"
+    
+    # Separator
+    msg += f"───────────────\n\n"
+    
+    # Top 5 Picks
+    msg += f"## 📊 TOP 5 PICKS\n"
+    for i, p in enumerate(top_5, 1):
+        g = p['game']
+        emoji = emoji_map.get(g.league, "🎯")
+        ptype = "T" if p['pick_type'] == 'total' else "S"
+        msg += f"{i}. {emoji} {g.away_team} @ {g.home_team}\n"
+        msg += f"   ▸ **{p['pick_str']}** ({ptype}) • +{p['edge']:.1f}\n"
+    
+    # Keep original games/spread_games for saving picks
+    top_picks = games[:3]
     
     webhook = os.environ.get("SPORTS_DISCORD_WEBHOOK")
     if webhook:
