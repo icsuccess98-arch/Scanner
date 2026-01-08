@@ -7,13 +7,13 @@ Three independent trading systems:
 3. Crypto perpetuals trading system (Coinbase Advanced Trade API)
 
 ## Recent Changes
-- January 8, 2026: 85% Historical Threshold + Spread Result Checker Fix
-  - Totals picks must meet 85% historical O/U hit rate to qualify
+- January 8, 2026: 70% Historical Threshold + Spread Result Checker Fix
+  - Totals picks must meet 70% historical O/U hit rate to qualify
   - Uses ESPN team schedules to fetch last 10 games per team
   - O/U hit rate calculated using average total as proxy for historical line
   - If either team has <5 games of history, pick is NOT qualified (conservative)
   - H2H history: Fetches head-to-head games between the two teams from ESPN
-  - H2H requirement: If 3+ H2H games exist, must also meet 85% O/U rate
+  - H2H requirement: If 3+ H2H games exist, must also meet 70% O/U rate
   - SPREADS are exempt from historical threshold (cannot calculate ATS without historical spread data)
   - Date-keyed caching for ESPN lookups (refreshes daily, speeds up subsequent calls)
   - History is fetched automatically after odds are fetched (no manual button)

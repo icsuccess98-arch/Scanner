@@ -361,8 +361,8 @@ def get_espn_team_id(team_name: str, league: str) -> Optional[str]:
             if not sport:
                 return None
             
-            url = f"https://site.api.espn.com/apis/site/v2/sports/{sport}/teams"
-            resp = requests.get(url, timeout=15)
+            url = f"https://site.api.espn.com/apis/site/v2/sports/{sport}/teams?limit=500"
+            resp = requests.get(url, timeout=30)
             if resp.status_code != 200:
                 return None
             
@@ -383,38 +383,139 @@ def get_espn_team_id(team_name: str, league: str) -> Optional[str]:
     league_cache = espn_teams_cache.get(league, {})
     
     team_aliases = {
+        # Common abbreviations
         "mtsu": "middle tennessee",
-        "utep": "utep miners",
+        "utep": "utep",
         "siue": "siu edwardsville",
-        "little rock": "arkansas-little rock",
-        "csu northridge": "cal state northridge",
-        "cal poly": "cal poly mustangs",
+        "little rock": "little rock",
+        "csu northridge": "csun",
+        "cal poly": "cal poly",
         "uconn": "connecticut",
         "umass": "massachusetts",
-        "ucf": "central florida",
-        "smu": "southern methodist",
-        "lsu": "louisiana state",
-        "ole miss": "mississippi",
+        "ucf": "ucf",
+        "smu": "smu",
+        "lsu": "lsu",
+        "ole miss": "ole miss",
         "pitt": "pittsburgh",
-        "usc": "southern california",
-        "ucla": "ucla bruins",
-        "unlv": "unlv rebels",
-        "utsa": "ut san antonio",
-        "fiu": "florida international",
-        "fau": "florida atlantic",
+        "usc": "usc",
+        "ucla": "ucla",
+        "unlv": "unlv",
+        "utsa": "utsa",
+        "fiu": "fiu",
+        "fau": "fau",
         "gw": "george washington",
-        "vcu": "virginia commonwealth",
-        "byu": "byu cougars",
-        "tcu": "texas christian",
+        "vcu": "vcu",
+        "byu": "byu",
+        "tcu": "tcu",
         "sfa": "stephen f. austin",
         "unc": "north carolina",
-        "uab": "alabama-birmingham",
-        "ualr": "arkansas-little rock",
-        "utrgv": "texas-rio grande valley",
+        "uab": "uab",
+        "ualr": "little rock",
+        "utrgv": "ut rio grande valley",
         "ul monroe": "louisiana-monroe",
         "ul lafayette": "louisiana",
-        "southern utah": "southern utah thunderbirds",
-        "utah valley": "utah valley wolverines",
+        "southern utah": "southern utah",
+        "utah valley": "utah valley",
+        # Bovada to ESPN mappings
+        "santa clara": "santa clara",
+        "gonzaga": "gonzaga",
+        "michigan st": "michigan state",
+        "ohio st": "ohio state",
+        "penn st": "penn state",
+        "florida st": "florida state",
+        "arizona st": "arizona state",
+        "oregon st": "oregon state",
+        "washington st": "washington state",
+        "kansas st": "kansas state",
+        "iowa st": "iowa state",
+        "oklahoma st": "oklahoma state",
+        "colorado st": "colorado state",
+        "boise st": "boise state",
+        "fresno st": "fresno state",
+        "san diego st": "san diego state",
+        "san jose st": "san jose state",
+        "utah st": "utah state",
+        "nc state": "nc state",
+        "miss st": "mississippi state",
+        "ark st": "arkansas state",
+        "app st": "appalachian state",
+        "ga southern": "georgia southern",
+        "ga st": "georgia state",
+        "la tech": "louisiana tech",
+        "tx state": "texas state",
+        "n texas": "north texas",
+        "w kentucky": "western kentucky",
+        "e michigan": "eastern michigan",
+        "w michigan": "western michigan",
+        "n illinois": "northern illinois",
+        "c michigan": "central michigan",
+        "ball st": "ball state",
+        "bowling green": "bowling green",
+        "kent st": "kent state",
+        "miami oh": "miami (oh)",
+        "miami fl": "miami",
+        # NHL cities to team names
+        "new york": "rangers",
+        "ny rangers": "rangers",
+        "ny islanders": "islanders",
+        "la": "kings",
+        "los angeles": "kings",
+        "montréal": "canadiens",
+        "montreal": "canadiens",
+        "st louis": "blues",
+        "tampa bay": "lightning",
+        "san jose": "sharks",
+        # More CBB aliases
+        "nc a&t": "north carolina a&t",
+        "a&m": "texas a&m",
+        "tamu": "texas a&m",
+        "sc": "south carolina",
+        "msu": "michigan state",
+        "osu": "ohio state",
+        "isu": "iowa state",
+        "ksu": "kansas state",
+        "wsu": "washington state",
+        "asu": "arizona state",
+        "csuf": "cal state fullerton",
+        "csub": "cal state bakersfield",
+        "csun": "cal state northridge",
+        "sdsu": "san diego state",
+        "sjsu": "san jose state",
+        "unt": "north texas",
+        "utep": "utep",
+        "nmsu": "new mexico state",
+        "etsu": "east tennessee state",
+        "wku": "western kentucky",
+        "eku": "eastern kentucky",
+        "nku": "northern kentucky",
+        "wvu": "west virginia",
+        "jmu": "james madison",
+        "odu": "old dominion",
+        "ecu": "east carolina",
+        "ccu": "coastal carolina",
+        "uic": "uic",
+        "uic flames": "uic",
+        "iupui": "iupui",
+        "ipfw": "purdue fort wayne",
+        "uncg": "unc greensboro",
+        "uncw": "unc wilmington",
+        "unca": "unc asheville",
+        "umes": "maryland-eastern shore",
+        "umbc": "umbc",
+        "umkc": "kansas city",
+        "ualr": "little rock",
+        "uca": "central arkansas",
+        "semo": "southeast missouri state",
+        "siu": "southern illinois",
+        "niu": "northern illinois",
+        "eiu": "eastern illinois",
+        "wiu": "western illinois",
+        "liu": "liu",
+        "st johns": "st. john's",
+        "st marys": "saint mary's",
+        "st joes": "saint joseph's",
+        "st peters": "saint peter's",
+        "st bonaventure": "st. bonaventure",
     }
     
     check_names = [team_lower]
@@ -427,6 +528,9 @@ def get_espn_team_id(team_name: str, league: str) -> Optional[str]:
         
         for cached_name, team_id in league_cache.items():
             if check_name in cached_name or cached_name in check_name:
+                return team_id
+            words = check_name.split()
+            if len(words) >= 1 and words[0] in cached_name:
                 return team_id
     
     return None
@@ -680,12 +784,12 @@ def fetch_h2h_history(team1: str, team2: str, league: str, direction: str = "O")
 def update_game_historical_data(game: Game) -> bool:
     """
     Fetch and update historical percentages for a game.
-    Returns True if game meets 85% threshold.
+    Returns True if game meets 70% threshold.
     
-    85% threshold applies to TOTALS picks only (O/U).
+    70% threshold applies to TOTALS picks only (O/U).
     Qualification requires:
-    1. Both teams' last 10 games O/U hit rate >= 85%
-    2. H2H O/U hit rate >= 85% (if 3+ H2H games exist)
+    1. Both teams' last 10 games O/U hit rate >= 70%
+    2. H2H O/U hit rate >= 70% (if 3+ H2H games exist)
     
     For SPREADS: Cannot calculate ATS without historical spread data, so spreads
     are NOT subject to the historical threshold.
@@ -713,10 +817,10 @@ def update_game_historical_data(game: Game) -> bool:
         h2h_games = h2h["games_found"]
         
         min_ou_pct = min(game.away_ou_pct or 0, game.home_ou_pct or 0)
-        teams_qualified = min_ou_pct >= 85
+        teams_qualified = min_ou_pct >= 70
         
         if h2h_games >= 3:
-            h2h_qualified = (game.h2h_ou_pct or 0) >= 85
+            h2h_qualified = (game.h2h_ou_pct or 0) >= 70
             game.history_qualified = teams_qualified and h2h_qualified
             logger.info(f"{game.away_team} @ {game.home_team}: Teams O/U {game.away_ou_pct:.1f}%/{game.home_ou_pct:.1f}%, H2H {game.h2h_ou_pct:.1f}% ({h2h_games} games), qualified={game.history_qualified}")
         else:
