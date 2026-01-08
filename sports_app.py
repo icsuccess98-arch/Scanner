@@ -485,7 +485,7 @@ def dashboard():
     et = pytz.timezone('America/New_York')
     today = datetime.now(et).date()
     show_only_qualified = request.args.get('qualified', '0') == '1'
-    show_with_lines = request.args.get('with_lines', '1') == '1'  # Default to showing only games with lines
+    show_with_lines = request.args.get('with_lines', '0') == '1'  # Default to showing all games
     
     old_game_ids = [g.id for g in Game.query.filter(Game.date < today).all()]
     if old_game_ids:
