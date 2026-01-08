@@ -1533,20 +1533,38 @@ def post_discord():
     msg = f"🔒 730's LOCKS\n"
     msg += f"{today_str}\n\n"
     
+    # Helper to format pick with odds
+    def format_pick(p):
+        g = p['game']
+        if p['pick_type'] == 'total':
+            line = g.alt_total_line if g.alt_total_line else g.line
+            odds = g.alt_total_odds if g.alt_total_odds else None
+            pick_str = f"{g.direction}{line:.0f}" if line else p['pick_str']
+        else:
+            line = g.alt_spread_line if g.alt_spread_line else abs(g.spread_line) if g.spread_line else None
+            odds = g.alt_spread_odds if g.alt_spread_odds else None
+            if g.spread_direction == 'HOME':
+                pick_str = f"{g.home_team} {line:+.0f}" if line else g.home_team
+            else:
+                pick_str = f"{g.away_team} +{line:.0f}" if line else g.away_team
+        if odds:
+            pick_str += f" ({odds:+.0f})"
+        return pick_str
+    
     # Lock of the Day
     sm = supermax['game']
     sm_emoji = emoji_map.get(sm.league, "🎯")
     msg += f"⚡ LOCK OF THE DAY\n"
-    msg += f"{sm_emoji} {sm.away_team} @ {sm.home_team}\n"
-    msg += f"{supermax['pick_str']}\n\n"
+    msg += f"{sm_emoji} {sm.away_team}/{sm.home_team}\n"
+    msg += f"{format_pick(supermax)}\n\n"
     
-    # Top 5 Picks (skip #1 since it's the lock)
+    # Top Picks (skip #1 since it's the lock)
     msg += f"📊 TOP PICKS\n"
-    for i, p in enumerate(top_5[1:5], 2):
+    for p in top_5[1:5]:
         g = p['game']
         emoji = emoji_map.get(g.league, "🎯")
-        msg += f"{emoji} {g.away_team} @ {g.home_team}\n"
-        msg += f"{p['pick_str']}\n\n"
+        msg += f"{emoji} {g.away_team}/{g.home_team}\n"
+        msg += f"{format_pick(p)}\n\n"
     
     # Keep original games/spread_games for saving picks
     top_picks = games[:3]
