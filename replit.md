@@ -7,12 +7,14 @@ Three independent trading systems:
 3. Crypto perpetuals trading system (Coinbase Advanced Trade API)
 
 ## Recent Changes
-- January 8, 2026: Official League Logos + Dynamic UI Colors
+- January 8, 2026: Official League Logos + Bovada-Only Enforcement
   - Added official NBA, NFL, NHL, NCAA logos from ESPN CDN for league sections
   - League-specific gradient colors on game card left borders (NBA red/blue, NFL blue/red, NHL black/silver, etc.)
   - Game cards have hover effects with shadows for FanDuel-like interactivity
   - Lock card now has golden glow effect
   - Qualified cards have green gradient background
+  - Alt line odds strictly -180 or better (no worse odds = not a lock)
+  - Only games with Bovada lines displayed (filtered by line or spread_line not null)
 - January 8, 2026: UI Refresh + Mobile Optimization + FK Fix
   - Jewel-tone color palette (emerald, sapphire, amber, crimson, ice)
   - Mobile sticky action bar (Fetch/Discord buttons) for thumb access
