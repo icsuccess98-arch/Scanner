@@ -7,8 +7,10 @@ Three independent trading systems:
 3. Crypto perpetuals trading system (Coinbase Advanced Trade API)
 
 ## Recent Changes
-- January 8, 2026: Historical Qualification Required for ALL Picks
+- January 8, 2026: Speed Optimization + Historical Qualification for ALL Picks
+  - Parallel alt line fetching (10 concurrent workers) - reduced fetch time from 17s to ~12-15s
   - Both TOTALS and SPREADS now require history_qualified=True to display
+  - History check runs automatically after fetch (no manual button needed)
   - Games show 0 qualified until historical data is fetched (conservative approach)
   - Discord only posts picks that pass both edge threshold AND historical check
   - This prevents sending picks without proven historical performance

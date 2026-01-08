@@ -4,6 +4,7 @@ import time
 from datetime import datetime, date, timedelta
 from typing import Tuple, Optional
 from functools import wraps
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import Flask, render_template, request, jsonify, redirect, url_for, make_response
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase, validates
@@ -2224,7 +2225,7 @@ def fetch_history_internal() -> dict:
     db.session.commit()
     
     return {
-        "history_updated": history_updated,
+        "games_checked": history_updated,
         "history_qualified": history_qualified
     }
 
@@ -2327,8 +2328,64 @@ def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_s
     logger.info(f"  Selected: {best_line} ({best_odds})")
     return best_line, best_odds
 
+def fetch_single_alt_line(game_info: dict, api_key: str) -> dict:
+    """Fetch alt lines for a single game (used in parallel)."""
+    game_id = game_info['id']
+    event_id = game_info['event_id']
+    sport_key = game_info['sport_key']
+    
+    result = {'game_id': game_id, 'alt_total': None, 'alt_spread': None}
+    
+    try:
+        url = f"https://api.the-odds-api.com/v4/sports/{sport_key}/events/{event_id}/odds"
+        params = {
+            "apiKey": api_key,
+            "regions": "us",
+            "markets": "alternate_totals,alternate_spreads",
+            "oddsFormat": "american",
+            "bookmakers": "bovada"
+        }
+        resp = requests.get(url, params=params, timeout=15)
+        if resp.status_code != 200:
+            return result
+        
+        data = resp.json()
+        bookmakers = data.get("bookmakers", [])
+        book = next((b for b in bookmakers if b.get("key") == "bovada"), None)
+        if not book:
+            return result
+        
+        markets = book.get("markets", [])
+        home_team = data.get("home_team", game_info['home_team'])
+        game_name = f"{game_info['away_team']}@{game_info['home_team']}"
+        
+        for market in markets:
+            market_key = market.get("key")
+            outcomes = market.get("outcomes", [])
+            
+            if market_key == "alternate_totals" and game_info['is_qualified'] and game_info['direction']:
+                alt_line, alt_odds = find_best_alt_line(
+                    outcomes, game_info['direction'], game_info['line'], is_spread=False, debug_game=game_name
+                )
+                if alt_line is not None:
+                    result['alt_total'] = (alt_line, alt_odds)
+                    logger.info(f"Alt total found: {game_name} {game_info['direction']}{alt_line} ({alt_odds})")
+            
+            elif market_key == "alternate_spreads" and game_info['spread_is_qualified'] and game_info['spread_direction']:
+                alt_line, alt_odds = find_best_alt_line(
+                    outcomes, game_info['spread_direction'], game_info['spread_line'],
+                    is_spread=True, home_team=home_team, debug_game=game_name
+                )
+                if alt_line is not None:
+                    result['alt_spread'] = (alt_line, alt_odds)
+                    logger.info(f"Alt spread found: {game_name} {game_info['spread_direction']} {alt_line} ({alt_odds})")
+    except Exception as e:
+        logger.error(f"Alt lines error for game {game_id}: {e}")
+    
+    return result
+
 def fetch_alt_lines_internal() -> dict:
-    """Internal function to fetch alternate lines for qualified games."""
+    """Internal function to fetch alternate lines for qualified games (parallel)."""
     api_key = os.environ.get("ODDS_API_KEY")
     if not api_key:
         logger.warning("No ODDS_API_KEY for alt lines fetch")
@@ -2349,68 +2406,34 @@ def fetch_alt_lines_internal() -> dict:
         Game.event_id.isnot(None)
     ).all()
     
-    all_qualified = list(set(qualified_totals + qualified_spreads))
-    logger.info(f"Alt lines: checking {len(all_qualified)} qualified games")
+    all_qualified = list({g.id: g for g in (qualified_totals + qualified_spreads)}.values())
+    logger.info(f"Alt lines: checking {len(all_qualified)} qualified games (parallel)")
+    
+    game_infos = [{
+        'id': g.id, 'event_id': g.event_id, 'sport_key': g.sport_key,
+        'away_team': g.away_team, 'home_team': g.home_team,
+        'is_qualified': g.is_qualified, 'direction': g.direction, 'line': g.line,
+        'spread_is_qualified': g.spread_is_qualified, 'spread_direction': g.spread_direction, 'spread_line': g.spread_line
+    } for g in all_qualified if g.event_id and g.sport_key]
     
     alt_lines_found = 0
+    results = {}
+    
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {executor.submit(fetch_single_alt_line, info, api_key): info['id'] for info in game_infos}
+        for future in as_completed(futures):
+            result = future.result()
+            results[result['game_id']] = result
     
     for game in all_qualified:
-        if not game.event_id or not game.sport_key:
-            continue
-            
-        try:
-            url = f"https://api.the-odds-api.com/v4/sports/{game.sport_key}/events/{game.event_id}/odds"
-            params = {
-                "apiKey": api_key,
-                "regions": "us",
-                "markets": "alternate_totals,alternate_spreads",
-                "oddsFormat": "american",
-                "bookmakers": "bovada"
-            }
-            resp = requests.get(url, params=params, timeout=30)
-            if resp.status_code != 200:
-                logger.warning(f"Alt lines API error for {game.away_team}@{game.home_team}: {resp.status_code}")
-                continue
-            
-            data = resp.json()
-            bookmakers = data.get("bookmakers", [])
-            
-            book = next((b for b in bookmakers if b.get("key") == "bovada"), None)
-            if not book:
-                logger.debug(f"No Bovada alt lines for {game.away_team}@{game.home_team}")
-                continue
-            
-            markets = book.get("markets", [])
-            home_team = data.get("home_team", game.home_team)
-            
-            game_name = f"{game.away_team}@{game.home_team}"
-            for market in markets:
-                market_key = market.get("key")
-                outcomes = market.get("outcomes", [])
-                
-                if market_key == "alternate_totals" and game.is_qualified and game.direction:
-                    alt_line, alt_odds = find_best_alt_line(
-                        outcomes, game.direction, game.line, is_spread=False, debug_game=game_name
-                    )
-                    if alt_line is not None:
-                        game.alt_total_line = alt_line
-                        game.alt_total_odds = alt_odds
-                        alt_lines_found += 1
-                        logger.info(f"Alt total found: {game_name} {game.direction}{alt_line} ({alt_odds})")
-                
-                elif market_key == "alternate_spreads" and game.spread_is_qualified and game.spread_direction:
-                    alt_line, alt_odds = find_best_alt_line(
-                        outcomes, game.spread_direction, game.spread_line, 
-                        is_spread=True, home_team=home_team, debug_game=game_name
-                    )
-                    if alt_line is not None:
-                        game.alt_spread_line = alt_line
-                        game.alt_spread_odds = alt_odds
-                        alt_lines_found += 1
-                        logger.info(f"Alt spread found: {game_name} {game.spread_direction} {alt_line} ({alt_odds})")
-                        
-        except Exception as e:
-            logger.error(f"Alt lines error for {game.away_team}@{game.home_team}: {e}")
+        if game.id in results:
+            r = results[game.id]
+            if r['alt_total']:
+                game.alt_total_line, game.alt_total_odds = r['alt_total']
+                alt_lines_found += 1
+            if r['alt_spread']:
+                game.alt_spread_line, game.alt_spread_odds = r['alt_spread']
+                alt_lines_found += 1
     
     db.session.commit()
     return {"alt_lines_found": alt_lines_found, "games_checked": len(all_qualified)}
