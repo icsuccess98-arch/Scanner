@@ -1433,7 +1433,7 @@ def fetch_alt_lines_internal() -> dict:
                 "regions": "us",
                 "markets": "alternate_totals,alternate_spreads",
                 "oddsFormat": "american",
-                "bookmakers": "fanduel,draftkings"
+                "bookmakers": "fanduel"
             }
             resp = requests.get(url, params=params, timeout=30)
             if resp.status_code != 200:
