@@ -784,12 +784,12 @@ def fetch_h2h_history(team1: str, team2: str, league: str, direction: str = "O")
 def update_game_historical_data(game: Game) -> bool:
     """
     Fetch and update historical percentages for a game.
-    Returns True if game meets 70% threshold.
+    Returns True if game meets 60% threshold.
     
-    70% threshold applies to TOTALS picks only (O/U).
+    60% threshold applies to TOTALS picks only (O/U).
     Qualification requires:
-    1. Both teams' last 10 games O/U hit rate >= 70%
-    2. H2H O/U hit rate >= 70% (if 3+ H2H games exist)
+    1. Both teams' last 10 games O/U hit rate >= 60%
+    2. H2H O/U hit rate >= 60% (if 3+ H2H games exist)
     
     For SPREADS: Cannot calculate ATS without historical spread data, so spreads
     are NOT subject to the historical threshold.
@@ -817,10 +817,10 @@ def update_game_historical_data(game: Game) -> bool:
         h2h_games = h2h["games_found"]
         
         min_ou_pct = min(game.away_ou_pct or 0, game.home_ou_pct or 0)
-        teams_qualified = min_ou_pct >= 70
+        teams_qualified = min_ou_pct >= 60
         
         if h2h_games >= 3:
-            h2h_qualified = (game.h2h_ou_pct or 0) >= 70
+            h2h_qualified = (game.h2h_ou_pct or 0) >= 60
             game.history_qualified = teams_qualified and h2h_qualified
             logger.info(f"{game.away_team} @ {game.home_team}: Teams O/U {game.away_ou_pct:.1f}%/{game.home_ou_pct:.1f}%, H2H {game.h2h_ou_pct:.1f}% ({h2h_games} games), qualified={game.history_qualified}")
         else:
