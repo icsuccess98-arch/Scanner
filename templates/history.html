@@ -232,12 +232,7 @@
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <span><i class="bi bi-clock-history"></i> Pick History</span>
-                <div>
-                    <button class="btn btn-sm btn-outline-info me-2" onclick="checkResults()" id="checkResultsBtn">
-                        <i class="bi bi-arrow-clockwise"></i> Check Results
-                    </button>
-                    <span class="text-muted">{{ picks|length }} picks</span>
-                </div>
+                <span class="text-muted">{{ picks|length }} picks</span>
             </div>
             <div class="table-responsive">
                 <table class="table">
@@ -320,24 +315,6 @@
             .then(r => r.json())
             .then(data => {
                 if (data.success && result) location.reload();
-            });
-        }
-        
-        function checkResults() {
-            const btn = document.getElementById('checkResultsBtn');
-            btn.disabled = true;
-            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Checking...';
-            
-            fetch('/check_results', { method: 'POST' })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    location.reload();
-                }
-            })
-            .catch(err => {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Check Results';
             });
         }
     </script>
