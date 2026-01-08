@@ -494,6 +494,10 @@ def dashboard():
     qualified = [g for g in all_games if g.is_qualified]
     lock = qualified[0] if qualified else None
     
+    spread_qualified = [g for g in all_games if g.spread_is_qualified]
+    spread_qualified.sort(key=lambda x: x.spread_edge or 0, reverse=True)
+    spread_lock = spread_qualified[0] if spread_qualified else None
+    
     if show_only_qualified:
         games = qualified
     else:
@@ -507,7 +511,12 @@ def dashboard():
         'avg_edge': 0,
         'over_count': 0,
         'under_count': 0,
-        'top_picks': []
+        'top_picks': [],
+        'spread_qualified': len(spread_qualified),
+        'spread_best_edge': spread_lock.spread_edge if spread_lock else 0,
+        'spread_home_count': len([g for g in spread_qualified if g.spread_direction == 'HOME']),
+        'spread_away_count': len([g for g in spread_qualified if g.spread_direction == 'AWAY']),
+        'spread_top_picks': spread_qualified[:5]
     }
     
     for league in ['NBA', 'CBB', 'NFL', 'CFB', 'NHL']:
@@ -545,7 +554,8 @@ def dashboard():
     
     return render_template('dashboard.html', games=games, qualified=qualified, lock=lock, 
                           today=today, thresholds=THRESHOLDS, total_games=len(all_games),
-                          show_only_qualified=show_only_qualified, analytics=analytics)
+                          show_only_qualified=show_only_qualified, analytics=analytics,
+                          spread_qualified=spread_qualified, spread_lock=spread_lock)
 
 @app.route('/health')
 def health():
@@ -1154,6 +1164,7 @@ def fetch_odds():
     }
     
     lines_updated = 0
+    spreads_updated = 0
     
     for league, sport_key in sport_map.items():
         try:
@@ -1161,7 +1172,7 @@ def fetch_odds():
             params = {
                 "apiKey": api_key,
                 "regions": "us",
-                "markets": "totals",
+                "markets": "totals,spreads",
                 "oddsFormat": "american",
                 "bookmakers": "bovada,fanduel"
             }
@@ -1205,13 +1216,17 @@ def fetch_odds():
                                     for outcome in outcomes:
                                         if outcome.get("name") == "Over":
                                             line = outcome.get("point")
-                                            if line:
+                                            if line is not None:
                                                 game.line = line
                                                 if all([game.away_ppg, game.away_opp_ppg, game.home_ppg, game.home_opp_ppg]):
-                                                    game.projected_total = calculate_projection(
+                                                    exp_away, exp_home, proj_total = calculate_expected_scores(
                                                         game.away_ppg, game.away_opp_ppg, 
                                                         game.home_ppg, game.home_opp_ppg
                                                     )
+                                                    game.expected_away = exp_away
+                                                    game.expected_home = exp_home
+                                                    game.projected_total = proj_total
+                                                    game.projected_margin = exp_home - exp_away
                                                     qualified, direction, edge = check_qualification(
                                                         game.projected_total, game.line, game.league
                                                     )
@@ -1220,12 +1235,34 @@ def fetch_odds():
                                                     game.edge = edge
                                                 lines_updated += 1
                                             break
-                                    break
+                                elif market.get("key") == "spreads":
+                                    outcomes = market.get("outcomes", [])
+                                    for outcome in outcomes:
+                                        if teams_match(outcome.get("name", ""), home_team):
+                                            spread_line = outcome.get("point")
+                                            if spread_line is not None:
+                                                game.spread_line = spread_line
+                                                if all([game.away_ppg, game.away_opp_ppg, game.home_ppg, game.home_opp_ppg]):
+                                                    exp_away, exp_home, _ = calculate_expected_scores(
+                                                        game.away_ppg, game.away_opp_ppg, 
+                                                        game.home_ppg, game.home_opp_ppg
+                                                    )
+                                                    game.expected_away = exp_away
+                                                    game.expected_home = exp_home
+                                                    game.projected_margin = exp_home - exp_away
+                                                    spread_qual, spread_dir, spread_edge = check_spread_qualification(
+                                                        exp_away, exp_home, spread_line, game.league
+                                                    )
+                                                    game.spread_is_qualified = spread_qual
+                                                    game.spread_direction = spread_dir
+                                                    game.spread_edge = spread_edge
+                                                spreads_updated += 1
+                                            break
         except Exception as e:
             print(f"Odds fetch error for {league}: {e}")
     
     db.session.commit()
-    return jsonify({"success": True, "lines_updated": lines_updated})
+    return jsonify({"success": True, "lines_updated": lines_updated, "spreads_updated": spreads_updated})
 
 @app.route('/post_discord', methods=['POST'])
 def post_discord():

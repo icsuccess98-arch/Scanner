@@ -464,7 +464,7 @@
         <div class="lock-hero">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
                 <div>
-                    <span class="lock-badge"><i class="bi bi-lock-fill"></i> LOCK OF THE DAY</span>
+                    <span class="lock-badge"><i class="bi bi-lock-fill"></i> TOTALS LOCK</span>
                     <span class="badge league-icon {{ lock.league|lower }} ms-2">{{ lock.league }}</span>
                 </div>
                 <div class="text-center flex-grow-1">
@@ -476,6 +476,31 @@
                         {{ lock.direction }}{{ lock.line }}
                     </div>
                     <div class="lock-edge">Edge: {{ "%.1f"|format(lock.edge) }}</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        {% if spread_lock %}
+        <div class="lock-hero" style="border-color: var(--accent); background: linear-gradient(135deg, rgba(76, 130, 255, 0.15) 0%, rgba(76, 130, 255, 0.05) 100%);">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div>
+                    <span class="lock-badge" style="background: linear-gradient(135deg, var(--accent) 0%, #6B9FFF 100%);"><i class="bi bi-graph-up"></i> SPREAD LOCK</span>
+                    <span class="badge league-icon {{ spread_lock.league|lower }} ms-2">{{ spread_lock.league }}</span>
+                </div>
+                <div class="text-center flex-grow-1">
+                    <div class="lock-matchup">{{ spread_lock.away_team }} @ {{ spread_lock.home_team }}</div>
+                    <div class="game-time">{{ spread_lock.game_time }}</div>
+                </div>
+                <div class="text-end">
+                    <div class="lock-pick" style="background: linear-gradient(135deg, var(--accent) 0%, #6B9FFF 100%); -webkit-background-clip: text;">
+                        {% if spread_lock.spread_direction == 'HOME' %}
+                        {{ spread_lock.home_team }} {{ spread_lock.spread_line|round(1) }}
+                        {% else %}
+                        {{ spread_lock.away_team }} {{ (spread_lock.spread_line * -1)|round(1) if spread_lock.spread_line else '' }}
+                        {% endif %}
+                    </div>
+                    <div class="lock-edge">Edge: {{ "%.1f"|format(spread_lock.spread_edge) }}</div>
                 </div>
             </div>
         </div>
@@ -549,6 +574,53 @@
                     {% endfor %}
                     {% if not analytics.top_picks %}
                     <div class="text-muted" style="font-size: 0.8rem;">No qualified picks yet</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="analytics-section" style="border-color: var(--accent); margin-top: 1.5rem;">
+            <div class="analytics-header">
+                <div class="analytics-title"><i class="bi bi-bar-chart-fill"></i> Spread Analysis</div>
+            </div>
+            
+            <div class="analytics-grid">
+                <div class="analytics-card">
+                    <div class="analytics-card-value" style="color: var(--accent);">{{ analytics.spread_qualified }}</div>
+                    <div class="analytics-card-label">Qualified</div>
+                </div>
+                <div class="analytics-card">
+                    <div class="analytics-card-value" style="color: var(--gold);">{{ "%.1f"|format(analytics.spread_best_edge) if analytics.spread_best_edge else '0.0' }}</div>
+                    <div class="analytics-card-label">Best Edge</div>
+                </div>
+                <div class="analytics-card">
+                    <div class="d-flex justify-content-center gap-2 mb-1">
+                        <span class="direction-chip" style="background: rgba(76, 130, 255, 0.15); color: var(--accent);">H {{ analytics.spread_home_count }}</span>
+                        <span class="direction-chip" style="background: rgba(255, 165, 0, 0.15); color: orange;">A {{ analytics.spread_away_count }}</span>
+                    </div>
+                    <div class="analytics-card-label">Home / Away</div>
+                </div>
+            </div>
+            
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="mb-2" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">TOP 5 SPREAD PICKS</div>
+                    {% for pick in analytics.spread_top_picks %}
+                    <div class="top-pick-row">
+                        <span class="badge league-icon {{ pick.league|lower }}" style="width: 36px; height: 24px; font-size: 0.65rem;">{{ pick.league }}</span>
+                        <span class="top-pick-matchup ms-2">{{ pick.away_team }} @ {{ pick.home_team }}</span>
+                        <span class="direction-chip" style="background: rgba(76, 130, 255, 0.15); color: var(--accent);">
+                            {% if pick.spread_direction == 'HOME' %}
+                            {{ pick.home_team[:8] }} {{ pick.spread_line|round(1) }}
+                            {% else %}
+                            {{ pick.away_team[:8] }} {{ (pick.spread_line * -1)|round(1) if pick.spread_line else '' }}
+                            {% endif %}
+                        </span>
+                        <span class="top-pick-edge">+{{ "%.1f"|format(pick.spread_edge) }}</span>
+                    </div>
+                    {% endfor %}
+                    {% if not analytics.spread_top_picks %}
+                    <div class="text-muted" style="font-size: 0.8rem;">No qualified spread picks yet</div>
                     {% endif %}
                 </div>
             </div>
