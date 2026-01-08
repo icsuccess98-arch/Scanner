@@ -1530,29 +1530,23 @@ def post_discord():
     emoji_map = {"NBA": "🏀", "CBB": "🏀", "NFL": "🏈", "CFB": "🏈", "NHL": "🏒"}
     
     # Build clean Discord message
-    msg = f"# 🔒 730's LOCKS\n"
-    msg += f"**{today_str}**\n\n"
+    msg = f"🔒 730's LOCKS\n"
+    msg += f"{today_str}\n\n"
     
-    # SUPERMAX Lock
+    # Lock of the Day
     sm = supermax['game']
     sm_emoji = emoji_map.get(sm.league, "🎯")
-    sm_type = "TOTAL" if supermax['pick_type'] == 'total' else "SPREAD"
-    msg += f"## ⚡ SUPERMAX\n"
-    msg += f"{sm_emoji} **{sm.away_team} @ {sm.home_team}**\n"
-    msg += f"📍 {supermax['pick_str']} • {sm_type}\n"
-    msg += f"💰 Edge: +{supermax['edge']:.1f} pts\n\n"
+    msg += f"⚡ LOCK OF THE DAY\n"
+    msg += f"{sm_emoji} {sm.away_team} @ {sm.home_team}\n"
+    msg += f"{supermax['pick_str']}\n\n"
     
-    # Separator
-    msg += f"───────────────\n\n"
-    
-    # Top 5 Picks
-    msg += f"## 📊 TOP 5 PICKS\n"
-    for i, p in enumerate(top_5, 1):
+    # Top 5 Picks (skip #1 since it's the lock)
+    msg += f"📊 TOP PICKS\n"
+    for i, p in enumerate(top_5[1:5], 2):
         g = p['game']
         emoji = emoji_map.get(g.league, "🎯")
-        ptype = "T" if p['pick_type'] == 'total' else "S"
-        msg += f"{i}. {emoji} {g.away_team} @ {g.home_team}\n"
-        msg += f"   ▸ **{p['pick_str']}** ({ptype}) • +{p['edge']:.1f}\n"
+        msg += f"{emoji} {g.away_team} @ {g.home_team}\n"
+        msg += f"{p['pick_str']}\n\n"
     
     # Keep original games/spread_games for saving picks
     top_picks = games[:3]
