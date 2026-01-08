@@ -516,10 +516,6 @@
                         <span class="value" style="color: var(--accent);">{{ spread_qualified|length }}</span>
                         <span class="label">Spreads</span>
                     </div>
-                    <div class="stat-pill" style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(167, 139, 250, 0.1) 100%); border-color: #8B5CF6;">
-                        <span class="value" style="color: #8B5CF6;">{{ analytics.history_qualified or 0 }}</span>
-                        <span class="label">85% Hit</span>
-                    </div>
                     <div class="stat-pill">
                         <span class="value">{{ total_games }}</span>
                         <span class="label">Games Today</span>
@@ -531,9 +527,6 @@
                     </button>
                     <button class="btn-fetch odds" onclick="fetchOdds()">
                         <i class="bi bi-currency-dollar"></i> Fetch Odds
-                    </button>
-                    <button class="btn-fetch history" onclick="fetchHistory()" style="background: linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%);">
-                        <i class="bi bi-clock-history"></i> Fetch History
                     </button>
                     <button class="btn-discord" {% if not qualified %}disabled{% endif %} onclick="postDiscord()">
                         <i class="bi bi-discord"></i> Post to Discord
@@ -923,27 +916,6 @@
                     alert(data.message || 'Failed to fetch odds');
                     btn.disabled = false;
                     btn.innerHTML = '<i class="bi bi-currency-dollar"></i> Fetch Odds';
-                }
-            });
-        }
-
-        function fetchHistory() {
-            const btn = event.target.closest('button');
-            btn.disabled = true;
-            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Checking History...';
-            showLoading();
-            
-            fetch('/fetch_history', {method: 'POST'})
-            .then(r => r.json())
-            .then(data => {
-                hideLoading();
-                if (data.success) {
-                    alert(`History checked for ${data.history_updated} games. ${data.history_qualified} meet 85% threshold.`);
-                    window.location.reload();
-                } else {
-                    alert(data.message || 'Failed to fetch history');
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="bi bi-clock-history"></i> Fetch History';
                 }
             });
         }

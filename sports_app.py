@@ -341,49 +341,65 @@ def fetch_espn_scoreboard(league: str, date_str: str, timeout: int = 15) -> dict
     
     return fetch_url(url, timeout)
 
+espn_teams_cache: dict = {}  # league -> {team_name: team_id}
+espn_schedule_cache: dict = {}  # "league:team_name" -> games list
+
 def get_espn_team_id(team_name: str, league: str) -> Optional[str]:
-    """Get ESPN team ID from team name using search endpoint."""
-    try:
-        sport_map = {
-            "NBA": "basketball/nba",
-            "CBB": "basketball/mens-college-basketball",
-            "NFL": "football/nfl",
-            "CFB": "football/college-football",
-            "NHL": "hockey/nhl"
-        }
-        sport = sport_map.get(league)
-        if not sport:
+    """Get ESPN team ID from team name using search endpoint with caching."""
+    cache_key = f"{league}:{team_name.lower()}"
+    
+    if league not in espn_teams_cache:
+        try:
+            sport_map = {
+                "NBA": "basketball/nba",
+                "CBB": "basketball/mens-college-basketball",
+                "NFL": "football/nfl",
+                "CFB": "football/college-football",
+                "NHL": "hockey/nhl"
+            }
+            sport = sport_map.get(league)
+            if not sport:
+                return None
+            
+            url = f"https://site.api.espn.com/apis/site/v2/sports/{sport}/teams"
+            resp = requests.get(url, timeout=15)
+            if resp.status_code != 200:
+                return None
+            
+            teams = resp.json().get("sports", [{}])[0].get("leagues", [{}])[0].get("teams", [])
+            espn_teams_cache[league] = {}
+            for t in teams:
+                team_data = t.get("team", {})
+                team_id = team_data.get("id")
+                for name_key in ["displayName", "shortDisplayName", "name", "abbreviation", "location"]:
+                    name = team_data.get(name_key, "").lower()
+                    if name:
+                        espn_teams_cache[league][name] = team_id
+        except Exception as e:
+            logger.error(f"Error loading ESPN teams for {league}: {e}")
             return None
-        
-        url = f"https://site.api.espn.com/apis/site/v2/sports/{sport}/teams"
-        resp = requests.get(url, timeout=15)
-        if resp.status_code != 200:
-            return None
-        
-        teams = resp.json().get("sports", [{}])[0].get("leagues", [{}])[0].get("teams", [])
-        for t in teams:
-            team_data = t.get("team", {})
-            names_to_check = [
-                team_data.get("displayName", "").lower(),
-                team_data.get("shortDisplayName", "").lower(),
-                team_data.get("name", "").lower(),
-                team_data.get("abbreviation", "").lower(),
-                team_data.get("location", "").lower()
-            ]
-            team_lower = team_name.lower()
-            for name in names_to_check:
-                if name and (team_lower in name or name in team_lower):
-                    return team_data.get("id")
-        return None
-    except Exception as e:
-        logger.error(f"Error getting team ID for {team_name}: {e}")
-        return None
+    
+    team_lower = team_name.lower()
+    league_cache = espn_teams_cache.get(league, {})
+    
+    if team_lower in league_cache:
+        return league_cache[team_lower]
+    
+    for cached_name, team_id in league_cache.items():
+        if team_lower in cached_name or cached_name in team_lower:
+            return team_id
+    
+    return None
 
 def fetch_team_last_10_games(team_name: str, league: str) -> list:
     """
-    Fetch team's last 10 completed games from ESPN.
+    Fetch team's last 10 completed games from ESPN with caching.
     Returns list of game dicts with: total_score, opponent_score, was_home
     """
+    cache_key = f"{league}:{team_name.lower()}"
+    if cache_key in espn_schedule_cache:
+        return espn_schedule_cache[cache_key]
+    
     try:
         sport_map = {
             "NBA": "basketball/nba",
@@ -443,7 +459,9 @@ def fetch_team_last_10_games(team_name: str, league: str) -> list:
                 "margin": team_score - opp_score
             })
         
-        return completed_games[-10:] if len(completed_games) >= 10 else completed_games
+        result = completed_games[-10:] if len(completed_games) >= 10 else completed_games
+        espn_schedule_cache[cache_key] = result
+        return result
     except Exception as e:
         logger.error(f"Error fetching history for {team_name}: {e}")
         return []
@@ -1538,16 +1556,19 @@ def fetch_odds():
     
     alt_lines_result = fetch_alt_lines_internal()
     
+    # Automatically fetch historical data for qualified games (85% threshold)
+    history_result = fetch_history_internal()
+    
     return jsonify({
         "success": True, 
         "lines_updated": lines_updated, 
         "spreads_updated": spreads_updated,
-        "alt_lines_found": alt_lines_result.get("alt_lines_found", 0)
+        "alt_lines_found": alt_lines_result.get("alt_lines_found", 0),
+        "history_qualified": history_result.get("history_qualified", 0)
     })
 
-@app.route('/fetch_history', methods=['POST'])
-def fetch_history():
-    """Fetch historical data for qualified games to apply 85% threshold."""
+def fetch_history_internal() -> dict:
+    """Internal function to fetch historical data for qualified games."""
     et = pytz.timezone('America/New_York')
     today = datetime.now(et).date()
     
@@ -1568,11 +1589,16 @@ def fetch_history():
     
     db.session.commit()
     
-    return jsonify({
-        "success": True,
+    return {
         "history_updated": history_updated,
         "history_qualified": history_qualified
-    })
+    }
+
+@app.route('/fetch_history', methods=['POST'])
+def fetch_history():
+    """Fetch historical data for qualified games to apply 85% threshold."""
+    result = fetch_history_internal()
+    return jsonify({"success": True, **result})
 
 def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_spread: bool = False, home_team: str = "") -> tuple:
     """
