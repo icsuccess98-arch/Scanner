@@ -7,7 +7,7 @@ Three independent trading systems:
 3. Crypto perpetuals trading system (Coinbase Advanced Trade API)
 
 ## Recent Changes
-- January 8, 2026: 85% Historical Threshold Implementation
+- January 8, 2026: 85% Historical Threshold + Spread Result Checker Fix
   - Totals picks must meet 85% historical O/U hit rate to qualify
   - Uses ESPN team schedules to fetch last 10 games per team
   - O/U hit rate calculated using average total as proxy for historical line
@@ -18,6 +18,8 @@ Three independent trading systems:
   - Date-keyed caching for ESPN lookups (refreshes daily, speeds up subsequent calls)
   - History is fetched automatically after odds are fetched (no manual button)
   - Backend-only feature - no UI indication of historical qualification
+  - Fixed spread result checker - now properly parses "Team +X.X" format
+  - Spread result stored as margin (float) instead of score string
 - January 8, 2026: Game card redesign with TOTALS and SPREAD breakdown
   - Each game card now shows side-by-side TOTALS and SPREAD sections
   - TOTALS shows: Line, Projected, Edge, and pick (O/U or NO BET)

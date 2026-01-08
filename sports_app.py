@@ -671,6 +671,110 @@ def update_game_historical_data(game: Game) -> bool:
         game.history_qualified = False
         return False
 
+def check_spread_pick_result(pick) -> int:
+    """
+    Check result for a spread pick.
+    Pick format: "Team Name +/-X.X" (e.g., "Rutgers +25.5", "Michigan St -14.5")
+    Returns 1 if updated, 0 otherwise.
+    """
+    try:
+        teams = pick.matchup.split(' @ ')
+        if len(teams) != 2:
+            return 0
+        away_team, home_team = teams[0].strip(), teams[1].strip()
+        
+        parts = pick.pick.rsplit(' ', 1)
+        if len(parts) != 2:
+            logger.warning(f"Invalid spread pick format: {pick.pick}")
+            return 0
+        
+        team_picked = parts[0].strip()
+        spread_str = parts[1].strip()
+        
+        try:
+            spread_line = float(spread_str)
+        except ValueError:
+            logger.warning(f"Could not parse spread line from: {pick.pick}")
+            return 0
+        
+        date_str = pick.date.strftime("%Y%m%d")
+        away_score = None
+        home_score = None
+        
+        sport_urls = {
+            "NBA": f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={date_str}",
+            "CBB": f"https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates={date_str}&limit=500&groups=50",
+            "NFL": f"https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates={date_str}",
+            "CFB": f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates={date_str}&limit=100",
+        }
+        
+        if pick.league == "NHL":
+            url = f"https://api-web.nhle.com/v1/score/{pick.date.strftime('%Y-%m-%d')}"
+            resp = requests.get(url, timeout=15)
+            for game in resp.json().get("games", []):
+                if game.get("gameState") != "OFF":
+                    continue
+                away_name = game.get("awayTeam", {}).get("placeName", {}).get("default", "")
+                home_name = game.get("homeTeam", {}).get("placeName", {}).get("default", "")
+                if teams_match(away_name, away_team) and teams_match(home_name, home_team):
+                    away_score = game.get("awayTeam", {}).get("score", 0)
+                    home_score = game.get("homeTeam", {}).get("score", 0)
+                    break
+        elif pick.league in sport_urls:
+            url = sport_urls[pick.league]
+            resp = requests.get(url, timeout=30)
+            for event in resp.json().get("events", []):
+                status = event.get("status", {}).get("type", {}).get("name", "")
+                if status != "STATUS_FINAL":
+                    continue
+                comps = event.get("competitions", [{}])[0]
+                teams_data = comps.get("competitors", [])
+                if len(teams_data) == 2:
+                    away = next((t for t in teams_data if t.get("homeAway") == "away"), None)
+                    home = next((t for t in teams_data if t.get("homeAway") == "home"), None)
+                    if away and home:
+                        away_name = away.get("team", {}).get("shortDisplayName", "")
+                        home_name = home.get("team", {}).get("shortDisplayName", "")
+                        if teams_match(away_name, away_team) and teams_match(home_name, home_team):
+                            away_score = int(away.get("score", 0))
+                            home_score = int(home.get("score", 0))
+                            break
+        
+        if away_score is None or home_score is None:
+            return 0
+        
+        actual_margin = home_score - away_score
+        
+        picked_home = teams_match(team_picked, home_team)
+        picked_away = teams_match(team_picked, away_team)
+        
+        if picked_home:
+            adjusted_margin = actual_margin + spread_line
+            if adjusted_margin > 0:
+                pick.result = "W"
+            elif adjusted_margin < 0:
+                pick.result = "L"
+            else:
+                pick.result = "P"
+        elif picked_away:
+            adjusted_margin = (-actual_margin) + spread_line
+            if adjusted_margin > 0:
+                pick.result = "W"
+            elif adjusted_margin < 0:
+                pick.result = "L"
+            else:
+                pick.result = "P"
+        else:
+            logger.warning(f"Could not determine which team was picked: {team_picked}")
+            return 0
+        
+        pick.actual_total = float(home_score - away_score)
+        return 1
+        
+    except Exception as e:
+        logger.error(f"Error checking spread result for {pick.matchup}: {e}")
+        return 0
+
 def check_pick_results() -> int:
     """
     Check results for pending picks - LOCKED LOGIC.
@@ -685,6 +789,10 @@ def check_pick_results() -> int:
         try:
             if not pick.pick or len(pick.pick) < 2:
                 logger.warning(f"Invalid pick format for pick {pick.id}: {pick.pick}")
+                continue
+            
+            if pick.pick_type == "spread":
+                results_updated += check_spread_pick_result(pick)
                 continue
             
             line = float(pick.pick[1:])
