@@ -483,7 +483,7 @@
                         {{ lock.direction }}{{ lock.line }}
                         {% endif %}
                     </div>
-                    <div class="lock-edge">Edge: {{ "%.1f"|format(lock.edge) }}{% if lock.alt_total_odds %} <span class="alt-line"><span class="odds">{{ lock.alt_total_odds }}</span></span>{% endif %}</div>
+                    <div class="lock-edge">Edge: {{ "%.1f"|format(lock.edge) }}{% if lock.alt_total_odds %} <span class="alt-line"><span class="odds">{{ "%+d"|format(lock.alt_total_odds) if lock.alt_total_odds > 0 else lock.alt_total_odds }}</span></span>{% endif %}</div>
                 </div>
             </div>
         </div>
@@ -510,7 +510,7 @@
                         {{ spread_lock.away_team }} {{ "%+.1f"|format(away_spread) if away_spread else '' }}
                         {% endif %}
                     </div>
-                    <div class="lock-edge">Edge: {{ "%.1f"|format(spread_lock.spread_edge) }}{% if spread_lock.alt_spread_odds %} <span class="alt-line"><span class="odds">{{ spread_lock.alt_spread_odds }}</span></span>{% endif %}</div>
+                    <div class="lock-edge">Edge: {{ "%.1f"|format(spread_lock.spread_edge) }}{% if spread_lock.alt_spread_odds %} <span class="alt-line"><span class="odds">{{ "%+d"|format(spread_lock.alt_spread_odds) if spread_lock.alt_spread_odds > 0 else spread_lock.alt_spread_odds }}</span></span>{% endif %}</div>
                 </div>
             </div>
         </div>
