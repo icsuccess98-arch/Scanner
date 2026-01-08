@@ -167,7 +167,7 @@ class Game(db.Model):
     home_spread_pct = db.Column(db.Float)  # Home team's spread cover rate
     h2h_ou_pct = db.Column(db.Float)  # Head-to-head O/U hit rate
     h2h_spread_pct = db.Column(db.Float)  # Head-to-head spread cover rate
-    history_qualified = db.Column(db.Boolean, default=False)  # Meets 85% threshold
+    history_qualified = db.Column(db.Boolean, default=None)  # NULL = not checked, True/False = checked
     
     __table_args__ = (
         db.Index('idx_date_league', 'date', 'league'),
@@ -701,9 +701,14 @@ def dashboard():
     # Only show games with Bovada lines
     all_games = [g for g in all_games if g.line is not None or g.spread_line is not None]
     
-    qualified = [g for g in all_games if g.is_qualified]
+    # Games qualified by edge threshold
+    edge_qualified = [g for g in all_games if g.is_qualified]
+    edge_spread_qualified = [g for g in all_games if g.spread_is_qualified]
     
-    spread_qualified = [g for g in all_games if g.spread_is_qualified]
+    # After Fetch History: only show games that ALSO meet 85% threshold
+    # If history not fetched yet (history_qualified is None), show edge-qualified games
+    qualified = [g for g in edge_qualified if g.history_qualified is None or g.history_qualified == True]
+    spread_qualified = [g for g in edge_spread_qualified if g.history_qualified is None or g.history_qualified == True]
     spread_qualified.sort(key=lambda x: x.spread_edge or 0, reverse=True)
     
     # SUPERMAX = single best edge across both totals and spreads
@@ -727,8 +732,10 @@ def dashboard():
             supermax_type = 'spread'
             supermax_edge = best_spread.spread_edge
     
-    # Combined qualified: games that qualify for EITHER totals OR spreads
-    all_qualified_games = [g for g in all_games if g.is_qualified or g.spread_is_qualified]
+    # Combined qualified: games that qualify for EITHER totals OR spreads (and pass history if fetched)
+    all_qualified_games = [g for g in all_games if 
+        ((g.is_qualified or g.spread_is_qualified) and 
+         (g.history_qualified is None or g.history_qualified == True))]
     
     if show_only_qualified:
         games = all_qualified_games
