@@ -1551,11 +1551,20 @@ def post_discord():
             pick_str += f" ({odds:+.0f})"
         return pick_str
     
+    # Helper to extract short time (e.g., "8:30 PM EST" -> "8:30")
+    def short_time(game_time):
+        if not game_time:
+            return ""
+        import re
+        match = re.search(r'(\d{1,2}:\d{2})', game_time)
+        return match.group(1) if match else ""
+    
     # Lock of the Day
     sm = supermax['game']
     sm_emoji = emoji_map.get(sm.league, "🎯")
+    sm_time = short_time(sm.game_time)
     msg += f"⚡ LOCK OF THE DAY\n"
-    msg += f"{sm_emoji} {sm.away_team}/{sm.home_team}\n"
+    msg += f"{sm_emoji} {sm.away_team}/{sm.home_team} {sm_time}\n"
     msg += f"{format_pick(supermax)}\n\n"
     
     # Top Picks (skip #1 since it's the lock)
@@ -1563,7 +1572,8 @@ def post_discord():
     for p in top_5[1:5]:
         g = p['game']
         emoji = emoji_map.get(g.league, "🎯")
-        msg += f"{emoji} {g.away_team}/{g.home_team}\n"
+        g_time = short_time(g.game_time)
+        msg += f"{emoji} {g.away_team}/{g.home_team} {g_time}\n"
         msg += f"{format_pick(p)}\n\n"
     
     # Keep original games/spread_games for saving picks
