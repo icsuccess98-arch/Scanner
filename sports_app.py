@@ -192,6 +192,7 @@ class Pick(db.Model):
     result = db.Column(db.String(10))
     actual_total = db.Column(db.Float)
     is_lock = db.Column(db.Boolean, default=False)
+    game_window = db.Column(db.String(10))
     posted_to_discord = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     pick_type = db.Column(db.String(10), default="total")
@@ -203,6 +204,44 @@ class Pick(db.Model):
         db.Index('idx_pick_date_league', 'date', 'league'),
         db.Index('idx_pick_type', 'pick_type'),
     )
+
+def parse_game_time_hour(game_time_str: str) -> Optional[int]:
+    """Parse game time string and return hour in 24h format (ET)."""
+    if not game_time_str:
+        return None
+    import re
+    match = re.search(r'(\d{1,2}):(\d{2})\s*(AM|PM)', game_time_str, re.IGNORECASE)
+    if not match:
+        return None
+    hour = int(match.group(1))
+    ampm = match.group(3).upper()
+    if ampm == 'PM' and hour != 12:
+        hour += 12
+    elif ampm == 'AM' and hour == 12:
+        hour = 0
+    return hour
+
+def get_game_window(game_time_str: str) -> str:
+    """
+    Categorize game into time window:
+    - EARLY: Before 1:00 PM ET (games starting 10am-12:59pm)
+    - MID: 1:00 PM - 5:59 PM ET  
+    - LATE: 6:00 PM ET and later
+    """
+    hour = parse_game_time_hour(game_time_str)
+    if hour is None:
+        return 'LATE'
+    if hour < 13:
+        return 'EARLY'
+    elif hour < 18:
+        return 'MID'
+    return 'LATE'
+
+def is_big_slate_day() -> bool:
+    """Check if today is Friday, Saturday, or Sunday (big slate days)."""
+    et = pytz.timezone('America/New_York')
+    today = datetime.now(et)
+    return today.weekday() >= 4
 
 with app.app_context():
     db.create_all()
@@ -2469,61 +2508,188 @@ def post_discord():
         msg += f"{emoji} {g.away_team}/{g.home_team} {g_time}\n"
         msg += f"{format_pick(p)}\n\n"
     
-    # Keep original games/spread_games for saving picks
-    top_picks = games[:3]
+    webhook = os.environ.get("SPORTS_DISCORD_WEBHOOK")
+    if webhook:
+        resp = requests.post(webhook, json={"content": msg})
+        
+        # Only save the Supermax/Lock of the Day to history (not all picks)
+        sm_game = supermax['game']
+        matchup = f"{sm_game.away_team} @ {sm_game.home_team}"
+        
+        # Check if this supermax already saved today
+        existing_pick = Pick.query.filter_by(date=today, matchup=matchup, pick_type=supermax['pick_type']).first()
+        if not existing_pick:
+            if supermax['pick_type'] == 'total':
+                line_val = sm_game.alt_total_line if sm_game.alt_total_line else sm_game.line
+                pick_str = f"{sm_game.direction}{line_val}"
+                edge_val = sm_game.edge
+            else:
+                if sm_game.spread_direction == 'HOME':
+                    line_val = sm_game.alt_spread_line if sm_game.alt_spread_line else sm_game.spread_line
+                    pick_str = f"{sm_game.home_team} {line_val:+.1f}" if line_val else sm_game.home_team
+                else:
+                    line_val = sm_game.alt_spread_line if sm_game.alt_spread_line else -sm_game.spread_line if sm_game.spread_line else None
+                    pick_str = f"{sm_game.away_team} {line_val:+.1f}" if line_val else sm_game.away_team
+                edge_val = sm_game.spread_edge
+            
+            pick = Pick(
+                game_id=sm_game.id,
+                date=today,
+                league=sm_game.league,
+                matchup=matchup,
+                pick=pick_str,
+                edge=edge_val,
+                is_lock=True,
+                posted_to_discord=True,
+                pick_type=supermax['pick_type'],
+                line_value=line_val
+            )
+            db.session.add(pick)
+            db.session.commit()
+        
+        return jsonify({"success": True, "status": resp.status_code, "picks_count": 1})
+    
+    return jsonify({"success": False, "message": "Discord webhook not configured"})
+
+@app.route('/post_discord_window/<window>', methods=['POST'])
+def post_discord_window(window: str):
+    """Post the best pick for a specific game window (EARLY/MID/LATE)."""
+    if window not in ['EARLY', 'MID', 'LATE']:
+        return jsonify({"success": False, "message": f"Invalid window: {window}"})
+    
+    et = pytz.timezone('America/New_York')
+    today = datetime.now(et).date()
+    today_str = today.strftime("%B %d, %Y")
+    
+    # Check if already posted for this window today
+    existing = Pick.query.filter_by(date=today, game_window=window).first()
+    if existing:
+        return jsonify({"success": False, "message": f"Already posted for {window} window today"})
+    
+    # Get qualified games for this window
+    all_qualified = Game.query.filter_by(date=today, is_qualified=True).order_by(Game.edge.desc()).all()
+    spread_qualified = Game.query.filter_by(date=today, spread_is_qualified=True).order_by(Game.spread_edge.desc()).all()
+    
+    # Filter by window and exclude finished games
+    window_games = [g for g in all_qualified if get_game_window(g.game_time) == window 
+                    and not (g.game_time and 'final' in g.game_time.lower())]
+    window_spreads = [g for g in spread_qualified if get_game_window(g.game_time) == window
+                      and not (g.game_time and 'final' in g.game_time.lower())]
+    
+    if not window_games and not window_spreads:
+        return jsonify({"success": False, "message": f"No qualified picks for {window} window"})
+    
+    # Build combined picks and find best
+    combined = []
+    for g in window_games:
+        line_val = g.alt_total_line if g.alt_total_line else g.line
+        combined.append({'game': g, 'edge': g.edge or 0, 'pick_type': 'total', 'line_val': line_val})
+    for g in window_spreads:
+        spread_val = g.alt_spread_line if g.alt_spread_line else abs(g.spread_line) if g.spread_line else 0
+        combined.append({'game': g, 'edge': g.spread_edge or 0, 'pick_type': 'spread', 'line_val': spread_val})
+    
+    combined.sort(key=lambda x: x['edge'], reverse=True)
+    supermax = combined[0]
+    sm_game = supermax['game']
+    
+    emoji_map = {"NBA": "🏀", "CBB": "🏀", "NFL": "🏈", "CFB": "🏈", "NHL": "🏒"}
+    window_labels = {"EARLY": "🌅 EARLY LOCK", "MID": "☀️ MIDDAY LOCK", "LATE": "🌙 LATE LOCK"}
+    
+    # Format pick
+    if supermax['pick_type'] == 'total':
+        line = sm_game.alt_total_line if sm_game.alt_total_line else sm_game.line
+        odds = sm_game.alt_total_odds if sm_game.alt_total_odds else None
+        pick_str = f"{sm_game.direction}{line:.0f}" if line else f"{sm_game.direction}"
+    else:
+        line = sm_game.alt_spread_line if sm_game.alt_spread_line else abs(sm_game.spread_line) if sm_game.spread_line else None
+        odds = sm_game.alt_spread_odds if sm_game.alt_spread_odds else None
+        if sm_game.spread_direction == 'HOME':
+            pick_str = f"{sm_game.home_team} {line:+.0f}" if line else sm_game.home_team
+        else:
+            pick_str = f"{sm_game.away_team} +{line:.0f}" if line else sm_game.away_team
+    
+    if odds:
+        pick_str += f" ({odds:+.0f})"
+    
+    # Build message
+    msg = f"🔒 730's LOCKS\n{today_str}\n\n"
+    msg += f"{window_labels[window]}\n"
+    msg += f"{emoji_map.get(sm_game.league, '🎯')} {sm_game.away_team} @ {sm_game.home_team}\n"
+    msg += f"{pick_str}\n"
     
     webhook = os.environ.get("SPORTS_DISCORD_WEBHOOK")
     if webhook:
         resp = requests.post(webhook, json={"content": msg})
         
-        for i, g in enumerate(top_picks):
-            matchup = f"{g.away_team} @ {g.home_team}"
-            existing_pick = Pick.query.filter_by(date=today, matchup=matchup, pick_type="total").first()
-            if not existing_pick:
-                line_val = g.alt_total_line if g.alt_total_line else g.line
-                pick = Pick(
-                    game_id=g.id,
-                    date=today,
-                    league=g.league,
-                    matchup=matchup,
-                    pick=f"{g.direction}{line_val}",
-                    edge=g.edge,
-                    is_lock=(i == 0),
-                    posted_to_discord=True,
-                    pick_type="total",
-                    line_value=line_val
-                )
-                db.session.add(pick)
+        # Save to history
+        matchup = f"{sm_game.away_team} @ {sm_game.home_team}"
+        if supermax['pick_type'] == 'total':
+            line_val = sm_game.alt_total_line if sm_game.alt_total_line else sm_game.line
+            pick_save = f"{sm_game.direction}{line_val}"
+            edge_val = sm_game.edge
+        else:
+            if sm_game.spread_direction == 'HOME':
+                line_val = sm_game.alt_spread_line if sm_game.alt_spread_line else sm_game.spread_line
+                pick_save = f"{sm_game.home_team} {line_val:+.1f}" if line_val else sm_game.home_team
+            else:
+                line_val = sm_game.alt_spread_line if sm_game.alt_spread_line else -sm_game.spread_line if sm_game.spread_line else None
+                pick_save = f"{sm_game.away_team} {line_val:+.1f}" if line_val else sm_game.away_team
+            edge_val = sm_game.spread_edge
         
-        for i, g in enumerate(spread_games):
-            matchup = f"{g.away_team} @ {g.home_team}"
-            existing_pick = Pick.query.filter_by(date=today, matchup=matchup, pick_type="spread").first()
-            if not existing_pick:
-                if g.spread_direction == 'HOME':
-                    spread_val = g.alt_spread_line if g.alt_spread_line else g.spread_line
-                    pick_str = f"{g.home_team} {spread_val:+.1f}" if spread_val else g.home_team
-                else:
-                    spread_val = g.alt_spread_line if g.alt_spread_line else -g.spread_line
-                    pick_str = f"{g.away_team} {spread_val:+.1f}" if spread_val else g.away_team
-                pick = Pick(
-                    game_id=g.id,
-                    date=today,
-                    league=g.league,
-                    matchup=matchup,
-                    pick=pick_str,
-                    edge=g.spread_edge,
-                    is_lock=(i == 0),
-                    posted_to_discord=True,
-                    pick_type="spread",
-                    line_value=spread_val
-                )
-                db.session.add(pick)
-        
+        pick = Pick(
+            game_id=sm_game.id,
+            date=today,
+            league=sm_game.league,
+            matchup=matchup,
+            pick=pick_save,
+            edge=edge_val,
+            is_lock=True,
+            posted_to_discord=True,
+            pick_type=supermax['pick_type'],
+            line_value=line_val,
+            game_window=window
+        )
+        db.session.add(pick)
         db.session.commit()
         
-        return jsonify({"success": True, "status": resp.status_code, "picks_count": len(top_picks) + len(spread_games)})
+        return jsonify({"success": True, "window": window, "status": resp.status_code})
     
     return jsonify({"success": False, "message": "Discord webhook not configured"})
+
+@app.route('/get_schedule_windows', methods=['GET'])
+def get_schedule_windows():
+    """Get posting schedule based on game windows for today."""
+    et = pytz.timezone('America/New_York')
+    today = datetime.now(et).date()
+    is_big_slate = is_big_slate_day()
+    
+    all_games = Game.query.filter_by(date=today).filter(
+        db.or_(Game.is_qualified == True, Game.spread_is_qualified == True)
+    ).all()
+    
+    windows = {'EARLY': [], 'MID': [], 'LATE': []}
+    for g in all_games:
+        w = get_game_window(g.game_time)
+        windows[w].append(g)
+    
+    # Determine posting schedule
+    schedule = []
+    if is_big_slate:
+        if windows['EARLY']:
+            schedule.append({'window': 'EARLY', 'post_time': '10:00 AM', 'game_count': len(windows['EARLY'])})
+        if windows['MID']:
+            schedule.append({'window': 'MID', 'post_time': '12:30 PM', 'game_count': len(windows['MID'])})
+        if windows['LATE']:
+            schedule.append({'window': 'LATE', 'post_time': '5:00 PM', 'game_count': len(windows['LATE'])})
+    else:
+        schedule.append({'window': 'ALL', 'post_time': '11:00 AM', 'game_count': len(all_games)})
+    
+    return jsonify({
+        "is_big_slate": is_big_slate,
+        "day_of_week": datetime.now(et).strftime("%A"),
+        "schedule": schedule,
+        "windows": {k: len(v) for k, v in windows.items()}
+    })
 
 @app.route('/check_results', methods=['POST'])
 def check_results():
