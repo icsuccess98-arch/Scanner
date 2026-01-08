@@ -7,16 +7,15 @@ Three independent trading systems:
 3. Crypto perpetuals trading system (Coinbase Advanced Trade API)
 
 ## Recent Changes
-- January 8, 2026: Added automatic alternate lines
-  - Fetches alternate spreads/totals automatically during Fetch Odds
-  - **NEGATIVE ODDS ONLY** - No positive odds (+ money = gambling, not locks)
-  - Valid odds range: -180 to -100 (no worse than -180, no positive)
-  - Finds best VALUE line that makes pick MORE of a lock
+- January 8, 2026: UI improvements and alternate lines
+  - Edge display cleaned up - now shows "EDGE 12.1 PTS" neatly under pick
+  - Dashboard shows separate counts: "4 TOTALS" and "18 SPREADS" qualified
+  - Pick container uses flexbox for clean right-aligned layout
+  - Alternate lines: NEGATIVE ODDS ONLY (-180 to -100, no + money)
   - E.g., Rutgers +25.5 (-172) instead of +22.0 is MORE favorable
   - E.g., O126.5 instead of O132 for OVER is EASIER to hit
-  - Displays alt line as PRIMARY pick with odds badge
-  - Discord posts use alternate lines automatically
-  - Stores event_id and sport_key for API lookups
+  - Alt lines require paid Odds API plan (401 errors = subscription limit)
+  - Discord posts use alternate lines automatically when available
 - January 8, 2026: Added spread betting functionality
   - Same locked formula calculates expected scores for each team
   - Projected margin = Expected_Home - Expected_Away

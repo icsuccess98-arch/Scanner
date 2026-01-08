@@ -148,7 +148,19 @@
             background: linear-gradient(135deg, var(--red) 0%, #EF4444 100%);
             -webkit-background-clip: text;
         }
-        .lock-edge { color: var(--text-muted); font-size: 0.875rem; }
+        .lock-edge { 
+            color: var(--text-muted); 
+            font-size: 0.75rem; 
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 4px;
+            opacity: 0.8;
+        }
+        .pick-container { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: flex-end; 
+        }
         .league-section { margin-bottom: 2rem; }
         .league-header {
             display: flex;
@@ -481,15 +493,15 @@
                     <div class="lock-matchup">{{ lock.away_team }} @ {{ lock.home_team }}</div>
                     <div class="game-time">{{ lock.game_time }}</div>
                 </div>
-                <div class="text-end">
+                <div class="pick-container">
                     <div class="lock-pick {% if lock.direction == 'U' %}under{% endif %}">
                         {% if lock.alt_total_line %}
-                        {{ lock.direction }}{{ lock.alt_total_line }}{% if lock.alt_total_odds %} <span class="pick-odds">{{ "%+d"|format(lock.alt_total_odds) if lock.alt_total_odds > 0 else lock.alt_total_odds }}</span>{% endif %}
+                        {{ lock.direction }}{{ lock.alt_total_line }}{% if lock.alt_total_odds %} <span class="pick-odds">{{ lock.alt_total_odds }}</span>{% endif %}
                         {% else %}
                         {{ lock.direction }}{{ lock.line }}
                         {% endif %}
                     </div>
-                    <div class="lock-edge">Edge: {{ "%.1f"|format(lock.edge) }}</div>
+                    <div class="lock-edge">Edge {{ "%.1f"|format(lock.edge) }} pts</div>
                 </div>
             </div>
         </div>
@@ -506,17 +518,17 @@
                     <div class="lock-matchup">{{ spread_lock.away_team }} @ {{ spread_lock.home_team }}</div>
                     <div class="game-time">{{ spread_lock.game_time }}</div>
                 </div>
-                <div class="text-end">
+                <div class="pick-container">
                     <div class="lock-pick" style="background: linear-gradient(135deg, var(--accent) 0%, #6B9FFF 100%); -webkit-background-clip: text;">
                         {% if spread_lock.spread_direction == 'HOME' %}
                         {% set home_spread = spread_lock.alt_spread_line if spread_lock.alt_spread_line else spread_lock.spread_line %}
-                        {{ spread_lock.home_team }} {{ "%+.1f"|format(home_spread) if home_spread else '' }}{% if spread_lock.alt_spread_odds %} <span class="pick-odds">{{ "%+d"|format(spread_lock.alt_spread_odds) if spread_lock.alt_spread_odds > 0 else spread_lock.alt_spread_odds }}</span>{% endif %}
+                        {{ spread_lock.home_team }} {{ "%+.1f"|format(home_spread) if home_spread else '' }}{% if spread_lock.alt_spread_odds %} <span class="pick-odds">{{ spread_lock.alt_spread_odds }}</span>{% endif %}
                         {% else %}
                         {% set away_spread = spread_lock.alt_spread_line if spread_lock.alt_spread_line else -spread_lock.spread_line %}
-                        {{ spread_lock.away_team }} {{ "%+.1f"|format(away_spread) if away_spread else '' }}{% if spread_lock.alt_spread_odds %} <span class="pick-odds">{{ "%+d"|format(spread_lock.alt_spread_odds) if spread_lock.alt_spread_odds > 0 else spread_lock.alt_spread_odds }}</span>{% endif %}
+                        {{ spread_lock.away_team }} {{ "%+.1f"|format(away_spread) if away_spread else '' }}{% if spread_lock.alt_spread_odds %} <span class="pick-odds">{{ spread_lock.alt_spread_odds }}</span>{% endif %}
                         {% endif %}
                     </div>
-                    <div class="lock-edge">Edge: {{ "%.1f"|format(spread_lock.spread_edge) }}</div>
+                    <div class="lock-edge">Edge {{ "%.1f"|format(spread_lock.spread_edge) }} pts</div>
                 </div>
             </div>
         </div>
