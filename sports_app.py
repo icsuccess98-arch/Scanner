@@ -1385,10 +1385,16 @@ def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_s
     
     # For OVER: pick the LOWEST line (sort ascending)
     # For UNDER: pick the HIGHEST line (sort descending)
-    # For spreads: pick best value (most different from current)
+    # For AWAY spreads: pick HIGHEST line (more points = better value)
+    # For HOME spreads: pick LOWEST line (fewer points to give = better value)
     is_over = direction in ("OVER", "O")
     if is_spread:
-        candidates.sort(key=lambda x: abs(x[0] - current_line) if current_line else abs(x[0]), reverse=True)
+        if direction == "AWAY":
+            # AWAY = underdog getting points, want HIGHEST number
+            candidates.sort(key=lambda x: x[0], reverse=True)
+        else:
+            # HOME = favorite giving points, want LOWEST (least negative)
+            candidates.sort(key=lambda x: x[0], reverse=True)
     elif is_over:
         candidates.sort(key=lambda x: x[0])  # Ascending - lowest first
     else:
