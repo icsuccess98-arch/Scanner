@@ -1819,7 +1819,18 @@ def fetch_games():
     
     db.session.commit()
     print(f"Fetch complete: {games_added} games added, leagues cleared: {leagues_cleared}")
-    return jsonify({"success": True, "games_added": games_added, "leagues_cleared": leagues_cleared})
+    
+    # Automatically fetch odds after games are loaded
+    odds_result = fetch_odds_internal()
+    
+    return jsonify({
+        "success": True, 
+        "games_added": games_added, 
+        "leagues_cleared": leagues_cleared,
+        "lines_updated": odds_result.get("lines_updated", 0),
+        "spreads_updated": odds_result.get("spreads_updated", 0),
+        "alt_lines_found": odds_result.get("alt_lines_found", 0)
+    })
 
 @app.route('/fetch_stats', methods=['POST'])
 def fetch_stats():
@@ -1827,11 +1838,11 @@ def fetch_stats():
     nhl_stats = get_nhl_stats()
     return jsonify({"success": True, "counts": {"nba": len(nba_stats), "nhl": len(nhl_stats)}})
 
-@app.route('/fetch_odds', methods=['POST'])
-def fetch_odds():
+def fetch_odds_internal() -> dict:
+    """Internal function to fetch odds from Bovada via The Odds API."""
     api_key = os.environ.get("ODDS_API_KEY")
     if not api_key:
-        return jsonify({"success": False, "message": "ODDS_API_KEY not configured. Get a free key at the-odds-api.com"})
+        return {"success": False, "lines_updated": 0, "spreads_updated": 0, "alt_lines_found": 0}
     
     et = pytz.timezone('America/New_York')
     today = datetime.now(et).date()
@@ -1960,12 +1971,17 @@ def fetch_odds():
     
     alt_lines_result = fetch_alt_lines_internal()
     
-    return jsonify({
+    return {
         "success": True, 
         "lines_updated": lines_updated, 
         "spreads_updated": spreads_updated,
         "alt_lines_found": alt_lines_result.get("alt_lines_found", 0)
-    })
+    }
+
+@app.route('/fetch_odds', methods=['POST'])
+def fetch_odds():
+    """Route wrapper for fetch_odds_internal."""
+    return jsonify(fetch_odds_internal())
 
 def fetch_history_internal() -> dict:
     """Internal function to fetch historical data for qualified games."""

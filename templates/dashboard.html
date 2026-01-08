@@ -525,9 +525,6 @@
                     <button class="btn-fetch" onclick="fetchGames()">
                         <i class="bi bi-arrow-repeat"></i> Fetch Games
                     </button>
-                    <button class="btn-fetch odds" onclick="fetchOdds()">
-                        <i class="bi bi-currency-dollar"></i> Fetch Odds
-                    </button>
                     <button class="btn-discord" {% if not qualified %}disabled{% endif %} onclick="postDiscord()">
                         <i class="bi bi-discord"></i> Post to Discord
                     </button>
@@ -783,7 +780,7 @@
         <div class="empty-state">
             <i class="bi bi-calendar-x"></i>
             <h5>No games loaded</h5>
-            <p>Click "Fetch Games" to load today's games, then "Fetch Odds" to get betting lines.</p>
+            <p>Click "Fetch Games" to load today's games and betting lines.</p>
         </div>
         {% endif %}
     </div>
