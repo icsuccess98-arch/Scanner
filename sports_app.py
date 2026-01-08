@@ -1600,7 +1600,9 @@ def fetch_games():
     leagues_cleared = []
     
     try:
-        Game.query.filter_by(date=today, league="NBA").delete()
+        nba_game_ids = [g.id for g in Game.query.filter_by(date=today, league="NBA").all()]
+        safe_delete_games(nba_game_ids)
+        db.session.commit()
         leagues_cleared.append("NBA")
         
         nba_url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={today_str}"
@@ -1643,7 +1645,9 @@ def fetch_games():
         print(f"NBA games error: {e}")
     
     try:
-        Game.query.filter_by(date=today, league="NHL").delete()
+        nhl_game_ids = [g.id for g in Game.query.filter_by(date=today, league="NHL").all()]
+        safe_delete_games(nhl_game_ids)
+        db.session.commit()
         leagues_cleared.append("NHL")
         
         nhl_url = f"https://api-web.nhle.com/v1/schedule/{today.strftime('%Y-%m-%d')}"
@@ -1689,7 +1693,9 @@ def fetch_games():
         print(f"NHL games error: {e}")
     
     try:
-        Game.query.filter_by(date=today, league="CBB").delete()
+        cbb_game_ids = [g.id for g in Game.query.filter_by(date=today, league="CBB").all()]
+        safe_delete_games(cbb_game_ids)
+        db.session.commit()
         leagues_cleared.append("CBB")
         
         cbb_url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates={today_str}&limit=500&groups=50"
@@ -1732,7 +1738,9 @@ def fetch_games():
         print(f"CBB games error: {e}")
     
     try:
-        Game.query.filter_by(date=today, league="CFB").delete()
+        cfb_game_ids = [g.id for g in Game.query.filter_by(date=today, league="CFB").all()]
+        safe_delete_games(cfb_game_ids)
+        db.session.commit()
         leagues_cleared.append("CFB")
         
         cfb_url = f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates={today_str}&limit=100"
@@ -1775,7 +1783,9 @@ def fetch_games():
         print(f"CFB games error: {e}")
     
     try:
-        Game.query.filter_by(date=today, league="NFL").delete()
+        nfl_game_ids = [g.id for g in Game.query.filter_by(date=today, league="NFL").all()]
+        safe_delete_games(nfl_game_ids)
+        db.session.commit()
         leagues_cleared.append("NFL")
         
         nfl_url = f"https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates={today_str}"
@@ -2349,11 +2359,18 @@ def update_result(pick_id):
     db.session.commit()
     return jsonify({"success": True})
 
+def safe_delete_games(game_ids: list):
+    """Safely delete games by first nullifying pick references."""
+    if game_ids:
+        Pick.query.filter(Pick.game_id.in_(game_ids)).update({Pick.game_id: None}, synchronize_session=False)
+        Game.query.filter(Game.id.in_(game_ids)).delete(synchronize_session=False)
+
 @app.route('/clear_games', methods=['POST'])
 def clear_games():
     et = pytz.timezone('America/New_York')
     today = datetime.now(et).date()
-    Game.query.filter_by(date=today).delete()
+    game_ids = [g.id for g in Game.query.filter_by(date=today).all()]
+    safe_delete_games(game_ids)
     db.session.commit()
     return redirect(url_for('dashboard'))
 
