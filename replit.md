@@ -7,6 +7,14 @@ Three independent trading systems:
 3. Crypto perpetuals trading system (Coinbase Advanced Trade API)
 
 ## Recent Changes
+- January 8, 2026: UI Refresh + Mobile Optimization + FK Fix
+  - Jewel-tone color palette (emerald, sapphire, amber, crimson, ice)
+  - Mobile sticky action bar (Fetch/Discord buttons) for thumb access
+  - Header buttons hidden on mobile (≤768px) to avoid duplicates
+  - Fixed database foreign key constraint error with safe_delete_games() helper
+  - Pick references nullified before game deletion to preserve FK integrity
+  - Combined Fetch Games + Fetch Odds into single operation
+  - Historical threshold changed to 60% (EITHER team must meet, not both)
 - January 8, 2026: 70% Historical Threshold + Spread Result Checker Fix
   - Totals picks must meet 70% historical O/U hit rate to qualify
   - Uses ESPN team schedules to fetch last 10 games per team
