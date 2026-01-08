@@ -203,9 +203,9 @@
             background-repeat: no-repeat;
         }
         .league-icon.nba { background: url('https://a.espncdn.com/combiner/i?img=/i/teamlogos/leagues/500/nba.png&w=80') center/contain no-repeat, #17408B; }
-        .league-icon.cbb { background: url('https://a.espncdn.com/combiner/i?img=/i/teamlogos/leagues/500/ncaa.png&w=80') center/contain no-repeat, #1e40af; }
+        .league-icon.cbb { background: url('https://a.espncdn.com/combiner/i?img=/i/espn/misc_logos/500/ncaa.png&w=80') center/contain no-repeat, #1e40af; }
         .league-icon.nfl { background: url('https://a.espncdn.com/combiner/i?img=/i/teamlogos/leagues/500/nfl.png&w=80') center/contain no-repeat, #013369; }
-        .league-icon.cfb { background: url('https://a.espncdn.com/combiner/i?img=/i/teamlogos/leagues/500/ncaa.png&w=80') center/contain no-repeat, #7c3aed; }
+        .league-icon.cfb { background: url('https://a.espncdn.com/combiner/i?img=/i/espn/misc_logos/500/ncaa.png&w=80') center/contain no-repeat, #7c3aed; }
         .league-icon.nhl { background: url('https://a.espncdn.com/combiner/i?img=/i/teamlogos/leagues/500/nhl.png&w=80') center/contain no-repeat, #000000; }
         .league-logo {
             width: 50px;
@@ -734,7 +734,8 @@
             {% if league_games|length > 0 %}
             <div class="league-section league-{{ league|lower }}">
                 <div class="league-header">
-                    <img src="https://a.espncdn.com/combiner/i?img=/i/teamlogos/leagues/500/{{ {'NBA': 'nba', 'CBB': 'ncaa', 'NFL': 'nfl', 'CFB': 'ncaa', 'NHL': 'nhl'}[league] }}.png&w=100" class="league-logo" alt="{{ league }}">
+                    {% set logo_paths = {'NBA': '/i/teamlogos/leagues/500/nba.png', 'CBB': '/i/espn/misc_logos/500/ncaa.png', 'NFL': '/i/teamlogos/leagues/500/nfl.png', 'CFB': '/i/espn/misc_logos/500/ncaa.png', 'NHL': '/i/teamlogos/leagues/500/nhl.png'} %}
+                    <img src="https://a.espncdn.com/combiner/i?img={{ logo_paths[league] }}&w=100" class="league-logo" alt="{{ league }}">
                     <div>
                         <div class="league-title">{{ {'NBA': 'NBA Basketball', 'CBB': 'College Basketball', 'NFL': 'NFL Football', 'CFB': 'College Football', 'NHL': 'NHL Hockey'}[league] }}</div>
                         <div class="league-count">{{ league_games|length }} game{% if league_games|length != 1 %}s{% endif %} | {{ league_games|selectattr('is_qualified')|list|length }}T / {{ league_games|selectattr('spread_is_qualified')|list|length }}S</div>

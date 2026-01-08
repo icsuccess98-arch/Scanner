@@ -8,6 +8,7 @@ Three independent trading systems:
 
 ## Recent Changes
 - January 8, 2026: Official League Logos + Bovada-Only Enforcement
+  - Fixed NCAA logo 404 - uses `/i/espn/misc_logos/500/ncaa.png` (not `/i/teamlogos/leagues/500/ncaa.png`)
   - Added official NBA, NFL, NHL, NCAA logos from ESPN CDN for league sections
   - League-specific gradient colors on game card left borders (NBA red/blue, NFL blue/red, NHL black/silver, etc.)
   - Game cards have hover effects with shadows for FanDuel-like interactivity
