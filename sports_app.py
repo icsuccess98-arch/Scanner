@@ -580,7 +580,29 @@ def dashboard():
     
     if qualified:
         analytics['avg_edge'] = edge_sum / len(qualified)
-        analytics['top_picks'] = qualified[:5]
+    
+    # Combined Top 5 Picks (totals + spreads merged by edge)
+    combined_picks = []
+    for g in qualified:
+        combined_picks.append({
+            'game': g,
+            'edge': g.edge or 0,
+            'pick_type': 'totals',
+            'direction': g.direction,
+            'line': g.alt_total_line if g.alt_total_line else g.line,
+            'odds': g.alt_total_odds
+        })
+    for g in spread_qualified:
+        combined_picks.append({
+            'game': g,
+            'edge': g.spread_edge or 0,
+            'pick_type': 'spread',
+            'direction': g.spread_direction,
+            'line': g.alt_spread_line if g.alt_spread_line else g.spread_line,
+            'odds': g.alt_spread_odds
+        })
+    combined_picks.sort(key=lambda x: x['edge'], reverse=True)
+    analytics['top_picks'] = combined_picks[:5]
     
     global last_game_count
     last_game_count['count'] = len(all_games)
