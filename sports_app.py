@@ -1847,6 +1847,17 @@ def fetch_odds():
     lines_updated = 0
     spreads_updated = 0
     
+    # Clear existing lines before fetching fresh - only games with current Bovada lines will be shown
+    games_to_clear = Game.query.filter_by(date=today).all()
+    for g in games_to_clear:
+        g.line = None
+        g.spread_line = None
+        g.is_qualified = False
+        g.spread_is_qualified = False
+        g.edge = None
+        g.spread_edge = None
+    db.session.commit()
+    
     for league, sport_key in sport_map.items():
         try:
             url = f"https://api.the-odds-api.com/v4/sports/{sport_key}/odds/"
