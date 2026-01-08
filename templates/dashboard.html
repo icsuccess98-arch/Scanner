@@ -94,6 +94,7 @@
         .btn-fetch.alt:hover { background: rgba(147, 51, 234, 0.1); }
         .alt-line { color: #9333EA; font-size: 0.8rem; margin-top: 4px; }
         .alt-line .odds { background: rgba(147, 51, 234, 0.2); padding: 2px 6px; border-radius: 4px; }
+        .pick-odds { font-size: 0.7em; font-weight: 500; color: var(--text-muted); background: rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 6px; margin-left: 8px; vertical-align: middle; }
         .btn-discord {
             background: linear-gradient(135deg, #5865F2 0%, #7289DA 100%);
             border: none;
@@ -354,6 +355,7 @@
             .lock-hero { padding: 1rem; }
             .lock-matchup { font-size: 1.25rem; }
             .lock-pick { font-size: 1.5rem; }
+            .pick-odds { font-size: 0.6em; padding: 2px 6px; }
             .header-section { padding: 1rem 0; }
             .date-display { font-size: 1.25rem; }
             .stat-pill { padding: 0.375rem 0.75rem; }
@@ -478,12 +480,12 @@
                 <div class="text-end">
                     <div class="lock-pick {% if lock.direction == 'U' %}under{% endif %}">
                         {% if lock.alt_total_line %}
-                        {{ lock.direction }}{{ lock.alt_total_line }}
+                        {{ lock.direction }}{{ lock.alt_total_line }}{% if lock.alt_total_odds %} <span class="pick-odds">{{ "%+d"|format(lock.alt_total_odds) if lock.alt_total_odds > 0 else lock.alt_total_odds }}</span>{% endif %}
                         {% else %}
                         {{ lock.direction }}{{ lock.line }}
                         {% endif %}
                     </div>
-                    <div class="lock-edge">Edge: {{ "%.1f"|format(lock.edge) }}{% if lock.alt_total_odds %} <span class="alt-line"><span class="odds">{{ "%+d"|format(lock.alt_total_odds) if lock.alt_total_odds > 0 else lock.alt_total_odds }}</span></span>{% endif %}</div>
+                    <div class="lock-edge">Edge: {{ "%.1f"|format(lock.edge) }}</div>
                 </div>
             </div>
         </div>
@@ -504,13 +506,13 @@
                     <div class="lock-pick" style="background: linear-gradient(135deg, var(--accent) 0%, #6B9FFF 100%); -webkit-background-clip: text;">
                         {% if spread_lock.spread_direction == 'HOME' %}
                         {% set home_spread = spread_lock.alt_spread_line if spread_lock.alt_spread_line else spread_lock.spread_line %}
-                        {{ spread_lock.home_team }} {{ "%+.1f"|format(home_spread) if home_spread else '' }}
+                        {{ spread_lock.home_team }} {{ "%+.1f"|format(home_spread) if home_spread else '' }}{% if spread_lock.alt_spread_odds %} <span class="pick-odds">{{ "%+d"|format(spread_lock.alt_spread_odds) if spread_lock.alt_spread_odds > 0 else spread_lock.alt_spread_odds }}</span>{% endif %}
                         {% else %}
                         {% set away_spread = spread_lock.alt_spread_line if spread_lock.alt_spread_line else -spread_lock.spread_line %}
-                        {{ spread_lock.away_team }} {{ "%+.1f"|format(away_spread) if away_spread else '' }}
+                        {{ spread_lock.away_team }} {{ "%+.1f"|format(away_spread) if away_spread else '' }}{% if spread_lock.alt_spread_odds %} <span class="pick-odds">{{ "%+d"|format(spread_lock.alt_spread_odds) if spread_lock.alt_spread_odds > 0 else spread_lock.alt_spread_odds }}</span>{% endif %}
                         {% endif %}
                     </div>
-                    <div class="lock-edge">Edge: {{ "%.1f"|format(spread_lock.spread_edge) }}{% if spread_lock.alt_spread_odds %} <span class="alt-line"><span class="odds">{{ "%+d"|format(spread_lock.alt_spread_odds) if spread_lock.alt_spread_odds > 0 else spread_lock.alt_spread_odds }}</span></span>{% endif %}</div>
+                    <div class="lock-edge">Edge: {{ "%.1f"|format(spread_lock.spread_edge) }}</div>
                 </div>
             </div>
         </div>
