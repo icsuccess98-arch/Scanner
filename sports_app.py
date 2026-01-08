@@ -2037,7 +2037,7 @@ def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_s
     
     Returns (best_line, best_odds) or (None, None) if no valid line found.
     """
-    MAX_ODDS = -200  # Floor - no worse than -200 (widened from -180)
+    MAX_ODDS = -180  # Floor - no worse than -180, anything worse is not a lock
     MIN_ODDS = -100  # No positive odds allowed
     candidates = []
     
