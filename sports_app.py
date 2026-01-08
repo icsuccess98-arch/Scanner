@@ -147,10 +147,18 @@ class Game(db.Model):
     direction = db.Column(db.String(10))
     is_qualified = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    spread_line = db.Column(db.Float)
+    spread_edge = db.Column(db.Float)
+    spread_direction = db.Column(db.String(10))
+    spread_is_qualified = db.Column(db.Boolean, default=False)
+    expected_away = db.Column(db.Float)
+    expected_home = db.Column(db.Float)
+    projected_margin = db.Column(db.Float)
     
     __table_args__ = (
         db.Index('idx_date_league', 'date', 'league'),
         db.Index('idx_qualified', 'is_qualified'),
+        db.Index('idx_spread_qualified', 'spread_is_qualified'),
     )
     
     @validates('edge')
@@ -172,10 +180,13 @@ class Pick(db.Model):
     is_lock = db.Column(db.Boolean, default=False)
     posted_to_discord = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    pick_type = db.Column(db.String(10), default="total")
+    line_value = db.Column(db.Float)
     
     __table_args__ = (
         db.Index('idx_pick_result', 'result'),
         db.Index('idx_pick_date_league', 'date', 'league'),
+        db.Index('idx_pick_type', 'pick_type'),
     )
 
 with app.app_context():
@@ -213,6 +224,58 @@ def check_qualification(projected: float, line: float, league: str) -> Tuple[boo
         return True, "O", edge
     elif line >= projected + threshold:
         return True, "U", edge
+    return False, None, edge
+
+def calculate_expected_scores(away_ppg: float, away_opp: float, 
+                              home_ppg: float, home_opp: float) -> Tuple[float, float, float]:
+    """
+    LOCKED FORMULA - Uses same logic as calculate_projection
+    Returns: (expected_away, expected_home, projected_total)
+    """
+    if any(v is None or v < 0 for v in [away_ppg, away_opp, home_ppg, home_opp]):
+        raise ValueError("Insufficient data — no play")
+    
+    exp_away = (away_ppg + home_opp) / 2
+    exp_home = (home_ppg + away_opp) / 2
+    return exp_away, exp_home, exp_away + exp_home
+
+def check_spread_qualification(expected_away: float, expected_home: float, 
+                                spread_line: float, league: str) -> Tuple[bool, Optional[str], float]:
+    """
+    LOCKED THRESHOLDS - Same thresholds as totals
+    
+    Spread line is from home team perspective (negative = home favored)
+    Projected margin = expected_home - expected_away (positive = home wins by X)
+    
+    Direction Rules:
+    - Take HOME if: projected_margin > spread_line + threshold (home covers)
+    - Take AWAY if: spread_line > projected_margin + threshold (away covers)
+    
+    Example: Home expected to win by 3, but spread is Home -13
+    projected_margin = 3, spread_line = -13
+    We expect home to win by 3, but they need to win by 13+ to cover
+    So: spread_line (-13) is NOT > projected_margin (3) + threshold
+    But: projected_margin (3) is NOT > spread_line (-13) + threshold
+    Actually: projected_margin (3) > spread_line (-13) + threshold (3.5) = -9.5? Yes!
+    So bet HOME? No wait, that's backwards...
+    
+    Let me reconsider:
+    If home expected to win by 3, spread is -13 (home gives 13)
+    We think home wins by 3, but line says they need to win by 14+
+    So AWAY +13 is the value (they lose by 3 but cover +13)
+    
+    Formula:
+    - AWAY covers if: spread_line < projected_margin - threshold
+    - HOME covers if: spread_line > projected_margin + threshold
+    """
+    threshold = THRESHOLDS.get(league, 8.0)
+    projected_margin = expected_home - expected_away
+    edge = abs(projected_margin - spread_line)
+    
+    if spread_line > projected_margin + threshold:
+        return True, "HOME", edge
+    elif spread_line < projected_margin - threshold:
+        return True, "AWAY", edge
     return False, None, edge
 
 def is_game_upcoming(game: Game) -> bool:
