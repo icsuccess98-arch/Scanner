@@ -382,12 +382,52 @@ def get_espn_team_id(team_name: str, league: str) -> Optional[str]:
     team_lower = team_name.lower()
     league_cache = espn_teams_cache.get(league, {})
     
-    if team_lower in league_cache:
-        return league_cache[team_lower]
+    team_aliases = {
+        "mtsu": "middle tennessee",
+        "utep": "utep miners",
+        "siue": "siu edwardsville",
+        "little rock": "arkansas-little rock",
+        "csu northridge": "cal state northridge",
+        "cal poly": "cal poly mustangs",
+        "uconn": "connecticut",
+        "umass": "massachusetts",
+        "ucf": "central florida",
+        "smu": "southern methodist",
+        "lsu": "louisiana state",
+        "ole miss": "mississippi",
+        "pitt": "pittsburgh",
+        "usc": "southern california",
+        "ucla": "ucla bruins",
+        "unlv": "unlv rebels",
+        "utsa": "ut san antonio",
+        "fiu": "florida international",
+        "fau": "florida atlantic",
+        "gw": "george washington",
+        "vcu": "virginia commonwealth",
+        "byu": "byu cougars",
+        "tcu": "texas christian",
+        "sfa": "stephen f. austin",
+        "unc": "north carolina",
+        "uab": "alabama-birmingham",
+        "ualr": "arkansas-little rock",
+        "utrgv": "texas-rio grande valley",
+        "ul monroe": "louisiana-monroe",
+        "ul lafayette": "louisiana",
+        "southern utah": "southern utah thunderbirds",
+        "utah valley": "utah valley wolverines",
+    }
     
-    for cached_name, team_id in league_cache.items():
-        if team_lower in cached_name or cached_name in team_lower:
-            return team_id
+    check_names = [team_lower]
+    if team_lower in team_aliases:
+        check_names.append(team_aliases[team_lower])
+    
+    for check_name in check_names:
+        if check_name in league_cache:
+            return league_cache[check_name]
+        
+        for cached_name, team_id in league_cache.items():
+            if check_name in cached_name or cached_name in check_name:
+                return team_id
     
     return None
 
@@ -443,8 +483,17 @@ def fetch_team_last_10_games(team_name: str, league: str) -> list:
             if not home_team or not away_team:
                 continue
             
-            home_score = int(home_team.get("score", 0))
-            away_score = int(away_team.get("score", 0))
+            home_score_val = home_team.get("score", 0)
+            away_score_val = away_team.get("score", 0)
+            if isinstance(home_score_val, dict):
+                home_score_val = home_score_val.get("value", 0)
+            if isinstance(away_score_val, dict):
+                away_score_val = away_score_val.get("value", 0)
+            try:
+                home_score = int(home_score_val) if home_score_val else 0
+                away_score = int(away_score_val) if away_score_val else 0
+            except (ValueError, TypeError):
+                continue
             total_score = home_score + away_score
             
             home_id = home_team.get("team", {}).get("id", "")
@@ -579,8 +628,17 @@ def fetch_h2h_history(team1: str, team2: str, league: str, direction: str = "O")
                     (home_id == str(team2_id) and away_id == str(team1_id))):
                 continue
             
-            home_score = int(home_team.get("score", 0))
-            away_score = int(away_team.get("score", 0))
+            home_score_val = home_team.get("score", 0)
+            away_score_val = away_team.get("score", 0)
+            if isinstance(home_score_val, dict):
+                home_score_val = home_score_val.get("value", 0)
+            if isinstance(away_score_val, dict):
+                away_score_val = away_score_val.get("value", 0)
+            try:
+                home_score = int(home_score_val) if home_score_val else 0
+                away_score = int(away_score_val) if away_score_val else 0
+            except (ValueError, TypeError):
+                continue
             total_score = home_score + away_score
             
             h2h_games.append({
