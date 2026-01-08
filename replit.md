@@ -7,6 +7,11 @@ Three independent trading systems:
 3. Crypto perpetuals trading system (Coinbase Advanced Trade API)
 
 ## Recent Changes
+- January 8, 2026: Historical Qualification Required for ALL Picks
+  - Both TOTALS and SPREADS now require history_qualified=True to display
+  - Games show 0 qualified until historical data is fetched (conservative approach)
+  - Discord only posts picks that pass both edge threshold AND historical check
+  - This prevents sending picks without proven historical performance
 - January 8, 2026: Away Favorite Priority + UI Fix
   - Lock selection now prioritizes away team favorites (when away team has negative spread)
   - Tiebreaker: Equal edge picks favor games where away team is favored

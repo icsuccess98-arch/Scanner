@@ -1308,15 +1308,15 @@ def dashboard():
     edge_qualified = [g for g in all_games if g.is_qualified]
     edge_spread_qualified = [g for g in all_games if g.spread_is_qualified]
     
-    # TOTALS: Must pass 85% historical threshold (if history fetched)
-    # If history_qualified is None (not checked), show the game
+    # TOTALS: Must pass historical threshold (if history fetched)
+    # If history_qualified is None (not checked), do NOT show the game
     # If history_qualified is True, show the game
     # If history_qualified is False, hide the game
-    qualified = [g for g in edge_qualified if g.history_qualified is None or g.history_qualified == True]
+    qualified = [g for g in edge_qualified if g.history_qualified == True]
     
-    # SPREADS: Not subject to 85% threshold (can't calculate ATS without historical lines)
-    # All spread-qualified games are shown
-    spread_qualified = edge_spread_qualified
+    # SPREADS: Also require historical qualification (same as totals)
+    # Must have history_qualified = True to be shown
+    spread_qualified = [g for g in edge_spread_qualified if g.history_qualified == True]
     spread_qualified.sort(key=lambda x: x.spread_edge or 0, reverse=True)
     
     # SUPERMAX = single best edge across both totals and spreads
@@ -1340,10 +1340,10 @@ def dashboard():
             supermax_type = 'spread'
             supermax_edge = best_spread.spread_edge
     
-    # Combined qualified: games that qualify for EITHER totals OR spreads (and pass history if fetched)
+    # Combined qualified: games that qualify for EITHER totals OR spreads AND pass historical threshold
     all_qualified_games = [g for g in all_games if 
         ((g.is_qualified or g.spread_is_qualified) and 
-         (g.history_qualified is None or g.history_qualified == True))]
+         g.history_qualified == True)]
     
     if show_only_qualified:
         games = all_qualified_games
@@ -2417,10 +2417,11 @@ def post_discord():
     today = datetime.now(et).date()
     today_str = today.strftime("%B %d, %Y")
     
-    all_qualified = Game.query.filter_by(date=today, is_qualified=True).order_by(Game.edge.desc()).all()
+    # Only get games that pass both edge threshold AND historical qualification
+    all_qualified = Game.query.filter_by(date=today, is_qualified=True, history_qualified=True).order_by(Game.edge.desc()).all()
     games = [g for g in all_qualified if not (g.game_time and 'final' in g.game_time.lower())]
     
-    spread_qualified = Game.query.filter_by(date=today, spread_is_qualified=True).order_by(Game.spread_edge.desc()).all()
+    spread_qualified = Game.query.filter_by(date=today, spread_is_qualified=True, history_qualified=True).order_by(Game.spread_edge.desc()).all()
     spread_games = [g for g in spread_qualified if not (g.game_time and 'final' in g.game_time.lower())]
     
     if not games and not spread_games:
@@ -2573,9 +2574,9 @@ def post_discord_window(window: str):
     if existing:
         return jsonify({"success": False, "message": f"Already posted for {window} window today"})
     
-    # Get qualified games for this window
-    all_qualified = Game.query.filter_by(date=today, is_qualified=True).order_by(Game.edge.desc()).all()
-    spread_qualified = Game.query.filter_by(date=today, spread_is_qualified=True).order_by(Game.spread_edge.desc()).all()
+    # Get qualified games for this window (must pass historical qualification)
+    all_qualified = Game.query.filter_by(date=today, is_qualified=True, history_qualified=True).order_by(Game.edge.desc()).all()
+    spread_qualified = Game.query.filter_by(date=today, spread_is_qualified=True, history_qualified=True).order_by(Game.spread_edge.desc()).all()
     
     # Filter by window and exclude finished games
     window_games = [g for g in all_qualified if get_game_window(g.game_time) == window 
