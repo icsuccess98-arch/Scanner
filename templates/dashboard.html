@@ -664,11 +664,13 @@
                     <div class="analytics-card-label">Best Edge</div>
                 </div>
                 <div class="analytics-card">
-                    <div class="d-flex justify-content-center gap-2 mb-1">
-                        <span class="direction-chip over">O {{ analytics.over_count }}</span>
-                        <span class="direction-chip under">U {{ analytics.under_count }}</span>
+                    <div class="analytics-card-value">
+                        {% set total_games = games|length %}
+                        {% set qual_count = qualified|length %}
+                        {% set qual_rate = ((qual_count / total_games * 100) if total_games > 0 else 0)|round|int %}
+                        {{ qual_rate }}%
                     </div>
-                    <div class="analytics-card-label">Direction Split</div>
+                    <div class="analytics-card-label">Qualification Rate</div>
                 </div>
                 <div class="analytics-card">
                     <div class="d-flex justify-content-center gap-2 flex-wrap mb-1">
