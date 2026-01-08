@@ -455,9 +455,6 @@
                     <button class="btn-fetch odds" onclick="fetchOdds()">
                         <i class="bi bi-currency-dollar"></i> Fetch Odds
                     </button>
-                    <button class="btn-fetch alt" onclick="fetchAltLines()">
-                        <i class="bi bi-lightning"></i> Alt Lines
-                    </button>
                     <button class="btn-discord" {% if not qualified %}disabled{% endif %} onclick="postDiscord()">
                         <i class="bi bi-discord"></i> Post to Discord
                     </button>
@@ -480,12 +477,13 @@
                 </div>
                 <div class="text-end">
                     <div class="lock-pick {% if lock.direction == 'U' %}under{% endif %}">
+                        {% if lock.alt_total_line %}
+                        {{ lock.direction }}{{ lock.alt_total_line }}
+                        {% else %}
                         {{ lock.direction }}{{ lock.line }}
+                        {% endif %}
                     </div>
-                    <div class="lock-edge">Edge: {{ "%.1f"|format(lock.edge) }}</div>
-                    {% if lock.alt_total_line %}
-                    <div class="alt-line">Alt: {{ lock.direction }}{{ lock.alt_total_line }} <span class="odds">{{ lock.alt_total_odds }}</span></div>
-                    {% endif %}
+                    <div class="lock-edge">Edge: {{ "%.1f"|format(lock.edge) }}{% if lock.alt_total_odds %} <span class="alt-line"><span class="odds">{{ lock.alt_total_odds }}</span></span>{% endif %}</div>
                 </div>
             </div>
         </div>
@@ -505,15 +503,14 @@
                 <div class="text-end">
                     <div class="lock-pick" style="background: linear-gradient(135deg, var(--accent) 0%, #6B9FFF 100%); -webkit-background-clip: text;">
                         {% if spread_lock.spread_direction == 'HOME' %}
-                        {{ spread_lock.home_team }} {{ "%+.1f"|format(spread_lock.spread_line) if spread_lock.spread_line else '' }}
+                        {% set home_spread = spread_lock.alt_spread_line if spread_lock.alt_spread_line else spread_lock.spread_line %}
+                        {{ spread_lock.home_team }} {{ "%+.1f"|format(home_spread) if home_spread else '' }}
                         {% else %}
-                        {{ spread_lock.away_team }} {{ "%+.1f"|format(-spread_lock.spread_line) if spread_lock.spread_line else '' }}
+                        {% set away_spread = spread_lock.alt_spread_line if spread_lock.alt_spread_line else -spread_lock.spread_line %}
+                        {{ spread_lock.away_team }} {{ "%+.1f"|format(away_spread) if away_spread else '' }}
                         {% endif %}
                     </div>
-                    <div class="lock-edge">Edge: {{ "%.1f"|format(spread_lock.spread_edge) }}</div>
-                    {% if spread_lock.alt_spread_line %}
-                    <div class="alt-line">Alt: {{ "%+.1f"|format(spread_lock.alt_spread_line) }} <span class="odds">{{ spread_lock.alt_spread_odds }}</span></div>
-                    {% endif %}
+                    <div class="lock-edge">Edge: {{ "%.1f"|format(spread_lock.spread_edge) }}{% if spread_lock.alt_spread_odds %} <span class="alt-line"><span class="odds">{{ spread_lock.alt_spread_odds }}</span></span>{% endif %}</div>
                 </div>
             </div>
         </div>
@@ -867,27 +864,6 @@
                     btn.disabled = false;
                     btn.innerHTML = '<i class="bi bi-currency-dollar"></i> Fetch Odds';
                 }
-            });
-        }
-
-        function fetchAltLines() {
-            const btn = event.target.closest('button');
-            btn.disabled = true;
-            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Loading...';
-            showLoading();
-            
-            fetch('/fetch_alt_lines', {method: 'POST'})
-            .then(r => r.json())
-            .then(data => {
-                hideLoading();
-                if (data.success) {
-                    alert(`Found ${data.alt_lines_found} alternate lines (checked ${data.games_checked} games)`);
-                    window.location.reload();
-                } else {
-                    alert(data.message || 'Failed to fetch alt lines');
-                }
-                btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-lightning"></i> Alt Lines';
             });
         }
 

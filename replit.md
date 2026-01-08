@@ -7,11 +7,11 @@ Three independent trading systems:
 3. Crypto perpetuals trading system (Coinbase Advanced Trade API)
 
 ## Recent Changes
-- January 8, 2026: Added alternate lines feature
-  - Fetches alternate spreads/totals from The Odds API
+- January 8, 2026: Added automatic alternate lines
+  - Fetches alternate spreads/totals automatically during Fetch Odds
   - Finds best value lines not exceeding -180 odds
-  - Displays alt lines on Lock cards (e.g., "Alt: +25.5 -172")
-  - New "Alt Lines" button on dashboard
+  - Displays alt line as PRIMARY pick (e.g., "Rutgers +25.5" not "+22.0")
+  - Discord posts use alternate lines automatically
   - Stores event_id and sport_key for API lookups
 - January 8, 2026: Added spread betting functionality
   - Same locked formula calculates expected scores for each team

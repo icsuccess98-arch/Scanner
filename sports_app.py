@@ -1267,7 +1267,15 @@ def fetch_odds():
             print(f"Odds fetch error for {league}: {e}")
     
     db.session.commit()
-    return jsonify({"success": True, "lines_updated": lines_updated, "spreads_updated": spreads_updated})
+    
+    alt_lines_result = fetch_alt_lines_internal()
+    
+    return jsonify({
+        "success": True, 
+        "lines_updated": lines_updated, 
+        "spreads_updated": spreads_updated,
+        "alt_lines_found": alt_lines_result.get("alt_lines_found", 0)
+    })
 
 def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_spread: bool = False, home_team: str = "") -> tuple:
     """
@@ -1314,12 +1322,11 @@ def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_s
     
     return best_line, best_odds
 
-@app.route('/fetch_alt_lines', methods=['POST'])
-def fetch_alt_lines():
-    """Fetch alternate lines for qualified games to find better value."""
+def fetch_alt_lines_internal() -> dict:
+    """Internal function to fetch alternate lines for qualified games."""
     api_key = os.environ.get("ODDS_API_KEY")
     if not api_key:
-        return jsonify({"success": False, "message": "ODDS_API_KEY not configured"})
+        return {"alt_lines_found": 0, "games_checked": 0}
     
     et = pytz.timezone('America/New_York')
     today = datetime.now(et).date()
@@ -1395,7 +1402,7 @@ def fetch_alt_lines():
             print(f"Alt lines error for {game.away_team}@{game.home_team}: {e}")
     
     db.session.commit()
-    return jsonify({"success": True, "alt_lines_found": alt_lines_found, "games_checked": len(all_qualified)})
+    return {"alt_lines_found": alt_lines_found, "games_checked": len(all_qualified)}
 
 @app.route('/post_discord', methods=['POST'])
 def post_discord():
@@ -1424,30 +1431,36 @@ def post_discord():
                 emoji = {"NBA": "🏀", "CBB": "🏀", "NFL": "🏈", "CFB": "🏈", "NHL": "🏒"}.get(league, "🎯")
                 msg += f"{emoji} {league}\n"
                 for g in league_games:
+                    line_val = g.alt_total_line if g.alt_total_line else g.line
                     msg += f"{g.away_team}/{g.home_team} ({g.game_time})\n"
-                    msg += f"Game Total {g.direction}{g.line}\n\n"
+                    msg += f"Game Total {g.direction}{line_val}\n\n"
         
         lock = top_picks[0]
+        lock_line = lock.alt_total_line if lock.alt_total_line else lock.line
         msg += f"🔒 Totals Lock:\n"
         msg += f"{lock.away_team}/{lock.home_team} ({lock.game_time})\n"
-        msg += f"Game Total {lock.direction}{lock.line}\n\n"
+        msg += f"Game Total {lock.direction}{lock_line}\n\n"
     
     if spread_games:
         msg += "📈 **SPREADS**\n"
         for g in spread_games:
             emoji = {"NBA": "🏀", "CBB": "🏀", "NFL": "🏈", "CFB": "🏈", "NHL": "🏒"}.get(g.league, "🎯")
             if g.spread_direction == 'HOME':
-                pick_str = f"{g.home_team} {g.spread_line:+.1f}" if g.spread_line else g.home_team
+                spread_val = g.alt_spread_line if g.alt_spread_line else g.spread_line
+                pick_str = f"{g.home_team} {spread_val:+.1f}" if spread_val else g.home_team
             else:
-                pick_str = f"{g.away_team} {-g.spread_line:+.1f}" if g.spread_line else g.away_team
+                spread_val = g.alt_spread_line if g.alt_spread_line else -g.spread_line
+                pick_str = f"{g.away_team} {spread_val:+.1f}" if spread_val else g.away_team
             msg += f"{emoji} {g.away_team}/{g.home_team}\n"
             msg += f"{pick_str}\n\n"
         
         spread_lock = spread_games[0]
         if spread_lock.spread_direction == 'HOME':
-            lock_pick = f"{spread_lock.home_team} {spread_lock.spread_line:+.1f}" if spread_lock.spread_line else spread_lock.home_team
+            lock_spread_val = spread_lock.alt_spread_line if spread_lock.alt_spread_line else spread_lock.spread_line
+            lock_pick = f"{spread_lock.home_team} {lock_spread_val:+.1f}" if lock_spread_val else spread_lock.home_team
         else:
-            lock_pick = f"{spread_lock.away_team} {-spread_lock.spread_line:+.1f}" if spread_lock.spread_line else spread_lock.away_team
+            lock_spread_val = spread_lock.alt_spread_line if spread_lock.alt_spread_line else -spread_lock.spread_line
+            lock_pick = f"{spread_lock.away_team} {lock_spread_val:+.1f}" if lock_spread_val else spread_lock.away_team
         msg += f"📈 Spread Lock:\n"
         msg += f"{spread_lock.away_team}/{spread_lock.home_team}\n"
         msg += f"{lock_pick}\n"
@@ -1460,17 +1473,18 @@ def post_discord():
             matchup = f"{g.away_team} @ {g.home_team}"
             existing_pick = Pick.query.filter_by(date=today, matchup=matchup, pick_type="total").first()
             if not existing_pick:
+                line_val = g.alt_total_line if g.alt_total_line else g.line
                 pick = Pick(
                     game_id=g.id,
                     date=today,
                     league=g.league,
                     matchup=matchup,
-                    pick=f"{g.direction}{g.line}",
+                    pick=f"{g.direction}{line_val}",
                     edge=g.edge,
                     is_lock=(i == 0),
                     posted_to_discord=True,
                     pick_type="total",
-                    line_value=g.line
+                    line_value=line_val
                 )
                 db.session.add(pick)
         
@@ -1479,9 +1493,11 @@ def post_discord():
             existing_pick = Pick.query.filter_by(date=today, matchup=matchup, pick_type="spread").first()
             if not existing_pick:
                 if g.spread_direction == 'HOME':
-                    pick_str = f"{g.home_team} {g.spread_line:+.1f}" if g.spread_line else g.home_team
+                    spread_val = g.alt_spread_line if g.alt_spread_line else g.spread_line
+                    pick_str = f"{g.home_team} {spread_val:+.1f}" if spread_val else g.home_team
                 else:
-                    pick_str = f"{g.away_team} {-g.spread_line:+.1f}" if g.spread_line else g.away_team
+                    spread_val = g.alt_spread_line if g.alt_spread_line else -g.spread_line
+                    pick_str = f"{g.away_team} {spread_val:+.1f}" if spread_val else g.away_team
                 pick = Pick(
                     game_id=g.id,
                     date=today,
@@ -1492,7 +1508,7 @@ def post_discord():
                     is_lock=(i == 0),
                     posted_to_discord=True,
                     pick_type="spread",
-                    line_value=g.spread_line
+                    line_value=spread_val
                 )
                 db.session.add(pick)
         
