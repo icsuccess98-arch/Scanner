@@ -11,7 +11,9 @@ Three independent trading systems:
   - Fixed NCAA logo 404 - uses `/i/espn/misc_logos/500/ncaa.png` (not `/i/teamlogos/leagues/500/ncaa.png`)
   - Added official NBA, NFL, NHL, NCAA logos from ESPN CDN for league sections
   - Fixed history page 2.4s delay - removed blocking API calls on page load (now 42ms)
-  - Added "Check Results" button to history page for manual result updates
+  - Automatic result checking: refreshes ~2.5h after game starts (NBA/CBB), ~3h (NHL), ~3.5h (NFL/CFB)
+  - Results checked during live score refresh (every 30 seconds) - no manual button needed
+  - SUPERMAX and TOP 5 badges no longer show NCAA logo - clean text only
   - League-specific gradient colors on game card left borders (NBA red/blue, NFL blue/red, NHL black/silver, etc.)
   - Game cards have hover effects with shadows for FanDuel-like interactivity
   - Lock card now has golden glow effect

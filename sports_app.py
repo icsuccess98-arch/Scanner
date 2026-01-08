@@ -196,6 +196,7 @@ class Pick(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     pick_type = db.Column(db.String(10), default="total")
     line_value = db.Column(db.Float)
+    game_start = db.Column(db.DateTime)  # When the game starts
     
     __table_args__ = (
         db.Index('idx_pick_result', 'result'),
@@ -299,6 +300,163 @@ def is_game_upcoming(game: Game) -> bool:
         if indicator in time_str:
             return False
     return True
+
+GAME_DURATION_HOURS = {
+    'NBA': 2.5,
+    'CBB': 2.5,
+    'NFL': 3.5,
+    'CFB': 3.5,
+    'NHL': 3.0
+}
+
+def parse_game_time_to_datetime(game_time: str, game_date: date) -> Optional[datetime]:
+    """Parse game_time string (e.g., '8:30 PM EST') to datetime."""
+    if not game_time:
+        return None
+    try:
+        import re
+        et = pytz.timezone('America/New_York')
+        match = re.search(r'(\d{1,2}):(\d{2})\s*(AM|PM)', game_time.upper())
+        if match:
+            hour, minute, ampm = int(match.group(1)), int(match.group(2)), match.group(3)
+            if ampm == 'PM' and hour != 12:
+                hour += 12
+            elif ampm == 'AM' and hour == 12:
+                hour = 0
+            game_dt = et.localize(datetime(game_date.year, game_date.month, game_date.day, hour, minute))
+            return game_dt
+    except Exception as e:
+        logger.debug(f"Could not parse game time '{game_time}': {e}")
+    return None
+
+def check_finished_games_results() -> int:
+    """
+    Check results for picks where the game has likely finished.
+    A game is considered finished if current time > game_start + duration.
+    """
+    et = pytz.timezone('America/New_York')
+    now = datetime.now(et)
+    pending_picks = Pick.query.filter(Pick.result == None).all()
+    results_updated = 0
+    
+    for pick in pending_picks:
+        game_start = None
+        if pick.game_start:
+            if pick.game_start.tzinfo is None:
+                game_start = et.localize(pick.game_start)
+            else:
+                game_start = pick.game_start.astimezone(et)
+        else:
+            game = Game.query.get(pick.game_id) if pick.game_id else None
+            if game and game.game_time:
+                game_start = parse_game_time_to_datetime(game.game_time, pick.date)
+        
+        if not game_start:
+            continue
+        
+        duration_hours = GAME_DURATION_HOURS.get(pick.league, 2.5)
+        expected_end = game_start + timedelta(hours=duration_hours)
+        
+        if now >= expected_end:
+            try:
+                if pick.pick_type == "spread":
+                    updated = check_spread_pick_result(pick)
+                else:
+                    updated = check_totals_pick_result(pick)
+                if updated:
+                    db.session.commit()
+                    results_updated += updated
+            except Exception as e:
+                logger.debug(f"Error checking result for pick {pick.id}: {e}")
+    
+    return results_updated
+
+def check_totals_pick_result(pick: Pick) -> int:
+    """Check result for a totals pick."""
+    if not pick.pick or len(pick.pick) < 2:
+        return 0
+    
+    try:
+        line = float(pick.pick[1:])
+        direction = pick.pick[0]
+    except ValueError:
+        return 0
+    
+    if direction not in ['O', 'U']:
+        return 0
+    
+    teams = pick.matchup.split(' @ ')
+    if len(teams) != 2:
+        return 0
+    away_team, home_team = teams[0].strip(), teams[1].strip()
+    date_str = pick.date.strftime("%Y%m%d")
+    actual_total = None
+    
+    sport_urls = {
+        "NBA": f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={date_str}",
+        "CBB": f"https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates={date_str}&limit=500&groups=50",
+        "NFL": f"https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates={date_str}",
+        "CFB": f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates={date_str}&limit=100",
+    }
+    
+    try:
+        if pick.league == "NHL":
+            url = f"https://api-web.nhle.com/v1/score/{pick.date.strftime('%Y-%m-%d')}"
+            resp = requests.get(url, timeout=15)
+            for game in resp.json().get("games", []):
+                if game.get("gameState") != "OFF":
+                    continue
+                away_name = game.get("awayTeam", {}).get("placeName", {}).get("default", "")
+                home_name = game.get("homeTeam", {}).get("placeName", {}).get("default", "")
+                if teams_match(away_name, away_team) and teams_match(home_name, home_team):
+                    away_score = game.get("awayTeam", {}).get("score", 0)
+                    home_score = game.get("homeTeam", {}).get("score", 0)
+                    actual_total = away_score + home_score
+                    break
+        elif pick.league in sport_urls:
+            url = sport_urls[pick.league]
+            resp = requests.get(url, timeout=30)
+            for event in resp.json().get("events", []):
+                status = event.get("status", {}).get("type", {}).get("name", "")
+                if status != "STATUS_FINAL":
+                    continue
+                comps = event.get("competitions", [{}])[0]
+                teams_data = comps.get("competitors", [])
+                if len(teams_data) == 2:
+                    away = next((t for t in teams_data if t.get("homeAway") == "away"), None)
+                    home = next((t for t in teams_data if t.get("homeAway") == "home"), None)
+                    if away and home:
+                        away_name = away.get("team", {}).get("shortDisplayName", "")
+                        home_name = home.get("team", {}).get("shortDisplayName", "")
+                        if teams_match(away_name, away_team) and teams_match(home_name, home_team):
+                            away_score = int(away.get("score", 0))
+                            home_score = int(home.get("score", 0))
+                            actual_total = away_score + home_score
+                            break
+    except Exception as e:
+        logger.debug(f"Error fetching scores for pick {pick.id}: {e}")
+        return 0
+    
+    if actual_total is None:
+        return 0
+    
+    pick.actual_total = actual_total
+    if direction == 'O':
+        if actual_total > line:
+            pick.result = 'W'
+        elif actual_total < line:
+            pick.result = 'L'
+        else:
+            pick.result = 'P'
+    else:
+        if actual_total < line:
+            pick.result = 'W'
+        elif actual_total > line:
+            pick.result = 'L'
+        else:
+            pick.result = 'P'
+    
+    return 1
 
 def retry_request(max_retries: int = 3, backoff_factor: float = 1.0):
     """Decorator for retrying failed HTTP requests with exponential backoff."""
@@ -1368,6 +1526,13 @@ def api_live_scores():
                         break
     except Exception as e:
         logger.debug(f"NHL live scores fetch: {e}")
+    
+    try:
+        results_updated = check_finished_games_results()
+        if results_updated > 0:
+            logger.info(f"Auto-updated {results_updated} pick results")
+    except Exception as e:
+        logger.debug(f"Auto result check error: {e}")
     
     return jsonify({"live_scores": live_scores, "count": len(live_scores)})
 
