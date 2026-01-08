@@ -1,5 +1,5 @@
 {
-  "id": "/",
+  "id": "730-locks-pwa",
   "name": "730's Locks",
   "short_name": "730 Locks",
   "description": "Sports betting edge calculator - NBA, NFL, NHL, CBB, CFB",
@@ -9,7 +9,7 @@
   "orientation": "portrait-primary",
   "background_color": "#0a0a12",
   "theme_color": "#d4af37",
-  "lang": "en",
+  "lang": "en-US",
   "dir": "ltr",
   "categories": ["sports", "utilities"],
   "prefer_related_applications": false,
@@ -17,27 +17,32 @@
     {
       "src": "/static/icon-64.png",
       "sizes": "64x64",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/static/icon-96.png",
       "sizes": "96x96",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/static/icon-128.png",
       "sizes": "128x128",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/static/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/static/icon-256.png",
       "sizes": "256x256",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/static/icon-512.png",
@@ -68,11 +73,18 @@
   ],
   "screenshots": [
     {
-      "src": "/static/icon-512.png",
-      "sizes": "512x512",
+      "src": "/static/screenshot-wide.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "730's Locks Dashboard"
+    },
+    {
+      "src": "/static/screenshot-narrow.png",
+      "sizes": "540x720",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "730's Locks Dashboard"
+      "label": "730's Locks Mobile"
     }
   ]
 }
