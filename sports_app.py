@@ -513,14 +513,111 @@ def calculate_spread_cover_rate(games: list, spread_direction: str = None, avg_s
     
     return (covers / len(games)) * 100
 
-def fetch_h2h_history(team1: str, team2: str, league: str) -> dict:
+def fetch_h2h_history(team1: str, team2: str, league: str, direction: str = "O") -> dict:
     """
-    Fetch head-to-head history between two teams.
-    Since H2H data is hard to track without line history, 
-    we return neutral values that don't block picks.
-    Returns: {"ou_pct": float, "spread_pct": float, "games_found": int}
+    Fetch head-to-head history between two teams from ESPN.
+    Filters each team's schedule for games against the opponent.
+    Returns: {"ou_pct": float, "games_found": int, "games": list}
     """
-    return {"ou_pct": 100, "spread_pct": 100, "games_found": 0}
+    et = pytz.timezone('America/New_York')
+    today_str = datetime.now(et).strftime("%Y-%m-%d")
+    cache_key = f"h2h:{today_str}:{league}:{team1.lower()}:{team2.lower()}"
+    
+    if cache_key in espn_schedule_cache:
+        cached = espn_schedule_cache[cache_key]
+        if cached["games_found"] >= 3:
+            return cached
+        return cached
+    
+    try:
+        sport_map = {
+            "NBA": "basketball/nba",
+            "CBB": "basketball/mens-college-basketball", 
+            "NFL": "football/nfl",
+            "CFB": "football/college-football",
+            "NHL": "hockey/nhl"
+        }
+        sport = sport_map.get(league)
+        if not sport:
+            return {"ou_pct": 0, "games_found": 0, "games": []}
+        
+        team1_id = get_espn_team_id(team1, league)
+        team2_id = get_espn_team_id(team2, league)
+        
+        if not team1_id or not team2_id:
+            logger.warning(f"H2H: Could not find ESPN IDs for {team1} or {team2}")
+            return {"ou_pct": 0, "games_found": 0, "games": []}
+        
+        url = f"https://site.api.espn.com/apis/site/v2/sports/{sport}/teams/{team1_id}/schedule"
+        resp = requests.get(url, timeout=15)
+        if resp.status_code != 200:
+            return {"ou_pct": 0, "games_found": 0, "games": []}
+        
+        events = resp.json().get("events", [])
+        h2h_games = []
+        
+        for event in events:
+            status = event.get("competitions", [{}])[0].get("status", {}).get("type", {}).get("name", "")
+            if status != "STATUS_FINAL":
+                continue
+            
+            comps = event.get("competitions", [{}])[0]
+            competitors = comps.get("competitors", [])
+            if len(competitors) < 2:
+                continue
+            
+            home_team = next((c for c in competitors if c.get("homeAway") == "home"), None)
+            away_team = next((c for c in competitors if c.get("homeAway") == "away"), None)
+            
+            if not home_team or not away_team:
+                continue
+            
+            home_id = str(home_team.get("team", {}).get("id", ""))
+            away_id = str(away_team.get("team", {}).get("id", ""))
+            
+            if not ((home_id == str(team1_id) and away_id == str(team2_id)) or 
+                    (home_id == str(team2_id) and away_id == str(team1_id))):
+                continue
+            
+            home_score = int(home_team.get("score", 0))
+            away_score = int(away_team.get("score", 0))
+            total_score = home_score + away_score
+            
+            h2h_games.append({
+                "total": total_score,
+                "home_score": home_score,
+                "away_score": away_score,
+                "date": event.get("date", "")
+            })
+        
+        h2h_games = h2h_games[-10:]
+        
+        if len(h2h_games) < 3:
+            result = {"ou_pct": 0, "games_found": len(h2h_games), "games": h2h_games}
+            espn_schedule_cache[cache_key] = result
+            return result
+        
+        totals = [g["total"] for g in h2h_games]
+        avg_total = sum(totals) / len(totals)
+        
+        hits = 0
+        for g in h2h_games:
+            if direction == "O" and g["total"] > avg_total:
+                hits += 1
+            elif direction == "U" and g["total"] < avg_total:
+                hits += 1
+        
+        ou_pct = (hits / len(h2h_games)) * 100
+        
+        result = {"ou_pct": ou_pct, "games_found": len(h2h_games), "games": h2h_games}
+        espn_schedule_cache[cache_key] = result
+        
+        logger.info(f"H2H {team1} vs {team2}: {len(h2h_games)} games, {ou_pct:.1f}% O/U rate")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error fetching H2H for {team1} vs {team2}: {e}")
+        return {"ou_pct": 0, "games_found": 0, "games": []}
 
 def update_game_historical_data(game: Game) -> bool:
     """
@@ -528,8 +625,12 @@ def update_game_historical_data(game: Game) -> bool:
     Returns True if game meets 85% threshold.
     
     85% threshold applies to TOTALS picks only (O/U).
+    Qualification requires:
+    1. Both teams' last 10 games O/U hit rate >= 85%
+    2. H2H O/U hit rate >= 85% (if 3+ H2H games exist)
+    
     For SPREADS: Cannot calculate ATS without historical spread data, so spreads
-    are NOT subject to the historical threshold (history_qualified=None means not checked).
+    are NOT subject to the historical threshold.
     """
     try:
         if not game.is_qualified:
@@ -549,12 +650,20 @@ def update_game_historical_data(game: Game) -> bool:
         game.away_spread_pct = calculate_spread_cover_rate(away_games)
         game.home_spread_pct = calculate_spread_cover_rate(home_games)
         
+        h2h = fetch_h2h_history(game.away_team, game.home_team, game.league, direction)
+        game.h2h_ou_pct = h2h["ou_pct"]
+        h2h_games = h2h["games_found"]
+        
         min_ou_pct = min(game.away_ou_pct or 0, game.home_ou_pct or 0)
+        teams_qualified = min_ou_pct >= 85
         
-        ou_qualified = min_ou_pct >= 85
-        game.history_qualified = ou_qualified
-        
-        logger.info(f"{game.away_team} @ {game.home_team}: O/U pcts {game.away_ou_pct:.1f}%/{game.home_ou_pct:.1f}%, qualified={ou_qualified}")
+        if h2h_games >= 3:
+            h2h_qualified = (game.h2h_ou_pct or 0) >= 85
+            game.history_qualified = teams_qualified and h2h_qualified
+            logger.info(f"{game.away_team} @ {game.home_team}: Teams O/U {game.away_ou_pct:.1f}%/{game.home_ou_pct:.1f}%, H2H {game.h2h_ou_pct:.1f}% ({h2h_games} games), qualified={game.history_qualified}")
+        else:
+            game.history_qualified = teams_qualified
+            logger.info(f"{game.away_team} @ {game.home_team}: Teams O/U {game.away_ou_pct:.1f}%/{game.home_ou_pct:.1f}%, H2H insufficient ({h2h_games} games), qualified={game.history_qualified}")
         
         return game.history_qualified
     except Exception as e:
