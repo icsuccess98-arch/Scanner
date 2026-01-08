@@ -7,15 +7,18 @@ Three independent trading systems:
 3. Crypto perpetuals trading system (Coinbase Advanced Trade API)
 
 ## Recent Changes
-- January 8, 2026: UI improvements and alternate lines
-  - Edge display cleaned up - now shows "EDGE 12.1 PTS" neatly under pick
+- January 8, 2026: Game card redesign with TOTALS and SPREAD breakdown
+  - Each game card now shows side-by-side TOTALS and SPREAD sections
+  - TOTALS shows: Line, Projected, Edge, and pick (O/U or NO BET)
+  - SPREAD shows: Line, Margin, Edge, and pick (team +spread or NO BET)
+  - Spread section has blue accent border to differentiate from totals
+  - Removed empty input boxes - now shows "-" for missing data
+  - Edge display cleaned up - shows "EDGE 12.1 PTS" neatly under lock picks
   - Dashboard shows separate counts: "4 TOTALS" and "18 SPREADS" qualified
-  - Pick container uses flexbox for clean right-aligned layout
+  - "Qualified Only" filter now shows games qualifying for EITHER totals OR spreads
+  - League headers show "4T / 6S" format (totals/spreads qualified)
   - Alternate lines: NEGATIVE ODDS ONLY (-180 to -100, no + money)
-  - E.g., Rutgers +25.5 (-172) instead of +22.0 is MORE favorable
-  - E.g., O126.5 instead of O132 for OVER is EASIER to hit
   - Alt lines require paid Odds API plan (401 errors = subscription limit)
-  - Discord posts use alternate lines automatically when available
 - January 8, 2026: Added spread betting functionality
   - Same locked formula calculates expected scores for each team
   - Projected margin = Expected_Home - Expected_Away

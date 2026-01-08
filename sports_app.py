@@ -501,8 +501,11 @@ def dashboard():
     spread_qualified.sort(key=lambda x: x.spread_edge or 0, reverse=True)
     spread_lock = spread_qualified[0] if spread_qualified else None
     
+    # Combined qualified: games that qualify for EITHER totals OR spreads
+    all_qualified_games = [g for g in all_games if g.is_qualified or g.spread_is_qualified]
+    
     if show_only_qualified:
-        games = qualified
+        games = all_qualified_games
     else:
         games = all_games
     
@@ -524,10 +527,14 @@ def dashboard():
     
     for league in ['NBA', 'CBB', 'NFL', 'CFB', 'NHL']:
         league_games = [g for g in all_games if g.league == league]
-        league_qualified = [g for g in league_games if g.is_qualified]
+        league_totals_qualified = [g for g in league_games if g.is_qualified]
+        league_spread_qualified = [g for g in league_games if g.spread_is_qualified]
+        league_any_qualified = [g for g in league_games if g.is_qualified or g.spread_is_qualified]
         analytics['league_breakdown'][league] = {
             'total': len(league_games),
-            'qualified': len(league_qualified)
+            'qualified': len(league_any_qualified),
+            'totals_qualified': len(league_totals_qualified),
+            'spread_qualified': len(league_spread_qualified)
         }
     
     edge_sum = 0
