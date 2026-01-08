@@ -156,6 +156,13 @@
             margin-top: 4px;
             opacity: 0.8;
         }
+        .lock-edge-top {
+            color: var(--gold);
+            font-size: 0.9rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
         .pick-container { 
             display: flex; 
             flex-direction: column; 
@@ -512,53 +519,44 @@
     </div>
 
     <div class="container py-4">
-        {% if lock %}
-        <div class="lock-hero">
+        {% if supermax_lock %}
+        <div class="lock-hero" style="{% if supermax_type == 'spread' %}border-color: var(--accent); background: linear-gradient(135deg, rgba(76, 130, 255, 0.15) 0%, rgba(76, 130, 255, 0.05) 100%);{% endif %}">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
-                <div>
-                    <span class="lock-badge"><i class="bi bi-lock-fill"></i> TOTALS LOCK</span>
-                    <span class="badge league-icon {{ lock.league|lower }} ms-2">{{ lock.league }}</span>
-                </div>
-                <div class="text-center flex-grow-1">
-                    <div class="lock-matchup">{{ lock.away_team }} @ {{ lock.home_team }}</div>
-                    <div class="game-time">{{ lock.game_time }}</div>
-                </div>
-                <div class="pick-container">
-                    <div class="lock-pick {% if lock.direction == 'U' %}under{% endif %}">
-                        {% if lock.alt_total_line %}
-                        {{ lock.direction }}{{ lock.alt_total_line }}{% if lock.alt_total_odds %} <span class="pick-odds">{{ lock.alt_total_odds }}</span>{% endif %}
+                <div class="d-flex flex-column align-items-start">
+                    <div class="lock-edge-top mb-1">
+                        {% if supermax_type == 'totals' %}
+                        EDGE {{ "%.1f"|format(supermax_lock.edge) }} PTS
                         {% else %}
-                        {{ lock.direction }}{{ lock.line }}
+                        EDGE {{ "%.1f"|format(supermax_lock.spread_edge) }} PTS
                         {% endif %}
                     </div>
-                    <div class="lock-edge">Edge {{ "%.1f"|format(lock.edge) }} pts</div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-        
-        {% if spread_lock %}
-        <div class="lock-hero" style="border-color: var(--accent); background: linear-gradient(135deg, rgba(76, 130, 255, 0.15) 0%, rgba(76, 130, 255, 0.05) 100%);">
-            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
-                <div>
-                    <span class="lock-badge" style="background: linear-gradient(135deg, var(--accent) 0%, #6B9FFF 100%);"><i class="bi bi-graph-up"></i> SPREAD LOCK</span>
-                    <span class="badge league-icon {{ spread_lock.league|lower }} ms-2">{{ spread_lock.league }}</span>
+                    <span class="lock-badge{% if supermax_type == 'spread' %}" style="background: linear-gradient(135deg, var(--accent) 0%, #6B9FFF 100%);{% else %}">{% endif %}<i class="bi bi-lightning-charge-fill"></i> SUPERMAX</span>
+                    <span class="badge league-icon {{ supermax_lock.league|lower }} mt-1">{{ supermax_lock.league }} {{ 'TOTALS' if supermax_type == 'totals' else 'SPREAD' }}</span>
                 </div>
                 <div class="text-center flex-grow-1">
-                    <div class="lock-matchup">{{ spread_lock.away_team }} @ {{ spread_lock.home_team }}</div>
-                    <div class="game-time">{{ spread_lock.game_time }}</div>
+                    <div class="lock-matchup">{{ supermax_lock.away_team }} @ {{ supermax_lock.home_team }}</div>
+                    <div class="game-time">{{ supermax_lock.game_time }}</div>
                 </div>
                 <div class="pick-container">
-                    <div class="lock-pick" style="background: linear-gradient(135deg, var(--accent) 0%, #6B9FFF 100%); -webkit-background-clip: text;">
-                        {% if spread_lock.spread_direction == 'HOME' %}
-                        {% set home_spread = spread_lock.alt_spread_line if spread_lock.alt_spread_line else spread_lock.spread_line %}
-                        {{ spread_lock.home_team }} {{ "%+.1f"|format(home_spread) if home_spread else '' }}{% if spread_lock.alt_spread_odds %} <span class="pick-odds">{{ spread_lock.alt_spread_odds }}</span>{% endif %}
+                    {% if supermax_type == 'totals' %}
+                    <div class="lock-pick {% if supermax_lock.direction == 'U' %}under{% endif %}">
+                        {% if supermax_lock.alt_total_line %}
+                        {{ supermax_lock.direction }}{{ supermax_lock.alt_total_line }}{% if supermax_lock.alt_total_odds %} <span class="pick-odds">{{ supermax_lock.alt_total_odds }}</span>{% endif %}
                         {% else %}
-                        {% set away_spread = spread_lock.alt_spread_line if spread_lock.alt_spread_line else -spread_lock.spread_line %}
-                        {{ spread_lock.away_team }} {{ "%+.1f"|format(away_spread) if away_spread else '' }}{% if spread_lock.alt_spread_odds %} <span class="pick-odds">{{ spread_lock.alt_spread_odds }}</span>{% endif %}
+                        {{ supermax_lock.direction }}{{ supermax_lock.line }}
                         {% endif %}
                     </div>
-                    <div class="lock-edge">Edge {{ "%.1f"|format(spread_lock.spread_edge) }} pts</div>
+                    {% else %}
+                    <div class="lock-pick" style="background: linear-gradient(135deg, var(--accent) 0%, #6B9FFF 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                        {% if supermax_lock.spread_direction == 'HOME' %}
+                        {% set home_spread = supermax_lock.alt_spread_line if supermax_lock.alt_spread_line else supermax_lock.spread_line %}
+                        {{ supermax_lock.home_team }} {{ "%+.1f"|format(home_spread) if home_spread else '' }}{% if supermax_lock.alt_spread_odds %} <span class="pick-odds">{{ supermax_lock.alt_spread_odds }}</span>{% endif %}
+                        {% else %}
+                        {% set away_spread = supermax_lock.alt_spread_line if supermax_lock.alt_spread_line else -supermax_lock.spread_line %}
+                        {{ supermax_lock.away_team }} {{ "%+.1f"|format(away_spread) if away_spread else '' }}{% if supermax_lock.alt_spread_odds %} <span class="pick-odds">{{ supermax_lock.alt_spread_odds }}</span>{% endif %}
+                        {% endif %}
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>

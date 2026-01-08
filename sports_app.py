@@ -495,11 +495,30 @@ def dashboard():
     all_games_db = Game.query.filter_by(date=today).order_by(Game.edge.desc()).all()
     all_games = [g for g in all_games_db if is_game_upcoming(g)]
     qualified = [g for g in all_games if g.is_qualified]
-    lock = qualified[0] if qualified else None
     
     spread_qualified = [g for g in all_games if g.spread_is_qualified]
     spread_qualified.sort(key=lambda x: x.spread_edge or 0, reverse=True)
-    spread_lock = spread_qualified[0] if spread_qualified else None
+    
+    # SUPERMAX = single best edge across both totals and spreads
+    supermax_lock = None
+    supermax_type = None  # 'totals' or 'spread'
+    supermax_edge = 0
+    
+    # Check best totals pick
+    if qualified:
+        best_totals = qualified[0]
+        if best_totals.edge and best_totals.edge > supermax_edge:
+            supermax_lock = best_totals
+            supermax_type = 'totals'
+            supermax_edge = best_totals.edge
+    
+    # Check best spread pick
+    if spread_qualified:
+        best_spread = spread_qualified[0]
+        if best_spread.spread_edge and best_spread.spread_edge > supermax_edge:
+            supermax_lock = best_spread
+            supermax_type = 'spread'
+            supermax_edge = best_spread.spread_edge
     
     # Combined qualified: games that qualify for EITHER totals OR spreads
     all_qualified_games = [g for g in all_games if g.is_qualified or g.spread_is_qualified]
@@ -519,7 +538,7 @@ def dashboard():
         'under_count': 0,
         'top_picks': [],
         'spread_qualified': len(spread_qualified),
-        'spread_best_edge': spread_lock.spread_edge if spread_lock else 0,
+        'spread_best_edge': spread_qualified[0].spread_edge if spread_qualified else 0,
         'spread_home_count': len([g for g in spread_qualified if g.spread_direction == 'HOME']),
         'spread_away_count': len([g for g in spread_qualified if g.spread_direction == 'AWAY']),
         'spread_top_picks': spread_qualified[:5]
@@ -562,10 +581,11 @@ def dashboard():
     last_game_count['count'] = len(all_games)
     last_game_count['qualified'] = len(qualified)
     
-    return render_template('dashboard.html', games=games, qualified=qualified, lock=lock, 
+    return render_template('dashboard.html', games=games, qualified=qualified,
+                          supermax_lock=supermax_lock, supermax_type=supermax_type,
                           today=today, thresholds=THRESHOLDS, total_games=len(all_games),
                           show_only_qualified=show_only_qualified, analytics=analytics,
-                          spread_qualified=spread_qualified, spread_lock=spread_lock)
+                          spread_qualified=spread_qualified)
 
 @app.route('/health')
 def health():
