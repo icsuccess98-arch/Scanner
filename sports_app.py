@@ -735,6 +735,9 @@ def dashboard():
     else:
         games = all_games
     
+    # Games that meet 85% historical threshold
+    history_qualified = [g for g in all_games if g.history_qualified]
+    
     # Edge Analytics
     analytics = {
         'league_breakdown': {},
@@ -748,7 +751,8 @@ def dashboard():
         'spread_best_edge': spread_qualified[0].spread_edge if spread_qualified else 0,
         'spread_home_count': len([g for g in spread_qualified if g.spread_direction == 'HOME']),
         'spread_away_count': len([g for g in spread_qualified if g.spread_direction == 'AWAY']),
-        'spread_top_picks': spread_qualified[:5]
+        'spread_top_picks': spread_qualified[:5],
+        'history_qualified': len(history_qualified)
     }
     
     for league in ['NBA', 'CBB', 'NFL', 'CFB', 'NHL']:
@@ -1532,6 +1536,35 @@ def fetch_odds():
         "lines_updated": lines_updated, 
         "spreads_updated": spreads_updated,
         "alt_lines_found": alt_lines_result.get("alt_lines_found", 0)
+    })
+
+@app.route('/fetch_history', methods=['POST'])
+def fetch_history():
+    """Fetch historical data for qualified games to apply 85% threshold."""
+    et = pytz.timezone('America/New_York')
+    today = datetime.now(et).date()
+    
+    games = Game.query.filter_by(date=today).filter(
+        db.or_(Game.is_qualified == True, Game.spread_is_qualified == True)
+    ).all()
+    
+    history_updated = 0
+    history_qualified = 0
+    
+    for game in games:
+        try:
+            if update_game_historical_data(game):
+                history_qualified += 1
+            history_updated += 1
+        except Exception as e:
+            logger.error(f"Error updating history for {game.away_team} @ {game.home_team}: {e}")
+    
+    db.session.commit()
+    
+    return jsonify({
+        "success": True,
+        "history_updated": history_updated,
+        "history_qualified": history_qualified
     })
 
 def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_spread: bool = False, home_team: str = "") -> tuple:
