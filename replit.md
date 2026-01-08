@@ -7,6 +7,11 @@ Three independent trading systems:
 3. Crypto perpetuals trading system (Coinbase Advanced Trade API)
 
 ## Recent Changes
+- January 8, 2026: Away Favorite Priority + UI Fix
+  - Lock selection now prioritizes away team favorites (when away team has negative spread)
+  - Tiebreaker: Equal edge picks favor games where away team is favored
+  - Fixed "Best Edge" label wrapping - now displays side-by-side like other labels
+  - Added white-space: nowrap to analytics card labels
 - January 8, 2026: History Tracking + Weekend Scheduling
   - History now only tracks the Supermax/Lock of the Day (not all picks)
   - Weekend scheduling (Fri-Sun) posts 3 staggered locks:

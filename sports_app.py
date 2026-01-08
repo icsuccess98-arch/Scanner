@@ -2426,16 +2426,19 @@ def post_discord():
     if not games and not spread_games:
         return jsonify({"success": False, "message": "No qualified picks to post"})
     
-    # Build combined picks list sorted by edge
+    # Build combined picks list sorted by edge with away favorite priority
     combined = []
     for g in games:
         line_val = g.alt_total_line if g.alt_total_line else g.line
+        # Away team is favorite when spread_line > 0 (home is underdog)
+        away_favorite = (g.spread_line or 0) > 0
         combined.append({
             'game': g,
             'edge': g.edge or 0,
             'pick_type': 'total',
             'pick_str': f"{g.direction}{line_val}",
-            'line_val': line_val
+            'line_val': line_val,
+            'away_favorite': away_favorite
         })
     for g in spread_games:
         if g.spread_direction == 'HOME':
@@ -2444,14 +2447,17 @@ def post_discord():
         else:
             spread_val = abs(g.alt_spread_line) if g.alt_spread_line else abs(g.spread_line) if g.spread_line else 0
             pick_str = f"{g.away_team} +{spread_val:.1f}" if spread_val else g.away_team
+        away_favorite = (g.spread_line or 0) > 0
         combined.append({
             'game': g,
             'edge': g.spread_edge or 0,
             'pick_type': 'spread',
             'pick_str': pick_str,
-            'line_val': spread_val
+            'line_val': spread_val,
+            'away_favorite': away_favorite
         })
-    combined.sort(key=lambda x: x['edge'], reverse=True)
+    # Sort by: 1) edge (desc), 2) away_favorite priority (True first)
+    combined.sort(key=lambda x: (x['edge'], 1 if x['away_favorite'] else 0), reverse=True)
     top_5 = combined[:5]
     
     if not top_5:
@@ -2579,16 +2585,19 @@ def post_discord_window(window: str):
     if not window_games and not window_spreads:
         return jsonify({"success": False, "message": f"No qualified picks for {window} window"})
     
-    # Build combined picks and find best
+    # Build combined picks and find best (with away favorite priority)
     combined = []
     for g in window_games:
         line_val = g.alt_total_line if g.alt_total_line else g.line
-        combined.append({'game': g, 'edge': g.edge or 0, 'pick_type': 'total', 'line_val': line_val})
+        away_favorite = (g.spread_line or 0) > 0
+        combined.append({'game': g, 'edge': g.edge or 0, 'pick_type': 'total', 'line_val': line_val, 'away_favorite': away_favorite})
     for g in window_spreads:
         spread_val = g.alt_spread_line if g.alt_spread_line else abs(g.spread_line) if g.spread_line else 0
-        combined.append({'game': g, 'edge': g.spread_edge or 0, 'pick_type': 'spread', 'line_val': spread_val})
+        away_favorite = (g.spread_line or 0) > 0
+        combined.append({'game': g, 'edge': g.spread_edge or 0, 'pick_type': 'spread', 'line_val': spread_val, 'away_favorite': away_favorite})
     
-    combined.sort(key=lambda x: x['edge'], reverse=True)
+    # Sort by: 1) edge (desc), 2) away_favorite priority (True first)
+    combined.sort(key=lambda x: (x['edge'], 1 if x['away_favorite'] else 0), reverse=True)
     supermax = combined[0]
     sm_game = supermax['game']
     
