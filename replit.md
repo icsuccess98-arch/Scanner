@@ -8,13 +8,12 @@ Three independent trading systems:
 
 ## Recent Changes
 - January 8, 2026: Average Margin for Spread Qualification
-  - Added average margin of victory/loss tracking for each team (last 10 games)
-  - Spreads now use margin-based validation instead of no validation
+  - Calculates average margin of victory/loss for each team (last 10 games) on-the-fly
+  - Spreads now use margin-based validation (no new database columns)
   - HOME favorite picks: team's avg margin must be >= 50% of spread line
   - AWAY underdog picks: team's avg margin supports getting points OR team is profitable
-  - New fields: away_avg_margin, home_avg_margin, spread_history_qualified
   - Both TOTALS (60% O/U rate) and SPREADS (margin validation) require history to qualify
-  - Building toward ATS tracking: spread picks now saved with line for future performance data
+  - Spread picks saved with line for future ATS performance tracking
 - January 8, 2026: Speed Optimization + Historical Qualification for ALL Picks
   - Parallel alt line fetching (10 concurrent workers) - reduced fetch time from 17s to ~12-15s
   - Both TOTALS and SPREADS now require historical validation to display
