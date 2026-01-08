@@ -485,6 +485,7 @@ def dashboard():
     et = pytz.timezone('America/New_York')
     today = datetime.now(et).date()
     show_only_qualified = request.args.get('qualified', '0') == '1'
+    show_with_lines = request.args.get('with_lines', '1') == '1'  # Default to showing only games with lines
     
     old_game_ids = [g.id for g in Game.query.filter(Game.date < today).all()]
     if old_game_ids:
@@ -494,6 +495,11 @@ def dashboard():
     
     all_games_db = Game.query.filter_by(date=today).order_by(Game.edge.desc()).all()
     all_games = [g for g in all_games_db if is_game_upcoming(g)]
+    
+    # Filter to only games with lines (on Bovada) if enabled
+    if show_with_lines:
+        all_games = [g for g in all_games if g.line is not None or g.spread_line is not None]
+    
     qualified = [g for g in all_games if g.is_qualified]
     
     spread_qualified = [g for g in all_games if g.spread_is_qualified]
@@ -581,11 +587,14 @@ def dashboard():
     last_game_count['count'] = len(all_games)
     last_game_count['qualified'] = len(qualified)
     
+    games_with_lines = len([g for g in all_games if g.line is not None or g.spread_line is not None])
+    
     return render_template('dashboard.html', games=games, qualified=qualified,
                           supermax_lock=supermax_lock, supermax_type=supermax_type,
                           today=today, thresholds=THRESHOLDS, total_games=len(all_games),
                           show_only_qualified=show_only_qualified, analytics=analytics,
-                          spread_qualified=spread_qualified)
+                          spread_qualified=spread_qualified, show_with_lines=show_with_lines,
+                          games_with_lines=games_with_lines)
 
 @app.route('/health')
 def health():
@@ -1204,7 +1213,7 @@ def fetch_odds():
                 "regions": "us",
                 "markets": "totals,spreads",
                 "oddsFormat": "american",
-                "bookmakers": "bovada"
+                "bookmakers": "bovada,fanduel"
             }
             resp = requests.get(url, params=params, timeout=30)
             if resp.status_code != 200:
@@ -1237,7 +1246,9 @@ def fetch_odds():
                         game.event_id = event.get("id")
                         game.sport_key = sport_key
                         bookmakers = event.get("bookmakers", [])
-                        book = next((b for b in bookmakers if b.get("key") == "bovada"), None)
+                        bovada_book = next((b for b in bookmakers if b.get("key") == "bovada"), None)
+                        fanduel_book = next((b for b in bookmakers if b.get("key") == "fanduel"), None)
+                        book = bovada_book or fanduel_book
                         if book:
                             markets = book.get("markets", [])
                             for market in markets:
