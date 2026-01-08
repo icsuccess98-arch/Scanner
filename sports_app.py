@@ -2037,13 +2037,17 @@ def fetch_games():
     # Automatically fetch odds after games are loaded
     odds_result = fetch_odds_internal()
     
+    # Automatically fetch historical data to set history_qualified flag
+    history_result = fetch_history_internal()
+    
     return jsonify({
         "success": True, 
         "games_added": games_added, 
         "leagues_cleared": leagues_cleared,
         "lines_updated": odds_result.get("lines_updated", 0),
         "spreads_updated": odds_result.get("spreads_updated", 0),
-        "alt_lines_found": odds_result.get("alt_lines_found", 0)
+        "alt_lines_found": odds_result.get("alt_lines_found", 0),
+        "history_checked": history_result.get("games_checked", 0)
     })
 
 @app.route('/fetch_stats', methods=['POST'])
