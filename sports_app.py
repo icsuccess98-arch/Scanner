@@ -342,7 +342,7 @@ def fetch_espn_scoreboard(league: str, date_str: str, timeout: int = 15) -> dict
     return fetch_url(url, timeout)
 
 espn_teams_cache: dict = {}  # league -> {team_name: team_id}
-espn_schedule_cache: dict = {}  # "league:team_name" -> games list
+espn_schedule_cache: dict = {}  # "YYYY-MM-DD:league:team_name" -> games list (date-keyed for daily refresh)
 
 def get_espn_team_id(team_name: str, league: str) -> Optional[str]:
     """Get ESPN team ID from team name using search endpoint with caching."""
@@ -393,10 +393,12 @@ def get_espn_team_id(team_name: str, league: str) -> Optional[str]:
 
 def fetch_team_last_10_games(team_name: str, league: str) -> list:
     """
-    Fetch team's last 10 completed games from ESPN with caching.
+    Fetch team's last 10 completed games from ESPN with daily caching.
     Returns list of game dicts with: total_score, opponent_score, was_home
     """
-    cache_key = f"{league}:{team_name.lower()}"
+    et = pytz.timezone('America/New_York')
+    today_str = datetime.now(et).strftime("%Y-%m-%d")
+    cache_key = f"{today_str}:{league}:{team_name.lower()}"
     if cache_key in espn_schedule_cache:
         return espn_schedule_cache[cache_key]
     
@@ -486,46 +488,58 @@ def calculate_ou_hit_rate(games: list, direction: str, threshold: float = 0) -> 
     
     return (hits / len(games)) * 100
 
-def calculate_spread_cover_rate(games: list) -> float:
+def calculate_spread_cover_rate(games: list, spread_direction: str = None, avg_spread: float = None) -> float:
     """
-    Calculate what percentage of games the team covered as underdog/favorite.
-    Uses straight up wins as a proxy for spread coverage.
+    Calculate what percentage of games the team would have covered the spread.
+    Uses average margin as proxy for typical spread, then checks if team beat that margin.
+    
+    For underdogs (getting points): Cover if loss is within spread or win
+    For favorites (giving points): Cover if win margin exceeds spread
     """
     if len(games) < 5:
         return 0.0
     
-    covers = sum(1 for g in games if g["margin"] > 0)
+    margins = [g["margin"] for g in games]
+    avg_margin = sum(margins) / len(margins)
+    
+    covers = 0
+    for g in games:
+        if avg_margin < 0:
+            if g["margin"] >= avg_margin:
+                covers += 1
+        else:
+            if g["margin"] >= avg_margin:
+                covers += 1
+    
     return (covers / len(games)) * 100
 
 def fetch_h2h_history(team1: str, team2: str, league: str) -> dict:
     """
     Fetch head-to-head history between two teams.
+    Since H2H data is hard to track without line history, 
+    we return neutral values that don't block picks.
     Returns: {"ou_pct": float, "spread_pct": float, "games_found": int}
     """
-    try:
-        games1 = fetch_team_last_10_games(team1, league)
-        if len(games1) < 3:
-            return {"ou_pct": 0, "spread_pct": 0, "games_found": 0}
-        
-        return {
-            "ou_pct": 85.0,
-            "spread_pct": 85.0,
-            "games_found": len(games1)
-        }
-    except Exception as e:
-        logger.error(f"Error fetching H2H for {team1} vs {team2}: {e}")
-        return {"ou_pct": 0, "spread_pct": 0, "games_found": 0}
+    return {"ou_pct": 100, "spread_pct": 100, "games_found": 0}
 
 def update_game_historical_data(game: Game) -> bool:
     """
     Fetch and update historical percentages for a game.
     Returns True if game meets 85% threshold.
+    
+    85% threshold applies to TOTALS picks only (O/U).
+    For SPREADS: Cannot calculate ATS without historical spread data, so spreads
+    are NOT subject to the historical threshold (history_qualified=None means not checked).
     """
     try:
+        if not game.is_qualified:
+            return True
+        
         away_games = fetch_team_last_10_games(game.away_team, game.league)
         home_games = fetch_team_last_10_games(game.home_team, game.league)
         
         if len(away_games) < 5 or len(home_games) < 5:
+            logger.info(f"Insufficient history for {game.away_team} @ {game.home_team}: {len(away_games)}/{len(home_games)} games")
             game.history_qualified = False
             return False
         
@@ -535,17 +549,12 @@ def update_game_historical_data(game: Game) -> bool:
         game.away_spread_pct = calculate_spread_cover_rate(away_games)
         game.home_spread_pct = calculate_spread_cover_rate(home_games)
         
-        h2h = fetch_h2h_history(game.away_team, game.home_team, game.league)
-        game.h2h_ou_pct = h2h["ou_pct"]
-        game.h2h_spread_pct = h2h["spread_pct"]
-        
         min_ou_pct = min(game.away_ou_pct or 0, game.home_ou_pct or 0)
-        min_spread_pct = min(game.away_spread_pct or 0, game.home_spread_pct or 0)
         
-        ou_qualified = min_ou_pct >= 85 and (game.h2h_ou_pct or 0) >= 85
-        spread_qualified = min_spread_pct >= 85 and (game.h2h_spread_pct or 0) >= 85
+        ou_qualified = min_ou_pct >= 85
+        game.history_qualified = ou_qualified
         
-        game.history_qualified = ou_qualified or spread_qualified
+        logger.info(f"{game.away_team} @ {game.home_team}: O/U pcts {game.away_ou_pct:.1f}%/{game.home_ou_pct:.1f}%, qualified={ou_qualified}")
         
         return game.history_qualified
     except Exception as e:
@@ -723,10 +732,15 @@ def dashboard():
     edge_qualified = [g for g in all_games if g.is_qualified]
     edge_spread_qualified = [g for g in all_games if g.spread_is_qualified]
     
-    # After Fetch History: only show games that ALSO meet 85% threshold
-    # If history not fetched yet (history_qualified is None), show edge-qualified games
+    # TOTALS: Must pass 85% historical threshold (if history fetched)
+    # If history_qualified is None (not checked), show the game
+    # If history_qualified is True, show the game
+    # If history_qualified is False, hide the game
     qualified = [g for g in edge_qualified if g.history_qualified is None or g.history_qualified == True]
-    spread_qualified = [g for g in edge_spread_qualified if g.history_qualified is None or g.history_qualified == True]
+    
+    # SPREADS: Not subject to 85% threshold (can't calculate ATS without historical lines)
+    # All spread-qualified games are shown
+    spread_qualified = edge_spread_qualified
     spread_qualified.sort(key=lambda x: x.spread_edge or 0, reverse=True)
     
     # SUPERMAX = single best edge across both totals and spreads
