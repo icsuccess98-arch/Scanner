@@ -816,8 +816,8 @@ def update_game_historical_data(game: Game) -> bool:
         game.h2h_ou_pct = h2h["ou_pct"]
         h2h_games = h2h["games_found"]
         
-        min_ou_pct = min(game.away_ou_pct or 0, game.home_ou_pct or 0)
-        teams_qualified = min_ou_pct >= 60
+        max_ou_pct = max(game.away_ou_pct or 0, game.home_ou_pct or 0)
+        teams_qualified = max_ou_pct >= 60
         
         if h2h_games >= 3:
             h2h_qualified = (game.h2h_ou_pct or 0) >= 60
