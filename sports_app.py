@@ -32,6 +32,9 @@ db.init_app(app)
 
 last_game_count = {}
 
+_live_scores_cache = {"data": {}, "timestamp": 0}
+LIVE_SCORES_CACHE_TTL = 15
+
 @app.after_request
 def add_cache_headers(response):
     response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
@@ -1505,6 +1508,11 @@ def api_status():
 
 @app.route('/api/live_scores')
 def api_live_scores():
+    global _live_scores_cache
+    now = time.time()
+    if now - _live_scores_cache["timestamp"] < LIVE_SCORES_CACHE_TTL:
+        return jsonify(_live_scores_cache["data"])
+    
     et = pytz.timezone('America/New_York')
     today = datetime.now(et).date()
     today_str = today.strftime("%Y%m%d")
@@ -1610,7 +1618,10 @@ def api_live_scores():
     except Exception as e:
         logger.debug(f"Auto result check error: {e}")
     
-    return jsonify({"live_scores": live_scores, "count": len(live_scores)})
+    result = {"live_scores": live_scores, "count": len(live_scores)}
+    _live_scores_cache["data"] = result
+    _live_scores_cache["timestamp"] = time.time()
+    return jsonify(result)
 
 @app.route('/add_game', methods=['POST'])
 def add_game():

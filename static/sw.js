@@ -1,6 +1,7 @@
 const CACHE_NAME = '730-locks-v1';
 const urlsToCache = [
   '/',
+  '/bankroll',
   '/history',
   '/static/manifest.json',
   '/static/icon-512.png',
