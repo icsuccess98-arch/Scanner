@@ -15,30 +15,35 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
             --bg-dark: #0a0a12;
-            --bg-card: #12101a;
-            --bg-input: #1a1825;
+            --bg-card: #13111c;
+            --bg-card-hover: #1a1726;
+            --bg-input: #1e1a2a;
             --border: #2d2640;
+            --border-light: #3d3650;
             --text: #F8F8FF;
             --text-muted: #9990B0;
             --accent: #7B2CBF;
-            --emerald: #50C878;
-            --gold: #FFD700;
-            --gold-light: #FFEC8B;
-            --gold-dark: #DAA520;
-            --purple: #7B2CBF;
-            --purple-light: #9D4EDD;
-            --crimson: #DC143C;
-            --ice: #E0B0FF;
+            --emerald: #10B981;
+            --emerald-dark: #059669;
+            --gold: #F59E0B;
+            --gold-light: #FBBF24;
+            --gold-dark: #D97706;
+            --purple: #8B5CF6;
+            --purple-light: #A78BFA;
+            --purple-dark: #7C3AED;
+            --crimson: #EF4444;
+            --blue: #3B82F6;
+            --cyan: #06B6D4;
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(180deg, #0f0d14 0%, var(--bg-dark) 100%);
+            background: var(--bg-dark);
             color: var(--text);
             min-height: 100vh;
-            padding-bottom: 80px;
+            padding-bottom: 90px;
         }
         .header {
-            background: linear-gradient(135deg, #0d0b12 0%, #14101c 100%);
+            background: linear-gradient(180deg, #16131f 0%, var(--bg-dark) 100%);
             padding: 1rem;
             border-bottom: 1px solid var(--border);
             display: flex;
@@ -47,11 +52,12 @@
             position: sticky;
             top: 0;
             z-index: 100;
+            backdrop-filter: blur(10px);
         }
         .brand {
             font-size: 1.25rem;
             font-weight: 700;
-            background: linear-gradient(135deg, #FFD700 0%, #FFF8DC 50%, #DAA520 100%);
+            background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -59,121 +65,230 @@
             align-items: center;
             gap: 0.5rem;
         }
-        .brand i { -webkit-text-fill-color: #FFD700; filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.5)); }
+        .brand i { -webkit-text-fill-color: var(--gold); filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.5)); }
         .nav-links { display: flex; gap: 1rem; }
         .nav-links a {
             color: var(--text-muted);
             text-decoration: none;
             font-weight: 500;
+            font-size: 0.9rem;
             transition: color 0.2s;
         }
         .nav-links a:hover, .nav-links a.active { color: var(--gold); }
         
-        .stats-header {
-            background: linear-gradient(135deg, var(--purple) 0%, var(--purple-light) 100%);
-            padding: 1rem;
-            box-shadow: 0 4px 20px rgba(123, 44, 191, 0.3);
+        .hero-section {
+            background: linear-gradient(135deg, var(--purple-dark) 0%, var(--purple) 50%, var(--accent) 100%);
+            padding: 1.25rem 1rem;
+            position: relative;
+            overflow: hidden;
         }
-        .stats-title {
-            font-size: 1.25rem;
-            font-weight: 700;
+        .hero-section::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            opacity: 0.5;
+        }
+        .hero-content { position: relative; z-index: 1; }
+        .hero-title {
+            font-size: 1.5rem;
+            font-weight: 800;
             text-align: center;
             margin-bottom: 1rem;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 0.5rem;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
         }
-        .stats-title i { color: var(--gold); }
-        .stats-grid {
+        .hero-title i { color: var(--gold-light); font-size: 1.25rem; }
+        
+        .stats-row {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(3, 1fr);
             gap: 0.5rem;
-            margin-bottom: 0.75rem;
+            margin-bottom: 1rem;
         }
-        .stat-card {
-            background: var(--bg-card);
-            border-radius: 0.5rem;
+        .mini-stat {
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+            border-radius: 0.75rem;
+            padding: 0.75rem 0.5rem;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .mini-stat-value { font-size: 1.25rem; font-weight: 700; color: white; }
+        .mini-stat-label { font-size: 0.65rem; color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 0.25rem; }
+        
+        .progress-container {
+            background: rgba(0,0,0,0.3);
+            border-radius: 0.75rem;
             padding: 0.75rem;
-            border: 1px solid var(--border);
+            border: 1px solid rgba(255,255,255,0.1);
         }
-        .stat-label { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem; }
-        .stat-value { font-size: 1.25rem; font-weight: 700; color: var(--gold); }
-        .progress-card {
-            background: var(--bg-card);
-            border-radius: 0.5rem;
-            padding: 0.75rem;
-            border: 1px solid var(--border);
-        }
-        .progress-header { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; }
-        .progress-bar { width: 100%; height: 0.5rem; background: var(--bg-input); border-radius: 1rem; overflow: hidden; }
+        .progress-header { display: flex; justify-content: space-between; font-size: 0.75rem; color: rgba(255,255,255,0.8); margin-bottom: 0.5rem; }
+        .progress-bar { width: 100%; height: 0.625rem; background: rgba(0,0,0,0.4); border-radius: 1rem; overflow: hidden; }
         .progress-fill {
             height: 100%;
-            background: linear-gradient(90deg, var(--gold) 0%, var(--gold-light) 50%, var(--gold) 100%);
+            background: linear-gradient(90deg, var(--emerald) 0%, var(--cyan) 100%);
             border-radius: 1rem;
-            transition: width 0.5s ease;
-            box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+            transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.5);
         }
         
         .target-card {
-            background: linear-gradient(135deg, var(--gold-dark) 0%, var(--gold) 50%, var(--gold-light) 100%);
-            border-radius: 0.75rem;
-            padding: 1rem;
+            background: linear-gradient(135deg, var(--gold-dark) 0%, var(--gold) 40%, var(--gold-light) 100%);
+            border-radius: 1rem;
+            padding: 1.25rem;
             margin: 1rem;
-            box-shadow: 0 4px 20px rgba(255, 215, 0, 0.3);
-            border: 1px solid var(--gold);
+            box-shadow: 0 8px 32px rgba(245, 158, 11, 0.25), inset 0 1px 0 rgba(255,255,255,0.2);
+            position: relative;
+            overflow: hidden;
         }
-        .target-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
-        .target-title { font-size: 1rem; font-weight: 700; color: var(--bg-dark); }
-        .target-icon { color: var(--bg-dark); font-size: 1.25rem; }
-        .target-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; text-align: center; margin-bottom: 0.75rem; }
-        .target-item-label { font-size: 0.7rem; color: rgba(10, 10, 18, 0.7); margin-bottom: 0.25rem; }
-        .target-item-value { font-size: 1.125rem; font-weight: 700; color: var(--bg-dark); }
-        .target-daily { border-top: 1px solid rgba(10, 10, 18, 0.2); padding-top: 0.75rem; text-align: center; }
-        .daily-label { font-size: 0.7rem; color: rgba(10, 10, 18, 0.7); margin-bottom: 0.25rem; }
-        .daily-value { font-size: 1.5rem; font-weight: 700; color: var(--bg-dark); }
-        .daily-note { font-size: 0.7rem; color: rgba(10, 10, 18, 0.6); margin-top: 0.25rem; }
+        .target-card::before {
+            content: '';
+            position: absolute;
+            top: -50%; right: -50%;
+            width: 100%; height: 100%;
+            background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
+        }
+        .target-content { position: relative; z-index: 1; }
+        .target-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        .target-title { font-size: 1.125rem; font-weight: 700; color: #1a1a1a; }
+        .target-icon { 
+            width: 2.5rem; height: 2.5rem; 
+            background: rgba(0,0,0,0.15); 
+            border-radius: 50%; 
+            display: flex; align-items: center; justify-content: center;
+            color: #1a1a1a;
+            font-size: 1.125rem;
+        }
+        .target-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; text-align: center; }
+        .target-item { 
+            background: rgba(255,255,255,0.2); 
+            border-radius: 0.75rem; 
+            padding: 0.75rem 0.5rem;
+            backdrop-filter: blur(10px);
+        }
+        .target-item-label { font-size: 0.65rem; color: rgba(0,0,0,0.6); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.25rem; }
+        .target-item-value { font-size: 1.125rem; font-weight: 800; color: #1a1a1a; }
+        .daily-section { 
+            margin-top: 1rem; 
+            padding-top: 1rem; 
+            border-top: 1px solid rgba(0,0,0,0.15); 
+            text-align: center;
+        }
+        .daily-label { font-size: 0.7rem; color: rgba(0,0,0,0.5); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.25rem; }
+        .daily-value { font-size: 2rem; font-weight: 800; color: #1a1a1a; }
+        .daily-note { font-size: 0.7rem; color: rgba(0,0,0,0.5); margin-top: 0.25rem; }
+        
+        .streak-card {
+            background: linear-gradient(135deg, var(--emerald-dark) 0%, var(--emerald) 100%);
+            border-radius: 0.75rem;
+            padding: 0.75rem 1rem;
+            margin: 0 1rem 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2);
+        }
+        .streak-icon { font-size: 1.5rem; }
+        .streak-text { flex: 1; }
+        .streak-label { font-size: 0.7rem; color: rgba(255,255,255,0.8); }
+        .streak-value { font-size: 1rem; font-weight: 700; color: white; }
         
         .warning-card {
             background: var(--bg-card);
-            border: 1px solid var(--crimson);
-            border-radius: 0.5rem;
-            padding: 0.75rem;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 0.75rem;
+            padding: 0.75rem 1rem;
             margin: 0 1rem 1rem;
             display: flex;
-            align-items: flex-start;
-            gap: 0.5rem;
+            align-items: center;
+            gap: 0.75rem;
         }
-        .warning-icon { color: var(--crimson); font-size: 1rem; flex-shrink: 0; }
-        .warning-text { font-size: 0.75rem; }
+        .warning-icon { color: var(--crimson); font-size: 1.25rem; }
+        .warning-text { font-size: 0.75rem; color: var(--text-muted); }
         .warning-text strong { color: var(--crimson); }
         
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            margin-bottom: 0.5rem;
+        }
+        .section-title { font-size: 0.875rem; font-weight: 600; color: var(--text-muted); }
+        .reset-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 0.35rem 0.75rem;
+            border-radius: 0.5rem;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .reset-btn:hover { border-color: var(--crimson); color: var(--crimson); }
+        
         .weeks-container { padding: 0 1rem; }
-        .weeks-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+        .weeks-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.625rem; }
+        
         .week-card {
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 0.5rem;
-            padding: 0.75rem;
+            border-radius: 0.875rem;
+            padding: 0.875rem;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             user-select: none;
             -webkit-tap-highlight-color: transparent;
+            position: relative;
+            overflow: hidden;
         }
+        .week-card:hover { background: var(--bg-card-hover); transform: translateY(-2px); }
         .week-card:active { transform: scale(0.98); }
+        
         .week-card.current {
-            background: linear-gradient(135deg, var(--purple) 0%, var(--purple-light) 100%);
-            box-shadow: 0 4px 15px rgba(123, 44, 191, 0.4);
-            border: 2px solid var(--ice);
+            background: linear-gradient(135deg, var(--purple-dark) 0%, var(--purple) 100%);
+            border: 2px solid var(--purple-light);
+            box-shadow: 0 4px 20px rgba(139, 92, 246, 0.3);
         }
+        .week-card.current::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 100%);
+        }
+        
         .week-card.completed {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(6, 182, 212, 0.1) 100%);
             border-color: var(--emerald);
-            box-shadow: 0 0 10px rgba(80, 200, 120, 0.2);
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.15);
         }
-        .week-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+        
+        .week-card.bonus {
+            border-color: var(--gold);
+        }
+        .week-card.bonus:not(.completed):not(.current)::after {
+            content: 'BONUS';
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            font-size: 0.5rem;
+            font-weight: 700;
+            color: var(--gold);
+            background: rgba(245, 158, 11, 0.15);
+            padding: 0.15rem 0.35rem;
+            border-radius: 0.25rem;
+            letter-spacing: 0.5px;
+        }
+        
+        .week-content { position: relative; z-index: 1; }
+        .week-header { display: flex; align-items: center; gap: 0.625rem; margin-bottom: 0.5rem; }
         .week-badge {
-            width: 1.75rem;
-            height: 1.75rem;
+            width: 2rem;
+            height: 2rem;
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -184,14 +299,27 @@
             color: var(--text-muted);
             border: 1px solid var(--border);
             flex-shrink: 0;
+            transition: all 0.25s;
         }
-        .week-card.current .week-badge { background: var(--gold); color: var(--bg-dark); border: none; }
-        .week-card.completed .week-badge { background: var(--emerald); color: var(--bg-dark); border: none; }
-        .week-label { font-size: 0.75rem; font-weight: 600; }
+        .week-card.current .week-badge { 
+            background: var(--gold); 
+            color: #1a1a1a; 
+            border: none;
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.5);
+        }
+        .week-card.completed .week-badge { 
+            background: var(--emerald); 
+            color: white; 
+            border: none;
+        }
+        .week-label { font-size: 0.8rem; font-weight: 600; color: var(--text); }
         .week-card.completed .week-label { color: var(--emerald); }
-        .week-deposit { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.25rem; }
-        .week-balance { font-size: 0.875rem; font-weight: 700; }
-        .week-card.current .week-balance { color: var(--gold); }
+        
+        .week-details { display: flex; justify-content: space-between; align-items: flex-end; }
+        .week-deposit { font-size: 0.75rem; color: var(--text-muted); }
+        .week-card.bonus .week-deposit { color: var(--gold); }
+        .week-balance { font-size: 1rem; font-weight: 700; color: var(--text); }
+        .week-card.current .week-balance { color: var(--gold-light); }
         .week-card.completed .week-balance { color: var(--emerald); }
         
         .bottom-nav {
@@ -199,44 +327,55 @@
             bottom: 0;
             left: 0;
             right: 0;
-            background: var(--bg-card);
-            border-top: 1px solid var(--border);
-            padding: 1rem;
-            display: flex;
-            gap: 0.5rem;
+            background: linear-gradient(180deg, transparent 0%, var(--bg-dark) 20%);
+            padding: 1.5rem 1rem 1rem;
             z-index: 100;
-            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+        }
+        .nav-buttons {
+            display: flex;
+            gap: 0.625rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 0.5rem;
         }
         .nav-btn {
             flex: 1;
-            padding: 0.75rem;
-            border-radius: 0.5rem;
+            padding: 0.875rem;
+            border-radius: 0.75rem;
             font-weight: 600;
             font-size: 0.875rem;
             cursor: pointer;
             transition: all 0.2s;
-            border: 1px solid var(--border);
-            background: var(--bg-input);
-            color: var(--text);
-        }
-        .nav-btn:hover { background: var(--border); }
-        .nav-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .nav-btn.primary {
-            background: linear-gradient(135deg, var(--gold-dark) 0%, var(--gold) 100%);
-            color: var(--bg-dark);
             border: none;
-        }
-        .nav-btn.primary:hover { box-shadow: 0 0 15px rgba(255, 215, 0, 0.4); }
-        .nav-btn.reset {
             background: transparent;
-            border-color: var(--crimson);
+            color: var(--text-muted);
+        }
+        .nav-btn:hover:not(:disabled) { background: var(--bg-input); color: var(--text); }
+        .nav-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .nav-btn.primary {
+            background: linear-gradient(135deg, var(--purple-dark) 0%, var(--purple) 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+        }
+        .nav-btn.primary:hover { box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4); transform: translateY(-1px); }
+        .nav-btn.undo {
+            background: transparent;
+            border: 1px solid var(--crimson);
             color: var(--crimson);
         }
-        .nav-btn.reset:hover { background: rgba(220, 20, 60, 0.1); }
+        
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .week-card.just-completed { animation: pop 0.3s ease; }
         
         @media (max-width: 360px) {
-            .stats-grid { grid-template-columns: 1fr; }
-            .target-grid { grid-template-columns: 1fr; gap: 0.75rem; }
+            .stats-row { grid-template-columns: 1fr 1fr 1fr; }
+            .target-grid { grid-template-columns: 1fr; gap: 0.5rem; }
+            .target-item { padding: 0.5rem; }
         }
     </style>
 </head>
@@ -253,63 +392,76 @@
         </nav>
     </header>
 
-    <div class="stats-header">
-        <h1 class="stats-title">
-            <i class="bi bi-lock-fill"></i>
-            52 Week Bankroll Builder
-        </h1>
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-label">Current Week</div>
-                <div class="stat-value" id="currentWeekDisplay">1</div>
+    <div class="hero-section">
+        <div class="hero-content">
+            <h1 class="hero-title">
+                <i class="bi bi-trophy-fill"></i>
+                52 Week Bankroll Builder
+            </h1>
+            <div class="stats-row">
+                <div class="mini-stat">
+                    <div class="mini-stat-value" id="currentWeekDisplay">1</div>
+                    <div class="mini-stat-label">Current Week</div>
+                </div>
+                <div class="mini-stat">
+                    <div class="mini-stat-value" id="totalDepositedDisplay">$0</div>
+                    <div class="mini-stat-label">Deposited</div>
+                </div>
+                <div class="mini-stat">
+                    <div class="mini-stat-value" id="streakDisplay">0</div>
+                    <div class="mini-stat-label">Week Streak</div>
+                </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-label">Total Deposited</div>
-                <div class="stat-value" id="totalDepositedDisplay">$0</div>
-            </div>
-        </div>
-        <div class="progress-card">
-            <div class="progress-header">
-                <span>Progress</span>
-                <span id="progressText">0/52 weeks</span>
-            </div>
-            <div class="progress-bar">
-                <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+            <div class="progress-container">
+                <div class="progress-header">
+                    <span>Journey to $20,000</span>
+                    <span id="progressText">0/52 weeks</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                </div>
             </div>
         </div>
     </div>
 
     <div class="target-card">
-        <div class="target-header">
-            <h2 class="target-title">Week <span id="targetWeek">1</span> Target</h2>
-            <i class="bi bi-bullseye target-icon"></i>
-        </div>
-        <div class="target-grid">
-            <div>
-                <div class="target-item-label">Weekly Goal</div>
-                <div class="target-item-value" id="weeklyGoal">$80</div>
+        <div class="target-content">
+            <div class="target-header">
+                <h2 class="target-title">Week <span id="targetWeek">1</span> Target</h2>
+                <div class="target-icon"><i class="bi bi-bullseye"></i></div>
             </div>
-            <div>
-                <div class="target-item-label">Target Balance</div>
-                <div class="target-item-value" id="targetBalance">$80</div>
+            <div class="target-grid">
+                <div class="target-item">
+                    <div class="target-item-label">Weekly Goal</div>
+                    <div class="target-item-value" id="weeklyGoal">$80</div>
+                </div>
+                <div class="target-item">
+                    <div class="target-item-label">Target Balance</div>
+                    <div class="target-item-value" id="targetBalance">$80</div>
+                </div>
+                <div class="target-item">
+                    <div class="target-item-label">Completed</div>
+                    <div class="target-item-value" id="completedCount">0/52</div>
+                </div>
             </div>
-            <div>
-                <div class="target-item-label">Completed</div>
-                <div class="target-item-value" id="completedCount">0/52</div>
+            <div class="daily-section">
+                <div class="daily-label">Daily Win Target</div>
+                <div class="daily-value" id="dailyTarget">$11.43</div>
+                <div class="daily-note" id="dailyNote">$80 weekly ÷ 7 days</div>
             </div>
-        </div>
-        <div class="target-daily">
-            <div class="daily-label">Daily Win Target</div>
-            <div class="daily-value" id="dailyTarget">$11.43/day</div>
-            <div class="daily-note" id="dailyNote">($80 ÷ 7 days)</div>
         </div>
     </div>
 
     <div class="warning-card">
         <i class="bi bi-exclamation-triangle-fill warning-icon"></i>
         <div class="warning-text">
-            <strong>Gamble Responsibly:</strong> Never bet more than you can afford to lose.
+            <strong>Gamble Responsibly:</strong> Never bet more than you can afford to lose. This is a savings goal tracker, not financial advice.
         </div>
+    </div>
+
+    <div class="section-header">
+        <div class="section-title">Weekly Progress</div>
+        <button class="reset-btn" id="resetBtn"><i class="bi bi-arrow-counterclockwise"></i> Reset All</button>
     </div>
 
     <div class="weeks-container">
@@ -317,9 +469,11 @@
     </div>
 
     <div class="bottom-nav">
-        <button class="nav-btn" id="prevBtn" disabled>Previous</button>
-        <button class="nav-btn primary" id="completeBtn">Complete Week</button>
-        <button class="nav-btn" id="nextBtn">Next</button>
+        <div class="nav-buttons">
+            <button class="nav-btn" id="prevBtn" disabled><i class="bi bi-chevron-left"></i> Prev</button>
+            <button class="nav-btn primary" id="completeBtn"><i class="bi bi-check2-circle"></i> Complete Week</button>
+            <button class="nav-btn" id="nextBtn">Next <i class="bi bi-chevron-right"></i></button>
+        </div>
     </div>
 
     <script>
@@ -386,11 +540,32 @@
             localStorage.setItem('bankroll_currentWeek', currentWeek.toString());
         }
 
+        function calculateStreak() {
+            let streak = 0;
+            for (let i = 1; i <= 52; i++) {
+                if (completedWeeks.includes(i)) {
+                    streak++;
+                } else {
+                    break;
+                }
+            }
+            return streak;
+        }
+
+        function isBonusWeek(week) {
+            return week % 4 === 0;
+        }
+
         function toggleWeek(week) {
+            const card = document.querySelector(`[data-week="${week}"]`);
             if (completedWeeks.includes(week)) {
                 completedWeeks = completedWeeks.filter(w => w !== week);
             } else {
                 completedWeeks.push(week);
+                if (card) {
+                    card.classList.add('just-completed');
+                    setTimeout(() => card.classList.remove('just-completed'), 300);
+                }
                 if (week === currentWeek && currentWeek < 52) {
                     currentWeek++;
                 }
@@ -406,9 +581,11 @@
                 .reduce((sum, w) => sum + w.deposit, 0);
             const progressPercent = (completedWeeks.length / 52) * 100;
             const dailyTarget = currentData.deposit / 7;
+            const streak = calculateStreak();
 
             document.getElementById('currentWeekDisplay').textContent = currentWeek;
             document.getElementById('totalDepositedDisplay').textContent = '$' + totalDeposited.toLocaleString();
+            document.getElementById('streakDisplay').textContent = streak;
             document.getElementById('progressText').textContent = completedWeeks.length + '/52 weeks';
             document.getElementById('progressFill').style.width = progressPercent + '%';
 
@@ -416,21 +593,21 @@
             document.getElementById('weeklyGoal').textContent = '$' + currentData.deposit;
             document.getElementById('targetBalance').textContent = '$' + currentData.balance.toLocaleString();
             document.getElementById('completedCount').textContent = completedWeeks.length + '/52';
-            document.getElementById('dailyTarget').textContent = '$' + dailyTarget.toFixed(2) + '/day';
-            document.getElementById('dailyNote').textContent = '($' + currentData.deposit + ' ÷ 7 days)';
+            document.getElementById('dailyTarget').textContent = '$' + dailyTarget.toFixed(2);
+            document.getElementById('dailyNote').textContent = '$' + currentData.deposit + ' weekly ÷ 7 days';
 
             document.getElementById('prevBtn').disabled = currentWeek === 1;
             document.getElementById('nextBtn').disabled = currentWeek === 52;
 
             const completeBtn = document.getElementById('completeBtn');
             if (completedWeeks.includes(currentWeek)) {
-                completeBtn.textContent = 'Undo Week';
+                completeBtn.innerHTML = '<i class="bi bi-x-circle"></i> Undo Week';
                 completeBtn.classList.remove('primary');
-                completeBtn.classList.add('reset');
+                completeBtn.classList.add('undo');
             } else {
-                completeBtn.textContent = 'Complete Week';
+                completeBtn.innerHTML = '<i class="bi bi-check2-circle"></i> Complete Week';
                 completeBtn.classList.add('primary');
-                completeBtn.classList.remove('reset');
+                completeBtn.classList.remove('undo');
             }
 
             const grid = document.getElementById('weeksGrid');
@@ -439,22 +616,38 @@
             weeklyData.forEach(week => {
                 const isCompleted = completedWeeks.includes(week.week);
                 const isCurrent = week.week === currentWeek;
+                const isBonus = isBonusWeek(week.week);
 
                 const card = document.createElement('div');
-                card.className = 'week-card' + (isCurrent ? ' current' : '') + (isCompleted ? ' completed' : '');
+                card.className = 'week-card' + 
+                    (isCurrent ? ' current' : '') + 
+                    (isCompleted ? ' completed' : '') +
+                    (isBonus ? ' bonus' : '');
+                card.setAttribute('data-week', week.week);
                 card.onclick = () => toggleWeek(week.week);
 
                 card.innerHTML = `
-                    <div class="week-header">
-                        <div class="week-badge">${isCompleted ? '<i class="bi bi-check-lg"></i>' : week.week}</div>
-                        <div class="week-label">Week ${week.week}</div>
+                    <div class="week-content">
+                        <div class="week-header">
+                            <div class="week-badge">${isCompleted ? '<i class="bi bi-check-lg"></i>' : week.week}</div>
+                            <div class="week-label">Week ${week.week}</div>
+                        </div>
+                        <div class="week-details">
+                            <div class="week-deposit">+$${week.deposit}</div>
+                            <div class="week-balance">$${week.balance.toLocaleString()}</div>
+                        </div>
                     </div>
-                    <div class="week-deposit">+$${week.deposit}</div>
-                    <div class="week-balance">$${week.balance.toLocaleString()}</div>
                 `;
 
                 grid.appendChild(card);
             });
+
+            const currentCard = document.querySelector('.week-card.current');
+            if (currentCard) {
+                setTimeout(() => {
+                    currentCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 100);
+            }
         }
 
         document.getElementById('prevBtn').onclick = () => {
@@ -467,6 +660,9 @@
 
         document.getElementById('nextBtn').onclick = () => {
             if (currentWeek < 52) {
+                if (!completedWeeks.includes(currentWeek)) {
+                    completedWeeks.push(currentWeek);
+                }
                 currentWeek++;
                 saveState();
                 render();
@@ -475,6 +671,15 @@
 
         document.getElementById('completeBtn').onclick = () => {
             toggleWeek(currentWeek);
+        };
+
+        document.getElementById('resetBtn').onclick = () => {
+            if (confirm('Reset all progress? This cannot be undone.')) {
+                completedWeeks = [];
+                currentWeek = 1;
+                saveState();
+                render();
+            }
         };
 
         render();
