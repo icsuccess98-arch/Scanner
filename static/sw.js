@@ -1,11 +1,19 @@
-const CACHE_NAME = '730-locks-v1';
+const CACHE_NAME = '730-locks-v2';
 const urlsToCache = [
   '/',
   '/bankroll',
   '/history',
   '/static/manifest.json',
   '/static/icon-512.png',
-  '/offline.html'
+  '/static/icon-192.png',
+  '/static/icon-128.png',
+  '/static/icon-96.png',
+  '/static/icon-64.png',
+  '/offline.html',
+  '/favicon.ico',
+  'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css',
+  'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css',
+  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap'
 ];
 
 self.addEventListener('install', (event) => {

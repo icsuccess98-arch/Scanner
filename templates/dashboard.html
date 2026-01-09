@@ -445,20 +445,21 @@
         .tier-badge.strong { background: rgba(157, 78, 221, 0.25); color: #E0B0FF; }
         .tier-badge.standard { background: rgba(123, 44, 191, 0.2); color: var(--accent); }
         .tier-count { font-weight: 800; font-size: 1rem; }
-        .direction-chip { padding: 0.25rem 0.5rem; border-radius: 4px; font-weight: 700; font-size: 0.75rem; }
+        .direction-chip { padding: 0.25rem 0.5rem; border-radius: 4px; font-weight: 700; font-size: 0.75rem; white-space: nowrap; flex-shrink: 0; }
         .direction-chip.over { background: rgba(0, 230, 118, 0.2); color: #00E676; }
         .direction-chip.under { background: rgba(255, 82, 82, 0.2); color: #FF5252; }
+        .direction-chip.spread-chip { font-size: 0.7rem; }
         .top-pick-row {
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            gap: 0.5rem;
             padding: 0.5rem 0;
             border-bottom: 1px solid var(--border);
             font-size: 0.8rem;
         }
         .top-pick-row:last-child { border-bottom: none; }
-        .top-pick-matchup { font-weight: 500; flex: 1; }
-        .top-pick-edge { font-weight: 700; color: #FFD700; margin-left: 0.5rem; }
+        .top-pick-matchup { font-weight: 500; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .top-pick-edge { font-weight: 700; color: #FFD700; flex-shrink: 0; }
         .btn-clear {
             background: transparent;
             border: 1px solid var(--red);
@@ -744,11 +745,11 @@
                         {% if pick.pick_type == 'totals' %}
                         <span class="direction-chip {% if pick.direction == 'O' %}over{% else %}under{% endif %}">{{ pick.direction }}{{ pick.line }}</span>
                         {% else %}
-                        <span class="direction-chip" style="background: rgba(76, 130, 255, 0.15); color: var(--accent);">
+                        <span class="direction-chip spread-chip" style="background: rgba(76, 130, 255, 0.15); color: var(--accent);">
                             {% if pick.direction == 'HOME' %}
-                            {{ pick.game.home_team[:8] }} {{ "%+.1f"|format(pick.line) if pick.line else '' }}
+                            {{ pick.game.home_team }} {{ "%+.1f"|format(pick.line) if pick.line else '' }}
                             {% else %}
-                            {{ pick.game.away_team[:8] }} +{{ "%.1f"|format(pick.line|abs) if pick.line else '' }}
+                            {{ pick.game.away_team }} +{{ "%.1f"|format(pick.line|abs) if pick.line else '' }}
                             {% endif %}
                         </span>
                         {% endif %}
@@ -983,7 +984,12 @@
             document.getElementById('loadingOverlay').classList.remove('active');
         }
 
+        function hapticFeedback() {
+            if ('vibrate' in navigator) navigator.vibrate(10);
+        }
+        
         function fetchGames() {
+            hapticFeedback();
             const btn = event.target.closest('button');
             btn.disabled = true;
             btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Loading...';

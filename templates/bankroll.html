@@ -449,10 +449,41 @@
         
         @keyframes pop {
             0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
+            50% { transform: scale(1.08); }
             100% { transform: scale(1); }
         }
-        .week-card.just-completed { animation: pop 0.3s ease; }
+        @keyframes celebrate {
+            0% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.7); }
+            50% { box-shadow: 0 0 0 15px rgba(139, 92, 246, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0); }
+        }
+        @keyframes flash {
+            0%, 100% { background: linear-gradient(135deg, rgba(139, 92, 246, 0.4) 0%, rgba(167, 139, 250, 0.2) 100%); }
+            50% { background: linear-gradient(135deg, rgba(139, 92, 246, 0.7) 0%, rgba(167, 139, 250, 0.5) 100%); }
+        }
+        .week-card.just-completed { 
+            animation: pop 0.3s ease, celebrate 0.6s ease, flash 0.4s ease;
+        }
+        .week-selector {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-top: 0.75rem;
+            justify-content: center;
+        }
+        .week-selector label {
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.7);
+        }
+        .week-selector select {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.5rem 0.75rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
         
         @media (max-width: 480px) {
             .header { padding: 0.75rem; }
@@ -536,6 +567,16 @@
                 <div class="progress-bar">
                     <div class="progress-fill" id="progressFill" style="width: 0%"></div>
                 </div>
+            </div>
+            <div class="week-selector">
+                <label>Jump to week:</label>
+                <select id="weekJumpSelector" onchange="jumpToWeek(this.value)">
+                    <script>
+                        for (let i = 1; i <= 52; i++) {
+                            document.write(`<option value="${i}">Week ${i}</option>`);
+                        }
+                    </script>
+                </select>
             </div>
         </div>
     </div>
@@ -672,8 +713,21 @@
             }
             return streak;
         }
+        
+        function hapticFeedback() {
+            if ('vibrate' in navigator) navigator.vibrate(10);
+        }
+        
+        function jumpToWeek(week) {
+            hapticFeedback();
+            currentWeek = parseInt(week);
+            saveState();
+            render();
+            document.getElementById('weekJumpSelector').value = currentWeek;
+        }
 
         function toggleWeek(week) {
+            hapticFeedback();
             const card = document.querySelector(`[data-week="${week}"]`);
             if (completedWeeks.includes(week)) {
                 completedWeeks = completedWeeks.filter(w => w !== week);
@@ -681,7 +735,7 @@
                 completedWeeks.push(week);
                 if (card) {
                     card.classList.add('just-completed');
-                    setTimeout(() => card.classList.remove('just-completed'), 300);
+                    setTimeout(() => card.classList.remove('just-completed'), 600);
                 }
                 if (week === currentWeek && currentWeek < 52) {
                     currentWeek++;
@@ -718,7 +772,7 @@
 
             document.getElementById('prevBtn').disabled = currentWeek === 1;
             document.getElementById('nextBtn').disabled = currentWeek === 52;
-
+            document.getElementById('weekJumpSelector').value = currentWeek;
 
             const grid = document.getElementById('weeksGrid');
             grid.innerHTML = '';

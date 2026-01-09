@@ -273,15 +273,38 @@
             </div>
         </div>
 
+        <div class="filter-bar" style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
+            <select id="leagueFilter" onchange="filterPicks()" style="background: var(--bg-input); border: 1px solid var(--border); color: var(--text); padding: 0.5rem 0.75rem; border-radius: 8px; font-size: 0.8rem; font-weight: 600;">
+                <option value="all">All Leagues</option>
+                <option value="NBA">NBA</option>
+                <option value="CBB">CBB</option>
+                <option value="NFL">NFL</option>
+                <option value="CFB">CFB</option>
+                <option value="NHL">NHL</option>
+            </select>
+            <select id="dateFilter" onchange="filterPicks()" style="background: var(--bg-input); border: 1px solid var(--border); color: var(--text); padding: 0.5rem 0.75rem; border-radius: 8px; font-size: 0.8rem; font-weight: 600;">
+                <option value="all">All Time</option>
+                <option value="7">Last 7 Days</option>
+                <option value="30">Last 30 Days</option>
+                <option value="90">Last 90 Days</option>
+            </select>
+            <select id="resultFilter" onchange="filterPicks()" style="background: var(--bg-input); border: 1px solid var(--border); color: var(--text); padding: 0.5rem 0.75rem; border-radius: 8px; font-size: 0.8rem; font-weight: 600;">
+                <option value="all">All Results</option>
+                <option value="W">Wins Only</option>
+                <option value="L">Losses Only</option>
+                <option value="pending">Pending</option>
+            </select>
+        </div>
+
         <div class="section-title">
             <i class="bi bi-clock-history"></i>
             Pick History
-            <span class="ms-auto" style="color: var(--text-muted);">{{ picks|length }} picks</span>
+            <span class="ms-auto" style="color: var(--text-muted);"><span id="visibleCount">{{ picks|length }}</span> picks</span>
         </div>
 
         {% if picks %}
         {% for pick in picks %}
-        <div class="pick-card {% if pick.result == 'W' %}win{% elif pick.result == 'L' %}loss{% endif %} {% if pick.is_lock %}lock{% endif %}" data-pick-id="{{ pick.id }}">
+        <div class="pick-card {% if pick.result == 'W' %}win{% elif pick.result == 'L' %}loss{% endif %} {% if pick.is_lock %}lock{% endif %}" data-pick-id="{{ pick.id }}" data-league="{{ pick.league }}" data-date="{{ pick.date.strftime('%Y-%m-%d') }}" data-result="{{ pick.result or 'pending' }}">
             <div class="pick-header">
                 <span class="pick-date">{{ pick.date.strftime('%b %d, %Y') }}</span>
                 <span class="pick-league {{ pick.league|lower }}">{{ pick.league }}</span>
@@ -331,7 +354,40 @@
     </div>
 
     <script>
+        function hapticFeedback() {
+            if ('vibrate' in navigator) navigator.vibrate(10);
+        }
+        
+        function filterPicks() {
+            hapticFeedback();
+            const league = document.getElementById('leagueFilter').value;
+            const days = document.getElementById('dateFilter').value;
+            const result = document.getElementById('resultFilter').value;
+            const now = new Date();
+            let visible = 0;
+            
+            document.querySelectorAll('.pick-card').forEach(card => {
+                let show = true;
+                
+                if (league !== 'all' && card.dataset.league !== league) show = false;
+                
+                if (days !== 'all') {
+                    const pickDate = new Date(card.dataset.date);
+                    const diffDays = Math.floor((now - pickDate) / (1000 * 60 * 60 * 24));
+                    if (diffDays > parseInt(days)) show = false;
+                }
+                
+                if (result !== 'all' && card.dataset.result !== result) show = false;
+                
+                card.style.display = show ? '' : 'none';
+                if (show) visible++;
+            });
+            
+            document.getElementById('visibleCount').textContent = visible;
+        }
+        
         function updateResult(pickId, result) {
+            hapticFeedback();
             fetch(`/update_result/${pickId}`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
