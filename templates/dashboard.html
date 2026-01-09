@@ -675,7 +675,7 @@
                 </form>
             </div>
             
-            <div class="analytics-grid">
+            <div class="analytics-grid" style="grid-template-columns: 1fr 1fr;">
                 <div class="analytics-card">
                     <div class="analytics-card-value" style="color: var(--green);">{{ "%.1f"|format(analytics.avg_edge) if analytics.avg_edge else '0.0' }}</div>
                     <div class="analytics-card-label">Avg Edge</div>
@@ -683,13 +683,6 @@
                 <div class="analytics-card">
                     <div class="analytics-card-value" style="color: var(--gold);">{{ "%.1f"|format(analytics.best_edge) if analytics.best_edge else '0.0' }}</div>
                     <div class="analytics-card-label">Best Edge</div>
-                </div>
-                <div class="analytics-card">
-                    <div class="analytics-card-value" style="color: var(--text);">
-                        <span class="tier-badge elite"><span class="tier-count">{{ analytics.edge_tiers.elite }}</span> Elite</span>
-                        <span class="tier-badge strong"><span class="tier-count">{{ analytics.edge_tiers.strong }}</span> Strong</span>
-                    </div>
-                    <div class="analytics-card-label">Edge Tiers (12+ / 10+)</div>
                 </div>
             </div>
             

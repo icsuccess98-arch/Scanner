@@ -584,32 +584,40 @@
             const grid = document.getElementById('weeksGrid');
             grid.innerHTML = '';
 
-            weeklyData.forEach(week => {
-                const isCompleted = completedWeeks.includes(week.week);
-                const isCurrent = week.week === currentWeek;
+            const leftColumn = weeklyData.slice(0, 26);
+            const rightColumn = weeklyData.slice(26, 52);
 
-                const card = document.createElement('div');
-                card.className = 'week-card' + 
-                    (isCurrent ? ' current' : '') + 
-                    (isCompleted ? ' completed' : '');
-                card.setAttribute('data-week', week.week);
-                card.onclick = () => toggleWeek(week.week);
+            for (let i = 0; i < 26; i++) {
+                const leftWeek = leftColumn[i];
+                const rightWeek = rightColumn[i];
 
-                card.innerHTML = `
-                    <div class="week-content">
-                        <div class="week-header">
-                            <div class="week-badge">${isCompleted ? '<i class="bi bi-check-lg"></i>' : week.week}</div>
-                            <div class="week-label">Week ${week.week}</div>
+                [leftWeek, rightWeek].forEach(week => {
+                    const isCompleted = completedWeeks.includes(week.week);
+                    const isCurrent = week.week === currentWeek;
+
+                    const card = document.createElement('div');
+                    card.className = 'week-card' + 
+                        (isCurrent ? ' current' : '') + 
+                        (isCompleted ? ' completed' : '');
+                    card.setAttribute('data-week', week.week);
+                    card.onclick = () => toggleWeek(week.week);
+
+                    card.innerHTML = `
+                        <div class="week-content">
+                            <div class="week-header">
+                                <div class="week-badge">${isCompleted ? '<i class="bi bi-check-lg"></i>' : week.week}</div>
+                                <div class="week-label">Week ${week.week}</div>
+                            </div>
+                            <div class="week-details">
+                                <div class="week-deposit">+$${week.deposit}</div>
+                                <div class="week-balance">$${week.balance.toLocaleString()}</div>
+                            </div>
                         </div>
-                        <div class="week-details">
-                            <div class="week-deposit">+$${week.deposit}</div>
-                            <div class="week-balance">$${week.balance.toLocaleString()}</div>
-                        </div>
-                    </div>
-                `;
+                    `;
 
-                grid.appendChild(card);
-            });
+                    grid.appendChild(card);
+                });
+            }
 
             const currentCard = document.querySelector('.week-card.current');
             if (currentCard) {

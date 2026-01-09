@@ -1,302 +1,62 @@
 # Trading Systems Project
 
 ## Overview
-Three independent trading systems:
-1. Sports betting calculator (O/U totals AND spreads)
-2. Forex/metals/indices trading bot (Discord only)
-3. Crypto perpetuals trading system (Coinbase Advanced Trade API)
+This project develops and manages three independent trading systems:
+1.  **Sports Betting Calculator**: Analyzes sports data to identify profitable betting opportunities for Over/Under totals and spreads. Its core purpose is to provide data-driven picks based on a strictly defined mathematical model.
+2.  **Forex/Metals/Indices Trading Bot**: An automated trading bot exclusively integrated with Discord for notifications and interactions.
+3.  **Crypto Perpetuals Trading System**: A system designed for trading cryptocurrency perpetuals, leveraging the Coinbase Advanced Trade API.
 
-## Recent Changes
-- January 9, 2026: 52 Week Bankroll Builder
-  - New /bankroll page with interactive savings tracker
-  - Click any week to mark complete/incomplete (persists via localStorage)
-  - Golden target card shows weekly goal, target balance, daily win target
-  - Progress bar tracks completed weeks (0-52)
-  - Previous/Complete Week/Next navigation buttons
-  - Mobile-friendly with sticky bottom nav and two-column week grid
-  - Responsible gambling warning included
-  - Navigation added to all pages (Dashboard, History, Bankroll)
-- January 8, 2026: Average Margin for Spread Qualification
-  - Calculates average margin of victory/loss for each team (last 10 games) on-the-fly
-  - Spreads now use margin-based validation (no new database columns)
-  - HOME favorite picks: team's avg margin must be >= 50% of spread line
-  - AWAY underdog picks: team's avg margin supports getting points OR team is profitable
-  - Both TOTALS (60% O/U rate) and SPREADS (margin validation) require history to qualify
-  - Spread picks saved with line for future ATS performance tracking
-- January 8, 2026: Speed Optimization + Historical Qualification for ALL Picks
-  - Parallel alt line fetching (10 concurrent workers) - reduced fetch time from 17s to ~12-15s
-  - Both TOTALS and SPREADS now require historical validation to display
-  - History check runs automatically after fetch (no manual button needed)
-  - Games show 0 qualified until historical data is fetched (conservative approach)
-  - Discord only posts picks that pass both edge threshold AND historical check
-  - This prevents sending picks without proven historical performance
-- January 8, 2026: Away Favorite Priority + UI Fix
-  - Lock selection now prioritizes away team favorites (when away team has negative spread)
-  - Tiebreaker: Equal edge picks favor games where away team is favored
-  - Fixed "Best Edge" label wrapping - now displays side-by-side like other labels
-  - Added white-space: nowrap to analytics card labels
-- January 8, 2026: History Tracking + Weekend Scheduling
-  - History now only tracks the Supermax/Lock of the Day (not all picks)
-  - Weekend scheduling (Fri-Sun) posts 3 staggered locks:
-    - 10:00 AM - EARLY lock (games before 1pm)
-    - 12:30 PM - MIDDAY lock (games 1-6pm)
-    - 5:00 PM - LATE lock (games after 6pm)
-  - Weekdays: Single Lock of the Day at 11 AM
-  - Added game_window field to Pick model for tracking EARLY/MID/LATE slots
-  - New endpoint: /post_discord_window/<window> for window-based posting
-  - Removed Qualification Rate from Edge Analysis
-- January 8, 2026: Bovada Alt Lines + Better Value Selection
-  - Switched alt lines source from FanDuel to Bovada (better odds availability)
-  - Alt lines now correctly select best value under/over the main line
-  - Example: Little Rock @ SIUE now shows O129.5 (-180) instead of nothing
-  - Enhanced debug logging shows all available alt lines and why some are filtered
-  - 11 alt lines found vs 7 previously (57% improvement)
-- January 8, 2026: Official League Logos + Bovada-Only Enforcement + Performance Fix
-  - Fixed NCAA logo 404 - uses `/i/espn/misc_logos/500/ncaa.png` (not `/i/teamlogos/leagues/500/ncaa.png`)
-  - Added official NBA, NFL, NHL, NCAA logos from ESPN CDN for league sections
-  - Fixed history page 2.4s delay - removed blocking API calls on page load (now 42ms)
-  - Automatic result checking: refreshes ~2.5h after game starts (NBA/CBB), ~3h (NHL), ~3.5h (NFL/CFB)
-  - Results checked during live score refresh (every 30 seconds) - no manual button needed
-  - SUPERMAX and TOP 5 badges no longer show NCAA logo - clean text only
-  - League-specific gradient colors on game card left borders (NBA red/blue, NFL blue/red, NHL black/silver, etc.)
-  - Game cards have hover effects with shadows for FanDuel-like interactivity
-  - Lock card now has golden glow effect
-  - Qualified cards have green gradient background
-  - Alt line odds strictly -180 or better (no worse odds = not a lock)
-  - Only games with Bovada lines displayed (filtered by line or spread_line not null)
-- January 8, 2026: UI Refresh + Mobile Optimization + FK Fix
-  - Jewel-tone color palette (emerald, sapphire, amber, crimson, ice)
-  - Mobile sticky action bar (Fetch/Discord buttons) for thumb access
-  - Header buttons hidden on mobile (≤768px) to avoid duplicates
-  - Fixed database foreign key constraint error with safe_delete_games() helper
-  - Pick references nullified before game deletion to preserve FK integrity
-  - Combined Fetch Games + Fetch Odds into single operation
-  - Historical threshold changed to 60% (EITHER team must meet, not both)
-- January 8, 2026: 70% Historical Threshold + Spread Result Checker Fix
-  - Totals picks must meet 70% historical O/U hit rate to qualify
-  - Uses ESPN team schedules to fetch last 10 games per team
-  - O/U hit rate calculated using average total as proxy for historical line
-  - If either team has <5 games of history, pick is NOT qualified (conservative)
-  - H2H history: Fetches head-to-head games between the two teams from ESPN
-  - H2H requirement: If 3+ H2H games exist, must also meet 70% O/U rate
-  - SPREADS are exempt from historical threshold (cannot calculate ATS without historical spread data)
-  - Date-keyed caching for ESPN lookups (refreshes daily, speeds up subsequent calls)
-  - History is fetched automatically after odds are fetched (no manual button)
-  - Backend-only feature - no UI indication of historical qualification
-  - Fixed spread result checker - now properly parses "Team +X.X" format
-  - Spread result stored as margin (float) instead of score string
-- January 8, 2026: Game card redesign with TOTALS and SPREAD breakdown
-  - Each game card now shows side-by-side TOTALS and SPREAD sections
-  - TOTALS shows: Line, Projected, Edge, and pick (O/U or NO BET)
-  - SPREAD shows: Line, Margin, Edge, and pick (team +spread or NO BET)
-  - Spread section has blue accent border to differentiate from totals
-  - Removed empty input boxes - now shows "-" for missing data
-  - Edge display cleaned up - shows "EDGE 12.1 PTS" neatly under lock picks
-  - Dashboard shows separate counts: "4 TOTALS" and "18 SPREADS" qualified
-  - "Qualified Only" filter now shows games qualifying for EITHER totals OR spreads
-  - League headers show "4T / 6S" format (totals/spreads qualified)
-  - Alternate lines: NEGATIVE ODDS ONLY (-180 to -100, no + money)
-  - Alt lines require paid Odds API plan (401 errors = subscription limit)
-- January 8, 2026: Added spread betting functionality
-  - Same locked formula calculates expected scores for each team
-  - Projected margin = Expected_Home - Expected_Away
-  - Spread qualification uses same thresholds (NBA/CBB: 8.0, NFL/CFB: 3.5, NHL: 0.5)
-  - Dashboard shows separate Totals Lock and Spread Lock
-  - Spread Analysis section with qualified count, best edge, home/away split
-  - Discord posting includes both totals and spread picks
-  - Pick model updated with pick_type (total/spread) for history tracking
-- January 7, 2026: Critical production stability fixes
-  - Added ESPN event date validation (prevents stale games from wrong dates)
-  - Games now cleared per-league before each refresh (no stale data persistence)
-  - Added commence_time validation for Odds API (only today's games matched)
-  - Database initialization at startup (prevents health check failures)
-  - Gunicorn timeout increased to 120s with 2 workers for deployment reliability
-  - Added logging for empty game fetches (alerts when no games found for today)
-- January 6, 2026: Comprehensive debug and optimization
-  - Fixed all bare except clauses with proper logging
-  - Added team alias expansion (UMass, UCF, SIUE, GW, etc.)
-  - Fixed parentheses handling in team names (Miami OH matches Miami (OH))
-  - Fixed "St" to "state" replacement bug (no more "stateate")
-  - NHL stats now indexed by place name AND nickname
-  - 100% line coverage on all leagues with available odds
-- January 6, 2026: Robust team name matching
-  - Unified teams_match() function with directional prefix validation
-  - Prevents Eastern/Western/Central/Northern/Southern confusion
-  - Same logic used for both odds fetching and result checking
-  - Lines always update on Fetch Odds (not one-time only)
-  - Fixed edge serialization for 0.0 values
-  - Added favicon route
-- January 6, 2026: Code quality improvements
-  - Added logging, type hints, docstrings, and validation
-  - Added database indexes for faster queries
-  - Simplified history page to 3 stat cards (Wins, Losses, Win Rate)
-  - Removed filters, units, pushes, streak from history page
-  - NFL and CFB result checking added to check_pick_results()
-  - Discord posts and saves top 3 picks consistently
-  - Live score auto-refresh every 30 seconds during games
-- January 5, 2026: Full automation for Sports Model
-  - Daily automation runs on schedule (no manual intervention needed)
-  - Stats refresh from ESPN on every fetch (PPG, Opp PPG always current)
-  - Finished games filtered out automatically
-  - Old games (before today) auto-deleted on dashboard load
-- January 5, 2026: Created Sports Model web app (sports_app.py)
-  - Flask app with "730's Locks" branding, dark theme UI
-  - Edge Analysis dashboard (Avg Edge, Best Edge, Direction Split, Tiers)
-  - Auto-fetch today's NBA/NHL/CBB/CFB games with stats
-  - Locked formulas and thresholds enforced
-  - Discord posting with pick history tracking
-
-## Daily Automation Schedule (ET)
-
-### Weekdays (Mon-Thu)
-- **8:00 AM** - Fetch all games with fresh ESPN stats
-- **9:30 AM** - Fetch betting odds from The Odds API  
-- **11:00 AM** - Post Lock of the Day to Discord
-- **2:00 PM** - Afternoon refresh (stats + odds update)
-- **11:00 PM** - Check pick results
-
-### Weekends (Fri-Sun) - Big Slate Days
-- **8:00 AM** - Fetch all games with fresh ESPN stats
-- **9:30 AM** - Fetch betting odds from The Odds API
-- **10:00 AM** - Post EARLY Lock (games before 1pm)
-- **12:30 PM** - Post MIDDAY Lock (games 1-6pm)
-- **5:00 PM** - Post LATE Lock (games after 6pm)
-- **2:00 PM** - Afternoon refresh (stats + odds update)
-- **11:00 PM** - Check pick results
-- January 4, 2026: Fixed NFL stats (avgPointsFor/avgPointsAgainst), added team nicknames
-- January 4, 2026: Fixed NHL season to 2025-26, added team nickname aliases
-- January 4, 2026: Fixed LSP error (comp_data unbound)
-- January 3, 2026: Updated basketball thresholds to 8.0 points
-- January 3, 2026: Fixed NBA stats to use OPP_PTS column from opponent stats
-- January 3, 2026: Removed Telegram from Forex workflows (Discord only)
-
----
-
-## SPORTS MODEL SPECIFICATION (LOCKED - DO NOT MODIFY)
-
-### Role
-You are a strict sports betting calculation engine.
-You do not give opinions.
-You do not adjust formulas.
-You do not introduce new metrics.
-You only follow the rules below exactly.
-
-### I. APPROVED DATA SOURCES (MANDATORY)
-
-You may ONLY use:
-1. ESPN Official Season Stats
-   - Team Points Per Game (PPG)
-   - Opponent Points Allowed Per Game (Opp PPG)
-2. Bovada
-   - Current Over/Under total line
-
-If any data is missing, you must stop and say:
-"Insufficient data — no play."
-
-### II. REQUIRED FORMULAS (NO MODIFICATIONS)
-
-You must compute totals using ONLY the following formulas:
-
-**Expected Team A Score**
-```
-Expected_A = (Team A PPG + Team B Opp PPG) / 2
-```
-
-**Expected Team B Score**
-```
-Expected_B = (Team B PPG + Team A Opp PPG) / 2
-```
-
-**Projected Total**
-```
-Projected_Total = Expected_A + Expected_B
-```
-
-No rounding until the final step.
-Show values to one decimal place.
-
-### III. DIFFERENCE CALCULATION
-
-```
-Difference = Projected_Total − Bovada_Line
-```
-
-### IV. LEAGUE-SPECIFIC THRESHOLDS (ABSOLUTE RULE)
-
-A bet is ONLY valid if the absolute value of the Difference meets or exceeds:
-- **NBA: ±8.0 points**
-- **CBB: ±8.0 points**
-- **NFL: ±3.5 points**
-- **CFB: ±3.5 points**
-- **NHL: ±0.5 points**
-
-If the threshold is NOT met:
-Output "NO BET — EDGE TOO SMALL."
-
-### V. BET DIRECTION RULES (BINARY)
-
-- **OVER**: If Projected_Total ≥ Bovada_Line + Threshold
-- **UNDER**: If Bovada_Line ≥ Projected_Total + Threshold
-
-No leans.
-No maybes.
-No confidence language.
-
-### VI. OUTPUT FORMAT (MANDATORY)
-
-You must return results in this exact structure:
-```
-Game: Team A vs Team B
-League: NBA / CBB / NFL / CFB / NHL
-- Team A PPG:
-- Team A Opp PPG:
-- Team B PPG:
-- Team B Opp PPG:
-
-Expected A:
-Expected B:
-Projected Total:
-Bovada Line:
-Difference:
-
-Decision: OVER / UNDER / NO BET
-Reason: Threshold met or not met
-```
-
-### VII. HARD CONSTRAINTS
-
-- Do NOT add injuries, pace, weather, trends, or narratives
-- Do NOT adjust thresholds
-- Do NOT optimize or "improve" the model
-- Do NOT guess lines
-- Do NOT output picks unless rules are met
-
-You are a calculator, not an analyst.
-
----
-
-## Project Architecture
-
-### Sports Scanner (`sports_scanner.py`)
-- Workflow: `Sports Scanner`
-- Data sources: ESPN API (stats), Bovada (lines)
-- Discord webhook: `SPORTS_DISCORD_WEBHOOK`
-- Leagues: NBA, CBB, NFL, CFB, NHL
-
-### Forex Bot (`main.py`)
-- Workflows: `Run Daily`, `Run Weekly`, `Run Monthly`
-- API: OANDA
-- Discord webhooks: `WEBHOOK_DAILY`, `WEBHOOK_WEEKLY`, `WEBHOOK_MONTHLY`
-- Discord only (no Telegram)
-
-### Crypto Bot (`crypto_main.py`)
-- Workflows: `Crypto Daily`, `Crypto Weekly`, `Crypto Monthly`
-- API: Coinbase Advanced Trade
-- Discord webhook: `DISCORD_WEBHOOK`
-- 35 high-volume perpetual tickers
+The overarching vision is to provide robust, automated, and data-backed trading and betting solutions across different financial and sports markets.
 
 ## User Preferences
 - Keep Discord message format consistent - never change formats
 - No Telegram for Forex workflows
 - Bovada-style team names (short nicknames, no mascots)
 - Lock of the Day = highest absolute edge across all qualified picks
+- Only make changes to the `replit.nix` and `.replit` files if it is absolutely necessary.
+- Do not make changes to files in the `archive` folder.
+
+## System Architecture
+
+### UI/UX
+-   **Color Palette**: Jewel-tone color scheme (emerald, sapphire, amber, crimson, ice).
+-   **Mobile Optimization**: Sticky mobile action bar for easy thumb access, header buttons hidden on mobile.
+-   **Interactive Elements**: Game cards feature hover effects with shadows, lock cards have a golden glow, and qualified cards display a green gradient background.
+-   **Branding**: "730's Locks" branding for the sports model web app.
+-   **Dashboard**: Features Edge Analysis with Average Edge, Best Edge, and Direction Split. Includes a 52-week bankroll builder with an interactive savings tracker and progress bar.
+-   **League Logos**: Official ESPN CDN logos for NBA, NFL, NHL, NCAA. League-specific gradient colors for game card borders.
+-   **Data Display**: Game cards show side-by-side TOTALS and SPREAD sections with lines, projections, edge, and pick. Cleaned-up edge display.
+
+### Technical Implementation
+-   **Sports Model (Locked)**:
+    -   **Data Sources**: Exclusively uses ESPN Official Season Stats (PPG, Opp PPG) and Bovada for current Over/Under total lines.
+    -   **Formulas**: Strict, unmodifiable formulas for `Expected Team Score`, `Projected Total`, and `Difference`.
+    -   **Thresholds**: League-specific thresholds (NBA/CBB: ±8.0 points, NFL/CFB: ±3.5 points, NHL: ±0.5 points) for pick validation.
+    -   **Bet Direction**: Binary rules for OVER/UNDER based on `Projected_Total` vs. `Bovada_Line` plus threshold.
+    -   **Historical Qualification**: Totals picks require a 70% historical O/U hit rate (based on average total as proxy for historical line) from the last 10 games (ESPN team schedules). H2H history also considered if 3+ games exist. Spreads use margin-based validation where average margin must meet a percentage of the spread line.
+    -   **Alt Lines**: Fetched from Bovada, selecting the best value under/over the main line, with odds strictly -180 or better.
+    -   **Result Checking**: Automatic result checking refreshes approximately 2.5-3.5 hours after game start, integrated with live score refresh every 30 seconds.
+    -   **Automation**: Daily scheduled tasks for fetching games, stats, odds, posting picks to Discord, and checking results.
+    -   **Spread Betting**: Integrated alongside totals, using the same locked formula for expected scores and league-specific thresholds for qualification.
+-   **Data Management**:
+    -   **Caching**: Date-keyed caching for ESPN lookups to speed up subsequent calls.
+    -   **Database**: Uses SQLite with indexes for faster queries. Foreign key integrity maintained with safe deletion helpers.
+    -   **Data Validation**: ESPN event date validation, commence_time validation for Odds API, and clearing of stale league data.
+-   **System Stability**: Gunicorn timeout increased to 120s with 2 workers, robust logging, team alias expansion and name matching, and unified `teams_match()` function.
+-   **Discord Integration**: Automated posting of picks to Discord with history tracking. Weekend scheduling includes staggered "EARLY", "MIDDAY", and "LATE" locks.
+
+### Feature Specifications
+-   **Sports Scanner**: Fetches NBA, CBB, NFL, CFB, NHL games, stats, and odds to identify and post qualified picks.
+-   **Forex Bot**: Executes trading workflows (Daily, Weekly, Monthly) and posts updates to Discord.
+-   **Crypto Bot**: Manages crypto perpetuals trading for 35 high-volume tickers via Coinbase Advanced Trade API, with Discord notifications.
+
+## External Dependencies
+-   **Sports Data**:
+    -   ESPN API (for team statistics, schedules, and historical data)
+    -   Bovada (for betting lines and alternate lines)
+    -   The Odds API (for betting odds)
+-   **Trading Platforms**:
+    -   OANDA API (for Forex/metals/indices trading)
+    -   Coinbase Advanced Trade API (for crypto perpetuals trading)
+-   **Communication**:
+    -   Discord Webhooks (for all automated notifications and pick postings)
