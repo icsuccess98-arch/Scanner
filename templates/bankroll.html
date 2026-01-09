@@ -68,16 +68,23 @@
             flex-shrink: 0;
         }
         .brand i { -webkit-text-fill-color: var(--gold); filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.5)); font-size: 0.9rem; }
-        .nav-links { display: flex; gap: 0.75rem; flex-shrink: 0; }
+        .nav-links { display: flex; gap: 0.5rem; flex-shrink: 0; }
         .nav-links a {
             color: var(--text-muted);
             text-decoration: none;
-            font-weight: 500;
+            font-weight: 600;
             font-size: 0.8rem;
-            transition: color 0.2s;
+            padding: 0.4rem 0.75rem;
+            border-radius: 16px;
+            transition: all 0.2s;
             white-space: nowrap;
         }
-        .nav-links a:hover, .nav-links a.active { color: var(--gold); }
+        .nav-links a:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+        .nav-links a.active { 
+            color: var(--gold); 
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.15) 0%, rgba(218, 165, 32, 0.08) 100%);
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.2);
+        }
         
         .hero-section {
             background: linear-gradient(135deg, var(--purple-dark) 0%, var(--purple) 50%, var(--accent) 100%);
@@ -373,8 +380,8 @@
         </a>
         <nav class="nav-links">
             <a href="/">Dashboard</a>
-            <a href="/history">History</a>
             <a href="/bankroll" class="active">Bankroll</a>
+            <a href="/history">History</a>
         </nav>
     </header>
 
