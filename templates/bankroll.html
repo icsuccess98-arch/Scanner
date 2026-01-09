@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#d4af37">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Bankroll Builder - 730's Locks</title>
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="icon" type="image/png" href="/static/icon-192.png">
+    <link rel="apple-touch-icon" href="/static/icon-192.png">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg-dark: #0a0a12;
+            --bg-card: #12101a;
+            --bg-input: #1a1825;
+            --border: #2d2640;
+            --text: #F8F8FF;
+            --text-muted: #9990B0;
+            --accent: #7B2CBF;
+            --emerald: #50C878;
+            --gold: #FFD700;
+            --gold-light: #FFEC8B;
+            --gold-dark: #DAA520;
+            --purple: #7B2CBF;
+            --purple-light: #9D4EDD;
+            --crimson: #DC143C;
+            --ice: #E0B0FF;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(180deg, #0f0d14 0%, var(--bg-dark) 100%);
+            color: var(--text);
+            min-height: 100vh;
+            padding-bottom: 80px;
+        }
+        .header {
+            background: linear-gradient(135deg, #0d0b12 0%, #14101c 100%);
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .brand {
+            font-size: 1.25rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #FFD700 0%, #FFF8DC 50%, #DAA520 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .brand i { -webkit-text-fill-color: #FFD700; filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.5)); }
+        .nav-links { display: flex; gap: 1rem; }
+        .nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        .nav-links a:hover, .nav-links a.active { color: var(--gold); }
+        
+        .stats-header {
+            background: linear-gradient(135deg, var(--purple) 0%, var(--purple-light) 100%);
+            padding: 1rem;
+            box-shadow: 0 4px 20px rgba(123, 44, 191, 0.3);
+        }
+        .stats-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        .stats-title i { color: var(--gold); }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+        .stat-card {
+            background: var(--bg-card);
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+        }
+        .stat-label { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem; }
+        .stat-value { font-size: 1.25rem; font-weight: 700; color: var(--gold); }
+        .progress-card {
+            background: var(--bg-card);
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+        }
+        .progress-header { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; }
+        .progress-bar { width: 100%; height: 0.5rem; background: var(--bg-input); border-radius: 1rem; overflow: hidden; }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--gold) 0%, var(--gold-light) 50%, var(--gold) 100%);
+            border-radius: 1rem;
+            transition: width 0.5s ease;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+        
+        .target-card {
+            background: linear-gradient(135deg, var(--gold-dark) 0%, var(--gold) 50%, var(--gold-light) 100%);
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin: 1rem;
+            box-shadow: 0 4px 20px rgba(255, 215, 0, 0.3);
+            border: 1px solid var(--gold);
+        }
+        .target-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+        .target-title { font-size: 1rem; font-weight: 700; color: var(--bg-dark); }
+        .target-icon { color: var(--bg-dark); font-size: 1.25rem; }
+        .target-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; text-align: center; margin-bottom: 0.75rem; }
+        .target-item-label { font-size: 0.7rem; color: rgba(10, 10, 18, 0.7); margin-bottom: 0.25rem; }
+        .target-item-value { font-size: 1.125rem; font-weight: 700; color: var(--bg-dark); }
+        .target-daily { border-top: 1px solid rgba(10, 10, 18, 0.2); padding-top: 0.75rem; text-align: center; }
+        .daily-label { font-size: 0.7rem; color: rgba(10, 10, 18, 0.7); margin-bottom: 0.25rem; }
+        .daily-value { font-size: 1.5rem; font-weight: 700; color: var(--bg-dark); }
+        .daily-note { font-size: 0.7rem; color: rgba(10, 10, 18, 0.6); margin-top: 0.25rem; }
+        
+        .warning-card {
+            background: var(--bg-card);
+            border: 1px solid var(--crimson);
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            margin: 0 1rem 1rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+        .warning-icon { color: var(--crimson); font-size: 1rem; flex-shrink: 0; }
+        .warning-text { font-size: 0.75rem; }
+        .warning-text strong { color: var(--crimson); }
+        
+        .weeks-container { padding: 0 1rem; }
+        .weeks-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+        .week-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .week-card:active { transform: scale(0.98); }
+        .week-card.current {
+            background: linear-gradient(135deg, var(--purple) 0%, var(--purple-light) 100%);
+            box-shadow: 0 4px 15px rgba(123, 44, 191, 0.4);
+            border: 2px solid var(--ice);
+        }
+        .week-card.completed {
+            border-color: var(--emerald);
+            box-shadow: 0 0 10px rgba(80, 200, 120, 0.2);
+        }
+        .week-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+        .week-badge {
+            width: 1.75rem;
+            height: 1.75rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 700;
+            background: var(--bg-input);
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .week-card.current .week-badge { background: var(--gold); color: var(--bg-dark); border: none; }
+        .week-card.completed .week-badge { background: var(--emerald); color: var(--bg-dark); border: none; }
+        .week-label { font-size: 0.75rem; font-weight: 600; }
+        .week-card.completed .week-label { color: var(--emerald); }
+        .week-deposit { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.25rem; }
+        .week-balance { font-size: 0.875rem; font-weight: 700; }
+        .week-card.current .week-balance { color: var(--gold); }
+        .week-card.completed .week-balance { color: var(--emerald); }
+        
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--bg-card);
+            border-top: 1px solid var(--border);
+            padding: 1rem;
+            display: flex;
+            gap: 0.5rem;
+            z-index: 100;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+        }
+        .nav-btn {
+            flex: 1;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid var(--border);
+            background: var(--bg-input);
+            color: var(--text);
+        }
+        .nav-btn:hover { background: var(--border); }
+        .nav-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .nav-btn.primary {
+            background: linear-gradient(135deg, var(--gold-dark) 0%, var(--gold) 100%);
+            color: var(--bg-dark);
+            border: none;
+        }
+        .nav-btn.primary:hover { box-shadow: 0 0 15px rgba(255, 215, 0, 0.4); }
+        .nav-btn.reset {
+            background: transparent;
+            border-color: var(--crimson);
+            color: var(--crimson);
+        }
+        .nav-btn.reset:hover { background: rgba(220, 20, 60, 0.1); }
+        
+        @media (max-width: 360px) {
+            .stats-grid { grid-template-columns: 1fr; }
+            .target-grid { grid-template-columns: 1fr; gap: 0.75rem; }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <a href="/" class="brand" style="text-decoration: none;">
+            <i class="bi bi-lock-fill"></i>
+            730's Locks
+        </a>
+        <nav class="nav-links">
+            <a href="/">Dashboard</a>
+            <a href="/history">History</a>
+            <a href="/bankroll" class="active">Bankroll</a>
+        </nav>
+    </header>
+
+    <div class="stats-header">
+        <h1 class="stats-title">
+            <i class="bi bi-lock-fill"></i>
+            52 Week Bankroll Builder
+        </h1>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Current Week</div>
+                <div class="stat-value" id="currentWeekDisplay">1</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Total Deposited</div>
+                <div class="stat-value" id="totalDepositedDisplay">$0</div>
+            </div>
+        </div>
+        <div class="progress-card">
+            <div class="progress-header">
+                <span>Progress</span>
+                <span id="progressText">0/52 weeks</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="target-card">
+        <div class="target-header">
+            <h2 class="target-title">Week <span id="targetWeek">1</span> Target</h2>
+            <i class="bi bi-bullseye target-icon"></i>
+        </div>
+        <div class="target-grid">
+            <div>
+                <div class="target-item-label">Weekly Goal</div>
+                <div class="target-item-value" id="weeklyGoal">$80</div>
+            </div>
+            <div>
+                <div class="target-item-label">Target Balance</div>
+                <div class="target-item-value" id="targetBalance">$80</div>
+            </div>
+            <div>
+                <div class="target-item-label">Completed</div>
+                <div class="target-item-value" id="completedCount">0/52</div>
+            </div>
+        </div>
+        <div class="target-daily">
+            <div class="daily-label">Daily Win Target</div>
+            <div class="daily-value" id="dailyTarget">$11.43/day</div>
+            <div class="daily-note" id="dailyNote">($80 ÷ 7 days)</div>
+        </div>
+    </div>
+
+    <div class="warning-card">
+        <i class="bi bi-exclamation-triangle-fill warning-icon"></i>
+        <div class="warning-text">
+            <strong>Gamble Responsibly:</strong> Never bet more than you can afford to lose.
+        </div>
+    </div>
+
+    <div class="weeks-container">
+        <div class="weeks-grid" id="weeksGrid"></div>
+    </div>
+
+    <div class="bottom-nav">
+        <button class="nav-btn" id="prevBtn" disabled>Previous</button>
+        <button class="nav-btn primary" id="completeBtn">Complete Week</button>
+        <button class="nav-btn" id="nextBtn">Next</button>
+    </div>
+
+    <script>
+        const weeklyData = [
+            { week: 1, deposit: 80, balance: 80 },
+            { week: 2, deposit: 140, balance: 220 },
+            { week: 3, deposit: 180, balance: 400 },
+            { week: 4, deposit: 500, balance: 900 },
+            { week: 5, deposit: 100, balance: 1000 },
+            { week: 6, deposit: 200, balance: 1200 },
+            { week: 7, deposit: 300, balance: 1500 },
+            { week: 8, deposit: 520, balance: 2020 },
+            { week: 9, deposit: 120, balance: 2140 },
+            { week: 10, deposit: 220, balance: 2360 },
+            { week: 11, deposit: 320, balance: 2680 },
+            { week: 12, deposit: 540, balance: 3220 },
+            { week: 13, deposit: 140, balance: 3360 },
+            { week: 14, deposit: 240, balance: 3600 },
+            { week: 15, deposit: 340, balance: 3940 },
+            { week: 16, deposit: 560, balance: 4500 },
+            { week: 17, deposit: 160, balance: 4660 },
+            { week: 18, deposit: 260, balance: 4920 },
+            { week: 19, deposit: 360, balance: 5280 },
+            { week: 20, deposit: 600, balance: 5880 },
+            { week: 21, deposit: 180, balance: 6060 },
+            { week: 22, deposit: 280, balance: 6340 },
+            { week: 23, deposit: 380, balance: 6720 },
+            { week: 24, deposit: 620, balance: 7340 },
+            { week: 25, deposit: 200, balance: 7540 },
+            { week: 26, deposit: 300, balance: 7840 },
+            { week: 27, deposit: 400, balance: 8240 },
+            { week: 28, deposit: 660, balance: 8900 },
+            { week: 29, deposit: 220, balance: 9120 },
+            { week: 30, deposit: 320, balance: 9440 },
+            { week: 31, deposit: 420, balance: 9860 },
+            { week: 32, deposit: 680, balance: 10540 },
+            { week: 33, deposit: 240, balance: 10780 },
+            { week: 34, deposit: 340, balance: 11120 },
+            { week: 35, deposit: 440, balance: 11560 },
+            { week: 36, deposit: 700, balance: 12260 },
+            { week: 37, deposit: 260, balance: 12520 },
+            { week: 38, deposit: 360, balance: 12880 },
+            { week: 39, deposit: 460, balance: 13340 },
+            { week: 40, deposit: 720, balance: 14060 },
+            { week: 41, deposit: 280, balance: 14340 },
+            { week: 42, deposit: 380, balance: 14720 },
+            { week: 43, deposit: 480, balance: 15200 },
+            { week: 44, deposit: 760, balance: 15960 },
+            { week: 45, deposit: 300, balance: 16260 },
+            { week: 46, deposit: 400, balance: 16660 },
+            { week: 47, deposit: 500, balance: 17160 },
+            { week: 48, deposit: 780, balance: 17940 },
+            { week: 49, deposit: 320, balance: 18260 },
+            { week: 50, deposit: 420, balance: 18680 },
+            { week: 51, deposit: 520, balance: 19200 },
+            { week: 52, deposit: 800, balance: 20000 }
+        ];
+
+        let completedWeeks = JSON.parse(localStorage.getItem('bankroll_completedWeeks') || '[]');
+        let currentWeek = parseInt(localStorage.getItem('bankroll_currentWeek') || '1');
+
+        function saveState() {
+            localStorage.setItem('bankroll_completedWeeks', JSON.stringify(completedWeeks));
+            localStorage.setItem('bankroll_currentWeek', currentWeek.toString());
+        }
+
+        function toggleWeek(week) {
+            if (completedWeeks.includes(week)) {
+                completedWeeks = completedWeeks.filter(w => w !== week);
+            } else {
+                completedWeeks.push(week);
+                if (week === currentWeek && currentWeek < 52) {
+                    currentWeek++;
+                }
+            }
+            saveState();
+            render();
+        }
+
+        function render() {
+            const currentData = weeklyData[currentWeek - 1];
+            const totalDeposited = weeklyData
+                .filter(w => completedWeeks.includes(w.week))
+                .reduce((sum, w) => sum + w.deposit, 0);
+            const progressPercent = (completedWeeks.length / 52) * 100;
+            const dailyTarget = currentData.deposit / 7;
+
+            document.getElementById('currentWeekDisplay').textContent = currentWeek;
+            document.getElementById('totalDepositedDisplay').textContent = '$' + totalDeposited.toLocaleString();
+            document.getElementById('progressText').textContent = completedWeeks.length + '/52 weeks';
+            document.getElementById('progressFill').style.width = progressPercent + '%';
+
+            document.getElementById('targetWeek').textContent = currentData.week;
+            document.getElementById('weeklyGoal').textContent = '$' + currentData.deposit;
+            document.getElementById('targetBalance').textContent = '$' + currentData.balance.toLocaleString();
+            document.getElementById('completedCount').textContent = completedWeeks.length + '/52';
+            document.getElementById('dailyTarget').textContent = '$' + dailyTarget.toFixed(2) + '/day';
+            document.getElementById('dailyNote').textContent = '($' + currentData.deposit + ' ÷ 7 days)';
+
+            document.getElementById('prevBtn').disabled = currentWeek === 1;
+            document.getElementById('nextBtn').disabled = currentWeek === 52;
+
+            const completeBtn = document.getElementById('completeBtn');
+            if (completedWeeks.includes(currentWeek)) {
+                completeBtn.textContent = 'Undo Week';
+                completeBtn.classList.remove('primary');
+                completeBtn.classList.add('reset');
+            } else {
+                completeBtn.textContent = 'Complete Week';
+                completeBtn.classList.add('primary');
+                completeBtn.classList.remove('reset');
+            }
+
+            const grid = document.getElementById('weeksGrid');
+            grid.innerHTML = '';
+
+            weeklyData.forEach(week => {
+                const isCompleted = completedWeeks.includes(week.week);
+                const isCurrent = week.week === currentWeek;
+
+                const card = document.createElement('div');
+                card.className = 'week-card' + (isCurrent ? ' current' : '') + (isCompleted ? ' completed' : '');
+                card.onclick = () => toggleWeek(week.week);
+
+                card.innerHTML = `
+                    <div class="week-header">
+                        <div class="week-badge">${isCompleted ? '<i class="bi bi-check-lg"></i>' : week.week}</div>
+                        <div class="week-label">Week ${week.week}</div>
+                    </div>
+                    <div class="week-deposit">+$${week.deposit}</div>
+                    <div class="week-balance">$${week.balance.toLocaleString()}</div>
+                `;
+
+                grid.appendChild(card);
+            });
+        }
+
+        document.getElementById('prevBtn').onclick = () => {
+            if (currentWeek > 1) {
+                currentWeek--;
+                saveState();
+                render();
+            }
+        };
+
+        document.getElementById('nextBtn').onclick = () => {
+            if (currentWeek < 52) {
+                currentWeek++;
+                saveState();
+                render();
+            }
+        };
+
+        document.getElementById('completeBtn').onclick = () => {
+            toggleWeek(currentWeek);
+        };
+
+        render();
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(() => {});
+        }
+    </script>
+</body>
+</html>

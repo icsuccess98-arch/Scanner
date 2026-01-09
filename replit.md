@@ -7,6 +7,15 @@ Three independent trading systems:
 3. Crypto perpetuals trading system (Coinbase Advanced Trade API)
 
 ## Recent Changes
+- January 9, 2026: 52 Week Bankroll Builder
+  - New /bankroll page with interactive savings tracker
+  - Click any week to mark complete/incomplete (persists via localStorage)
+  - Golden target card shows weekly goal, target balance, daily win target
+  - Progress bar tracks completed weeks (0-52)
+  - Previous/Complete Week/Next navigation buttons
+  - Mobile-friendly with sticky bottom nav and two-column week grid
+  - Responsible gambling warning included
+  - Navigation added to all pages (Dashboard, History, Bankroll)
 - January 8, 2026: Average Margin for Spread Qualification
   - Calculates average margin of victory/loss for each team (last 10 games) on-the-fly
   - Spreads now use margin-based validation (no new database columns)

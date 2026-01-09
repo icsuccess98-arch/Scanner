@@ -2769,6 +2769,11 @@ def history():
     
     return render_template('history.html', picks=picks, wins=wins, losses=losses)
 
+@app.route('/bankroll')
+def bankroll():
+    """52 Week Bankroll Builder tracker."""
+    return render_template('bankroll.html')
+
 @app.route('/update_result/<int:pick_id>', methods=['POST'])
 def update_result(pick_id):
     pick = Pick.query.get_or_404(pick_id)
