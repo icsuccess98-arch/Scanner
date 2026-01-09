@@ -712,6 +712,9 @@
             document.getElementById('completedCount').textContent = completedWeeks.length + '/52';
             document.getElementById('dailyTarget').textContent = '$' + dailyTarget.toFixed(2);
             document.getElementById('dailyNote').textContent = '$' + currentData.deposit + ' weekly ÷ 7 days';
+            
+            document.getElementById('weeklyTargetSummary').textContent = '$' + currentData.deposit.toLocaleString();
+            document.getElementById('dailyTargetSummary').textContent = '$' + dailyTarget.toFixed(2);
 
             document.getElementById('prevBtn').disabled = currentWeek === 1;
             document.getElementById('nextBtn').disabled = currentWeek === 52;
