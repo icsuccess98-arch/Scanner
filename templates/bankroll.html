@@ -270,22 +270,6 @@
             box-shadow: 0 0 15px rgba(16, 185, 129, 0.15);
         }
         
-        .week-card.bonus {
-            border-color: var(--gold);
-        }
-        .week-card.bonus:not(.completed):not(.current)::after {
-            content: 'BONUS';
-            position: absolute;
-            top: 0.5rem;
-            right: 0.5rem;
-            font-size: 0.5rem;
-            font-weight: 700;
-            color: var(--gold);
-            background: rgba(245, 158, 11, 0.15);
-            padding: 0.15rem 0.35rem;
-            border-radius: 0.25rem;
-            letter-spacing: 0.5px;
-        }
         
         .week-content { position: relative; z-index: 1; }
         .week-header { display: flex; align-items: center; gap: 0.625rem; margin-bottom: 0.5rem; }
@@ -320,7 +304,6 @@
         
         .week-details { display: flex; justify-content: space-between; align-items: flex-end; }
         .week-deposit { font-size: 0.75rem; color: var(--text-muted); }
-        .week-card.bonus .week-deposit { color: var(--gold); }
         .week-balance { font-size: 1rem; font-weight: 700; color: var(--text); }
         .week-card.current .week-balance { color: var(--gold-light); }
         .week-card.completed .week-balance { color: var(--emerald); }
@@ -554,10 +537,6 @@
             return streak;
         }
 
-        function isBonusWeek(week) {
-            return week % 4 === 0;
-        }
-
         function toggleWeek(week) {
             const card = document.querySelector(`[data-week="${week}"]`);
             if (completedWeeks.includes(week)) {
@@ -608,13 +587,11 @@
             weeklyData.forEach(week => {
                 const isCompleted = completedWeeks.includes(week.week);
                 const isCurrent = week.week === currentWeek;
-                const isBonus = isBonusWeek(week.week);
 
                 const card = document.createElement('div');
                 card.className = 'week-card' + 
                     (isCurrent ? ' current' : '') + 
-                    (isCompleted ? ' completed' : '') +
-                    (isBonus ? ' bonus' : '');
+                    (isCompleted ? ' completed' : '');
                 card.setAttribute('data-week', week.week);
                 card.onclick = () => toggleWeek(week.week);
 
