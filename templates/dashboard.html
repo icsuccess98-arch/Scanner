@@ -53,20 +53,29 @@
             min-height: 100vh;
         }
         .navbar {
-            background: linear-gradient(180deg, #0f0d14 0%, var(--bg-dark) 100%);
+            background: linear-gradient(180deg, #16131f 0%, var(--bg-dark) 100%);
             border-bottom: 1px solid var(--border);
-            padding: 1rem 0;
+            padding: 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
         }
         .brand {
-            font-size: 1.5rem;
-            font-weight: 800;
-            background: linear-gradient(135deg, #FFD700 0%, #FFF8DC 50%, #DAA520 100%);
+            font-size: 1.1rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
-            text-shadow: 0 0 30px rgba(255, 215, 0, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            white-space: nowrap;
+            flex-shrink: 0;
+            text-decoration: none;
         }
-        .brand i { -webkit-text-fill-color: #FFD700; margin-right: 8px; filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.5)); }
+        .brand i { -webkit-text-fill-color: var(--gold); font-size: 0.9rem; filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.5)); }
         .nav-link { 
             color: var(--text-muted); 
             font-weight: 600; 
@@ -588,7 +597,7 @@
     </div>
     
     <nav class="navbar">
-        <div class="container">
+        <div class="container d-flex justify-content-between align-items-center">
             <a class="navbar-brand brand" href="/"><i class="bi bi-lock-fill"></i>730's Locks</a>
             <div class="d-flex gap-2">
                 <a href="/" class="nav-link active">Dashboard</a>
