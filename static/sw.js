@@ -1,4 +1,7 @@
-const CACHE_NAME = '730-locks-v2';
+const CACHE_NAME = '730-locks-v3';
+const STATIC_CACHE = '730-locks-static-v3';
+const DATA_CACHE = '730-locks-data-v3';
+
 const urlsToCache = [
   '/',
   '/bankroll',
@@ -10,7 +13,10 @@ const urlsToCache = [
   '/static/icon-96.png',
   '/static/icon-64.png',
   '/offline.html',
-  '/favicon.ico',
+  '/favicon.ico'
+];
+
+const cdnResources = [
   'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css',
   'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css',
   'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap'
@@ -18,20 +24,25 @@ const urlsToCache = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        return cache.addAll(urlsToCache);
+    Promise.all([
+      caches.open(CACHE_NAME).then((cache) => cache.addAll(urlsToCache)),
+      caches.open(STATIC_CACHE).then((cache) => {
+        return Promise.allSettled(cdnResources.map(url => 
+          cache.add(url).catch(err => console.log('CDN cache failed:', url))
+        ));
       })
+    ])
   );
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
+  const validCaches = [CACHE_NAME, STATIC_CACHE, DATA_CACHE];
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
+          if (!validCaches.includes(cacheName)) {
             return caches.delete(cacheName);
           }
         })
@@ -44,31 +55,48 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   
-  if (event.request.url.includes('/api/') || 
-      event.request.url.includes('/fetch_') || 
+  // Skip caching for API mutations
+  if (event.request.url.includes('/fetch_') || 
       event.request.url.includes('/post_discord')) {
     return;
   }
   
+  // Cache API data responses separately
+  if (event.request.url.includes('/api/')) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const responseToCache = response.clone();
+            caches.open(DATA_CACHE).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+  
+  // Network-first for HTML pages
   event.respondWith(
     fetch(event.request)
       .then((response) => {
         if (response && response.status === 200) {
           const responseToCache = response.clone();
-          caches.open(CACHE_NAME)
-            .then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
         }
         return response;
       })
       .catch(() => {
         return caches.match(event.request)
           .then((response) => {
-            if (response) {
-              return response;
-            }
-            if (event.request.headers.get('accept').includes('text/html')) {
+            if (response) return response;
+            const accept = event.request.headers.get('accept') || '';
+            if (accept.includes('text/html')) {
               return caches.match('/offline.html');
             }
           });

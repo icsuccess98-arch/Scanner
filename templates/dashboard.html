@@ -570,9 +570,6 @@
             0% { background-position: -200% 0; }
             100% { background-position: 200% 0; }
         }
-        .skeleton-card { height: 120px; margin-bottom: 1rem; }
-        .skeleton-text { height: 1rem; width: 60%; margin-bottom: 0.5rem; }
-        .skeleton-pill { height: 2rem; width: 80px; border-radius: 50px; }
         .loading-overlay {
             position: fixed;
             top: 0;
@@ -595,9 +592,56 @@
             animation: spin 1s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* Skeleton Loading */
+        .skeleton {
+            background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-input) 50%, var(--bg-card) 75%);
+            background-size: 200% 100%;
+            animation: skeleton-shimmer 1.5s infinite;
+            border-radius: 8px;
+        }
+        @keyframes skeleton-shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        .skeleton-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .skeleton-title { height: 24px; width: 60%; margin-bottom: 12px; }
+        .skeleton-subtitle { height: 16px; width: 40%; margin-bottom: 20px; }
+        .skeleton-pick { height: 32px; width: 50%; }
+        .skeleton-badge { height: 28px; width: 80px; border-radius: 20px; display: inline-block; margin-right: 8px; }
+        
+        /* Offline indicator */
+        .offline-banner {
+            background: linear-gradient(135deg, #DC143C 0%, #8B0000 100%);
+            color: white;
+            text-align: center;
+            padding: 8px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            display: none;
+        }
+        .offline-banner.show { display: block; }
+        .offline-badge {
+            background: rgba(220, 20, 60, 0.2);
+            color: #DC143C;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: 10px;
+        }
     </style>
 </head>
 <body>
+    <div class="offline-banner" id="offlineBanner">
+        <i class="bi bi-wifi-off"></i> You're offline - showing cached picks
+    </div>
     <div class="loading-overlay" id="loadingOverlay">
         <div class="loading-spinner"></div>
     </div>
@@ -987,6 +1031,49 @@
         function hapticFeedback() {
             if ('vibrate' in navigator) navigator.vibrate(10);
         }
+        
+        // Offline mode detection and caching
+        let isOffline = !navigator.onLine;
+        
+        function updateOfflineStatus() {
+            isOffline = !navigator.onLine;
+            const banner = document.getElementById('offlineBanner');
+            if (isOffline) {
+                banner.classList.add('show');
+                loadCachedPicks();
+            } else {
+                banner.classList.remove('show');
+            }
+        }
+        
+        function cachePicks() {
+            try {
+                const picks = {
+                    timestamp: new Date().toISOString(),
+                    totals_qualified: {{ totals_qualified }},
+                    spreads_qualified: {{ spreads_qualified }},
+                    total_games: {{ total_games }}
+                };
+                localStorage.setItem('730_cached_picks', JSON.stringify(picks));
+            } catch(e) { console.log('Cache error:', e); }
+        }
+        
+        function loadCachedPicks() {
+            const cached = localStorage.getItem('730_cached_picks');
+            if (cached) {
+                const data = JSON.parse(cached);
+                console.log('Loaded cached picks from:', data.timestamp);
+            }
+        }
+        
+        window.addEventListener('online', updateOfflineStatus);
+        window.addEventListener('offline', updateOfflineStatus);
+        
+        // Cache picks on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            updateOfflineStatus();
+            if (!isOffline) cachePicks();
+        });
         
         function fetchGames() {
             hapticFeedback();
