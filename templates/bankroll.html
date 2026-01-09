@@ -113,6 +113,95 @@
         }
         .hero-title i { color: var(--gold-light); font-size: 1.25rem; }
         
+        .goal-editor {
+            background: rgba(0,0,0,0.4);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .goal-editor-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+        }
+        .goal-editor-title {
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.9);
+            font-weight: 600;
+        }
+        .goal-input-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .goal-input {
+            background: rgba(0,0,0,0.3);
+            border: 2px solid var(--gold);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 1.25rem;
+            font-weight: 700;
+            padding: 0.5rem 0.75rem;
+            width: 140px;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        .goal-input:focus {
+            outline: none;
+            border-color: var(--gold-light);
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+        }
+        .goal-preset-btn {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 6px;
+            color: var(--text);
+            padding: 0.35rem 0.6rem;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .goal-preset-btn:hover {
+            background: rgba(255,255,255,0.2);
+            border-color: var(--gold);
+        }
+        .goal-preset-btn.active {
+            background: var(--gold);
+            color: var(--bg-dark);
+            border-color: var(--gold);
+        }
+        .goal-presets {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-top: 0.75rem;
+        }
+        .goal-summary {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+        .goal-summary-item {
+            background: rgba(255,255,255,0.05);
+            border-radius: 6px;
+            padding: 0.5rem;
+            text-align: center;
+        }
+        .goal-summary-label {
+            font-size: 0.65rem;
+            color: rgba(255,255,255,0.6);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .goal-summary-value {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--gold);
+        }
+        
         .stats-row {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -396,6 +485,35 @@
                 <i class="bi bi-trophy-fill"></i>
                 52 Week Bankroll Builder
             </h1>
+            
+            <div class="goal-editor">
+                <div class="goal-editor-header">
+                    <span class="goal-editor-title"><i class="bi bi-gear-fill" style="margin-right: 0.35rem;"></i>Set Your Yearly Goal</span>
+                </div>
+                <div class="goal-input-group" style="justify-content: center;">
+                    <span style="font-size: 1.25rem; font-weight: 700; color: var(--gold);">$</span>
+                    <input type="number" class="goal-input" id="yearlyGoalInput" value="20000" min="1000" step="1000">
+                    <span style="font-size: 0.85rem; color: rgba(255,255,255,0.7);">/year</span>
+                </div>
+                <div class="goal-presets">
+                    <button class="goal-preset-btn" data-goal="10000">$10K</button>
+                    <button class="goal-preset-btn active" data-goal="20000">$20K</button>
+                    <button class="goal-preset-btn" data-goal="40000">$40K</button>
+                    <button class="goal-preset-btn" data-goal="52000">$52K</button>
+                    <button class="goal-preset-btn" data-goal="100000">$100K</button>
+                </div>
+                <div class="goal-summary">
+                    <div class="goal-summary-item">
+                        <div class="goal-summary-label">Weekly Target</div>
+                        <div class="goal-summary-value" id="weeklyTargetSummary">$385</div>
+                    </div>
+                    <div class="goal-summary-item">
+                        <div class="goal-summary-label">Daily Target</div>
+                        <div class="goal-summary-value" id="dailyTargetSummary">$55</div>
+                    </div>
+                </div>
+            </div>
+            
             <div class="stats-row">
                 <div class="mini-stat">
                     <div class="mini-stat-value" id="currentWeekDisplay">1</div>
@@ -412,7 +530,7 @@
             </div>
             <div class="progress-container">
                 <div class="progress-header">
-                    <span>Journey to $20,000</span>
+                    <span id="journeyLabel">Journey to $20,000</span>
                     <span id="progressText">0/52 weeks</span>
                 </div>
                 <div class="progress-bar">
@@ -474,61 +592,67 @@
     </div>
 
     <script>
-        const weeklyData = [
-            { week: 1, deposit: 80, balance: 80 },
-            { week: 2, deposit: 140, balance: 220 },
-            { week: 3, deposit: 180, balance: 400 },
-            { week: 4, deposit: 500, balance: 900 },
-            { week: 5, deposit: 100, balance: 1000 },
-            { week: 6, deposit: 200, balance: 1200 },
-            { week: 7, deposit: 300, balance: 1500 },
-            { week: 8, deposit: 520, balance: 2020 },
-            { week: 9, deposit: 120, balance: 2140 },
-            { week: 10, deposit: 220, balance: 2360 },
-            { week: 11, deposit: 320, balance: 2680 },
-            { week: 12, deposit: 540, balance: 3220 },
-            { week: 13, deposit: 140, balance: 3360 },
-            { week: 14, deposit: 240, balance: 3600 },
-            { week: 15, deposit: 340, balance: 3940 },
-            { week: 16, deposit: 560, balance: 4500 },
-            { week: 17, deposit: 160, balance: 4660 },
-            { week: 18, deposit: 260, balance: 4920 },
-            { week: 19, deposit: 360, balance: 5280 },
-            { week: 20, deposit: 600, balance: 5880 },
-            { week: 21, deposit: 180, balance: 6060 },
-            { week: 22, deposit: 280, balance: 6340 },
-            { week: 23, deposit: 380, balance: 6720 },
-            { week: 24, deposit: 620, balance: 7340 },
-            { week: 25, deposit: 200, balance: 7540 },
-            { week: 26, deposit: 300, balance: 7840 },
-            { week: 27, deposit: 400, balance: 8240 },
-            { week: 28, deposit: 660, balance: 8900 },
-            { week: 29, deposit: 220, balance: 9120 },
-            { week: 30, deposit: 320, balance: 9440 },
-            { week: 31, deposit: 420, balance: 9860 },
-            { week: 32, deposit: 680, balance: 10540 },
-            { week: 33, deposit: 240, balance: 10780 },
-            { week: 34, deposit: 340, balance: 11120 },
-            { week: 35, deposit: 440, balance: 11560 },
-            { week: 36, deposit: 700, balance: 12260 },
-            { week: 37, deposit: 260, balance: 12520 },
-            { week: 38, deposit: 360, balance: 12880 },
-            { week: 39, deposit: 460, balance: 13340 },
-            { week: 40, deposit: 720, balance: 14060 },
-            { week: 41, deposit: 280, balance: 14340 },
-            { week: 42, deposit: 380, balance: 14720 },
-            { week: 43, deposit: 480, balance: 15200 },
-            { week: 44, deposit: 760, balance: 15960 },
-            { week: 45, deposit: 300, balance: 16260 },
-            { week: 46, deposit: 400, balance: 16660 },
-            { week: 47, deposit: 500, balance: 17160 },
-            { week: 48, deposit: 780, balance: 17940 },
-            { week: 49, deposit: 320, balance: 18260 },
-            { week: 50, deposit: 420, balance: 18680 },
-            { week: 51, deposit: 520, balance: 19200 },
-            { week: 52, deposit: 800, balance: 20000 }
+        const BASE_DEPOSITS = [
+            80, 140, 180, 500, 100, 200, 300, 520,
+            120, 220, 320, 540, 140, 240, 340, 560,
+            160, 260, 360, 600, 180, 280, 380, 620,
+            200, 300, 400, 660, 220, 320, 420, 680,
+            240, 340, 440, 700, 260, 360, 460, 720,
+            280, 380, 480, 760, 300, 400, 500, 780,
+            320, 420, 520, 800
         ];
-
+        const BASE_TOTAL = 20000;
+        
+        let yearlyGoal = parseInt(localStorage.getItem('bankroll_yearlyGoal') || '20000');
+        let weeklyData = [];
+        
+        function generateWeeklyData(goal) {
+            const multiplier = goal / BASE_TOTAL;
+            const data = [];
+            let runningBalance = 0;
+            let scaledDeposits = BASE_DEPOSITS.map(d => Math.round(d * multiplier));
+            
+            let scaledTotal = scaledDeposits.reduce((a, b) => a + b, 0);
+            let diff = goal - scaledTotal;
+            if (diff !== 0) {
+                scaledDeposits[51] += diff;
+            }
+            
+            for (let week = 1; week <= 52; week++) {
+                const deposit = scaledDeposits[week - 1];
+                runningBalance += deposit;
+                data.push({
+                    week: week,
+                    deposit: deposit,
+                    balance: runningBalance
+                });
+            }
+            
+            return data;
+        }
+        
+        function updateGoal(newGoal) {
+            yearlyGoal = Math.max(1000, parseInt(newGoal) || 20000);
+            localStorage.setItem('bankroll_yearlyGoal', yearlyGoal.toString());
+            weeklyData = generateWeeklyData(yearlyGoal);
+            
+            document.getElementById('yearlyGoalInput').value = yearlyGoal;
+            document.getElementById('journeyLabel').textContent = 'Journey to $' + yearlyGoal.toLocaleString();
+            
+            const week1Deposit = weeklyData[0].deposit;
+            const dailyTarget = (week1Deposit / 7).toFixed(2);
+            document.getElementById('weeklyTargetSummary').textContent = '$' + week1Deposit.toLocaleString();
+            document.getElementById('dailyTargetSummary').textContent = '$' + dailyTarget;
+            
+            document.querySelectorAll('.goal-preset-btn').forEach(btn => {
+                btn.classList.toggle('active', parseInt(btn.dataset.goal) === yearlyGoal);
+            });
+            
+            render();
+        }
+        
+        weeklyData = generateWeeklyData(yearlyGoal);
+        
         let completedWeeks = JSON.parse(localStorage.getItem('bankroll_completedWeeks') || '[]');
         let currentWeek = parseInt(localStorage.getItem('bankroll_currentWeek') || '1');
 
@@ -667,6 +791,33 @@
             }
         };
 
+        document.getElementById('yearlyGoalInput').addEventListener('change', (e) => {
+            updateGoal(e.target.value);
+        });
+        
+        document.getElementById('yearlyGoalInput').addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') {
+                updateGoal(e.target.value);
+                e.target.blur();
+            }
+        });
+        
+        document.querySelectorAll('.goal-preset-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                updateGoal(btn.dataset.goal);
+            });
+        });
+        
+        document.getElementById('yearlyGoalInput').value = yearlyGoal;
+        const week1DepositInit = weeklyData[0].deposit;
+        const dailyTargetInit = (week1DepositInit / 7).toFixed(2);
+        document.getElementById('weeklyTargetSummary').textContent = '$' + week1DepositInit.toLocaleString();
+        document.getElementById('dailyTargetSummary').textContent = '$' + dailyTargetInit;
+        document.getElementById('journeyLabel').textContent = 'Journey to $' + yearlyGoal.toLocaleString();
+        document.querySelectorAll('.goal-preset-btn').forEach(btn => {
+            btn.classList.toggle('active', parseInt(btn.dataset.goal) === yearlyGoal);
+        });
+        
         render();
 
         if ('serviceWorker' in navigator) {

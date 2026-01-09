@@ -2770,6 +2770,42 @@ def check_results():
     updated = check_pick_results()
     return jsonify({"success": True, "results_updated": updated})
 
+@app.route('/api/check_game_results', methods=['POST'])
+def api_check_game_results():
+    """API endpoint for auto-checking finished game results."""
+    updated = check_finished_games_results()
+    return jsonify({"success": True, "results_updated": updated})
+
+@app.route('/api/history_data')
+def api_history_data():
+    """API endpoint for history page auto-refresh."""
+    picks = Pick.query.filter_by(is_lock=True).order_by(Pick.date.desc(), Pick.edge.desc()).all()
+    
+    wins = len([p for p in picks if p.result == 'W'])
+    losses = len([p for p in picks if p.result == 'L'])
+    pushes = len([p for p in picks if p.result == 'P'])
+    
+    picks_data = []
+    for pick in picks:
+        picks_data.append({
+            'id': pick.id,
+            'date': pick.date.strftime('%b %d, %Y'),
+            'matchup': pick.matchup,
+            'league': pick.league,
+            'pick': pick.pick,
+            'edge': round(pick.edge, 1) if pick.edge else 0,
+            'result': pick.result,
+            'is_lock': pick.is_lock
+        })
+    
+    return jsonify({
+        'success': True,
+        'wins': wins,
+        'losses': losses,
+        'pushes': pushes,
+        'picks': picks_data
+    })
+
 @app.route('/history')
 def history():
     """Display pick history with win/loss stats - Supermax/Lock plays only."""

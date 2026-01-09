@@ -281,7 +281,7 @@
 
         {% if picks %}
         {% for pick in picks %}
-        <div class="pick-card {% if pick.result == 'W' %}win{% elif pick.result == 'L' %}loss{% endif %} {% if pick.is_lock %}lock{% endif %}">
+        <div class="pick-card {% if pick.result == 'W' %}win{% elif pick.result == 'L' %}loss{% endif %} {% if pick.is_lock %}lock{% endif %}" data-pick-id="{{ pick.id }}">
             <div class="pick-header">
                 <span class="pick-date">{{ pick.date.strftime('%b %d, %Y') }}</span>
                 <span class="pick-league {{ pick.league|lower }}">{{ pick.league }}</span>
@@ -342,6 +342,90 @@
                 if (data.success) location.reload();
             });
         }
+        
+        let lastPicksHash = '';
+        
+        function checkForUpdates() {
+            fetch('/api/check_game_results', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.results_updated > 0) {
+                        refreshHistoryData();
+                    }
+                })
+                .catch(() => {});
+        }
+        
+        function refreshHistoryData() {
+            fetch('/api/history_data')
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) return;
+                    
+                    const newHash = JSON.stringify(data.picks.map(p => ({id: p.id, result: p.result})));
+                    if (newHash !== lastPicksHash) {
+                        lastPicksHash = newHash;
+                        updateDisplay(data);
+                    }
+                })
+                .catch(() => {});
+        }
+        
+        function updateDisplay(data) {
+            document.querySelector('.stat-value.wins').textContent = data.wins;
+            document.querySelector('.stat-value.losses').textContent = data.losses;
+            
+            const total = data.wins + data.losses;
+            const rateEl = document.querySelector('.stat-value.rate');
+            if (total > 0) {
+                rateEl.textContent = Math.round((data.wins / total) * 100) + '%';
+            } else {
+                rateEl.textContent = '-';
+            }
+            
+            data.picks.forEach(pick => {
+                const card = document.querySelector(`.pick-card[data-pick-id="${pick.id}"]`);
+                if (!card) return;
+                
+                card.classList.remove('win', 'loss');
+                if (pick.result === 'W') card.classList.add('win');
+                else if (pick.result === 'L') card.classList.add('loss');
+                
+                const badgeContainer = card.querySelector('.pick-details');
+                if (badgeContainer) {
+                    const oldBadge = badgeContainer.querySelector('.result-badge');
+                    if (oldBadge) {
+                        if (pick.result === 'W') {
+                            oldBadge.className = 'result-badge win';
+                            oldBadge.textContent = 'Win';
+                        } else if (pick.result === 'L') {
+                            oldBadge.className = 'result-badge loss';
+                            oldBadge.textContent = 'Loss';
+                        } else if (pick.result === 'P') {
+                            oldBadge.className = 'result-badge push';
+                            oldBadge.textContent = 'Push';
+                        }
+                    }
+                }
+                
+                if (pick.result && ['W', 'L', 'P'].includes(pick.result)) {
+                    const buttons = card.querySelector('.result-buttons');
+                    if (buttons) buttons.remove();
+                }
+            });
+        }
+        
+        
+        lastPicksHash = JSON.stringify([
+            {% for pick in picks %}
+            {id: {{ pick.id }}, result: '{{ pick.result or "" }}'}{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ]);
+        
+        setInterval(checkForUpdates, 120000);
+        setInterval(refreshHistoryData, 30000);
+        
+        setTimeout(checkForUpdates, 5000);
     </script>
 </body>
 </html>
