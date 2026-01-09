@@ -52,10 +52,13 @@
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             min-height: 100vh;
         }
-        .navbar {
+        .header {
             background: linear-gradient(180deg, #16131f 0%, var(--bg-dark) 100%);
-            border-bottom: 1px solid var(--border);
             padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             position: sticky;
             top: 0;
             z-index: 100;
@@ -75,21 +78,23 @@
             flex-shrink: 0;
             text-decoration: none;
         }
-        .brand i { -webkit-text-fill-color: var(--gold); font-size: 0.9rem; filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.5)); }
-        .nav-link { 
-            color: var(--text-muted); 
-            font-weight: 600; 
-            font-size: 0.85rem;
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
-            transition: all 0.2s;
+        .brand i { -webkit-text-fill-color: var(--gold); filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.5)); font-size: 0.9rem; }
+        .nav-links { display: flex; gap: 0.5rem; flex-shrink: 0; }
+        .nav-links a {
+            color: var(--text-muted);
             text-decoration: none;
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 0.4rem 0.75rem;
+            border-radius: 16px;
+            transition: all 0.2s;
+            white-space: nowrap;
         }
-        .nav-link:hover { color: var(--text); background: rgba(255,255,255,0.05); }
-        .nav-link.active { 
+        .nav-links a:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+        .nav-links a.active { 
             color: var(--gold); 
             background: linear-gradient(135deg, rgba(255, 215, 0, 0.15) 0%, rgba(218, 165, 32, 0.08) 100%);
-            box-shadow: 0 0 12px rgba(255, 215, 0, 0.2);
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.2);
         }
         .header-section {
             background: linear-gradient(135deg, #0d0b12 0%, #14101c 100%);
@@ -596,16 +601,17 @@
         <div class="loading-spinner"></div>
     </div>
     
-    <nav class="navbar">
-        <div class="container d-flex justify-content-between align-items-center">
-            <a class="navbar-brand brand" href="/"><i class="bi bi-lock-fill"></i>730's Locks</a>
-            <div class="d-flex gap-2">
-                <a href="/" class="nav-link active">Dashboard</a>
-                <a href="/bankroll" class="nav-link">Bankroll</a>
-                <a href="/history" class="nav-link">History</a>
-            </div>
-        </div>
-    </nav>
+    <header class="header">
+        <a href="/" class="brand">
+            <i class="bi bi-lock-fill"></i>
+            730's Locks
+        </a>
+        <nav class="nav-links">
+            <a href="/" class="active">Dashboard</a>
+            <a href="/bankroll">Bankroll</a>
+            <a href="/history">History</a>
+        </nav>
+    </header>
 
     <div class="header-section">
         <div class="container">

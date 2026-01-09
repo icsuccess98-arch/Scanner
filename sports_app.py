@@ -1409,11 +1409,11 @@ def dashboard():
         }
     
     edge_sum = 0
+    all_edges = []
     for g in qualified:
         if g.edge:
             edge_sum += g.edge
-            if g.edge > analytics['best_edge']:
-                analytics['best_edge'] = g.edge
+            all_edges.append(g.edge)
             if g.edge >= 12:
                 analytics['edge_tiers']['elite'] += 1
             elif g.edge >= 10:
@@ -1425,8 +1425,19 @@ def dashboard():
         else:
             analytics['under_count'] += 1
     
-    if qualified:
-        analytics['avg_edge'] = edge_sum / len(qualified)
+    # Include spread edges in best_edge calculation
+    for g in spread_qualified:
+        if g.spread_edge:
+            all_edges.append(g.spread_edge)
+            edge_sum += g.spread_edge
+    
+    # Best edge is the max across ALL qualified picks (totals + spreads)
+    analytics['best_edge'] = max(all_edges) if all_edges else 0
+    
+    # Avg edge across all qualified picks
+    total_qualified = len(qualified) + len(spread_qualified)
+    if total_qualified > 0:
+        analytics['avg_edge'] = edge_sum / total_qualified
     
     # Combined Top 5 Picks (totals + spreads merged by edge)
     combined_picks = []
