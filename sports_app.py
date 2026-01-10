@@ -583,6 +583,8 @@ class Game(db.Model):
     alt_total_odds = db.Column(db.Integer)
     alt_spread_line = db.Column(db.Float)
     alt_spread_odds = db.Column(db.Integer)
+    alt_edge = db.Column(db.Float)
+    alt_spread_edge = db.Column(db.Float)
     # Historical percentages (last 10 games)
     away_ou_pct = db.Column(db.Float)  # Away team's O/U hit rate
     home_ou_pct = db.Column(db.Float)  # Home team's O/U hit rate
@@ -1923,7 +1925,8 @@ def update_game_historical_data(game: Game) -> bool:
                         spread_qualified = False
                         logger.info(f"{game.away_team} @ {game.home_team}: AWAY spread DISQUALIFIED - recent form shows losses")
             else:
-                spread_qualified = True
+                spread_qualified = False
+                logger.info(f"{game.away_team} @ {game.home_team}: Spread DISQUALIFIED - no valid direction")
             
             if spread_qualified and injury_concern:
                 logger.info(f"{game.away_team} @ {game.home_team}: Spread DISQUALIFIED due to injury concern")
@@ -2236,28 +2239,33 @@ def dashboard():
     # SPREADS: Also require history_qualified (margin validation done during fetch)
     # Must have history_qualified = True to be shown
     spread_qualified = [g for g in edge_spread_qualified if g.history_qualified == True]
-    spread_qualified.sort(key=lambda x: x.spread_edge or 0, reverse=True)
+    spread_qualified.sort(key=lambda x: x.alt_spread_edge or x.spread_edge or 0, reverse=True)
     
-    # SUPERMAX = single best edge across both totals and spreads
+    # Sort qualified totals by effective edge (alt if available, else main)
+    qualified.sort(key=lambda x: x.alt_edge or x.edge or 0, reverse=True)
+    
+    # SUPERMAX = single best edge across both totals and spreads (prefer alt edges when available)
     supermax_lock = None
     supermax_type = None  # 'totals' or 'spread'
     supermax_edge = 0
     
-    # Check best totals pick
+    # Check best totals pick (use alt_edge if available)
     if qualified:
         best_totals = qualified[0]
-        if best_totals.edge and best_totals.edge > supermax_edge:
+        effective_edge = best_totals.alt_edge if best_totals.alt_edge else best_totals.edge
+        if effective_edge and effective_edge > supermax_edge:
             supermax_lock = best_totals
             supermax_type = 'totals'
-            supermax_edge = best_totals.edge
+            supermax_edge = effective_edge
     
-    # Check best spread pick
+    # Check best spread pick (use alt_spread_edge if available)
     if spread_qualified:
         best_spread = spread_qualified[0]
-        if best_spread.spread_edge and best_spread.spread_edge > supermax_edge:
+        effective_spread_edge = best_spread.alt_spread_edge if best_spread.alt_spread_edge else best_spread.spread_edge
+        if effective_spread_edge and effective_spread_edge > supermax_edge:
             supermax_lock = best_spread
             supermax_type = 'spread'
-            supermax_edge = best_spread.spread_edge
+            supermax_edge = effective_spread_edge
     
     # Combined qualified: games that qualify for EITHER totals OR spreads AND pass historical threshold
     all_qualified_games = [g for g in all_games if 
@@ -3553,9 +3561,16 @@ def fetch_alt_lines_internal() -> dict:
             if r['alt_total']:
                 game.alt_total_line, game.alt_total_odds = r['alt_total']
                 alt_lines_found += 1
+                if game.projected_total is not None:
+                    game.alt_edge = abs(game.projected_total - game.alt_total_line)
+                    logger.info(f"Alt edge recalc: {game.away_team}@{game.home_team} main={game.edge:.1f} -> alt={game.alt_edge:.1f}")
             if r['alt_spread']:
                 game.alt_spread_line, game.alt_spread_odds = r['alt_spread']
                 alt_lines_found += 1
+                if game.projected_margin is not None:
+                    line_margin = -game.alt_spread_line
+                    game.alt_spread_edge = abs(game.projected_margin - line_margin)
+                    logger.info(f"Alt spread edge recalc: {game.away_team}@{game.home_team} main={game.spread_edge:.1f} -> alt={game.alt_spread_edge:.1f}")
     
     db.session.commit()
     return {"alt_lines_found": alt_lines_found, "games_checked": len(all_qualified)}
