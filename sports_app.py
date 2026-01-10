@@ -2425,8 +2425,9 @@ def dashboard():
     qualified = [g for g in edge_qualified if g.history_qualified == True]
     
     # SPREADS: Also require history_qualified (margin validation done during fetch)
-    # Must have history_qualified = True to be shown
-    spread_qualified = [g for g in edge_spread_qualified if g.history_qualified == True]
+    # Must have history_qualified = True AND non-negative EV to be shown
+    spread_qualified = [g for g in edge_spread_qualified if g.history_qualified == True 
+                        and (g.spread_ev is None or g.spread_ev >= 0)]
     spread_qualified.sort(key=lambda x: x.alt_spread_edge or x.spread_edge or 0, reverse=True)
     
     # Sort qualified totals by effective edge (alt if available, else main)
@@ -3876,7 +3877,8 @@ def post_discord():
     all_qualified = Game.query.filter_by(date=today, is_qualified=True, history_qualified=True).order_by(Game.edge.desc()).all()
     games = [g for g in all_qualified if not (g.game_time and 'final' in g.game_time.lower())]
     
-    spread_qualified = Game.query.filter_by(date=today, spread_is_qualified=True, history_qualified=True).order_by(Game.spread_edge.desc()).all()
+    spread_qualified_raw = Game.query.filter_by(date=today, spread_is_qualified=True, history_qualified=True).order_by(Game.spread_edge.desc()).all()
+    spread_qualified = [g for g in spread_qualified_raw if g.spread_ev is None or g.spread_ev >= 0]
     spread_games = [g for g in spread_qualified if not (g.game_time and 'final' in g.game_time.lower())]
     
     if not games and not spread_games:
@@ -4035,9 +4037,10 @@ def post_discord_window(window: str):
     if existing:
         return jsonify({"success": False, "message": f"Already posted for {window} window today"})
     
-    # Get qualified games for this window (must pass historical qualification)
+    # Get qualified games for this window (must pass historical qualification + positive EV)
     all_qualified = Game.query.filter_by(date=today, is_qualified=True, history_qualified=True).order_by(Game.edge.desc()).all()
-    spread_qualified = Game.query.filter_by(date=today, spread_is_qualified=True, history_qualified=True).order_by(Game.spread_edge.desc()).all()
+    spread_qualified_raw = Game.query.filter_by(date=today, spread_is_qualified=True, history_qualified=True).order_by(Game.spread_edge.desc()).all()
+    spread_qualified = [g for g in spread_qualified_raw if g.spread_ev is None or g.spread_ev >= 0]
     
     # Filter by window and exclude finished games
     window_games = [g for g in all_qualified if get_game_window(g.game_time) == window 
