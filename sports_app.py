@@ -4035,6 +4035,12 @@ def bankroll():
     """52 Week Bankroll Builder tracker."""
     return render_template('bankroll.html')
 
+@app.route('/download/codebase_structure')
+def download_codebase_structure():
+    """Download the codebase structure CSV."""
+    from flask import send_file
+    return send_file('sports_app_structure.csv', as_attachment=True, download_name='sports_app_structure.csv')
+
 @app.route('/update_result/<int:pick_id>', methods=['POST'])
 def update_result(pick_id):
     pick = Pick.query.get_or_404(pick_id)
