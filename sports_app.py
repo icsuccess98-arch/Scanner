@@ -182,6 +182,10 @@ class Game(db.Model):
     # NBA 1H Money Line for away favorites (Model 4)
     nba_1h_ml_odds = db.Column(db.Integer)  # Away team 1st half money line odds
     nba_1h_ml_qualified = db.Column(db.Boolean, default=False)  # Qualifies for Model 4
+    # Model 4 historical percentages (1H win rate when away team is favored)
+    nba_1h_away_win_pct = db.Column(db.Float)  # Away team 1H win rate (last 15-20 games)
+    nba_1h_h2h_win_pct = db.Column(db.Float)  # H2H 1H win rate for away team
+    nba_1h_history_qualified = db.Column(db.Boolean, default=None)  # History qualification for Model 4
     
     __table_args__ = (
         db.Index('idx_date_league', 'date', 'league'),
@@ -1063,6 +1067,265 @@ def fetch_h2h_history(team1: str, team2: str, league: str, direction: str = "O")
     except Exception as e:
         logger.error(f"Error fetching H2H for {team1} vs {team2}: {e}")
         return {"ou_pct": 0, "games_found": 0, "games": []}
+
+def fetch_first_half_history(team: str, league: str, limit: int = 20) -> dict:
+    """
+    Fetch first-half win rate for a team's recent games (Model 4).
+    Uses ESPN event summary to get period-by-period scores.
+    Returns: {"win_pct": float, "games_found": int, "games": list}
+    """
+    et = pytz.timezone('America/New_York')
+    today_str = datetime.now(et).strftime("%Y-%m-%d")
+    cache_key = f"1h_history:{today_str}:{league}:{team.lower()}"
+    
+    if cache_key in espn_schedule_cache:
+        return espn_schedule_cache[cache_key]
+    
+    try:
+        sport_map = {
+            "NBA": "basketball/nba",
+            "CBB": "basketball/mens-college-basketball"
+        }
+        sport = sport_map.get(league)
+        if not sport:
+            return {"win_pct": 0, "games_found": 0, "games": []}
+        
+        team_id = get_espn_team_id(team, league)
+        if not team_id:
+            return {"win_pct": 0, "games_found": 0, "games": []}
+        
+        url = f"https://site.api.espn.com/apis/site/v2/sports/{sport}/teams/{team_id}/schedule"
+        resp = requests.get(url, timeout=15)
+        if resp.status_code != 200:
+            return {"win_pct": 0, "games_found": 0, "games": []}
+        
+        events = resp.json().get("events", [])
+        first_half_games = []
+        
+        for event in events[:50]:
+            status = event.get("competitions", [{}])[0].get("status", {}).get("type", {}).get("name", "")
+            if status != "STATUS_FINAL":
+                continue
+            
+            event_id = event.get("id")
+            if not event_id:
+                continue
+            
+            summary_url = f"https://site.api.espn.com/apis/site/v2/sports/{sport}/summary?event={event_id}"
+            summary_resp = requests.get(summary_url, timeout=10)
+            if summary_resp.status_code != 200:
+                continue
+            
+            summary = summary_resp.json()
+            boxscore = summary.get("boxscore", {})
+            teams_data = boxscore.get("teams", [])
+            
+            if len(teams_data) < 2:
+                continue
+            
+            team_1h_score = 0
+            opp_1h_score = 0
+            team_is_away = False
+            
+            for t in teams_data:
+                t_info = t.get("team", {})
+                t_id = str(t_info.get("id", ""))
+                stats = t.get("statistics", [])
+                
+                linescores = None
+                for stat in stats:
+                    if stat.get("name") == "linescores":
+                        linescores = stat.get("displayValue", "").split("-")
+                        break
+                
+                if not linescores or len(linescores) < 2:
+                    continue
+                
+                try:
+                    q1 = int(linescores[0]) if linescores[0] else 0
+                    q2 = int(linescores[1]) if linescores[1] else 0
+                    half_score = q1 + q2
+                except (ValueError, IndexError):
+                    continue
+                
+                if t_id == str(team_id):
+                    team_1h_score = half_score
+                    team_is_away = t_info.get("homeAway") == "away"
+                else:
+                    opp_1h_score = half_score
+            
+            if team_1h_score > 0 or opp_1h_score > 0:
+                first_half_games.append({
+                    "team_1h": team_1h_score,
+                    "opp_1h": opp_1h_score,
+                    "won_1h": team_1h_score > opp_1h_score,
+                    "was_away": team_is_away,
+                    "date": event.get("date", "")
+                })
+            
+            if len(first_half_games) >= limit:
+                break
+        
+        if len(first_half_games) < 5:
+            result = {"win_pct": 0, "games_found": len(first_half_games), "games": first_half_games}
+            espn_schedule_cache[cache_key] = result
+            return result
+        
+        wins = sum(1 for g in first_half_games if g["won_1h"])
+        win_pct = (wins / len(first_half_games)) * 100
+        
+        away_games = [g for g in first_half_games if g["was_away"]]
+        away_wins = sum(1 for g in away_games if g["won_1h"]) if away_games else 0
+        away_win_pct = (away_wins / len(away_games)) * 100 if away_games else 0
+        
+        result = {
+            "win_pct": win_pct,
+            "away_win_pct": away_win_pct,
+            "games_found": len(first_half_games),
+            "away_games": len(away_games),
+            "games": first_half_games
+        }
+        espn_schedule_cache[cache_key] = result
+        
+        logger.info(f"1H History {team}: {len(first_half_games)} games, {win_pct:.1f}% 1H win, {away_win_pct:.1f}% away 1H win")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error fetching 1H history for {team}: {e}")
+        return {"win_pct": 0, "games_found": 0, "games": []}
+
+def fetch_first_half_h2h(away_team: str, home_team: str, league: str, limit: int = 10) -> dict:
+    """
+    Fetch first-half head-to-head history between two teams (Model 4).
+    Returns: {"away_win_pct": float, "games_found": int, "games": list}
+    """
+    et = pytz.timezone('America/New_York')
+    today_str = datetime.now(et).strftime("%Y-%m-%d")
+    cache_key = f"1h_h2h:{today_str}:{league}:{away_team.lower()}:{home_team.lower()}"
+    
+    if cache_key in espn_schedule_cache:
+        return espn_schedule_cache[cache_key]
+    
+    try:
+        sport_map = {
+            "NBA": "basketball/nba",
+            "CBB": "basketball/mens-college-basketball"
+        }
+        sport = sport_map.get(league)
+        if not sport:
+            return {"away_win_pct": 0, "games_found": 0, "games": []}
+        
+        away_id = get_espn_team_id(away_team, league)
+        home_id = get_espn_team_id(home_team, league)
+        
+        if not away_id or not home_id:
+            return {"away_win_pct": 0, "games_found": 0, "games": []}
+        
+        url = f"https://site.api.espn.com/apis/site/v2/sports/{sport}/teams/{away_id}/schedule"
+        resp = requests.get(url, timeout=15)
+        if resp.status_code != 200:
+            return {"away_win_pct": 0, "games_found": 0, "games": []}
+        
+        events = resp.json().get("events", [])
+        h2h_games = []
+        
+        for event in events:
+            status = event.get("competitions", [{}])[0].get("status", {}).get("type", {}).get("name", "")
+            if status != "STATUS_FINAL":
+                continue
+            
+            comps = event.get("competitions", [{}])[0]
+            competitors = comps.get("competitors", [])
+            if len(competitors) < 2:
+                continue
+            
+            h_team = next((c for c in competitors if c.get("homeAway") == "home"), None)
+            a_team = next((c for c in competitors if c.get("homeAway") == "away"), None)
+            
+            if not h_team or not a_team:
+                continue
+            
+            h_id = str(h_team.get("team", {}).get("id", ""))
+            a_id = str(a_team.get("team", {}).get("id", ""))
+            
+            if not ((h_id == str(home_id) and a_id == str(away_id)) or 
+                    (h_id == str(away_id) and a_id == str(home_id))):
+                continue
+            
+            event_id = event.get("id")
+            if not event_id:
+                continue
+            
+            summary_url = f"https://site.api.espn.com/apis/site/v2/sports/{sport}/summary?event={event_id}"
+            summary_resp = requests.get(summary_url, timeout=10)
+            if summary_resp.status_code != 200:
+                continue
+            
+            summary = summary_resp.json()
+            boxscore = summary.get("boxscore", {})
+            teams_data = boxscore.get("teams", [])
+            
+            away_1h = 0
+            home_1h = 0
+            
+            for t in teams_data:
+                t_info = t.get("team", {})
+                t_id = str(t_info.get("id", ""))
+                stats = t.get("statistics", [])
+                
+                linescores = None
+                for stat in stats:
+                    if stat.get("name") == "linescores":
+                        linescores = stat.get("displayValue", "").split("-")
+                        break
+                
+                if not linescores or len(linescores) < 2:
+                    continue
+                
+                try:
+                    q1 = int(linescores[0]) if linescores[0] else 0
+                    q2 = int(linescores[1]) if linescores[1] else 0
+                    half_score = q1 + q2
+                except (ValueError, IndexError):
+                    continue
+                
+                if t_id == str(away_id):
+                    away_1h = half_score
+                elif t_id == str(home_id):
+                    home_1h = half_score
+            
+            if away_1h > 0 or home_1h > 0:
+                h2h_games.append({
+                    "away_1h": away_1h,
+                    "home_1h": home_1h,
+                    "away_won_1h": away_1h > home_1h,
+                    "date": event.get("date", "")
+                })
+            
+            if len(h2h_games) >= limit:
+                break
+        
+        if len(h2h_games) < 3:
+            result = {"away_win_pct": 0, "games_found": len(h2h_games), "games": h2h_games}
+            espn_schedule_cache[cache_key] = result
+            return result
+        
+        away_wins = sum(1 for g in h2h_games if g["away_won_1h"])
+        away_win_pct = (away_wins / len(h2h_games)) * 100
+        
+        result = {
+            "away_win_pct": away_win_pct,
+            "games_found": len(h2h_games),
+            "games": h2h_games
+        }
+        espn_schedule_cache[cache_key] = result
+        
+        logger.info(f"1H H2H {away_team} vs {home_team}: {len(h2h_games)} games, {away_win_pct:.1f}% away 1H win")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error fetching 1H H2H for {away_team} vs {home_team}: {e}")
+        return {"away_win_pct": 0, "games_found": 0, "games": []}
 
 def update_game_historical_data(game: Game) -> bool:
     """
@@ -2836,19 +3099,37 @@ def fetch_nba_1h_ml_internal() -> dict:
                                 odds = outcome.get("price")
                                 if odds:
                                     game.nba_1h_ml_odds = int(odds)
-                                    game.nba_1h_ml_qualified = True
                                     ml_found += 1
                                     logger.info(f"Model 4: {game.away_team} @ {game.home_team} 1H ML: {odds}")
+                                    
+                                    # Fetch 1H historical data for qualification
+                                    away_1h_hist = fetch_first_half_history(game.away_team, game.league, limit=20)
+                                    h2h_1h_hist = fetch_first_half_h2h(game.away_team, game.home_team, game.league)
+                                    
+                                    game.nba_1h_away_win_pct = away_1h_hist.get("away_win_pct", 0)
+                                    game.nba_1h_h2h_win_pct = h2h_1h_hist.get("away_win_pct", 0)
+                                    
+                                    # Qualification: 65%+ away 1H win rate (last 15-20 games)
+                                    # H2H requires 60%+ if 5+ games exist
+                                    away_qualifies = (game.nba_1h_away_win_pct or 0) >= 65
+                                    h2h_games = h2h_1h_hist.get("games_found", 0)
+                                    h2h_qualifies = h2h_games < 5 or (game.nba_1h_h2h_win_pct or 0) >= 60
+                                    
+                                    game.nba_1h_history_qualified = away_qualifies and h2h_qualifies
+                                    game.nba_1h_ml_qualified = game.nba_1h_history_qualified
+                                    
+                                    logger.info(f"Model 4 History: {game.away_team} - Away 1H: {game.nba_1h_away_win_pct:.1f}%, H2H: {game.nba_1h_h2h_win_pct:.1f}% ({h2h_games} games), Qualified: {game.nba_1h_ml_qualified}")
                                     break
-                        if game.nba_1h_ml_qualified:
+                        if game.nba_1h_ml_odds:
                             break
-                if game.nba_1h_ml_qualified:
+                if game.nba_1h_ml_odds:
                     break
         except Exception as e:
             logger.error(f"Model 4 error for {game.away_team} @ {game.home_team}: {e}")
     
     db.session.commit()
-    return {"1h_ml_found": ml_found, "games_checked": len(nba_away_favs)}
+    history_qualified = sum(1 for g in nba_away_favs if g.nba_1h_ml_qualified)
+    return {"1h_ml_found": ml_found, "history_qualified": history_qualified, "games_checked": len(nba_away_favs)}
 
 @app.route('/post_discord', methods=['POST'])
 def post_discord():
