@@ -3496,9 +3496,13 @@ def fetch_odds_internal() -> dict:
                             outcomes = spreads_market.get("outcomes", [])
                             for outcome in outcomes:
                                 if teams_match(outcome.get("name", ""), home_team):
-                                    spread_line = outcome.get("point")
+                                    home_spread_point = outcome.get("point")
                                     home_spread_odds = outcome.get("price")
-                                    if spread_line is not None:
+                                    if home_spread_point is not None:
+                                        # Convert to AWAY perspective: negate home team's spread
+                                        # Home -21.5 favorite -> Away +21.5 underdog
+                                        # Home +5 underdog -> Away -5 favorite
+                                        spread_line = -home_spread_point
                                         # Validate spread sign against moneylines (auto-correct if needed)
                                         if away_ml and home_ml:
                                             spread_line, was_corrected = SpreadValidator.validate_and_correct_spread(
