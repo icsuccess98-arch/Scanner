@@ -1340,7 +1340,7 @@ def update_game_historical_data(game: Game) -> bool:
     
     For spreads, we use average margin as a proxy:
     - If picking HOME favorite: Home avg margin should exceed 85% of spread
-    - If picking AWAY underdog: Away avg margin supports 85% of the points
+    - If picking AWAY underdog: Must have positive avg margin (winning on average)
     """
     try:
         away_games = fetch_team_last_10_games(game.away_team, game.league)
@@ -1376,9 +1376,11 @@ def update_game_historical_data(game: Game) -> bool:
             spread_line = game.spread_line
             
             if game.spread_direction == "HOME":
+                # HOME favorite: margin must cover 85% of spread
                 spread_qualified = home_avg_margin >= abs(spread_line) * 0.85
             elif game.spread_direction == "AWAY":
-                spread_qualified = away_avg_margin >= -abs(spread_line) * 0.85
+                # AWAY underdog: must have positive margin (winning on average)
+                spread_qualified = away_avg_margin > 0
             else:
                 spread_qualified = True
             
