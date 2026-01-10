@@ -299,6 +299,42 @@
             </button>
         </div>
 
+        {% if upcoming_picks %}
+        <div class="section-title" style="color: var(--gold);">
+            <i class="bi bi-calendar-event"></i>
+            Upcoming Games
+            <span class="ms-auto" style="color: var(--text-muted);">{{ upcoming_picks|length }} in queue</span>
+        </div>
+        
+        {% for pick in upcoming_picks %}
+        <div class="pick-card" style="border-left: 3px solid var(--gold); background: linear-gradient(90deg, rgba(255,215,0,0.08) 0%, var(--bg-card) 100%);" data-pick-id="{{ pick.id }}" data-league="{{ pick.league }}" data-date="{{ pick.date.strftime('%Y-%m-%d') }}" data-result="upcoming">
+            <div class="pick-header">
+                <span class="pick-date">{{ pick.date.strftime('%b %d, %Y') }}</span>
+                <span class="pick-league {{ pick.league|lower }}">{{ pick.league }}</span>
+            </div>
+            <div class="pick-matchup">
+                <i class="bi bi-hourglass-split" style="color: var(--gold); margin-right: 0.5rem;"></i>
+                {{ pick.matchup }}
+            </div>
+            <div class="pick-details">
+                <div class="pick-info">
+                    {% set pick_text = pick.pick %}
+                    {% if pick_text and pick_text[0] == 'O' %}
+                    <span class="pick-chip over">{{ pick.pick }}</span>
+                    {% elif pick_text and pick_text[0] == 'U' %}
+                    <span class="pick-chip under">{{ pick.pick }}</span>
+                    {% else %}
+                    <span class="pick-chip spread">{{ pick.pick }}</span>
+                    {% endif %}
+                    <span class="pick-edge">+{{ "%.1f"|format(pick.edge) if pick.edge else '0' }} edge</span>
+                </div>
+                <span class="result-badge" style="background: rgba(255,215,0,0.2); color: var(--gold);">Upcoming</span>
+            </div>
+        </div>
+        {% endfor %}
+        <div style="height: 1rem;"></div>
+        {% endif %}
+
         <div class="section-title">
             <i class="bi bi-clock-history"></i>
             Pick History

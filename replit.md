@@ -33,12 +33,45 @@ The overarching vision is to provide robust, automated, and data-backed trading 
     -   **Formulas**: Strict, unmodifiable formulas for `Expected Team Score`, `Projected Total`, and `Difference`.
     -   **Thresholds**: League-specific thresholds (NBA/CBB: ±8.0 points, NFL/CFB: ±3.5 points, NHL: ±0.5 points) for pick validation.
     -   **Bet Direction**: Binary rules for OVER/UNDER based on `Projected_Total` vs. `Bovada_Line` plus threshold.
-    -   **Historical Qualification**: Totals picks require a 70% historical O/U hit rate (based on average total as proxy for historical line) from the last 10 games (ESPN team schedules). H2H history also considered if 3+ games exist. Spreads use margin-based validation where average margin must meet a percentage of the spread line.
+    -   **Historical Qualification**: Totals picks require 60%+ historical O/U hit rate from last 10 games. H2H history also considered if 3+ games exist. Spreads use margin-based validation.
     -   **Alt Lines**: Fetched from Bovada, selecting the best value under/over the main line, with odds strictly -180 or better.
-    -   **Pinnacle EV Comparison**: Fetches Pinnacle odds alongside Bovada to calculate Expected Value (EV). EV formula: `(p_true * decimal_payout) - 1` where `p_true` is Pinnacle's implied probability. Picks must have non-negative EV (≥0%) to qualify. EV badges displayed in UI showing Bovada vs Pinnacle comparison.
-    -   **Result Checking**: Automatic result checking refreshes approximately 2.5-3.5 hours after game start, integrated with live score refresh every 30 seconds.
+    -   **Pinnacle EV Comparison**: Fetches Pinnacle odds alongside Bovada to calculate Expected Value (EV). EV formula: `(p_true * decimal_payout) - 1` where `p_true` is Pinnacle's implied probability. Picks must have non-negative EV (≥0%) to qualify.
+    -   **Result Checking**: Automatic result checking refreshes approximately 2.5-3.5 hours after game start.
     -   **Automation**: Daily scheduled tasks for fetching games, stats, odds, posting picks to Discord, and checking results.
-    -   **Spread Betting**: Integrated alongside totals, using the same locked formula for expected scores and league-specific thresholds for qualification.
+
+### Betting Models (4 Total)
+The sports betting calculator uses four distinct models for pick generation:
+
+1.  **Standard Totals (O/U)** - Model 1
+    -   Core O/U picks based on ESPN stats vs Bovada lines
+    -   Edge threshold: NBA/CBB ±8.0 pts, NFL/CFB ±3.5 pts, NHL ±0.5 pts
+    -   Historical qualification: 60%+ O/U hit rate (either team) from last 10 games
+    -   H2H qualification: If 3+ H2H games exist, H2H O/U rate must also be 60%+
+    -   Alt line selection: Best alternate line with odds -180 or better
+
+2.  **Standard Spreads** - Model 2
+    -   Spread picks using expected margin vs Bovada spread lines
+    -   Same edge thresholds as totals
+    -   Historical qualification: Average margin must support spread line (50% threshold)
+    -   Alt spread selection: Best alternate with odds -180 or better
+
+3.  **Away Favorite + O/U** - Model 3 (User record: 51-14)
+    -   Premium model: Away team is favorite (spread_line > 0) AND O/U meets edge threshold
+    -   Stricter historical requirement: 70%+ away team O/U hit rate (vs 60% base)
+    -   Must also pass standard totals qualification (edge + base history)
+    -   Receives +2 weighted bonus in TOP 5 ranking
+    -   High-confidence plays when road favorite + totals align
+
+4.  **NBA Away Favorite 1H Money Line** - Model 4 (Planned)
+    -   NBA games where away team is the favorite
+    -   Take 1st Half money line on the away favorite
+    -   Uses The Odds API market key: `h2h_h1`
+    -   Requires event-specific API calls
+
+### TOP 5 Ranking Algorithm
+-   Weighted Score = Edge + (History% × 0.15) + Model Bonus
+-   Model 3 (Away Fav + O/U) gets +2 bonus
+-   Allows high-history picks (85%+9) to outrank lower-history (67%+11)
 -   **Data Management**:
     -   **Caching**: Date-keyed caching for ESPN lookups to speed up subsequent calls.
     -   **Database**: Uses SQLite with indexes for faster queries. Foreign key integrity maintained with safe deletion helpers.

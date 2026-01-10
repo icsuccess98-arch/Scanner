@@ -1500,17 +1500,30 @@ def dashboard():
     # Combined Top 5 Picks (totals + spreads merged by weighted score: edge + history)
     # Weighted score formula: edge + (history_pct * 0.15)
     # This allows high history % to outweigh lower edges (85%+9 > 67%+11)
+    # Model 3: Away Favorite + O/U gets +2 bonus when away team is favorite AND O/U qualifies with 70%+ history
     combined_picks = []
     for g in qualified:
         history_pct = max(g.away_ou_pct or 0, g.home_ou_pct or 0)
+        away_history_pct = g.away_ou_pct or 0
         edge = g.edge or 0
-        weighted_score = edge + (history_pct * 0.15)
+        
+        # Check if this is an "Away Favorite + O/U" pick (Model 3)
+        # Away is favorite when spread_line > 0 (home is getting points)
+        is_away_fav = (g.spread_line or 0) > 0
+        is_away_fav_ou = is_away_fav and g.is_qualified and away_history_pct >= 70
+        
+        # Model bonus: +2 for Away Fav + O/U picks (user is 51-14 with this model)
+        model_bonus = 2 if is_away_fav_ou else 0
+        model_type = 'away_fav_ou' if is_away_fav_ou else 'totals'
+        
+        weighted_score = edge + (history_pct * 0.15) + model_bonus
         combined_picks.append({
             'game': g,
             'edge': edge,
             'history_pct': history_pct,
             'weighted_score': weighted_score,
             'pick_type': 'totals',
+            'model_type': model_type,
             'direction': g.direction,
             'line': g.alt_total_line if g.alt_total_line else g.line,
             'vegas_line': g.line,
@@ -1546,6 +1559,7 @@ def dashboard():
             'history_pct': history_pct,
             'weighted_score': weighted_score,
             'pick_type': 'spread',
+            'model_type': 'spread',
             'direction': g.spread_direction,
             'line': display_line,
             'vegas_line': vegas_line,
@@ -3050,12 +3064,34 @@ def api_history_data():
 @app.route('/history')
 def history():
     """Display pick history with win/loss stats - Supermax/Lock plays only."""
-    picks = Pick.query.filter_by(is_lock=True).order_by(Pick.date.desc(), Pick.edge.desc()).all()
+    et = pytz.timezone('America/New_York')
+    now = datetime.now(et)
     
-    wins = len([p for p in picks if p.result == 'W'])
-    losses = len([p for p in picks if p.result == 'L'])
+    all_picks = Pick.query.filter_by(is_lock=True).order_by(Pick.date.desc(), Pick.edge.desc()).all()
     
-    return render_template('history.html', picks=picks, wins=wins, losses=losses)
+    # Separate upcoming (pending, game not started) from resulted picks
+    upcoming_picks = []
+    past_picks = []
+    
+    for p in all_picks:
+        if p.result is None:
+            # Check if game has started yet
+            if p.game_start:
+                game_start_et = p.game_start.replace(tzinfo=pytz.UTC).astimezone(et) if p.game_start.tzinfo else et.localize(p.game_start)
+                if game_start_et > now:
+                    upcoming_picks.append(p)
+                else:
+                    past_picks.append(p)  # Game started but no result yet
+            else:
+                past_picks.append(p)  # No game_start info, treat as past
+        else:
+            past_picks.append(p)
+    
+    wins = len([p for p in all_picks if p.result == 'W'])
+    losses = len([p for p in all_picks if p.result == 'L'])
+    
+    return render_template('history.html', picks=past_picks, upcoming_picks=upcoming_picks, 
+                          wins=wins, losses=losses)
 
 @app.route('/bankroll')
 def bankroll():
