@@ -729,10 +729,10 @@
                     {% else %}
                     <div class="lock-pick" style="background: linear-gradient(135deg, var(--accent) 0%, #6B9FFF 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
                         {% if supermax_lock.spread_direction == 'HOME' %}
-                        {% set home_spread = supermax_lock.alt_spread_line if supermax_lock.alt_spread_line else supermax_lock.spread_line %}
+                        {% set home_spread = -supermax_lock.alt_spread_line if supermax_lock.alt_spread_line else -supermax_lock.spread_line %}
                         {{ supermax_lock.home_team }} {{ "%+.1f"|format(home_spread) if home_spread else '' }}{% if supermax_lock.alt_spread_odds %} <span class="pick-odds">{{ supermax_lock.alt_spread_odds }}</span>{% endif %}
                         {% else %}
-                        {% set away_spread = -supermax_lock.alt_spread_line if supermax_lock.alt_spread_line else -supermax_lock.spread_line %}
+                        {% set away_spread = supermax_lock.alt_spread_line if supermax_lock.alt_spread_line else supermax_lock.spread_line %}
                         {{ supermax_lock.away_team }} {{ "%+.1f"|format(away_spread) if away_spread else '' }}{% if supermax_lock.alt_spread_odds %} <span class="pick-odds">{{ supermax_lock.alt_spread_odds }}</span>{% endif %}
                         {% endif %}
                     </div>

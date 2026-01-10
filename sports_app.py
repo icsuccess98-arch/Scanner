@@ -2569,13 +2569,14 @@ def dashboard():
         edge = g.spread_edge or 0
         weighted_score = edge + (history_pct * 0.15)
         # For spread picks, calculate the correct line value for display
-        # Both spread_line and alt_spread_line are stored as HOME perspective
-        # Need to flip sign for AWAY picks to show the away team's spread
+        # spread_line and alt_spread_line are stored as AWAY team's spread
+        # For HOME picks, we need to negate to show home team's spread
+        # For AWAY picks, use as-is
         if g.alt_spread_line:
-            display_line = g.alt_spread_line if g.spread_direction == 'HOME' else -g.alt_spread_line
-            vegas_line = g.spread_line if g.spread_direction == 'HOME' else -g.spread_line
+            display_line = -g.alt_spread_line if g.spread_direction == 'HOME' else g.alt_spread_line
+            vegas_line = -g.spread_line if g.spread_direction == 'HOME' else g.spread_line
         elif g.spread_line:
-            display_line = g.spread_line if g.spread_direction == 'HOME' else -g.spread_line
+            display_line = -g.spread_line if g.spread_direction == 'HOME' else g.spread_line
             vegas_line = display_line
         else:
             display_line = None
