@@ -191,13 +191,14 @@ def post_to_discord_with_retry(webhook_url: str, payload: dict, max_retries: int
     logger.error(f"Discord post failed after {max_retries} attempts")
     return (False, 0, "Max retries exceeded")
 
+league_injury_cache = {}
+
 def fetch_team_injuries(team_name: str, league: str) -> dict:
     """
     Lightweight injury data fetching with count-based impact scoring.
     
-    Uses a SINGLE API call to the injuries endpoint and parses the response
-    without making additional per-player requests. This is performant and
-    avoids nested API call amplification.
+    Uses public ESPN injuries endpoint (fetches all teams, caches by league).
+    Filters to find the matching team and counts injuries.
     
     Impact scoring formula:
     - 1st injured player: 2.5 points (likely a key player if listed)
@@ -212,6 +213,7 @@ def fetch_team_injuries(team_name: str, league: str) -> dict:
         "details": list
     }
     """
+    global league_injury_cache
     et = pytz.timezone('America/New_York')
     today_str = datetime.now(et).strftime("%Y-%m-%d")
     cache_key = f"injuries:{today_str}:{league}:{team_name.lower()}"
@@ -231,37 +233,61 @@ def fetch_team_injuries(team_name: str, league: str) -> dict:
         if not sport:
             return {"has_key_injuries": False, "injured_starters": 0, "impact_score": 0, "star_out": False, "details": []}
         
-        team_id = get_espn_team_id(team_name, league)
-        if not team_id:
-            return {"has_key_injuries": False, "injured_starters": 0, "impact_score": 0, "star_out": False, "details": []}
+        league_cache_key = f"league_injuries:{today_str}:{league}"
+        if league_cache_key not in league_injury_cache:
+            url = f"https://site.api.espn.com/apis/site/v2/sports/{sport}/injuries"
+            resp = requests.get(url, timeout=10)
+            if resp.status_code != 200:
+                return {"has_key_injuries": False, "injured_starters": 0, "impact_score": 0, "star_out": False, "details": []}
+            league_injury_cache[league_cache_key] = resp.json().get("injuries", [])
         
-        url = f"https://sports.core.api.espn.com/v2/sports/{sport}/teams/{team_id}/injuries?limit=50"
-        resp = requests.get(url, timeout=10)
-        if resp.status_code != 200:
-            return {"has_key_injuries": False, "injured_starters": 0, "impact_score": 0, "star_out": False, "details": []}
+        all_team_injuries = league_injury_cache[league_cache_key]
         
-        data = resp.json()
-        items = data.get("items", [])
+        team_name_lower = team_name.lower().strip()
+        team_injuries = []
+        details = []
         
-        injured_count = len(items)
+        for team_data in all_team_injuries:
+            espn_team_name = team_data.get("displayName", "").lower()
+            espn_short = team_data.get("shortDisplayName", "").lower()
+            espn_abbrev = team_data.get("abbreviation", "").lower()
+            
+            if (team_name_lower in espn_team_name or 
+                espn_team_name in team_name_lower or
+                team_name_lower == espn_short or
+                team_name_lower == espn_abbrev or
+                any(word in espn_team_name for word in team_name_lower.split() if len(word) > 3)):
+                team_injuries = team_data.get("injuries", [])
+                for inj in team_injuries:
+                    athlete = inj.get("athlete", {})
+                    status = inj.get("status", "Unknown")
+                    if status.lower() == "out":
+                        details.append({
+                            "name": athlete.get("displayName", "Unknown"),
+                            "status": status
+                        })
+                break
         
-        if injured_count == 0:
+        out_count = len([d for d in details if d.get("status", "").lower() == "out"])
+        injured_count = len(team_injuries)
+        
+        if out_count == 0:
             total_impact_score = 0.0
-        elif injured_count == 1:
+        elif out_count == 1:
             total_impact_score = 2.5
-        elif injured_count == 2:
+        elif out_count == 2:
             total_impact_score = 4.5
         else:
-            total_impact_score = 4.5 + (injured_count - 2) * 1.0
+            total_impact_score = 4.5 + (out_count - 2) * 1.0
         
-        star_out = injured_count >= 3
+        star_out = out_count >= 3
         
         result = {
             "has_key_injuries": total_impact_score >= 3.0 or star_out,
-            "injured_starters": injured_count,
+            "injured_starters": out_count,
             "impact_score": round(total_impact_score, 1),
             "star_out": star_out,
-            "details": []
+            "details": details
         }
         injury_cache[cache_key] = result
         return result
