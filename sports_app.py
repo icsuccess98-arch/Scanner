@@ -3749,11 +3749,19 @@ def fetch_alt_lines_internal() -> dict:
                     game.alt_edge = abs(game.projected_total - game.alt_total_line)
                     logger.info(f"Alt edge recalc: {game.away_team}@{game.home_team} main={game.edge:.1f} -> alt={game.alt_edge:.1f}")
             if r['alt_spread']:
-                game.alt_spread_line, game.alt_spread_odds = r['alt_spread']
+                raw_alt_line, alt_odds = r['alt_spread']
+                # Normalize alt_spread_line to AWAY perspective (same as spread_line)
+                # For HOME picks, the API returns home team's line - negate to get away perspective
+                # For AWAY picks, the API returns away team's line - use as-is
+                if game.spread_direction == 'HOME':
+                    game.alt_spread_line = -raw_alt_line
+                else:
+                    game.alt_spread_line = raw_alt_line
+                game.alt_spread_odds = alt_odds
                 alt_lines_found += 1
                 if game.projected_margin is not None:
-                    line_margin = -game.alt_spread_line
-                    game.alt_spread_edge = abs(game.projected_margin - line_margin)
+                    # alt_spread_line is now in away perspective, same as spread_line
+                    game.alt_spread_edge = abs(game.projected_margin - game.alt_spread_line)
                     logger.info(f"Alt spread edge recalc: {game.away_team}@{game.home_team} main={game.spread_edge:.1f} -> alt={game.alt_spread_edge:.1f}")
     
     db.session.commit()
