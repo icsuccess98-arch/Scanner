@@ -81,6 +81,13 @@ Additional data-driven factors that disqualify picks during game scanning:
     -   Multiplier always clamped to ≤1.0 to prevent edge inflation
     -   Used by unified_spread_qualification to enforce edge threshold BEFORE margin/form/injury checks
 
+7.  **Bulletproof Pre-Send Validation (BulletproofPickValidator)**
+    -   Final validation layer before picks are posted to Discord
+    -   Runs 7 checks on every pick: Edge threshold, Model qualification, Historical qualification, EV non-negative (NULL allowed), Injury validation, Game status, Spread validation
+    -   Confidence tier ranking: SUPERMAX (edge 12+, EV 3%+, history 70%), HIGH (edge 10+, EV 1%+, history 65%), MEDIUM (edge 8+, EV 0%+, history 60%), LOW (meets minimums)
+    -   Detailed logging shows passed/rejected picks with reasons
+    -   Test endpoint: `/api/deep_test` runs 39 tests across 7 layers
+
 ### Betting Models (4 Total)
 The sports betting calculator uses four distinct models for pick generation:
 

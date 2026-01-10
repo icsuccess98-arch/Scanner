@@ -4707,6 +4707,491 @@ def clear_games():
     db.session.commit()
     return redirect(url_for('dashboard'))
 
+class MockGame:
+    """Lightweight mock Game object for testing BulletproofPickValidator."""
+    def __init__(self, **kwargs):
+        defaults = {
+            'id': 1, 'away_team': 'Test Away', 'home_team': 'Test Home',
+            'league': 'NBA', 'edge': 10.0, 'spread_edge': 10.0,
+            'total_ev': 2.0, 'spread_ev': 2.0,
+            'away_ou_pct': 65, 'home_ou_pct': 60,
+            'is_qualified': True, 'history_qualified': True,
+            'spread_is_qualified': True, 'spread_history_qualified': True,
+            'direction': 'OVER', 'spread_direction': 'HOME',
+            'game_time': '7:00 PM ET', 'spread_line': -3.5,
+            'bovada_line': 220.5, 'projected_total': 228.5
+        }
+        defaults.update(kwargs)
+        for k, v in defaults.items():
+            setattr(self, k, v)
+
+
+@app.route('/api/deep_test')
+def deep_test():
+    """
+    7-LAYER DEEP VALIDATION TEST SUITE
+    Each layer goes progressively deeper into the bulletproof system.
+    """
+    results = []
+    
+    # ============================================================
+    # LAYER 1: EDGE THRESHOLD VALIDATION
+    # Tests league-specific edge thresholds
+    # ============================================================
+    layer1_tests = []
+    
+    # NBA: threshold = 8.0
+    nba_pass = MockGame(league='NBA', edge=8.5, is_qualified=True, history_qualified=True)
+    nba_fail = MockGame(league='NBA', edge=7.5, is_qualified=True, history_qualified=True)
+    r1 = BulletproofPickValidator.validate_pick(nba_pass, 'total')
+    r2 = BulletproofPickValidator.validate_pick(nba_fail, 'total')
+    layer1_tests.append({
+        "test": "NBA edge 8.5 >= 8.0",
+        "passed": r1['validated'],
+        "expected": True,
+        "details": r1['checks_passed'] if r1['validated'] else r1['checks_failed']
+    })
+    layer1_tests.append({
+        "test": "NBA edge 7.5 < 8.0",
+        "passed": not r2['validated'],
+        "expected": True,
+        "details": r2['checks_failed']
+    })
+    
+    # NFL: threshold = 3.5
+    nfl_pass = MockGame(league='NFL', edge=4.0, is_qualified=True, history_qualified=True)
+    nfl_fail = MockGame(league='NFL', edge=3.0, is_qualified=True, history_qualified=True)
+    r3 = BulletproofPickValidator.validate_pick(nfl_pass, 'total')
+    r4 = BulletproofPickValidator.validate_pick(nfl_fail, 'total')
+    layer1_tests.append({
+        "test": "NFL edge 4.0 >= 3.5",
+        "passed": r3['validated'],
+        "expected": True,
+        "details": r3['checks_passed'] if r3['validated'] else r3['checks_failed']
+    })
+    layer1_tests.append({
+        "test": "NFL edge 3.0 < 3.5",
+        "passed": not r4['validated'],
+        "expected": True,
+        "details": r4['checks_failed']
+    })
+    
+    # NHL: threshold = 0.5
+    nhl_pass = MockGame(league='NHL', edge=0.7, is_qualified=True, history_qualified=True)
+    nhl_fail = MockGame(league='NHL', edge=0.3, is_qualified=True, history_qualified=True)
+    r5 = BulletproofPickValidator.validate_pick(nhl_pass, 'total')
+    r6 = BulletproofPickValidator.validate_pick(nhl_fail, 'total')
+    layer1_tests.append({
+        "test": "NHL edge 0.7 >= 0.5",
+        "passed": r5['validated'],
+        "expected": True,
+        "details": r5['checks_passed'] if r5['validated'] else r5['checks_failed']
+    })
+    layer1_tests.append({
+        "test": "NHL edge 0.3 < 0.5",
+        "passed": not r6['validated'],
+        "expected": True,
+        "details": r6['checks_failed']
+    })
+    
+    layer1_passed = all(t['passed'] == t['expected'] for t in layer1_tests)
+    results.append({
+        "layer": 1,
+        "name": "EDGE THRESHOLD VALIDATION",
+        "status": "PASS" if layer1_passed else "FAIL",
+        "tests": layer1_tests
+    })
+    
+    # ============================================================
+    # LAYER 2: MODEL QUALIFICATION FLAGS
+    # Tests is_qualified and spread_is_qualified flags
+    # ============================================================
+    layer2_tests = []
+    
+    # Totals: is_qualified = True should pass
+    qual_pass = MockGame(is_qualified=True, history_qualified=True)
+    qual_fail = MockGame(is_qualified=False, history_qualified=True)
+    r1 = BulletproofPickValidator.validate_pick(qual_pass, 'total')
+    r2 = BulletproofPickValidator.validate_pick(qual_fail, 'total')
+    layer2_tests.append({
+        "test": "Totals: is_qualified=True passes",
+        "passed": r1['validated'],
+        "expected": True,
+        "details": r1['checks_passed']
+    })
+    layer2_tests.append({
+        "test": "Totals: is_qualified=False rejected",
+        "passed": not r2['validated'],
+        "expected": True,
+        "details": r2['checks_failed']
+    })
+    
+    # Spreads: spread_is_qualified flags
+    spread_pass = MockGame(spread_is_qualified=True, spread_history_qualified=True)
+    spread_fail = MockGame(spread_is_qualified=False, spread_history_qualified=True)
+    r3 = BulletproofPickValidator.validate_pick(spread_pass, 'spread')
+    r4 = BulletproofPickValidator.validate_pick(spread_fail, 'spread')
+    layer2_tests.append({
+        "test": "Spreads: spread_is_qualified=True passes",
+        "passed": r3['validated'],
+        "expected": True,
+        "details": r3['checks_passed']
+    })
+    layer2_tests.append({
+        "test": "Spreads: spread_is_qualified=False rejected",
+        "passed": not r4['validated'],
+        "expected": True,
+        "details": r4['checks_failed']
+    })
+    
+    layer2_passed = all(t['passed'] == t['expected'] for t in layer2_tests)
+    results.append({
+        "layer": 2,
+        "name": "MODEL QUALIFICATION FLAGS",
+        "status": "PASS" if layer2_passed else "FAIL",
+        "tests": layer2_tests
+    })
+    
+    # ============================================================
+    # LAYER 3: HISTORICAL QUALIFICATION
+    # Tests history_qualified and spread_history_qualified
+    # ============================================================
+    layer3_tests = []
+    
+    hist_pass = MockGame(is_qualified=True, history_qualified=True, away_ou_pct=70, home_ou_pct=65)
+    hist_fail = MockGame(is_qualified=True, history_qualified=False, away_ou_pct=55, home_ou_pct=50)
+    r1 = BulletproofPickValidator.validate_pick(hist_pass, 'total')
+    r2 = BulletproofPickValidator.validate_pick(hist_fail, 'total')
+    layer3_tests.append({
+        "test": "Totals: history_qualified=True (70% O/U) passes",
+        "passed": r1['validated'],
+        "expected": True,
+        "details": r1['checks_passed']
+    })
+    layer3_tests.append({
+        "test": "Totals: history_qualified=False rejected",
+        "passed": not r2['validated'],
+        "expected": True,
+        "details": r2['checks_failed']
+    })
+    
+    spread_hist_pass = MockGame(spread_is_qualified=True, spread_history_qualified=True)
+    spread_hist_fail = MockGame(spread_is_qualified=True, spread_history_qualified=False)
+    r3 = BulletproofPickValidator.validate_pick(spread_hist_pass, 'spread')
+    r4 = BulletproofPickValidator.validate_pick(spread_hist_fail, 'spread')
+    layer3_tests.append({
+        "test": "Spreads: spread_history_qualified=True passes",
+        "passed": r3['validated'],
+        "expected": True,
+        "details": r3['checks_passed']
+    })
+    layer3_tests.append({
+        "test": "Spreads: spread_history_qualified=False rejected",
+        "passed": not r4['validated'],
+        "expected": True,
+        "details": r4['checks_failed']
+    })
+    
+    layer3_passed = all(t['passed'] == t['expected'] for t in layer3_tests)
+    results.append({
+        "layer": 3,
+        "name": "HISTORICAL QUALIFICATION",
+        "status": "PASS" if layer3_passed else "FAIL",
+        "tests": layer3_tests
+    })
+    
+    # ============================================================
+    # LAYER 4: EV VALIDATION
+    # Tests positive EV allowed, negative EV rejected, NULL allowed
+    # ============================================================
+    layer4_tests = []
+    
+    ev_positive = MockGame(total_ev=3.5, is_qualified=True, history_qualified=True)
+    ev_negative = MockGame(total_ev=-2.0, is_qualified=True, history_qualified=True)
+    ev_null = MockGame(total_ev=None, is_qualified=True, history_qualified=True)
+    
+    r1 = BulletproofPickValidator.validate_pick(ev_positive, 'total')
+    r2 = BulletproofPickValidator.validate_pick(ev_negative, 'total')
+    r3 = BulletproofPickValidator.validate_pick(ev_null, 'total')
+    
+    layer4_tests.append({
+        "test": "EV +3.5% allowed (passes)",
+        "passed": r1['validated'],
+        "expected": True,
+        "details": [c for c in r1['checks_passed'] if 'EV' in c]
+    })
+    layer4_tests.append({
+        "test": "EV -2.0% rejected",
+        "passed": not r2['validated'],
+        "expected": True,
+        "details": [c for c in r2['checks_failed'] if 'EV' in c]
+    })
+    layer4_tests.append({
+        "test": "EV NULL allowed (passes)",
+        "passed": r3['validated'],
+        "expected": True,
+        "details": [c for c in r3['checks_passed'] if 'EV' in c]
+    })
+    
+    # Edge case: EV = 0 should pass
+    ev_zero = MockGame(total_ev=0.0, is_qualified=True, history_qualified=True)
+    r4 = BulletproofPickValidator.validate_pick(ev_zero, 'total')
+    layer4_tests.append({
+        "test": "EV 0.0% allowed (edge case)",
+        "passed": r4['validated'],
+        "expected": True,
+        "details": [c for c in r4['checks_passed'] if 'EV' in c]
+    })
+    
+    layer4_passed = all(t['passed'] == t['expected'] for t in layer4_tests)
+    results.append({
+        "layer": 4,
+        "name": "EV VALIDATION",
+        "status": "PASS" if layer4_passed else "FAIL",
+        "tests": layer4_tests
+    })
+    
+    # ============================================================
+    # LAYER 5: TEAM NAME MATCHING
+    # Tests fuzzy matching and normalization
+    # ============================================================
+    layer5_tests = []
+    
+    # Test teams_match function - validates fuzzy matching accuracy
+    test_cases = [
+        ("North Carolina", "UNC", True),
+        ("Michigan State", "Michigan St", True),
+        ("Texas A&M", "Texas A&M Aggies", True),
+        ("Duke", "Duke Blue Devils", True),
+        ("Eastern Michigan", "Central Michigan", False),  # Different schools
+        ("Ohio State", "Ohio Bobcats", False),  # MUST NOT MATCH - distinct schools
+        ("Lakers", "LA Lakers", True),
+        ("Philadelphia 76ers", "76ers", True),
+    ]
+    
+    # Additional negative test cases - document known limitations
+    # Note: teams_match uses fuzzy matching which may match "Michigan" to "Michigan State"
+    # due to substring matching. This is a known limitation documented here.
+    
+    for team1, team2, expected_match in test_cases:
+        result = teams_match(team1, team2)
+        layer5_tests.append({
+            "test": f"'{team1}' vs '{team2}' -> {expected_match}",
+            "passed": result == expected_match,
+            "expected": True,
+            "details": f"teams_match returned {result}"
+        })
+    
+    layer5_passed = all(t['passed'] for t in layer5_tests)
+    results.append({
+        "layer": 5,
+        "name": "TEAM NAME MATCHING",
+        "status": "PASS" if layer5_passed else "FAIL",
+        "tests": layer5_tests
+    })
+    
+    # ============================================================
+    # LAYER 6: SPREAD VALIDATION
+    # Tests SpreadValidator mirror image and ML cross-check
+    # Spread convention: negative = AWAY is favorite, positive = HOME is favorite
+    # ML convention: lower value = favorite
+    # ============================================================
+    layer6_tests = []
+    
+    # Test 1: Away favorite (away_ml=-200) with -5.5 spread (away favorite) is VALID
+    valid, msg, corrected = SpreadValidator.validate_spread_vs_moneyline(
+        spread=-5.5, away_ml=-200, home_ml=180,
+        away_team="Away Team", home_team="Home Team"
+    )
+    layer6_tests.append({
+        "test": "Away favorite (ML -200) with -5.5 spread is valid",
+        "passed": valid,
+        "expected": True,
+        "details": msg if msg else "Spread matches ML direction"
+    })
+    
+    # Test 2: Home favorite (home_ml=-200) with +5.5 spread (away underdog) is VALID
+    valid2, msg2, corrected2 = SpreadValidator.validate_spread_vs_moneyline(
+        spread=5.5, away_ml=180, home_ml=-200,
+        away_team="Away Team", home_team="Home Team"
+    )
+    layer6_tests.append({
+        "test": "Home favorite (ML -200) with +5.5 spread is valid",
+        "passed": valid2,
+        "expected": True,
+        "details": msg2 if msg2 else "Spread matches ML direction"
+    })
+    
+    # Test 3: MISMATCH - Away favorite (ML -200) but +5.5 spread (says away underdog)
+    valid3, msg3, corrected3 = SpreadValidator.validate_spread_vs_moneyline(
+        spread=5.5, away_ml=-200, home_ml=180,
+        away_team="Away Team", home_team="Home Team"
+    )
+    layer6_tests.append({
+        "test": "Away favorite with +5.5 spread is INVALID (mismatch)",
+        "passed": not valid3 and corrected3 == -5.5,
+        "expected": True,
+        "details": f"Detected mismatch, corrected to {corrected3}"
+    })
+    
+    # Test 4: validate_and_correct_spread helper auto-corrects mismatch
+    final_spread, was_corrected = SpreadValidator.validate_and_correct_spread(
+        spread=5.5, away_ml=-200, home_ml=180,
+        away_team="Away Team", home_team="Home Team"
+    )
+    layer6_tests.append({
+        "test": "Auto-correction flips +5.5 to -5.5 (away fav mismatch)",
+        "passed": final_spread == -5.5 and was_corrected,
+        "expected": True,
+        "details": f"Returned {final_spread}, was_corrected={was_corrected}"
+    })
+    
+    layer6_passed = all(t['passed'] for t in layer6_tests)
+    results.append({
+        "layer": 6,
+        "name": "SPREAD VALIDATION",
+        "status": "PASS" if layer6_passed else "FAIL",
+        "tests": layer6_tests
+    })
+    
+    # ============================================================
+    # LAYER 7: FULL INTEGRATION TEST
+    # Tests complete workflow from validation to Discord payload
+    # ============================================================
+    layer7_tests = []
+    
+    # Create a set of mock games with varying qualifications
+    mock_games = [
+        MockGame(away_team="Lakers", home_team="Celtics", league="NBA",
+                 edge=12.5, total_ev=3.5, away_ou_pct=75, home_ou_pct=70,
+                 is_qualified=True, history_qualified=True),
+        MockGame(away_team="Chiefs", home_team="Bills", league="NFL",
+                 edge=4.5, total_ev=1.5, away_ou_pct=68, home_ou_pct=65,
+                 is_qualified=True, history_qualified=True),
+        MockGame(away_team="Bruins", home_team="Rangers", league="NHL",
+                 edge=0.3, total_ev=0.5, away_ou_pct=60, home_ou_pct=55,
+                 is_qualified=True, history_qualified=True),
+        MockGame(away_team="Duke", home_team="UNC", league="CBB",
+                 edge=9.0, total_ev=-1.5, away_ou_pct=65, home_ou_pct=60,
+                 is_qualified=True, history_qualified=True),
+    ]
+    
+    validation_results = BulletproofPickValidator.validate_all_picks(mock_games, pick_type='total')
+    
+    layer7_tests.append({
+        "test": "Lakers @ Celtics (edge 12.5, EV 3.5%) -> SUPERMAX tier",
+        "passed": any(p['game'] == "Lakers @ Celtics" and p['confidence_tier'] == "SUPERMAX" 
+                      for p in validation_results['validated_picks']),
+        "expected": True,
+        "details": f"Found in tier: {[p['confidence_tier'] for p in validation_results['validated_picks'] if 'Lakers' in p['game']]}"
+    })
+    
+    layer7_tests.append({
+        "test": "Chiefs @ Bills (NFL edge 4.5) -> validated",
+        "passed": any(p['game'] == "Chiefs @ Bills" for p in validation_results['validated_picks']),
+        "expected": True,
+        "details": "NFL pick with sufficient edge passes"
+    })
+    
+    layer7_tests.append({
+        "test": "Bruins @ Rangers (NHL edge 0.3 < 0.5) -> rejected",
+        "passed": any(p['game'] == "Bruins @ Rangers" for p in validation_results['rejected_picks']),
+        "expected": True,
+        "details": "NHL edge below threshold rejected"
+    })
+    
+    layer7_tests.append({
+        "test": "Duke @ UNC (negative EV -1.5%) -> rejected",
+        "passed": any(p['game'] == "Duke @ UNC" for p in validation_results['rejected_picks']),
+        "expected": True,
+        "details": "Negative EV pick rejected"
+    })
+    
+    layer7_tests.append({
+        "test": "Tier counts: SUPERMAX=1, validated=2, rejected=2",
+        "passed": (len(validation_results['by_tier']['SUPERMAX']) == 1 and
+                   len(validation_results['validated_picks']) == 2 and
+                   len(validation_results['rejected_picks']) == 2),
+        "expected": True,
+        "details": f"SUPERMAX: {len(validation_results['by_tier']['SUPERMAX'])}, " +
+                   f"validated: {len(validation_results['validated_picks'])}, " +
+                   f"rejected: {len(validation_results['rejected_picks'])}"
+    })
+    
+    # SPREAD PICKS INTEGRATION TEST
+    # Note: Spread tier requires away_spread_pct/home_spread_pct for tier calculation
+    spread_games = [
+        MockGame(away_team="Cowboys", home_team="Eagles", league="NFL",
+                 spread_edge=5.0, spread_ev=2.5, spread_is_qualified=True, 
+                 spread_history_qualified=True, spread_direction="HOME",
+                 away_spread_pct=60, home_spread_pct=65),
+        MockGame(away_team="Suns", home_team="Nuggets", league="NBA",
+                 spread_edge=11.5, spread_ev=4.0, spread_is_qualified=True,
+                 spread_history_qualified=True, spread_direction="AWAY",
+                 away_spread_pct=70, home_spread_pct=65),
+        MockGame(away_team="Flames", home_team="Oilers", league="NHL",
+                 spread_edge=0.2, spread_ev=1.0, spread_is_qualified=True,
+                 spread_history_qualified=True, spread_direction="HOME",
+                 away_spread_pct=55, home_spread_pct=60),
+        MockGame(away_team="Kentucky", home_team="Tennessee", league="CBB",
+                 spread_edge=9.5, spread_ev=-0.5, spread_is_qualified=True,
+                 spread_history_qualified=True, spread_direction="HOME",
+                 away_spread_pct=60, home_spread_pct=62),
+    ]
+    
+    spread_results = BulletproofPickValidator.validate_all_picks(spread_games, pick_type='spread')
+    
+    layer7_tests.append({
+        "test": "SPREAD: Cowboys @ Eagles (NFL edge 5.0) -> validated",
+        "passed": any(p['game'] == "Cowboys @ Eagles" for p in spread_results['validated_picks']),
+        "expected": True,
+        "details": "NFL spread pick with sufficient edge passes"
+    })
+    
+    layer7_tests.append({
+        "test": "SPREAD: Suns @ Nuggets (edge 11.5, EV 4.0%) -> HIGH tier",
+        "passed": any(p['game'] == "Suns @ Nuggets" and p['confidence_tier'] in ['SUPERMAX', 'HIGH']
+                      for p in spread_results['validated_picks']),
+        "expected": True,
+        "details": f"Spread tier: {[p['confidence_tier'] for p in spread_results['validated_picks'] if 'Suns' in p['game']]}"
+    })
+    
+    layer7_tests.append({
+        "test": "SPREAD: Flames @ Oilers (NHL edge 0.2 < 0.5) -> rejected",
+        "passed": any(p['game'] == "Flames @ Oilers" for p in spread_results['rejected_picks']),
+        "expected": True,
+        "details": "NHL spread edge below threshold rejected"
+    })
+    
+    layer7_tests.append({
+        "test": "SPREAD: Kentucky @ Tennessee (negative EV) -> rejected",
+        "passed": any(p['game'] == "Kentucky @ Tennessee" for p in spread_results['rejected_picks']),
+        "expected": True,
+        "details": "Spread with negative EV rejected"
+    })
+    
+    layer7_passed = all(t['passed'] for t in layer7_tests)
+    results.append({
+        "layer": 7,
+        "name": "FULL INTEGRATION TEST",
+        "status": "PASS" if layer7_passed else "FAIL",
+        "tests": layer7_tests
+    })
+    
+    # ============================================================
+    # SUMMARY
+    # ============================================================
+    all_passed = all(r['status'] == 'PASS' for r in results)
+    total_tests = sum(len(r['tests']) for r in results)
+    passed_tests = sum(1 for r in results for t in r['tests'] if t.get('passed', False))
+    
+    return jsonify({
+        "overall_status": "ALL PASS" if all_passed else "SOME FAILED",
+        "summary": f"{passed_tests}/{total_tests} tests passed",
+        "layers": results
+    })
+
+
 with app.app_context():
     db.create_all()
 
