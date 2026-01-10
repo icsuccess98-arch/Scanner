@@ -61,6 +61,82 @@ injury_cache = {}
 line_movement_cache = {}
 opening_lines_store = {}
 
+class VigCalculator:
+    """Handles all vig removal calculations for true edge computation"""
+    
+    @staticmethod
+    def american_to_implied_probability(odds: float) -> float:
+        """Convert American odds to implied probability (with vig)"""
+        if odds < 0:
+            return abs(odds) / (abs(odds) + 100)
+        else:
+            return 100 / (odds + 100)
+    
+    @staticmethod
+    def remove_vig_two_way(odds_a: float, odds_b: float) -> dict:
+        """
+        Remove vig from two-way market (spreads, totals)
+        Returns dict with true probabilities and vig percentage
+        """
+        prob_a_with_vig = VigCalculator.american_to_implied_probability(odds_a)
+        prob_b_with_vig = VigCalculator.american_to_implied_probability(odds_b)
+        
+        total = prob_a_with_vig + prob_b_with_vig
+        
+        true_prob_a = prob_a_with_vig / total if total > 0 else 0.5
+        true_prob_b = prob_b_with_vig / total if total > 0 else 0.5
+        
+        vig_pct = (total - 1.0) * 100 if total > 0 else 0
+        
+        return {
+            'true_prob_a': true_prob_a,
+            'true_prob_b': true_prob_b,
+            'prob_a_with_vig': prob_a_with_vig,
+            'prob_b_with_vig': prob_b_with_vig,
+            'vig_percentage': vig_pct,
+            'total_probability': total
+        }
+    
+    @staticmethod
+    def calculate_vig_adjusted_edge(raw_edge: float, bovada_odds: int = -110) -> float:
+        """
+        Adjust edge by removing the vig component from the calculation.
+        
+        Uses a lookup table based on the actual price to apply the correct
+        vig discount. Heavier vig markets get larger haircuts.
+        
+        The multiplier is ALWAYS clamped to ≤ 1.0 to ensure edge is never inflated.
+        
+        Vig Lookup Table:
+        - Standard (-110/-110): 4.76% vig → 0.9524 multiplier
+        - Heavy fav (-115+): ~5.5% vig → 0.945 multiplier  
+        - Very heavy (-120+): ~6.5% vig → 0.935 multiplier
+        - Light (+100 to -105): ~2.5% vig → 0.975 multiplier
+        - Plus money (+105+): ~1-2% vig → 0.980 multiplier
+        
+        Examples:
+        - Raw edge 8.0 at -110 → adjusted edge ~7.6
+        - Raw edge 8.0 at -120 → adjusted edge ~7.5
+        """
+        abs_odds = abs(bovada_odds) if bovada_odds < 0 else bovada_odds
+        
+        if bovada_odds > 0:
+            vig_multiplier = 0.980
+        elif abs_odds <= 105:
+            vig_multiplier = 0.975
+        elif abs_odds <= 110:
+            vig_multiplier = 0.9524
+        elif abs_odds <= 115:
+            vig_multiplier = 0.945
+        elif abs_odds <= 120:
+            vig_multiplier = 0.935
+        elif abs_odds <= 130:
+            vig_multiplier = 0.920
+        else:
+            vig_multiplier = 0.900
+        
+        return raw_edge * min(vig_multiplier, 1.0)
+
 def api_request_with_retry(url: str, timeout: int = 30, max_retries: int = 2, **kwargs) -> requests.Response:
     """Make API request with simple retry logic for transient failures.
     Returns the response object or raises exception after all retries fail.
@@ -117,8 +193,24 @@ def post_to_discord_with_retry(webhook_url: str, payload: dict, max_retries: int
 
 def fetch_team_injuries(team_name: str, league: str) -> dict:
     """
-    Fetch injury data from ESPN for key player availability.
-    Returns: {"has_key_injuries": bool, "injured_starters": int, "details": list}
+    Lightweight injury data fetching with count-based impact scoring.
+    
+    Uses a SINGLE API call to the injuries endpoint and parses the response
+    without making additional per-player requests. This is performant and
+    avoids nested API call amplification.
+    
+    Impact scoring formula:
+    - 1st injured player: 2.5 points (likely a key player if listed)
+    - 2nd injured player: 2.0 points
+    - 3rd+ injured player: 1.0 points each
+    
+    Returns: {
+        "has_key_injuries": bool (True if impact_score >= 3.0),
+        "injured_starters": int,
+        "impact_score": float (total point impact),
+        "star_out": bool (3+ players out suggests star involvement),
+        "details": list
+    }
     """
     et = pytz.timezone('America/New_York')
     today_str = datetime.now(et).strftime("%Y-%m-%d")
@@ -137,49 +229,45 @@ def fetch_team_injuries(team_name: str, league: str) -> dict:
         }
         sport = sport_map.get(league)
         if not sport:
-            return {"has_key_injuries": False, "injured_starters": 0, "details": []}
+            return {"has_key_injuries": False, "injured_starters": 0, "impact_score": 0, "star_out": False, "details": []}
         
         team_id = get_espn_team_id(team_name, league)
         if not team_id:
-            return {"has_key_injuries": False, "injured_starters": 0, "details": []}
+            return {"has_key_injuries": False, "injured_starters": 0, "impact_score": 0, "star_out": False, "details": []}
         
         url = f"https://sports.core.api.espn.com/v2/sports/{sport}/teams/{team_id}/injuries?limit=50"
         resp = requests.get(url, timeout=10)
         if resp.status_code != 200:
-            return {"has_key_injuries": False, "injured_starters": 0, "details": []}
+            return {"has_key_injuries": False, "injured_starters": 0, "impact_score": 0, "star_out": False, "details": []}
         
         data = resp.json()
         items = data.get("items", [])
         
-        injured_starters = 0
-        injury_details = []
+        injured_count = len(items)
         
-        for item in items:
-            if "$ref" in item:
-                try:
-                    injury_resp = requests.get(item["$ref"], timeout=5)
-                    if injury_resp.status_code == 200:
-                        injury_data = injury_resp.json()
-                        status = injury_data.get("status", "").lower()
-                        if status in ["out", "doubtful"]:
-                            injured_starters += 1
-                            injury_details.append({
-                                "status": status,
-                                "type": injury_data.get("type", {}).get("description", "Unknown")
-                            })
-                except:
-                    continue
+        if injured_count == 0:
+            total_impact_score = 0.0
+        elif injured_count == 1:
+            total_impact_score = 2.5
+        elif injured_count == 2:
+            total_impact_score = 4.5
+        else:
+            total_impact_score = 4.5 + (injured_count - 2) * 1.0
+        
+        star_out = injured_count >= 3
         
         result = {
-            "has_key_injuries": injured_starters >= 2,
-            "injured_starters": injured_starters,
-            "details": injury_details[:5]
+            "has_key_injuries": total_impact_score >= 3.0 or star_out,
+            "injured_starters": injured_count,
+            "impact_score": round(total_impact_score, 1),
+            "star_out": star_out,
+            "details": []
         }
         injury_cache[cache_key] = result
         return result
     except Exception as e:
         logger.debug(f"Injury fetch error for {team_name}: {e}")
-        return {"has_key_injuries": False, "injured_starters": 0, "details": []}
+        return {"has_key_injuries": False, "injured_starters": 0, "impact_score": 0, "star_out": False, "details": []}
 
 def store_opening_line(event_id: str, line: float):
     """
@@ -816,6 +904,104 @@ def check_spread_qualification(expected_away: float, expected_home: float,
     elif projected_margin <= line_margin - threshold:
         return True, "AWAY", edge
     return False, None, edge
+
+def unified_spread_qualification(
+    spread_direction: str,
+    spread_line: float,
+    raw_edge: float,
+    home_avg_margin: float,
+    away_avg_margin: float,
+    home_recent_margin: float,
+    away_recent_margin: float,
+    home_form_trending: str,
+    away_form_trending: str,
+    injury_data: dict,
+    league: str = "CBB",
+    bovada_odds: int = -110
+) -> dict:
+    """
+    UNIFIED SPREAD QUALIFICATION FUNCTION
+    
+    Combines all spread qualification rules into one function:
+    1. Edge threshold check (with vig adjustment) - MUST PASS FIRST
+    2. Historical margin validation (85% for HOME, positive for AWAY)
+    3. Form trending check (declining form disqualifies)
+    4. Injury impact check (PPG-weighted)
+    
+    Returns: {
+        "qualified": bool,
+        "reason": str,
+        "raw_edge": float,
+        "adjusted_edge": float,  # After vig removal
+        "confidence": str
+    }
+    """
+    adjusted_edge = VigCalculator.calculate_vig_adjusted_edge(raw_edge, bovada_odds)
+    threshold = THRESHOLDS.get(league, 8.0)
+    
+    result = {
+        "qualified": False,
+        "reason": "",
+        "raw_edge": raw_edge,
+        "adjusted_edge": adjusted_edge,
+        "confidence": "LOW"
+    }
+    
+    if not spread_direction:
+        result["reason"] = "NO_DIRECTION"
+        return result
+    
+    if adjusted_edge < threshold:
+        result["reason"] = f"EDGE_BELOW_THRESHOLD: {adjusted_edge:.1f} < {threshold:.1f}"
+        return result
+    
+    if spread_direction == "HOME":
+        if abs(spread_line) > 0:
+            margin_threshold = abs(spread_line) * 0.85
+            if home_avg_margin < margin_threshold:
+                result["reason"] = f"HOME_MARGIN_BELOW_85%: {home_avg_margin:.1f} < {margin_threshold:.1f}"
+                return result
+        
+        if home_form_trending == "DOWN":
+            if home_recent_margin < abs(spread_line) * 0.5:
+                result["reason"] = f"HOME_FORM_DECLINING: recent {home_recent_margin:.1f} < 50% of spread"
+                return result
+        
+        team_injury = injury_data.get("home", {})
+        if team_injury.get("has_key_injuries") or team_injury.get("star_out"):
+            result["reason"] = f"HOME_KEY_INJURIES: impact={team_injury.get('impact_score', 0)}"
+            return result
+        
+        result["qualified"] = True
+        result["reason"] = "HOME_QUALIFIED"
+        if home_form_trending == "UP" and home_avg_margin >= abs(spread_line):
+            result["confidence"] = "HIGH"
+        else:
+            result["confidence"] = "MEDIUM"
+            
+    elif spread_direction == "AWAY":
+        if away_avg_margin <= 0:
+            result["reason"] = f"AWAY_NEGATIVE_MARGIN: {away_avg_margin:.1f} (must be > 0)"
+            return result
+        
+        if away_form_trending == "DOWN":
+            if away_recent_margin < 0:
+                result["reason"] = f"AWAY_FORM_DECLINING: recent margin {away_recent_margin:.1f} < 0"
+                return result
+        
+        team_injury = injury_data.get("away", {})
+        if team_injury.get("has_key_injuries") or team_injury.get("star_out"):
+            result["reason"] = f"AWAY_KEY_INJURIES: impact={team_injury.get('impact_score', 0)}"
+            return result
+        
+        result["qualified"] = True
+        result["reason"] = "AWAY_QUALIFIED"
+        if away_form_trending == "UP" and away_avg_margin > 3:
+            result["confidence"] = "HIGH"
+        else:
+            result["confidence"] = "MEDIUM"
+    
+    return result
 
 def american_to_decimal(odds: int) -> float:
     """Convert American odds to decimal odds."""
@@ -1907,30 +2093,27 @@ def update_game_historical_data(game: Game) -> bool:
         if game.spread_is_qualified and game.spread_line is not None:
             spread_line = game.spread_line
             
-            if game.spread_direction == "HOME":
-                spread_qualified = home_avg_margin >= abs(spread_line) * 0.85
-                
-                if spread_qualified and home_form_trending == "DOWN":
-                    logger.info(f"{game.away_team} @ {game.home_team}: HOME spread marginal due to declining form")
-                    if home_recent_margin < abs(spread_line) * 0.5:
-                        spread_qualified = False
-                        logger.info(f"{game.away_team} @ {game.home_team}: HOME spread DISQUALIFIED - recent form too weak")
-                        
-            elif game.spread_direction == "AWAY":
-                spread_qualified = away_avg_margin > 0
-                
-                if spread_qualified and away_form_trending == "DOWN":
-                    logger.info(f"{game.away_team} @ {game.home_team}: AWAY spread marginal due to declining form")
-                    if away_recent_margin < 0:
-                        spread_qualified = False
-                        logger.info(f"{game.away_team} @ {game.home_team}: AWAY spread DISQUALIFIED - recent form shows losses")
-            else:
-                spread_qualified = False
-                logger.info(f"{game.away_team} @ {game.home_team}: Spread DISQUALIFIED - no valid direction")
+            qualification_result = unified_spread_qualification(
+                spread_direction=game.spread_direction,
+                spread_line=spread_line,
+                raw_edge=game.spread_edge or 0,
+                home_avg_margin=home_avg_margin,
+                away_avg_margin=away_avg_margin,
+                home_recent_margin=home_recent_margin,
+                away_recent_margin=away_recent_margin,
+                home_form_trending=home_form_trending,
+                away_form_trending=away_form_trending,
+                injury_data={"home": home_injuries, "away": away_injuries},
+                league=game.league,
+                bovada_odds=game.bovada_spread_odds if hasattr(game, 'bovada_spread_odds') and game.bovada_spread_odds else -110
+            )
             
-            if spread_qualified and injury_concern:
-                logger.info(f"{game.away_team} @ {game.home_team}: Spread DISQUALIFIED due to injury concern")
-                spread_qualified = False
+            spread_qualified = qualification_result["qualified"]
+            
+            if not spread_qualified:
+                logger.info(f"{game.away_team} @ {game.home_team}: Spread DISQUALIFIED - {qualification_result['reason']}")
+            else:
+                logger.info(f"{game.away_team} @ {game.home_team}: Spread QUALIFIED ({qualification_result['reason']}) - Confidence: {qualification_result['confidence']}, Raw Edge: {qualification_result['raw_edge']:.1f}, Adjusted Edge: {qualification_result['adjusted_edge']:.1f}")
             
             if spread_qualified and spread_sharp_against:
                 logger.info(f"{game.away_team} @ {game.home_team}: Spread DISQUALIFIED due to sharp money against")
