@@ -1,0 +1,62 @@
+“I need you to perform a deep, systematic scan and test of my sports betting application to ensure it’s production-ready with no delays, issues, or vulnerabilities before deployment. Please conduct the following comprehensive analysis:
+1. FUNCTIONALITY TESTING
+	∙	Verify all betting features work correctly (single bets, parlays, live betting, cash out)
+	∙	Test odds calculation accuracy and real-time updates
+	∙	Validate bet placement, confirmation, and settlement flows
+	∙	Check balance updates, deposits, withdrawals, and transaction history
+	∙	Test all user account functions (registration, login, profile, preferences)
+2. PERFORMANCE & SPEED TESTING
+	∙	Identify any bottlenecks causing delays in page loads or bet placements
+	∙	Test API response times for odds updates and bet submissions
+	∙	Verify database query optimization
+	∙	Check for memory leaks or resource-intensive operations
+	∙	Test concurrent user load handling and scalability
+3. REAL-TIME DATA INTEGRITY
+	∙	Verify odds feed integration and update frequency
+	∙	Test for synchronization issues between frontend and backend
+	∙	Validate live score updates and event status changes
+	∙	Check for race conditions in bet processing
+4. SECURITY AUDIT
+	∙	Test authentication and authorization mechanisms
+	∙	Check for SQL injection, XSS, and CSRF vulnerabilities
+	∙	Verify secure payment processing and PCI compliance
+	∙	Test session management and token expiration
+	∙	Validate input sanitization and data validation
+5. CODE QUALITY REVIEW
+	∙	Check for code smells, anti-patterns, and technical debt
+	∙	Verify error handling and logging implementation
+	∙	Review compliance with our discussed requirements throughout this conversation
+	∙	Identify unused code, dependencies, or redundant functions
+6. REGULATORY COMPLIANCE
+	∙	Verify age verification and KYC processes
+	∙	Check responsible gambling features (limits, self-exclusion, reality checks)
+	∙	Validate geolocation restrictions and licensing requirements
+	∙	Test audit trail and transaction logging for regulatory reporting
+7. UI/UX VALIDATION
+	∙	Test responsive design across devices and screen sizes
+	∙	Verify accessibility standards (WCAG compliance)
+	∙	Check for broken links, missing images, or layout issues
+	∙	Test user flows for intuitiveness and friction points
+8. EDGE CASES & ERROR SCENARIOS
+	∙	Test behavior with invalid inputs, network failures, and timeouts
+	∙	Verify graceful degradation when services are unavailable
+	∙	Check handling of cancelled events, void bets, and refunds
+	∙	Test maximum bet limits and insufficient balance scenarios
+9. INTEGRATION TESTING
+	∙	Verify third-party API integrations (payment gateways, odds providers, KYC services)
+	∙	Test webhook handling and callback mechanisms
+	∙	Check email/SMS notification delivery
+10. DEPLOYMENT READINESS
+	∙	Review environment configuration (staging vs production)
+	∙	Verify database migration scripts and backup procedures
+	∙	Check monitoring, alerting, and logging infrastructure
+	∙	Validate CI/CD pipeline and rollback procedures
+DELIVERABLE:
+Provide a detailed report with:
+	∙	Categorized list of issues (Critical, High, Medium, Low)
+	∙	Specific code locations and reproduction steps for each issue
+	∙	Recommended fixes with implementation priority
+	∙	Performance metrics and optimization suggestions
+	∙	Confirmation that all requirements from our conversation have been met
+	∙	Go/No-go recommendation for deployment
+Please be thorough and assume this is going into a production environment with real money transactions where reliability, security, and performance are absolutely critical.”

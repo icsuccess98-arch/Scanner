@@ -22,7 +22,14 @@ class Base(DeclarativeBase):
 
 db = SQLAlchemy(model_class=Base)
 app = Flask(__name__, static_folder='static', static_url_path='/static')
-app.secret_key = os.environ.get("FLASK_SECRET_KEY") or "sports-model-secret-key"
+
+flask_secret = os.environ.get("FLASK_SECRET_KEY")
+if not flask_secret:
+    import secrets
+    flask_secret = secrets.token_hex(32)
+    logger.warning("FLASK_SECRET_KEY not set - using generated key (sessions will reset on restart)")
+app.secret_key = flask_secret
+
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_recycle": 300,
@@ -2742,13 +2749,6 @@ def fetch_games():
     games_added = 0
     leagues_cleared = []
     
-    for league in ["NBA", "NHL", "CBB", "CFB", "NFL"]:
-        game_ids = [g.id for g in Game.query.filter_by(date=today, league=league).all()]
-        if game_ids:
-            safe_delete_games(game_ids)
-        leagues_cleared.append(league)
-    db.session.commit()
-    
     scoreboard_urls = {
         "NBA": f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={today_str}",
         "CBB": f"https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates={today_str}&limit=500&groups=50",
@@ -2843,18 +2843,30 @@ def fetch_games():
             stats = all_stats.get(league, {})
             gd["away_ppg"], gd["away_opp"] = stats.get(gd.get("away_id"), (None, None))
             gd["home_ppg"], gd["home_opp"] = stats.get(gd.get("home_id"), (None, None))
-        
-        game = Game(
-            date=today, league=league, 
-            away_team=gd["away_name"], home_team=gd["home_name"],
-            game_time=gd.get("game_time", ""),
-            away_ppg=gd.get("away_ppg"), away_opp_ppg=gd.get("away_opp"),
-            home_ppg=gd.get("home_ppg"), home_opp_ppg=gd.get("home_opp")
-        )
-        db.session.add(game)
-        games_added += 1
     
-    db.session.commit()
+    # TRANSACTIONAL SAFETY: Only delete old games after we confirmed new data was fetched
+    if all_games_data:
+        for league in ["NBA", "NHL", "CBB", "CFB", "NFL"]:
+            game_ids = [g.id for g in Game.query.filter_by(date=today, league=league).all()]
+            if game_ids:
+                safe_delete_games(game_ids)
+            leagues_cleared.append(league)
+        db.session.commit()
+        
+        for gd in all_games_data:
+            league = gd.get("league")
+            game = Game(
+                date=today, league=league, 
+                away_team=gd["away_name"], home_team=gd["home_name"],
+                game_time=gd.get("game_time", ""),
+                away_ppg=gd.get("away_ppg"), away_opp_ppg=gd.get("away_opp"),
+                home_ppg=gd.get("home_ppg"), home_opp_ppg=gd.get("home_opp")
+            )
+            db.session.add(game)
+            games_added += 1
+        db.session.commit()
+    else:
+        logger.warning("No games fetched from ESPN - keeping existing data")
     fetch_time = time.time() - start_time
     logger.info(f"Games fetch complete in {fetch_time:.2f}s: {games_added} games added")
     
@@ -2921,22 +2933,7 @@ def fetch_odds_internal() -> dict:
     lines_updated = 0
     spreads_updated = 0
     
-    games_to_clear = Game.query.filter_by(date=today).all()
-    for g in games_to_clear:
-        g.line = None
-        g.spread_line = None
-        g.is_qualified = False
-        g.spread_is_qualified = False
-        g.edge = None
-        g.spread_edge = None
-        g.bovada_total_odds = None
-        g.pinnacle_total_odds = None
-        g.bovada_spread_odds = None
-        g.pinnacle_spread_odds = None
-        g.total_ev = None
-        g.spread_ev = None
-    db.session.commit()
-    
+    # Fetch all odds in parallel FIRST
     all_odds = {}
     with ThreadPoolExecutor(max_workers=5) as executor:
         futures = {executor.submit(fetch_odds_for_league, league, sport_key, api_key): league 
@@ -2947,6 +2944,27 @@ def fetch_odds_internal() -> dict:
                 all_odds[league] = {"sport_key": sport_key, "events": events}
             except:
                 pass
+    
+    # TRANSACTIONAL SAFETY: Only clear lines if we got odds data
+    total_events = sum(len(d.get("events", [])) for d in all_odds.values())
+    if total_events > 0:
+        games_to_clear = Game.query.filter_by(date=today).all()
+        for g in games_to_clear:
+            g.line = None
+            g.spread_line = None
+            g.is_qualified = False
+            g.spread_is_qualified = False
+            g.edge = None
+            g.spread_edge = None
+            g.bovada_total_odds = None
+            g.pinnacle_total_odds = None
+            g.bovada_spread_odds = None
+            g.pinnacle_spread_odds = None
+            g.total_ev = None
+            g.spread_ev = None
+    else:
+        logger.warning("No odds fetched from API - keeping existing lines")
+        return {"success": False, "lines_updated": 0, "spreads_updated": 0, "alt_lines_found": 0, "reason": "no_odds_fetched"}
     
     for league, data in all_odds.items():
         sport_key = data["sport_key"]
