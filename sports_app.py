@@ -1497,42 +1497,66 @@ def dashboard():
     if total_qualified > 0:
         analytics['avg_edge'] = edge_sum / total_qualified
     
-    # Combined Top 5 Picks (totals + spreads merged by edge)
+    # Combined Top 5 Picks (totals + spreads merged by weighted score: edge + history)
+    # Weighted score formula: edge + (history_pct * 0.15)
+    # This allows high history % to outweigh lower edges (85%+9 > 67%+11)
     combined_picks = []
     for g in qualified:
+        history_pct = max(g.away_ou_pct or 0, g.home_ou_pct or 0)
+        edge = g.edge or 0
+        weighted_score = edge + (history_pct * 0.15)
         combined_picks.append({
             'game': g,
-            'edge': g.edge or 0,
+            'edge': edge,
+            'history_pct': history_pct,
+            'weighted_score': weighted_score,
             'pick_type': 'totals',
             'direction': g.direction,
             'line': g.alt_total_line if g.alt_total_line else g.line,
+            'vegas_line': g.line,
+            'alt_line': g.alt_total_line,
             'odds': g.alt_total_odds,
             'bovada_odds': g.bovada_total_odds,
             'pinnacle_odds': g.pinnacle_total_odds,
             'ev': g.total_ev
         })
     for g in spread_qualified:
+        # For spread picks, use the relevant spread cover rate
+        if g.spread_direction == 'HOME':
+            history_pct = g.home_spread_pct or 0
+        else:
+            history_pct = g.away_spread_pct or 0
+        edge = g.spread_edge or 0
+        weighted_score = edge + (history_pct * 0.15)
         # For spread picks, calculate the correct line value for display
         # alt_spread_line is already the picked team's perspective
         # spread_line is home-team perspective (need to flip for away picks)
         if g.alt_spread_line:
             display_line = g.alt_spread_line if g.spread_direction == 'HOME' else g.alt_spread_line
+            vegas_line = g.spread_line if g.spread_direction == 'HOME' else -g.spread_line
         elif g.spread_line:
             display_line = g.spread_line if g.spread_direction == 'HOME' else -g.spread_line
+            vegas_line = display_line
         else:
             display_line = None
+            vegas_line = None
         combined_picks.append({
             'game': g,
-            'edge': g.spread_edge or 0,
+            'edge': edge,
+            'history_pct': history_pct,
+            'weighted_score': weighted_score,
             'pick_type': 'spread',
             'direction': g.spread_direction,
             'line': display_line,
+            'vegas_line': vegas_line,
+            'alt_line': g.alt_spread_line,
             'odds': g.alt_spread_odds,
             'bovada_odds': g.bovada_spread_odds,
             'pinnacle_odds': g.pinnacle_spread_odds,
             'ev': g.spread_ev
         })
-    combined_picks.sort(key=lambda x: x['edge'], reverse=True)
+    # Sort by weighted score (edge + history) instead of just edge
+    combined_picks.sort(key=lambda x: x['weighted_score'], reverse=True)
     analytics['top_picks'] = combined_picks[:5]
     
     global last_game_count

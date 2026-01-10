@@ -794,18 +794,16 @@
                         <span class="badge" style="width: 36px; height: 24px; font-size: 0.65rem; background: var(--bg-card); color: var(--text-muted);">{{ pick.game.league }}</span>
                         <span class="top-pick-matchup ms-2">{{ pick.game.away_team }} @ {{ pick.game.home_team }}</span>
                         {% if pick.pick_type == 'totals' %}
-                        <span class="direction-chip {% if pick.direction == 'O' %}over{% else %}under{% endif %}">{{ pick.direction }}{{ pick.line }}</span>
+                        <span class="direction-chip {% if pick.direction == 'O' %}over{% else %}under{% endif %}">{{ pick.direction }}{{ "%.1f"|format(pick.line) }}{% if pick.odds %} <span style="font-size: 0.7rem; opacity: 0.85;">({{ pick.odds }})</span>{% endif %}</span>
                         {% else %}
                         <span class="direction-chip spread-chip" style="background: rgba(76, 130, 255, 0.15); color: var(--accent);">
-                            {% if pick.direction == 'HOME' %}
-                            {{ pick.game.home_team }} {{ "%+.1f"|format(pick.line) if pick.line else '' }}
-                            {% else %}
-                            {{ pick.game.away_team }} {{ "%+.1f"|format(pick.line) if pick.line else '' }}
-                            {% endif %}
-                            {% if pick.odds %}<span class="pick-odds" style="font-size: 0.7rem; margin-left: 4px;">{{ pick.odds }}</span>{% endif %}
+                            {% if pick.direction == 'HOME' %}{{ pick.game.home_team }}{% else %}{{ pick.game.away_team }}{% endif %} {{ "%+.1f"|format(pick.line) if pick.line else '' }}{% if pick.odds %} <span style="font-size: 0.7rem; opacity: 0.85;">({{ pick.odds }})</span>{% endif %}
                         </span>
                         {% endif %}
-                        <span class="top-pick-edge">+{{ "%.1f"|format(pick.edge) }}</span>
+                        <span class="top-pick-edge" style="display: flex; align-items: center; gap: 6px;">
+                            <span style="color: var(--green);">+{{ "%.1f"|format(pick.edge) }}</span>
+                            {% if pick.history_pct %}<span style="font-size: 0.7rem; color: var(--gold);">{{ "%.0f"|format(pick.history_pct) }}%</span>{% endif %}
+                        </span>
                     </div>
                     {% endfor %}
                     {% if not analytics.top_picks %}
