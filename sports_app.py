@@ -2472,18 +2472,18 @@ def dashboard():
     edge_qualified = [g for g in all_games if g.is_qualified]
     edge_spread_qualified = [g for g in all_games if g.spread_is_qualified]
     
-    # TOTALS: Must pass historical threshold AND verified non-negative EV
+    # TOTALS: Must pass historical threshold AND non-negative EV (if EV data available)
     # If history_qualified is None (not checked), do NOT show the game
     # If history_qualified is True, show the game
     # If history_qualified is False, hide the game
-    # EV filter: NULL EV = unverified = excluded, negative EV = excluded
+    # EV filter: NULL EV = no Pinnacle data = allowed, negative EV = excluded
     qualified = [g for g in edge_qualified if g.history_qualified == True 
-                 and g.total_ev is not None and g.total_ev >= 0]
+                 and (g.total_ev is None or g.total_ev >= 0)]
     
     # SPREADS: Use spread_history_qualified (separate from totals qualification)
-    # Must have spread_history_qualified = True AND verified non-negative EV
+    # Must have spread_history_qualified = True AND non-negative EV (if EV data available)
     spread_qualified = [g for g in edge_spread_qualified if g.spread_history_qualified == True 
-                        and g.spread_ev is not None and g.spread_ev >= 0]
+                        and (g.spread_ev is None or g.spread_ev >= 0)]
     spread_qualified.sort(key=lambda x: x.alt_spread_edge or x.spread_edge or 0, reverse=True)
     
     # Sort qualified totals by effective edge (alt if available, else main)
@@ -2514,8 +2514,8 @@ def dashboard():
     
     # Combined qualified: games that qualify for totals (with history + EV) OR spreads (with spread_history + EV)
     all_qualified_games = [g for g in all_games if 
-        (g.is_qualified and g.history_qualified == True and g.total_ev is not None and g.total_ev >= 0) or 
-        (g.spread_is_qualified and g.spread_history_qualified == True and g.spread_ev is not None and g.spread_ev >= 0)]
+        (g.is_qualified and g.history_qualified == True and (g.total_ev is None or g.total_ev >= 0)) or 
+        (g.spread_is_qualified and g.spread_history_qualified == True and (g.spread_ev is None or g.spread_ev >= 0))]
     
     if show_only_qualified:
         games = all_qualified_games
@@ -2544,11 +2544,11 @@ def dashboard():
     
     for league in ['NBA', 'CBB', 'NFL', 'CFB', 'NHL']:
         league_games = [g for g in all_games if g.league == league]
-        league_totals_qualified = [g for g in league_games if g.is_qualified and g.history_qualified == True and g.total_ev is not None and g.total_ev >= 0]
-        league_spread_qualified = [g for g in league_games if g.spread_is_qualified and g.spread_history_qualified == True and g.spread_ev is not None and g.spread_ev >= 0]
+        league_totals_qualified = [g for g in league_games if g.is_qualified and g.history_qualified == True and (g.total_ev is None or g.total_ev >= 0)]
+        league_spread_qualified = [g for g in league_games if g.spread_is_qualified and g.spread_history_qualified == True and (g.spread_ev is None or g.spread_ev >= 0)]
         league_any_qualified = [g for g in league_games if 
-            (g.is_qualified and g.history_qualified == True and g.total_ev is not None and g.total_ev >= 0) or 
-            (g.spread_is_qualified and g.spread_history_qualified == True and g.spread_ev is not None and g.spread_ev >= 0)]
+            (g.is_qualified and g.history_qualified == True and (g.total_ev is None or g.total_ev >= 0)) or 
+            (g.spread_is_qualified and g.spread_history_qualified == True and (g.spread_ev is None or g.spread_ev >= 0))]
         analytics['league_breakdown'][league] = {
             'total': len(league_games),
             'qualified': len(league_any_qualified),
