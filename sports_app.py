@@ -1330,6 +1330,10 @@ def dashboard():
     # Show all games from today's slate (includes in-progress and completed)
     all_games = all_games_db
     
+    # Add time window to each game for weekend slate grouping
+    for g in all_games:
+        g.time_window = get_game_window(g.game_time)
+    
     # Games qualified by edge threshold
     edge_qualified = [g for g in all_games if g.is_qualified]
     edge_spread_qualified = [g for g in all_games if g.spread_is_qualified]
@@ -1471,7 +1475,7 @@ def dashboard():
                           supermax_lock=supermax_lock, supermax_type=supermax_type,
                           today=today, thresholds=THRESHOLDS, total_games=len(all_games),
                           show_only_qualified=show_only_qualified, analytics=analytics,
-                          spread_qualified=spread_qualified)
+                          spread_qualified=spread_qualified, is_big_slate=is_big_slate_day())
 
 @app.route('/health')
 def health():

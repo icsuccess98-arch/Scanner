@@ -818,6 +818,7 @@
         </div>
 
         {% set leagues = ['NBA', 'CBB', 'NFL', 'CFB', 'NHL'] %}
+        {% set time_windows = {'EARLY': '🌅 Early Games (before 1pm)', 'MID': '☀️ Afternoon Games (1-6pm)', 'LATE': '🌙 Evening Games (after 6pm)'} %}
         {% for league in leagues %}
             {% set league_games = games|selectattr('league', 'equalto', league)|list %}
             {% if league_games|length > 0 %}
@@ -831,6 +832,104 @@
                     </div>
                 </div>
                 
+                {% if is_big_slate %}
+                {% for window in ['EARLY', 'MID', 'LATE'] %}
+                {% set window_games = league_games|selectattr('time_window', 'equalto', window)|list %}
+                {% if window_games|length > 0 %}
+                <div class="time-slot-header" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 1rem; background: linear-gradient(90deg, rgba(255,215,0,0.1) 0%, transparent 100%); border-left: 3px solid var(--gold); margin: 0.75rem 0 0.5rem 0; border-radius: 0 8px 8px 0;">
+                    <span style="font-size: 1rem;">{{ time_windows[window].split(' ')[0] }}</span>
+                    <span style="font-weight: 600; color: var(--gold); font-size: 0.9rem;">{{ time_windows[window].split(' ', 1)[1] }}</span>
+                    <span style="color: var(--text-muted); font-size: 0.8rem; margin-left: auto;">{{ window_games|length }} game{% if window_games|length != 1 %}s{% endif %}</span>
+                </div>
+                {% for game in window_games %}
+                <div class="game-card game-row {% if game.is_qualified %}qualified{% endif %} {% if supermax_lock and game.id == supermax_lock.id %}lock-card{% endif %}" data-away="{{ game.away_team }}" data-home="{{ game.home_team }}">
+                    <div class="row align-items-center">
+                        <div class="col-md-3">
+                            <div class="matchup">{{ game.away_team }} @ {{ game.home_team }}</div>
+                            <div class="game-time">{{ game.game_time }}</div>
+                            <div class="live-score" style="display:none; margin-top:0.5rem; font-size:0.875rem; color:#21C55D;"></div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stats-grid">
+                                <div class="stat-item">
+                                    <div class="stat-label">Away PPG</div>
+                                    <div class="stat-value">{{ "%.1f"|format(game.away_ppg) if game.away_ppg else '-' }}</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">Away Opp</div>
+                                    <div class="stat-value">{{ "%.1f"|format(game.away_opp_ppg) if game.away_opp_ppg else '-' }}</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">Home PPG</div>
+                                    <div class="stat-value">{{ "%.1f"|format(game.home_ppg) if game.home_ppg else '-' }}</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">Home Opp</div>
+                                    <div class="stat-value">{{ "%.1f"|format(game.home_opp_ppg) if game.home_opp_ppg else '-' }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="d-flex gap-4">
+                                <div class="breakdown-section">
+                                    <div class="breakdown-title">TOTALS</div>
+                                    <div class="breakdown-row">
+                                        <span class="breakdown-label">Line</span>
+                                        <span class="breakdown-value">{{ "%.1f"|format(game.line) if game.line else '-' }}</span>
+                                    </div>
+                                    <div class="breakdown-row">
+                                        <span class="breakdown-label">Proj</span>
+                                        <span class="breakdown-value">{{ "%.1f"|format(game.projected_total) if game.projected_total else '-' }}</span>
+                                    </div>
+                                    <div class="breakdown-row">
+                                        <span class="breakdown-label">Edge</span>
+                                        <span class="breakdown-value {% if game.is_qualified %}high{% endif %}">{{ "%.1f"|format(game.edge) if game.edge else '-' }}</span>
+                                    </div>
+                                    {% if game.is_qualified %}
+                                    <span class="pick-chip {% if game.direction == 'O' %}over{% else %}under{% endif %}">{{ game.direction }}{{ game.line }}</span>
+                                    {% else %}
+                                    <span class="pick-chip no-bet">NO BET</span>
+                                    {% endif %}
+                                </div>
+                                <div class="breakdown-section spread">
+                                    <div class="breakdown-title">SPREAD</div>
+                                    <div class="breakdown-row">
+                                        <span class="breakdown-label">Line</span>
+                                        <span class="breakdown-value">{{ "%+.1f"|format(game.spread_line) if game.spread_line else '-' }}</span>
+                                    </div>
+                                    <div class="breakdown-row">
+                                        <span class="breakdown-label">Margin</span>
+                                        <span class="breakdown-value">{{ "%+.1f"|format(game.projected_margin) if game.projected_margin else '-' }}</span>
+                                    </div>
+                                    <div class="breakdown-row">
+                                        <span class="breakdown-label">Edge</span>
+                                        <span class="breakdown-value {% if game.spread_is_qualified %}high{% endif %}">{{ "%.1f"|format(game.spread_edge) if game.spread_edge else '-' }}</span>
+                                    </div>
+                                    {% if game.spread_is_qualified %}
+                                    {% if game.spread_direction == 'HOME' %}
+                                    <span class="pick-chip spread-pick">{{ game.home_team }} {{ "%+.1f"|format(game.spread_line) }}</span>
+                                    {% else %}
+                                    <span class="pick-chip spread-pick">{{ game.away_team }} {{ "%+.1f"|format(-game.spread_line) }}</span>
+                                    {% endif %}
+                                    {% else %}
+                                    <span class="pick-chip no-bet">NO BET</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-1 text-end">
+                            <form action="/delete_game/{{ game.id }}" method="post" class="d-inline">
+                                <button type="submit" class="btn-delete" onclick="return confirm('Delete?')">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                {% endif %}
+                {% endfor %}
+                {% else %}
                 {% for game in league_games %}
                 <div class="game-card game-row {% if game.is_qualified %}qualified{% endif %} {% if lock and game.id == lock.id %}lock-card{% endif %}" data-away="{{ game.away_team }}" data-home="{{ game.home_team }}">
                     <div class="row align-items-center">
@@ -917,6 +1016,7 @@
                     </div>
                 </div>
                 {% endfor %}
+                {% endif %}
             </div>
             {% endif %}
         {% endfor %}
