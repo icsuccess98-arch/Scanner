@@ -957,10 +957,19 @@ def unified_spread_qualification(
         return result
     
     if spread_direction == "HOME":
-        if abs(spread_line) > 0:
+        # spread_line > 0 means HOME is favorite, < 0 means HOME is underdog
+        is_home_favorite = spread_line > 0
+        
+        if is_home_favorite:
+            # HOME FAVORITE: Must cover their spread (85% threshold)
             margin_threshold = abs(spread_line) * 0.85
             if home_avg_margin < margin_threshold:
-                result["reason"] = f"HOME_MARGIN_BELOW_85%: {home_avg_margin:.1f} < {margin_threshold:.1f}"
+                result["reason"] = f"HOME_FAV_MARGIN_BELOW_85%: {home_avg_margin:.1f} < {margin_threshold:.1f}"
+                return result
+        else:
+            # HOME UNDERDOG: Must have positive margin (not a losing team)
+            if home_avg_margin <= 0:
+                result["reason"] = f"HOME_DOG_NEGATIVE_MARGIN: {home_avg_margin:.1f} (must be > 0)"
                 return result
         
         if home_form_trending == "DOWN":
@@ -974,16 +983,27 @@ def unified_spread_qualification(
             return result
         
         result["qualified"] = True
-        result["reason"] = "HOME_QUALIFIED"
+        result["reason"] = f"HOME_{'FAVORITE' if is_home_favorite else 'UNDERDOG'}_QUALIFIED"
         if home_form_trending == "UP" and home_avg_margin >= abs(spread_line):
             result["confidence"] = "HIGH"
         else:
             result["confidence"] = "MEDIUM"
             
     elif spread_direction == "AWAY":
-        if away_avg_margin <= 0:
-            result["reason"] = f"AWAY_NEGATIVE_MARGIN: {away_avg_margin:.1f} (must be > 0)"
-            return result
+        # spread_line > 0 means AWAY is underdog, < 0 means AWAY is favorite
+        is_away_favorite = spread_line < 0
+        
+        if is_away_favorite:
+            # AWAY FAVORITE: Must cover their spread (85% threshold)
+            margin_threshold = abs(spread_line) * 0.85
+            if away_avg_margin < margin_threshold:
+                result["reason"] = f"AWAY_FAV_MARGIN_BELOW_85%: {away_avg_margin:.1f} < {margin_threshold:.1f}"
+                return result
+        else:
+            # AWAY UNDERDOG: Must have positive margin (not a losing team)
+            if away_avg_margin <= 0:
+                result["reason"] = f"AWAY_DOG_NEGATIVE_MARGIN: {away_avg_margin:.1f} (must be > 0)"
+                return result
         
         if away_form_trending == "DOWN":
             if away_recent_margin < 0:
@@ -996,7 +1016,7 @@ def unified_spread_qualification(
             return result
         
         result["qualified"] = True
-        result["reason"] = "AWAY_QUALIFIED"
+        result["reason"] = f"AWAY_{'FAVORITE' if is_away_favorite else 'UNDERDOG'}_QUALIFIED"
         if away_form_trending == "UP" and away_avg_margin > 3:
             result["confidence"] = "HIGH"
         else:
