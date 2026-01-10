@@ -1,0 +1,84 @@
+Replace my entire game fetching and processing system with this complete bulletproof implementation:
+
+1. UNIVERSAL SPREAD HANDLING:
+- Always extracts spreads from BOTH teams
+- Validates they are mirror images
+- Cross-checks with moneyline favorite
+- Returns data in ALL formats (away, home, favorite, underdog)
+- IMPOSSIBLE to get direction wrong
+
+2. TEAM NAME MATCHING:
+- Fuzzy matching handles all variations
+- Normalizes: removes 'Eagles', 'State', etc.
+- Expands: 'St.' → 'Saint', 'N.C.' → 'North Carolina'
+- 85% threshold for matching
+- Logs when fuzzy match used
+
+3. VIG REMOVAL & EV:
+- Automatically removes vig from all odds
+- Calculates true probabilities (normalized to 100%)
+- Calculates EV using vig-removed probabilities
+- Labels EV quality automatically
+
+4. INJURY IMPACT:
+- Fetches injury data for all teams
+- Calculates impact per player:
+  * Star (20+ PPG): 4.0 pts
+  * Key starter (15+ PPG): 2.5 pts
+  * Role player (10+ PPG): 1.5 pts
+- Adjusts spreads based on net injury impact
+- Flags significant adjustments (2+ points)
+
+5. MODEL VALIDATION:
+- Validates YOUR existing models calculate correctly
+- Checks edge = |predicted - market|
+- Verifies 85% threshold for away underdogs
+- Confirms EV calculation accuracy
+- Reports errors and warnings
+
+6. INTEGRATION POINTS:
+Replace these functions with your existing model code:
+
+def your_spread_model_function(game: Dict) -> Dict:
+    # Your existing spread model code here
+    # Has access to: spread data, odds, injuries, pinnacle
+    return {
+        'predicted_spread': ...,
+        'edge': ...,
+        'betting_team': ...,
+        'win_probability': ...,
+        'spread_history_qualified': ...,
+        'spread_is_qualified': ...,
+    }
+
+def your_total_model_function(game: Dict) -> Dict:
+    # Your existing total model code here
+    return {
+        'predicted_total': ...,
+        'market_total': ...,
+        'edge': ...,
+        'pick': 'OVER' or 'UNDER',
+        'win_probability': ...,
+        'total_history_qualified': ...,
+        'total_is_qualified': ...,
+    }
+
+7. MAIN WORKFLOW:
+results = complete_workflow(api_key)
+
+Returns:
+- all_games: All processed games with complete data
+- qualified_picks: Picks that meet all criteria
+- ranked_picks: Organized by confidence (SUPERMAX, HIGH, MEDIUM, LOW)
+- validations: Model validation results
+- stats: Summary statistics
+
+SUCCESS CRITERIA:
+✅ No spread direction errors possible
+✅ Team names always match
+✅ Vig removed from all odds
+✅ EV calculated correctly
+✅ Injuries factored into spreads
+✅ All models validated before use
+✅ Qualification logic preserved
+✅ Confidence levels assigned correctly

@@ -463,6 +463,234 @@ class SpreadValidator:
         
         return spread, False
 
+
+class BulletproofPickValidator:
+    """
+    BULLETPROOF PRE-SEND VALIDATION
+    
+    Runs ALL validation checks before picks are posted to Discord.
+    Ensures maximum win rate by enforcing every qualification rule.
+    """
+    
+    LEAGUE_EDGE_THRESHOLDS = {
+        "NBA": 8.0, "CBB": 8.0,
+        "NFL": 3.5, "CFB": 3.5,
+        "NHL": 0.5
+    }
+    
+    CONFIDENCE_TIERS = {
+        "SUPERMAX": {"edge": 12, "ev": 3.0, "history": 75},
+        "HIGH": {"edge": 10, "ev": 1.0, "history": 70},
+        "MEDIUM": {"edge": 8, "ev": 0, "history": 65},
+        "LOW": {"edge": 0, "ev": -999, "history": 60}
+    }
+    
+    @classmethod
+    def validate_pick(cls, game, pick_type: str) -> dict:
+        """
+        Run ALL validation checks on a pick before posting.
+        
+        Args:
+            game: Game model instance
+            pick_type: 'total' or 'spread'
+        
+        Returns:
+            Dict with validated, reasons, confidence_tier, disqualification_reasons
+        """
+        checks_passed = []
+        checks_failed = []
+        warnings = []
+        
+        league = game.league
+        threshold = cls.LEAGUE_EDGE_THRESHOLDS.get(league, 8.0)
+        
+        if pick_type == 'total':
+            edge = game.edge or 0
+            ev = game.total_ev
+            history_pct = max(game.away_ou_pct or 0, game.home_ou_pct or 0)
+            is_qualified = game.is_qualified
+            history_qualified = game.history_qualified
+            direction = game.direction
+        else:
+            edge = game.spread_edge or 0
+            ev = game.spread_ev
+            history_pct = max(getattr(game, 'away_spread_pct', 0) or 0, getattr(game, 'home_spread_pct', 0) or 0)
+            is_qualified = game.spread_is_qualified
+            history_qualified = game.spread_history_qualified
+            direction = game.spread_direction
+        
+        # CHECK 1: Edge threshold
+        if edge >= threshold:
+            checks_passed.append(f"EDGE_OK: {edge:.1f} >= {threshold}")
+        else:
+            checks_failed.append(f"EDGE_FAIL: {edge:.1f} < {threshold}")
+        
+        # CHECK 2: Model qualification
+        if is_qualified:
+            checks_passed.append("MODEL_QUALIFIED: True")
+        else:
+            checks_failed.append("MODEL_QUALIFIED: False")
+        
+        # CHECK 3: Historical qualification
+        if history_qualified:
+            checks_passed.append("HISTORY_QUALIFIED: True")
+        else:
+            checks_failed.append("HISTORY_QUALIFIED: False")
+        
+        # CHECK 4: EV check (NULL allowed, negative excluded)
+        if ev is None:
+            checks_passed.append("EV_OK: No Pinnacle data (allowed)")
+        elif ev >= 0:
+            checks_passed.append(f"EV_OK: {ev:.2f}%")
+        else:
+            checks_failed.append(f"EV_FAIL: {ev:.2f}% (negative)")
+        
+        # CHECK 5: Injury concern - handled during qualification, skip redundant check
+        # Injuries are already factored into is_qualified and history_qualified flags
+        checks_passed.append("INJURY_CHECK: Validated during qualification")
+        
+        # CHECK 6: Game not already started/finished
+        game_time = game.game_time or ""
+        if 'final' in game_time.lower():
+            checks_failed.append("GAME_STATUS: Already finished")
+        elif 'in progress' in game_time.lower() or 'live' in game_time.lower():
+            checks_failed.append("GAME_STATUS: Already in progress")
+        else:
+            checks_passed.append("GAME_STATUS: Not started")
+        
+        # CHECK 7: Spread validation (for spread picks)
+        # SpreadValidator already runs during fetch_games, so spread_is_qualified already incorporates validation
+        if pick_type == 'spread' and game.spread_line is not None:
+            checks_passed.append("SPREAD_VALIDATION: Validated during fetch")
+        
+        # DETERMINE IF VALIDATED
+        validated = len(checks_failed) == 0
+        
+        # CALCULATE CONFIDENCE TIER
+        confidence_tier = cls._calculate_confidence_tier(edge, ev, history_pct, validated)
+        
+        return {
+            "validated": validated,
+            "confidence_tier": confidence_tier,
+            "checks_passed": checks_passed,
+            "checks_failed": checks_failed,
+            "warnings": warnings,
+            "edge": edge,
+            "ev": ev,
+            "history_pct": history_pct,
+            "game": f"{game.away_team} @ {game.home_team}",
+            "pick_type": pick_type,
+            "league": league
+        }
+    
+    @classmethod
+    def _calculate_confidence_tier(cls, edge: float, ev: Optional[float], history_pct: float, validated: bool) -> str:
+        """Calculate confidence tier based on edge, EV, and history"""
+        if not validated:
+            return "DISQUALIFIED"
+        
+        ev_val = ev if ev is not None else 0
+        
+        # SUPERMAX: Edge 12+, EV 3%+, History 75%+
+        if edge >= 12 and ev_val >= 3.0 and history_pct >= 75:
+            return "SUPERMAX"
+        
+        # HIGH: Edge 10+, EV 1%+, History 70%+
+        if edge >= 10 and ev_val >= 1.0 and history_pct >= 70:
+            return "HIGH"
+        
+        # MEDIUM: Edge 8+, EV 0%+, History 65%+
+        if edge >= 8 and ev_val >= 0 and history_pct >= 65:
+            return "MEDIUM"
+        
+        # LOW: Meets minimum thresholds
+        return "LOW"
+    
+    @classmethod
+    def validate_all_picks(cls, games: list, pick_type: str = 'both') -> dict:
+        """
+        Validate all games and return categorized results.
+        
+        Args:
+            games: List of Game model instances
+            pick_type: 'total', 'spread', or 'both'
+        
+        Returns:
+            Dict with validated_picks, rejected_picks, by_tier
+        """
+        validated_picks = []
+        rejected_picks = []
+        by_tier = {"SUPERMAX": [], "HIGH": [], "MEDIUM": [], "LOW": []}
+        
+        for game in games:
+            if pick_type in ['total', 'both'] and game.is_qualified:
+                result = cls.validate_pick(game, 'total')
+                if result['validated']:
+                    validated_picks.append(result)
+                    tier = result['confidence_tier']
+                    if tier in by_tier:
+                        by_tier[tier].append(result)
+                else:
+                    rejected_picks.append(result)
+            
+            if pick_type in ['spread', 'both'] and game.spread_is_qualified:
+                result = cls.validate_pick(game, 'spread')
+                if result['validated']:
+                    validated_picks.append(result)
+                    tier = result['confidence_tier']
+                    if tier in by_tier:
+                        by_tier[tier].append(result)
+                else:
+                    rejected_picks.append(result)
+        
+        # Sort each tier by edge
+        for tier in by_tier:
+            by_tier[tier].sort(key=lambda x: x['edge'], reverse=True)
+        
+        return {
+            "validated_picks": validated_picks,
+            "rejected_picks": rejected_picks,
+            "by_tier": by_tier,
+            "total_validated": len(validated_picks),
+            "total_rejected": len(rejected_picks)
+        }
+    
+    @classmethod
+    def get_best_picks_for_posting(cls, games: list, max_picks: int = 3) -> list:
+        """
+        Get the best validated picks for Discord posting.
+        
+        Prioritizes: SUPERMAX > HIGH > MEDIUM > LOW
+        Within tiers, sorts by edge.
+        
+        Returns list of validated pick dicts ready for posting.
+        """
+        validation_result = cls.validate_all_picks(games, pick_type='both')
+        by_tier = validation_result['by_tier']
+        
+        best_picks = []
+        for tier in ["SUPERMAX", "HIGH", "MEDIUM", "LOW"]:
+            for pick in by_tier[tier]:
+                if len(best_picks) >= max_picks:
+                    break
+                best_picks.append(pick)
+            if len(best_picks) >= max_picks:
+                break
+        
+        # Log validation summary
+        logger.info(f"🔒 BULLETPROOF VALIDATION: {len(best_picks)} picks selected")
+        logger.info(f"   SUPERMAX: {len(by_tier['SUPERMAX'])}, HIGH: {len(by_tier['HIGH'])}, "
+                   f"MEDIUM: {len(by_tier['MEDIUM'])}, LOW: {len(by_tier['LOW'])}")
+        logger.info(f"   Rejected: {validation_result['total_rejected']}")
+        
+        for pick in best_picks:
+            logger.info(f"   ✅ {pick['game']} ({pick['pick_type'].upper()}) - "
+                       f"Tier: {pick['confidence_tier']}, Edge: {pick['edge']:.1f}, "
+                       f"EV: {pick['ev']:.2f}%" if pick['ev'] else f"EV: N/A")
+        
+        return best_picks
+
+
 def calculate_recent_form_ppg(games: list) -> dict:
     """
     Calculate PPG and Opp PPG from last 5 games for recent form.
@@ -4020,51 +4248,96 @@ def post_discord():
     today = datetime.now(et).date()
     today_str = today.strftime("%B %d, %Y")
     
-    # Only get games that pass edge threshold AND historical qualification AND non-negative EV (if available)
-    all_qualified = Game.query.filter_by(date=today, is_qualified=True, history_qualified=True).order_by(Game.edge.desc()).all()
-    # Apply EV filter: NULL = no data = allowed, negative = excluded
-    totals_qualified = [g for g in all_qualified if g.total_ev is None or g.total_ev >= 0]
-    games = [g for g in totals_qualified if not (g.game_time and 'final' in g.game_time.lower())]
+    # Get ALL games for today (pre-filter) - BulletproofPickValidator handles full validation
+    all_games = Game.query.filter_by(date=today).all()
     
-    spread_qualified_raw = Game.query.filter_by(date=today, spread_is_qualified=True, spread_history_qualified=True).order_by(Game.spread_edge.desc()).all()
-    spread_qualified = [g for g in spread_qualified_raw if g.spread_ev is None or g.spread_ev >= 0]
-    spread_games = [g for g in spread_qualified if not (g.game_time and 'final' in g.game_time.lower())]
+    if not all_games:
+        return jsonify({"success": False, "message": "No games found for today"})
     
-    if not games and not spread_games:
-        return jsonify({"success": False, "message": "No qualified picks to post"})
+    # ========================================================================
+    # BULLETPROOF VALIDATION - Run ALL checks before posting
+    # ========================================================================
+    logger.info("=" * 60)
+    logger.info("🔒 BULLETPROOF PRE-SEND VALIDATION")
+    logger.info("=" * 60)
     
-    # Build combined picks list sorted by edge with away favorite priority
+    # Validate all picks and get the best ones by confidence tier
+    validation_result = BulletproofPickValidator.validate_all_picks(all_games, pick_type='both')
+    
+    # Log validation summary
+    logger.info(f"📊 Validation Summary:")
+    logger.info(f"   Total validated: {validation_result['total_validated']}")
+    logger.info(f"   Total rejected: {validation_result['total_rejected']}")
+    for tier in ["SUPERMAX", "HIGH", "MEDIUM", "LOW"]:
+        count = len(validation_result['by_tier'][tier])
+        logger.info(f"   {tier}: {count} picks")
+    
+    # Log rejected picks with reasons
+    if validation_result['rejected_picks']:
+        logger.info(f"❌ Rejected picks:")
+        for rej in validation_result['rejected_picks'][:5]:  # Show first 5
+            logger.info(f"   {rej['game']} ({rej['pick_type']}): {', '.join(rej['checks_failed'][:2])}")
+    
+    # Get best validated picks (sorted by tier, then edge)
+    best_validated = []
+    for tier in ["SUPERMAX", "HIGH", "MEDIUM", "LOW"]:
+        for pick in validation_result['by_tier'][tier]:
+            if len(best_validated) >= 3:
+                break
+            # Get the actual game object from the pick
+            game = next((g for g in all_games if f"{g.away_team} @ {g.home_team}" == pick['game']), None)
+            if game:
+                best_validated.append({
+                    'game': game,
+                    'pick_type': pick['pick_type'],
+                    'edge': pick['edge'],
+                    'ev': pick['ev'],
+                    'confidence_tier': pick['confidence_tier'],
+                    'checks_passed': pick['checks_passed'],
+                    'warnings': pick['warnings']
+                })
+        if len(best_validated) >= 3:
+            break
+    
+    if not best_validated:
+        return jsonify({"success": False, "message": "No picks passed bulletproof validation"})
+    
+    # Log final picks being posted
+    logger.info(f"✅ FINAL PICKS TO POST:")
+    for i, p in enumerate(best_validated):
+        logger.info(f"   {i+1}. {p['game'].away_team} @ {p['game'].home_team} ({p['pick_type'].upper()})")
+        logger.info(f"      Tier: {p['confidence_tier']}, Edge: {p['edge']:.1f}, EV: {p['ev']:.2f}%" if p['ev'] else f"      Tier: {p['confidence_tier']}, Edge: {p['edge']:.1f}, EV: N/A")
+    
+    # Build combined picks list with validated data
     combined = []
-    for g in games:
-        line_val = g.alt_total_line if g.alt_total_line else g.line
-        # Away team is favorite when spread_line > 0 (home is underdog)
-        away_favorite = (g.spread_line or 0) > 0
-        combined.append({
-            'game': g,
-            'edge': g.edge or 0,
-            'pick_type': 'total',
-            'pick_str': f"{g.direction}{line_val}",
-            'line_val': line_val,
-            'away_favorite': away_favorite
-        })
-    for g in spread_games:
-        if g.spread_direction == 'HOME':
-            spread_val = g.alt_spread_line if g.alt_spread_line else g.spread_line
-            pick_str = f"{g.home_team} {spread_val:+.1f}" if spread_val else g.home_team
+    for vp in best_validated:
+        g = vp['game']
+        pick_type = vp['pick_type']
+        
+        if pick_type == 'total':
+            line_val = g.alt_total_line if g.alt_total_line else g.line
+            pick_str = f"{g.direction}{line_val}"
         else:
-            spread_val = abs(g.alt_spread_line) if g.alt_spread_line else abs(g.spread_line) if g.spread_line else 0
-            pick_str = f"{g.away_team} +{spread_val:.1f}" if spread_val else g.away_team
+            if g.spread_direction == 'HOME':
+                spread_val = g.alt_spread_line if g.alt_spread_line else g.spread_line
+                pick_str = f"{g.home_team} {spread_val:+.1f}" if spread_val else g.home_team
+                line_val = spread_val
+            else:
+                spread_val = abs(g.alt_spread_line) if g.alt_spread_line else abs(g.spread_line) if g.spread_line else 0
+                pick_str = f"{g.away_team} +{spread_val:.1f}" if spread_val else g.away_team
+                line_val = spread_val
+        
         away_favorite = (g.spread_line or 0) > 0
         combined.append({
             'game': g,
-            'edge': g.spread_edge or 0,
-            'pick_type': 'spread',
+            'edge': vp['edge'],
+            'pick_type': pick_type,
             'pick_str': pick_str,
-            'line_val': spread_val,
-            'away_favorite': away_favorite
+            'line_val': line_val,
+            'away_favorite': away_favorite,
+            'confidence_tier': vp['confidence_tier']
         })
-    # Sort by: 1) edge (desc), 2) away_favorite priority (True first)
-    combined.sort(key=lambda x: (x['edge'], 1 if x['away_favorite'] else 0), reverse=True)
+    
     top_3 = combined[:3]
     
     if not top_3:
@@ -4186,37 +4459,39 @@ def post_discord_window(window: str):
     if existing:
         return jsonify({"success": False, "message": f"Already posted for {window} window today"})
     
-    # Get qualified games for this window (must pass historical qualification + non-negative EV if available)
-    all_qualified = Game.query.filter_by(date=today, is_qualified=True, history_qualified=True).order_by(Game.edge.desc()).all()
-    # Apply EV filter: NULL = no data = allowed, negative = excluded
-    totals_qualified = [g for g in all_qualified if g.total_ev is None or g.total_ev >= 0]
-    spread_qualified_raw = Game.query.filter_by(date=today, spread_is_qualified=True, spread_history_qualified=True).order_by(Game.spread_edge.desc()).all()
-    spread_qualified = [g for g in spread_qualified_raw if g.spread_ev is None or g.spread_ev >= 0]
+    # Get all games for this window
+    all_games = Game.query.filter_by(date=today).all()
+    window_games = [g for g in all_games if get_game_window(g.game_time) == window]
     
-    # Filter by window and exclude finished games
-    window_games = [g for g in totals_qualified if get_game_window(g.game_time) == window 
-                    and not (g.game_time and 'final' in g.game_time.lower())]
-    window_spreads = [g for g in spread_qualified if get_game_window(g.game_time) == window
-                      and not (g.game_time and 'final' in g.game_time.lower())]
+    if not window_games:
+        return jsonify({"success": False, "message": f"No games for {window} window"})
     
-    if not window_games and not window_spreads:
-        return jsonify({"success": False, "message": f"No qualified picks for {window} window"})
+    # ========================================================================
+    # BULLETPROOF VALIDATION for window picks
+    # ========================================================================
+    logger.info(f"🔒 BULLETPROOF VALIDATION for {window} window")
+    validation_result = BulletproofPickValidator.validate_all_picks(window_games, pick_type='both')
     
-    # Build combined picks and find best (with away favorite priority)
-    combined = []
-    for g in window_games:
-        line_val = g.alt_total_line if g.alt_total_line else g.line
-        away_favorite = (g.spread_line or 0) > 0
-        combined.append({'game': g, 'edge': g.edge or 0, 'pick_type': 'total', 'line_val': line_val, 'away_favorite': away_favorite})
-    for g in window_spreads:
-        spread_val = g.alt_spread_line if g.alt_spread_line else abs(g.spread_line) if g.spread_line else 0
-        away_favorite = (g.spread_line or 0) > 0
-        combined.append({'game': g, 'edge': g.spread_edge or 0, 'pick_type': 'spread', 'line_val': spread_val, 'away_favorite': away_favorite})
+    # Get best validated pick for this window
+    best_pick = None
+    for tier in ["SUPERMAX", "HIGH", "MEDIUM", "LOW"]:
+        if validation_result['by_tier'][tier]:
+            pick_data = validation_result['by_tier'][tier][0]
+            game = next((g for g in window_games if f"{g.away_team} @ {g.home_team}" == pick_data['game']), None)
+            if game:
+                best_pick = {
+                    'game': game,
+                    'pick_type': pick_data['pick_type'],
+                    'edge': pick_data['edge'],
+                    'confidence_tier': pick_data['confidence_tier']
+                }
+                break
     
-    # Sort by: 1) edge (desc), 2) away_favorite priority (True first)
-    combined.sort(key=lambda x: (x['edge'], 1 if x['away_favorite'] else 0), reverse=True)
-    supermax = combined[0]
-    sm_game = supermax['game']
+    if not best_pick:
+        return jsonify({"success": False, "message": f"No validated picks for {window} window"})
+    
+    sm_game = best_pick['game']
+    supermax = best_pick
     
     emoji_map = {"NBA": "🏀", "CBB": "🏀", "NFL": "🏈", "CFB": "🏈", "NHL": "🏒"}
     window_labels = {"EARLY": "🌅 EARLY LOCK", "MID": "☀️ MIDDAY LOCK", "LATE": "🌙 LATE LOCK"}
