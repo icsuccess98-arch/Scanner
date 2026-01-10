@@ -2472,11 +2472,13 @@ def dashboard():
     edge_qualified = [g for g in all_games if g.is_qualified]
     edge_spread_qualified = [g for g in all_games if g.spread_is_qualified]
     
-    # TOTALS: Must pass historical threshold (if history fetched)
+    # TOTALS: Must pass historical threshold AND verified non-negative EV
     # If history_qualified is None (not checked), do NOT show the game
     # If history_qualified is True, show the game
     # If history_qualified is False, hide the game
-    qualified = [g for g in edge_qualified if g.history_qualified == True]
+    # EV filter: NULL EV = unverified = excluded, negative EV = excluded
+    qualified = [g for g in edge_qualified if g.history_qualified == True 
+                 and g.total_ev is not None and g.total_ev >= 0]
     
     # SPREADS: Use spread_history_qualified (separate from totals qualification)
     # Must have spread_history_qualified = True AND verified non-negative EV
@@ -2510,9 +2512,9 @@ def dashboard():
             supermax_type = 'spread'
             supermax_edge = effective_spread_edge
     
-    # Combined qualified: games that qualify for totals (with history) OR spreads (with spread_history)
+    # Combined qualified: games that qualify for totals (with history + EV) OR spreads (with spread_history + EV)
     all_qualified_games = [g for g in all_games if 
-        (g.is_qualified and g.history_qualified == True) or 
+        (g.is_qualified and g.history_qualified == True and g.total_ev is not None and g.total_ev >= 0) or 
         (g.spread_is_qualified and g.spread_history_qualified == True and g.spread_ev is not None and g.spread_ev >= 0)]
     
     if show_only_qualified:
@@ -2542,10 +2544,11 @@ def dashboard():
     
     for league in ['NBA', 'CBB', 'NFL', 'CFB', 'NHL']:
         league_games = [g for g in all_games if g.league == league]
-        league_totals_qualified = [g for g in league_games if g.is_qualified and g.history_qualified == True]
-        league_spread_qualified = [g for g in league_games if g.spread_is_qualified and g.history_qualified == True]
+        league_totals_qualified = [g for g in league_games if g.is_qualified and g.history_qualified == True and g.total_ev is not None and g.total_ev >= 0]
+        league_spread_qualified = [g for g in league_games if g.spread_is_qualified and g.spread_history_qualified == True and g.spread_ev is not None and g.spread_ev >= 0]
         league_any_qualified = [g for g in league_games if 
-            (g.is_qualified or g.spread_is_qualified) and g.history_qualified == True]
+            (g.is_qualified and g.history_qualified == True and g.total_ev is not None and g.total_ev >= 0) or 
+            (g.spread_is_qualified and g.spread_history_qualified == True and g.spread_ev is not None and g.spread_ev >= 0)]
         analytics['league_breakdown'][league] = {
             'total': len(league_games),
             'qualified': len(league_any_qualified),
@@ -3927,9 +3930,11 @@ def post_discord():
     today = datetime.now(et).date()
     today_str = today.strftime("%B %d, %Y")
     
-    # Only get games that pass both edge threshold AND historical qualification
+    # Only get games that pass both edge threshold AND historical qualification AND positive EV
     all_qualified = Game.query.filter_by(date=today, is_qualified=True, history_qualified=True).order_by(Game.edge.desc()).all()
-    games = [g for g in all_qualified if not (g.game_time and 'final' in g.game_time.lower())]
+    # Apply EV filter to totals (must have verified non-negative EV)
+    totals_qualified = [g for g in all_qualified if g.total_ev is not None and g.total_ev >= 0]
+    games = [g for g in totals_qualified if not (g.game_time and 'final' in g.game_time.lower())]
     
     spread_qualified_raw = Game.query.filter_by(date=today, spread_is_qualified=True, spread_history_qualified=True).order_by(Game.spread_edge.desc()).all()
     spread_qualified = [g for g in spread_qualified_raw if g.spread_ev is not None and g.spread_ev >= 0]
@@ -4093,11 +4098,13 @@ def post_discord_window(window: str):
     
     # Get qualified games for this window (must pass historical qualification + positive EV)
     all_qualified = Game.query.filter_by(date=today, is_qualified=True, history_qualified=True).order_by(Game.edge.desc()).all()
+    # Apply EV filter to totals
+    totals_qualified = [g for g in all_qualified if g.total_ev is not None and g.total_ev >= 0]
     spread_qualified_raw = Game.query.filter_by(date=today, spread_is_qualified=True, spread_history_qualified=True).order_by(Game.spread_edge.desc()).all()
     spread_qualified = [g for g in spread_qualified_raw if g.spread_ev is not None and g.spread_ev >= 0]
     
     # Filter by window and exclude finished games
-    window_games = [g for g in all_qualified if get_game_window(g.game_time) == window 
+    window_games = [g for g in totals_qualified if get_game_window(g.game_time) == window 
                     and not (g.game_time and 'final' in g.game_time.lower())]
     window_spreads = [g for g in spread_qualified if get_game_window(g.game_time) == window
                       and not (g.game_time and 'final' in g.game_time.lower())]
