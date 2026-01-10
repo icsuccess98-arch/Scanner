@@ -1777,10 +1777,31 @@ def find_team_stats(name, stats_dict):
                 return val
     return None
 
+_team_stats_cache = {}
+_team_stats_cache_time = 0
+TEAM_STATS_CACHE_TTL = 3600
+
+def get_cached_team_stats(team_id, sport):
+    global _team_stats_cache, _team_stats_cache_time
+    now = time.time()
+    if now - _team_stats_cache_time > TEAM_STATS_CACHE_TTL:
+        _team_stats_cache = {}
+        _team_stats_cache_time = now
+    cache_key = f"{sport}_{team_id}"
+    if cache_key in _team_stats_cache:
+        return _team_stats_cache[cache_key]
+    return None
+
+def set_cached_team_stats(team_id, sport, ppg, opp_ppg):
+    cache_key = f"{sport}_{team_id}"
+    _team_stats_cache[cache_key] = (ppg, opp_ppg)
+
 def fetch_cbb_team_stats(team_id):
+    cached = get_cached_team_stats(team_id, "cbb")
+    if cached: return cached
     try:
         url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/teams/{team_id}"
-        resp = requests.get(url, timeout=10)
+        resp = requests.get(url, timeout=5)
         items = resp.json().get("team", {}).get("record", {}).get("items", [])
         ppg = opp_ppg = None
         for item in items:
@@ -1788,14 +1809,17 @@ def fetch_cbb_team_stats(team_id):
                 for stat in item.get("stats", []):
                     if stat.get("name") == "avgPointsFor": ppg = stat.get("value")
                     if stat.get("name") == "avgPointsAgainst": opp_ppg = stat.get("value")
+        set_cached_team_stats(team_id, "cbb", ppg, opp_ppg)
         return ppg, opp_ppg
     except Exception:
         return None, None
 
 def fetch_cfb_team_stats(team_id):
+    cached = get_cached_team_stats(team_id, "cfb")
+    if cached: return cached
     try:
         url = f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams/{team_id}"
-        resp = requests.get(url, timeout=10)
+        resp = requests.get(url, timeout=5)
         items = resp.json().get("team", {}).get("record", {}).get("items", [])
         ppg = opp_ppg = None
         for item in items:
@@ -1803,14 +1827,17 @@ def fetch_cfb_team_stats(team_id):
                 for stat in item.get("stats", []):
                     if stat.get("name") == "avgPointsFor": ppg = stat.get("value")
                     if stat.get("name") == "avgPointsAgainst": opp_ppg = stat.get("value")
+        set_cached_team_stats(team_id, "cfb", ppg, opp_ppg)
         return ppg, opp_ppg
     except Exception:
         return None, None
 
 def fetch_nfl_team_stats(team_id):
+    cached = get_cached_team_stats(team_id, "nfl")
+    if cached: return cached
     try:
         url = f"https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/{team_id}"
-        resp = requests.get(url, timeout=10)
+        resp = requests.get(url, timeout=5)
         items = resp.json().get("team", {}).get("record", {}).get("items", [])
         ppg = opp_ppg = None
         for item in items:
@@ -1818,9 +1845,22 @@ def fetch_nfl_team_stats(team_id):
                 for stat in item.get("stats", []):
                     if stat.get("name") == "avgPointsFor": ppg = stat.get("value")
                     if stat.get("name") == "avgPointsAgainst": opp_ppg = stat.get("value")
+        set_cached_team_stats(team_id, "nfl", ppg, opp_ppg)
         return ppg, opp_ppg
     except Exception:
         return None, None
+
+def fetch_team_stats_batch(team_ids, fetch_func):
+    results = {}
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {executor.submit(fetch_func, tid): tid for tid in team_ids}
+        for future in as_completed(futures):
+            tid = futures[future]
+            try:
+                results[tid] = future.result()
+            except:
+                results[tid] = (None, None)
+    return results
 
 def validate_espn_event_date(event: dict, today: date, et) -> bool:
     """Check if ESPN event date matches today (ET)."""
@@ -1951,38 +1991,44 @@ def fetch_games():
         cbb_url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates={today_str}&limit=500&groups=50"
         resp = requests.get(cbb_url, timeout=60)
         events = resp.json().get("events", [])
-        cbb_today_count = 0
         
+        cbb_games_data = []
+        all_team_ids = set()
         for event in events:
             if not validate_espn_event_date(event, today, et):
                 continue
-            cbb_today_count += 1
-            
             comps = event.get("competitions", [{}])[0]
             teams = comps.get("competitors", [])
             if len(teams) == 2:
                 away = next((t for t in teams if t.get("homeAway") == "away"), None)
                 home = next((t for t in teams if t.get("homeAway") == "home"), None)
                 if away and home:
-                    away_name = away.get("team", {}).get("shortDisplayName", "")
-                    home_name = home.get("team", {}).get("shortDisplayName", "")
                     away_id = away.get("team", {}).get("id")
                     home_id = home.get("team", {}).get("id")
-                    game_time = event.get("status", {}).get("type", {}).get("shortDetail", "")
-                    
-                    away_ppg, away_opp = fetch_cbb_team_stats(away_id)
-                    home_ppg, home_opp = fetch_cbb_team_stats(home_id)
-                    
-                    game = Game(
-                        date=today, league="CBB", away_team=away_name, home_team=home_name,
-                        game_time=game_time,
-                        away_ppg=away_ppg, away_opp_ppg=away_opp,
-                        home_ppg=home_ppg, home_opp_ppg=home_opp
-                    )
-                    db.session.add(game)
-                    games_added += 1
+                    all_team_ids.add(away_id)
+                    all_team_ids.add(home_id)
+                    cbb_games_data.append({
+                        "away_name": away.get("team", {}).get("shortDisplayName", ""),
+                        "home_name": home.get("team", {}).get("shortDisplayName", ""),
+                        "away_id": away_id, "home_id": home_id,
+                        "game_time": event.get("status", {}).get("type", {}).get("shortDetail", "")
+                    })
         
-        if cbb_today_count == 0:
+        cbb_stats = fetch_team_stats_batch(list(all_team_ids), fetch_cbb_team_stats)
+        
+        for gd in cbb_games_data:
+            away_ppg, away_opp = cbb_stats.get(gd["away_id"], (None, None))
+            home_ppg, home_opp = cbb_stats.get(gd["home_id"], (None, None))
+            game = Game(
+                date=today, league="CBB", away_team=gd["away_name"], home_team=gd["home_name"],
+                game_time=gd["game_time"],
+                away_ppg=away_ppg, away_opp_ppg=away_opp,
+                home_ppg=home_ppg, home_opp_ppg=home_opp
+            )
+            db.session.add(game)
+            games_added += 1
+        
+        if len(cbb_games_data) == 0:
             print(f"CBB: No games found for today ({today})")
     except Exception as e:
         print(f"CBB games error: {e}")
@@ -1996,38 +2042,44 @@ def fetch_games():
         cfb_url = f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates={today_str}&limit=100"
         resp = requests.get(cfb_url, timeout=30)
         events = resp.json().get("events", [])
-        cfb_today_count = 0
         
+        cfb_games_data = []
+        cfb_team_ids = set()
         for event in events:
             if not validate_espn_event_date(event, today, et):
                 continue
-            cfb_today_count += 1
-            
             comps = event.get("competitions", [{}])[0]
             teams = comps.get("competitors", [])
             if len(teams) == 2:
                 away = next((t for t in teams if t.get("homeAway") == "away"), None)
                 home = next((t for t in teams if t.get("homeAway") == "home"), None)
                 if away and home:
-                    away_name = away.get("team", {}).get("shortDisplayName", "")
-                    home_name = home.get("team", {}).get("shortDisplayName", "")
                     away_id = away.get("team", {}).get("id")
                     home_id = home.get("team", {}).get("id")
-                    game_time = event.get("status", {}).get("type", {}).get("shortDetail", "")
-                    
-                    away_ppg, away_opp = fetch_cfb_team_stats(away_id)
-                    home_ppg, home_opp = fetch_cfb_team_stats(home_id)
-                    
-                    game = Game(
-                        date=today, league="CFB", away_team=away_name, home_team=home_name,
-                        game_time=game_time,
-                        away_ppg=away_ppg, away_opp_ppg=away_opp,
-                        home_ppg=home_ppg, home_opp_ppg=home_opp
-                    )
-                    db.session.add(game)
-                    games_added += 1
+                    cfb_team_ids.add(away_id)
+                    cfb_team_ids.add(home_id)
+                    cfb_games_data.append({
+                        "away_name": away.get("team", {}).get("shortDisplayName", ""),
+                        "home_name": home.get("team", {}).get("shortDisplayName", ""),
+                        "away_id": away_id, "home_id": home_id,
+                        "game_time": event.get("status", {}).get("type", {}).get("shortDetail", "")
+                    })
         
-        if cfb_today_count == 0:
+        cfb_stats = fetch_team_stats_batch(list(cfb_team_ids), fetch_cfb_team_stats)
+        
+        for gd in cfb_games_data:
+            away_ppg, away_opp = cfb_stats.get(gd["away_id"], (None, None))
+            home_ppg, home_opp = cfb_stats.get(gd["home_id"], (None, None))
+            game = Game(
+                date=today, league="CFB", away_team=gd["away_name"], home_team=gd["home_name"],
+                game_time=gd["game_time"],
+                away_ppg=away_ppg, away_opp_ppg=away_opp,
+                home_ppg=home_ppg, home_opp_ppg=home_opp
+            )
+            db.session.add(game)
+            games_added += 1
+        
+        if len(cfb_games_data) == 0:
             print(f"CFB: No games found for today ({today})")
     except Exception as e:
         print(f"CFB games error: {e}")
@@ -2041,38 +2093,44 @@ def fetch_games():
         nfl_url = f"https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates={today_str}"
         resp = requests.get(nfl_url, timeout=30)
         events = resp.json().get("events", [])
-        nfl_today_count = 0
         
+        nfl_games_data = []
+        nfl_team_ids = set()
         for event in events:
             if not validate_espn_event_date(event, today, et):
                 continue
-            nfl_today_count += 1
-            
             comps = event.get("competitions", [{}])[0]
             teams = comps.get("competitors", [])
             if len(teams) == 2:
                 away = next((t for t in teams if t.get("homeAway") == "away"), None)
                 home = next((t for t in teams if t.get("homeAway") == "home"), None)
                 if away and home:
-                    away_name = away.get("team", {}).get("shortDisplayName", "")
-                    home_name = home.get("team", {}).get("shortDisplayName", "")
                     away_id = away.get("team", {}).get("id")
                     home_id = home.get("team", {}).get("id")
-                    game_time = event.get("status", {}).get("type", {}).get("shortDetail", "")
-                    
-                    away_ppg, away_opp = fetch_nfl_team_stats(away_id)
-                    home_ppg, home_opp = fetch_nfl_team_stats(home_id)
-                    
-                    game = Game(
-                        date=today, league="NFL", away_team=away_name, home_team=home_name,
-                        game_time=game_time,
-                        away_ppg=away_ppg, away_opp_ppg=away_opp,
-                        home_ppg=home_ppg, home_opp_ppg=home_opp
-                    )
-                    db.session.add(game)
-                    games_added += 1
+                    nfl_team_ids.add(away_id)
+                    nfl_team_ids.add(home_id)
+                    nfl_games_data.append({
+                        "away_name": away.get("team", {}).get("shortDisplayName", ""),
+                        "home_name": home.get("team", {}).get("shortDisplayName", ""),
+                        "away_id": away_id, "home_id": home_id,
+                        "game_time": event.get("status", {}).get("type", {}).get("shortDetail", "")
+                    })
         
-        if nfl_today_count == 0:
+        nfl_stats = fetch_team_stats_batch(list(nfl_team_ids), fetch_nfl_team_stats)
+        
+        for gd in nfl_games_data:
+            away_ppg, away_opp = nfl_stats.get(gd["away_id"], (None, None))
+            home_ppg, home_opp = nfl_stats.get(gd["home_id"], (None, None))
+            game = Game(
+                date=today, league="NFL", away_team=gd["away_name"], home_team=gd["home_name"],
+                game_time=gd["game_time"],
+                away_ppg=away_ppg, away_opp_ppg=away_opp,
+                home_ppg=home_ppg, home_opp_ppg=home_opp
+            )
+            db.session.add(game)
+            games_added += 1
+        
+        if len(nfl_games_data) == 0:
             print(f"NFL: No games found for today ({today})")
     except Exception as e:
         print(f"NFL games error: {e}")
