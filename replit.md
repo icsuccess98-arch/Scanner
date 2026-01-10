@@ -55,14 +55,21 @@ Additional data-driven factors that disqualify picks during game scanning:
     -   Disqualifies spread picks if the team being bet on has key injuries
 
 3.  **Sharp Money Detection (Line Movement)**
-    -   Stores opening line when first fetched from Bovada
+    -   Stores opening line when first fetched from Bovada (both totals and spreads)
     -   Compares current line to opening line to detect movement
     -   Sharp movement threshold: 1.5+ points
     -   `SHARP_AGREES`: Line moved in direction of our pick (confirmation)
     -   `SHARP_DISAGREES`: Line moved against our pick (disqualification trigger)
     -   Picks disqualified when sharp money moves against the model's direction
+    -   Works for both totals (O/U directions) and spreads (HOME/AWAY directions)
 
-4.  **Strength of Schedule Factor**
+4.  **Spread Sign Validation (SpreadValidator)**
+    -   Cross-references spread signs against moneyline odds
+    -   Detects sign mismatches (e.g., spread says favorite but ML says underdog)
+    -   Auto-corrects invalid spreads by flipping the sign
+    -   Logs all corrections for audit trail
+
+5.  **Strength of Schedule Factor**
     -   `calculate_sos_factor()` compares opponent's PPG allowed to league average
     -   Returns multiplier (>1 = tough schedule, <1 = easy schedule)
     -   Available for future projection adjustments

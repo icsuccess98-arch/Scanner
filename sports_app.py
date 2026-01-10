@@ -290,6 +290,65 @@ def detect_sharp_money(opening_line: float, current_line: float, direction: str 
     
     return {"sharp_aligned": False, "sharp_against": False, "movement": movement, "signal": "NEUTRAL"}
 
+class SpreadValidator:
+    """Validates spread signs using moneyline cross-reference"""
+    
+    @staticmethod
+    def validate_spread_vs_moneyline(
+        spread: float,
+        away_ml: Optional[float],
+        home_ml: Optional[float],
+        away_team: str,
+        home_team: str
+    ) -> Tuple[bool, Optional[str], Optional[float]]:
+        """
+        Validates spread sign against moneyline odds.
+        Returns: (is_valid, error_message, corrected_spread)
+        
+        LOGIC:
+        - Negative spread (from away perspective) = away team is FAVORITE
+        - Positive spread = away team is UNDERDOG
+        - Lower moneyline = FAVORITE
+        """
+        if not away_ml or not home_ml:
+            return True, None, None
+        
+        away_is_favorite_by_ml = away_ml < home_ml
+        away_is_favorite_by_spread = spread < 0
+        
+        if away_is_favorite_by_ml != away_is_favorite_by_spread:
+            error_msg = (
+                f"SPREAD SIGN MISMATCH: {away_team} @ {home_team} | "
+                f"Spread: {spread} (says {'FAV' if spread < 0 else 'DOG'}) vs "
+                f"ML: {away_ml}/{home_ml} (says {'FAV' if away_is_favorite_by_ml else 'DOG'})"
+            )
+            corrected_spread = -spread
+            return False, error_msg, corrected_spread
+        
+        return True, None, None
+    
+    @staticmethod
+    def validate_and_correct_spread(
+        spread: float,
+        away_ml: Optional[float],
+        home_ml: Optional[float],
+        away_team: str,
+        home_team: str
+    ) -> Tuple[float, bool]:
+        """
+        Validates spread and returns corrected value if needed.
+        Returns: (final_spread, was_corrected)
+        """
+        is_valid, error_msg, corrected = SpreadValidator.validate_spread_vs_moneyline(
+            spread, away_ml, home_ml, away_team, home_team
+        )
+        
+        if not is_valid and corrected is not None:
+            logger.warning(f"AUTO-CORRECTED: {error_msg} -> Using {corrected}")
+            return corrected, True
+        
+        return spread, False
+
 def calculate_recent_form_ppg(games: list) -> dict:
     """
     Calculate PPG and Opp PPG from last 5 games for recent form.
@@ -3003,7 +3062,7 @@ def fetch_odds_for_league(league: str, sport_key: str, api_key: str) -> tuple:
         params = {
             "apiKey": api_key,
             "regions": "us",
-            "markets": "totals,spreads",
+            "markets": "totals,spreads,h2h",
             "oddsFormat": "american",
             "bookmakers": "bovada,pinnacle"
         }
@@ -3164,7 +3223,19 @@ def fetch_odds_internal() -> dict:
                                         lines_updated += 1
                                     break
                         
-                        # Process SPREADS
+                        # Extract moneylines from h2h for spread validation
+                        away_ml = None
+                        home_ml = None
+                        if "h2h" in bovada_markets:
+                            h2h_market = bovada_markets["h2h"]
+                            h2h_outcomes = h2h_market.get("outcomes", [])
+                            for h2h_out in h2h_outcomes:
+                                if teams_match(h2h_out.get("name", ""), away_team):
+                                    away_ml = h2h_out.get("price")
+                                elif teams_match(h2h_out.get("name", ""), home_team):
+                                    home_ml = h2h_out.get("price")
+                        
+                        # Process SPREADS with validation
                         if "spreads" in bovada_markets:
                             spreads_market = bovada_markets["spreads"]
                             outcomes = spreads_market.get("outcomes", [])
@@ -3173,6 +3244,12 @@ def fetch_odds_internal() -> dict:
                                     spread_line = outcome.get("point")
                                     home_spread_odds = outcome.get("price")
                                     if spread_line is not None:
+                                        # Validate spread sign against moneylines (auto-correct if needed)
+                                        if away_ml and home_ml:
+                                            spread_line, was_corrected = SpreadValidator.validate_and_correct_spread(
+                                                spread_line, away_ml, home_ml,
+                                                game.away_team, game.home_team
+                                            )
                                         game.spread_line = spread_line
                                         # Store opening spread line for CLV tracking
                                         spread_cache_key = f"spread_opening:{event.get('id')}"
