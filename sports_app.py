@@ -2805,6 +2805,7 @@ def post_discord():
                     pick_str = f"{sm_game.away_team} {line_val:+.1f}" if line_val else sm_game.away_team
                 edge_val = sm_game.spread_edge
             
+            game_start_dt = parse_game_time_to_datetime(sm_game.game_time, today)
             pick = Pick(
                 game_id=sm_game.id,
                 date=today,
@@ -2815,7 +2816,8 @@ def post_discord():
                 is_lock=True,
                 posted_to_discord=True,
                 pick_type=supermax['pick_type'],
-                line_value=line_val
+                line_value=line_val,
+                game_start=game_start_dt
             )
             db.session.add(pick)
             db.session.commit()
@@ -2912,6 +2914,7 @@ def post_discord_window(window: str):
                 pick_save = f"{sm_game.away_team} {line_val:+.1f}" if line_val else sm_game.away_team
             edge_val = sm_game.spread_edge
         
+        game_start_dt = parse_game_time_to_datetime(sm_game.game_time, today)
         pick = Pick(
             game_id=sm_game.id,
             date=today,
@@ -2923,7 +2926,8 @@ def post_discord_window(window: str):
             posted_to_discord=True,
             pick_type=supermax['pick_type'],
             line_value=line_val,
-            game_window=window
+            game_window=window,
+            game_start=game_start_dt
         )
         db.session.add(pick)
         db.session.commit()
