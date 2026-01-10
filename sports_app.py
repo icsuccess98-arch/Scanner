@@ -874,29 +874,30 @@ def check_spread_qualification(expected_away: float, expected_home: float,
     """
     LOCKED THRESHOLDS - Same thresholds as totals
     
-    Spread line is from home team perspective (negative = home favored)
-    E.g., Home -13 means home is favored by 13, must win by 14+ to cover
+    spread_line is stored in AWAY PERSPECTIVE:
+    - Positive = away is underdog (home is favorite by that amount)
+    - Negative = away is favorite (home is underdog)
     
-    Convert to home margin frame:
-    line_margin = -spread_line (what the line implies home margin should be)
-    E.g., spread -13 -> line_margin = 13 (line says home wins by 13)
+    E.g., spread_line = 22 means away +22 underdog, home -22 favorite
+    E.g., spread_line = -5 means away -5 favorite, home +5 underdog
     
+    line_margin = spread_line (what home team is expected to win by per the line)
     projected_margin = expected_home - expected_away (positive = home wins by X)
     
     Direction Rules:
     - Take HOME if: projected_margin >= line_margin + threshold (we think home wins by MORE than the line)
     - Take AWAY if: projected_margin <= line_margin - threshold (we think home wins by LESS than the line)
     
-    Example: Home expected to win by 3, spread is Home -13
-    line_margin = 13, projected_margin = 3
-    We expect home to win by 3, but line says home wins by 13
-    Difference = 10 points of value on AWAY side
-    projected_margin (3) <= line_margin (13) - threshold (8) = 5? Yes!
-    Bet AWAY +13 (they lose by 3 but cover +13)
+    Example: Home expected to win by 3, spread_line = 22 (home -22 favorite)
+    line_margin = 22, projected_margin = 3
+    We expect home to win by 3, but line says home wins by 22
+    Difference = 19 points of value on AWAY side
+    projected_margin (3) <= line_margin (22) - threshold (8) = 14? Yes!
+    Bet AWAY +22 (they lose by 3 but cover +22)
     """
     threshold = THRESHOLDS.get(league, 8.0)
     projected_margin = expected_home - expected_away
-    line_margin = -spread_line
+    line_margin = spread_line  # spread_line IS the implied home margin (in away perspective storage)
     edge = abs(projected_margin - line_margin)
     
     if projected_margin >= line_margin + threshold:
