@@ -667,6 +667,116 @@ def teams_match(name1: str, name2: str) -> bool:
         return True
     return False
 
+class UniversalSpreadHandler:
+    """
+    Bulletproof spread extraction - works for ANY team (home or away) without confusion.
+    Gets spread for BOTH teams, validates they're mirror images, cross-checks with moneyline.
+    """
+    
+    @staticmethod
+    def extract_spread_data(away_team: str, home_team: str, bookmakers: list) -> Optional[dict]:
+        """
+        Extract spread data with FULL VALIDATION.
+        Returns standardized format with BOTH teams' perspectives.
+        """
+        if not bookmakers:
+            return None
+        
+        bovada_book = next((b for b in bookmakers if b.get("key") == "bovada"), None)
+        if not bovada_book:
+            return None
+        
+        markets = {m.get("key"): m for m in bovada_book.get("markets", [])}
+        
+        spreads_market = markets.get("spreads")
+        h2h_market = markets.get("h2h")
+        
+        if not spreads_market:
+            return None
+        
+        outcomes = spreads_market.get("outcomes", [])
+        
+        away_spread_outcome = None
+        home_spread_outcome = None
+        
+        for outcome in outcomes:
+            outcome_name = outcome.get("name", "")
+            if teams_match(outcome_name, away_team):
+                away_spread_outcome = outcome
+            elif teams_match(outcome_name, home_team):
+                home_spread_outcome = outcome
+        
+        if not away_spread_outcome or not home_spread_outcome:
+            logger.debug(f"Missing spread data for {away_team} @ {home_team}")
+            return None
+        
+        away_spread_raw = float(away_spread_outcome.get("point", 0))
+        home_spread_raw = float(home_spread_outcome.get("point", 0))
+        away_odds = away_spread_outcome.get("price", -110)
+        home_odds = home_spread_outcome.get("price", -110)
+        
+        away_ml = None
+        home_ml = None
+        if h2h_market:
+            h2h_outcomes = h2h_market.get("outcomes", [])
+            for h2h_out in h2h_outcomes:
+                h2h_name = h2h_out.get("name", "")
+                if teams_match(h2h_name, away_team):
+                    away_ml = h2h_out.get("price")
+                elif teams_match(h2h_name, home_team):
+                    home_ml = h2h_out.get("price")
+        
+        if abs(away_spread_raw + home_spread_raw) > 0.5:
+            logger.warning(f"SPREAD MISMATCH: {away_team}({away_spread_raw}) @ {home_team}({home_spread_raw})")
+        
+        if away_ml and home_ml:
+            if away_ml < home_ml:
+                favorite_team = away_team
+                underdog_team = home_team
+                favorite_location = 'away'
+            else:
+                favorite_team = home_team
+                underdog_team = away_team
+                favorite_location = 'home'
+        else:
+            if away_spread_raw < 0:
+                favorite_team = away_team
+                underdog_team = home_team
+                favorite_location = 'away'
+            else:
+                favorite_team = home_team
+                underdog_team = away_team
+                favorite_location = 'home'
+        
+        spread_data = {
+            'away_team': away_team,
+            'home_team': home_team,
+            'away_spread': away_spread_raw,
+            'home_spread': home_spread_raw,
+            'away_odds': away_odds,
+            'home_odds': home_odds,
+            'away_moneyline': away_ml,
+            'home_moneyline': home_ml,
+            'favorite': favorite_team,
+            'underdog': underdog_team,
+            'favorite_location': favorite_location,
+            'spread_magnitude': abs(away_spread_raw),
+            'spread_away_perspective': away_spread_raw,
+        }
+        
+        if away_ml and home_ml:
+            ml_says_away_fav = away_ml < home_ml
+            spread_says_away_fav = away_spread_raw < 0
+            
+            if ml_says_away_fav != spread_says_away_fav:
+                logger.warning(
+                    f"SPREAD/MONEYLINE MISMATCH: {away_team} @ {home_team} - "
+                    f"ML: {'Away fav' if ml_says_away_fav else 'Home fav'}, "
+                    f"Spread: {'Away fav' if spread_says_away_fav else 'Home fav'}"
+                )
+        
+        return spread_data
+
 class Game(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     date = db.Column(db.Date, nullable=False)
@@ -3478,88 +3588,58 @@ def fetch_odds_internal() -> dict:
                                         lines_updated += 1
                                     break
                         
-                        # Extract moneylines from h2h for spread validation
-                        away_ml = None
-                        home_ml = None
-                        if "h2h" in bovada_markets:
-                            h2h_market = bovada_markets["h2h"]
-                            h2h_outcomes = h2h_market.get("outcomes", [])
-                            for h2h_out in h2h_outcomes:
-                                if teams_match(h2h_out.get("name", ""), away_team):
-                                    away_ml = h2h_out.get("price")
-                                elif teams_match(h2h_out.get("name", ""), home_team):
-                                    home_ml = h2h_out.get("price")
+                        # Process SPREADS using UniversalSpreadHandler for bulletproof extraction
+                        spread_data = UniversalSpreadHandler.extract_spread_data(
+                            game.away_team, game.home_team, bookmakers
+                        )
                         
-                        # Process SPREADS with validation
-                        if "spreads" in bovada_markets:
-                            spreads_market = bovada_markets["spreads"]
-                            outcomes = spreads_market.get("outcomes", [])
-                            for outcome in outcomes:
-                                if teams_match(outcome.get("name", ""), home_team):
-                                    home_spread_point = outcome.get("point")
-                                    home_spread_odds = outcome.get("price")
-                                    if home_spread_point is not None:
-                                        # Convert to AWAY perspective: negate home team's spread
-                                        # Home -21.5 favorite -> Away +21.5 underdog
-                                        # Home +5 underdog -> Away -5 favorite
-                                        spread_line = -home_spread_point
-                                        # Validate spread sign against moneylines (auto-correct if needed)
-                                        if away_ml and home_ml:
-                                            spread_line, was_corrected = SpreadValidator.validate_and_correct_spread(
-                                                spread_line, away_ml, home_ml,
-                                                game.away_team, game.home_team
-                                            )
-                                        game.spread_line = spread_line
-                                        # Store opening spread line for CLV tracking
-                                        spread_cache_key = f"spread_opening:{event.get('id')}"
-                                        if spread_cache_key not in opening_lines_store:
-                                            opening_lines_store[spread_cache_key] = {
-                                                "line": spread_line,
-                                                "timestamp": datetime.now(pytz.timezone('America/New_York')).isoformat()
-                                            }
-                                        if all([game.away_ppg, game.away_opp_ppg, game.home_ppg, game.home_opp_ppg]):
-                                            exp_away, exp_home, _ = calculate_expected_scores(
-                                                game.away_ppg, game.away_opp_ppg, 
-                                                game.home_ppg, game.home_opp_ppg
-                                            )
-                                            game.expected_away = exp_away
-                                            game.expected_home = exp_home
-                                            game.projected_margin = exp_home - exp_away
-                                            spread_qual, spread_dir, spread_edge = check_spread_qualification(
-                                                exp_away, exp_home, spread_line, game.league
-                                            )
-                                            game.spread_direction = spread_dir
-                                            game.spread_edge = spread_edge
-                                            
-                                            # Get odds based on spread direction
-                                            bovada_spread_odds = None
-                                            pinnacle_spread_odds = None
-                                            if spread_dir == "HOME":
-                                                bovada_spread_odds = home_spread_odds
-                                            elif spread_dir == "AWAY":
-                                                away_outcome = next((o for o in outcomes if teams_match(o.get("name", ""), away_team)), None)
-                                                bovada_spread_odds = away_outcome.get("price") if away_outcome else None
-                                            
-                                            # Get Pinnacle odds for same direction
-                                            if pinnacle_markets.get("spreads") and spread_dir:
-                                                pinn_outcomes = pinnacle_markets["spreads"].get("outcomes", [])
-                                                pick_team = home_team if spread_dir == "HOME" else away_team
-                                                pinn_outcome = next((o for o in pinn_outcomes if teams_match(o.get("name", ""), pick_team)), None)
-                                                if pinn_outcome:
-                                                    pinnacle_spread_odds = pinn_outcome.get("price")
-                                            
-                                            # Store and calculate EV
-                                            game.bovada_spread_odds = bovada_spread_odds
-                                            game.pinnacle_spread_odds = pinnacle_spread_odds
-                                            if bovada_spread_odds and pinnacle_spread_odds:
-                                                game.spread_ev = calculate_ev(bovada_spread_odds, pinnacle_spread_odds)
-                                            
-                                            # EV is informational only - Bovada is primary
-                                            # Qualification based on edge threshold only
-                                            game.spread_is_qualified = spread_qual
-                                                
-                                        spreads_updated += 1
-                                    break
+                        if spread_data:
+                            spread_line = spread_data['away_spread']
+                            game.spread_line = spread_line
+                            
+                            spread_cache_key = f"spread_opening:{event.get('id')}"
+                            if spread_cache_key not in opening_lines_store:
+                                opening_lines_store[spread_cache_key] = {
+                                    "line": spread_line,
+                                    "timestamp": datetime.now(pytz.timezone('America/New_York')).isoformat()
+                                }
+                            
+                            if all([game.away_ppg, game.away_opp_ppg, game.home_ppg, game.home_opp_ppg]):
+                                exp_away, exp_home, _ = calculate_expected_scores(
+                                    game.away_ppg, game.away_opp_ppg, 
+                                    game.home_ppg, game.home_opp_ppg
+                                )
+                                game.expected_away = exp_away
+                                game.expected_home = exp_home
+                                game.projected_margin = exp_home - exp_away
+                                spread_qual, spread_dir, spread_edge = check_spread_qualification(
+                                    exp_away, exp_home, spread_line, game.league
+                                )
+                                game.spread_direction = spread_dir
+                                game.spread_edge = spread_edge
+                                
+                                bovada_spread_odds = None
+                                pinnacle_spread_odds = None
+                                if spread_dir == "HOME":
+                                    bovada_spread_odds = spread_data['home_odds']
+                                elif spread_dir == "AWAY":
+                                    bovada_spread_odds = spread_data['away_odds']
+                                
+                                if pinnacle_markets.get("spreads") and spread_dir:
+                                    pinn_outcomes = pinnacle_markets["spreads"].get("outcomes", [])
+                                    pick_team = home_team if spread_dir == "HOME" else away_team
+                                    pinn_outcome = next((o for o in pinn_outcomes if teams_match(o.get("name", ""), pick_team)), None)
+                                    if pinn_outcome:
+                                        pinnacle_spread_odds = pinn_outcome.get("price")
+                                
+                                game.bovada_spread_odds = bovada_spread_odds
+                                game.pinnacle_spread_odds = pinnacle_spread_odds
+                                if bovada_spread_odds and pinnacle_spread_odds:
+                                    game.spread_ev = calculate_ev(bovada_spread_odds, pinnacle_spread_odds)
+                                
+                                game.spread_is_qualified = spread_qual
+                                
+                            spreads_updated += 1
         except Exception as e:
             logger.error(f"Odds processing error for {league}: {e}")
     
