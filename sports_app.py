@@ -422,6 +422,7 @@ def check_finished_games_results() -> int:
     """
     Check results for picks where the game has likely finished.
     A game is considered finished if current time > game_start + duration.
+    Also checks picks older than 24 hours regardless of game_start.
     """
     et = pytz.timezone('America/New_York')
     now = datetime.now(et)
@@ -430,6 +431,7 @@ def check_finished_games_results() -> int:
     
     for pick in pending_picks:
         game_start = None
+        
         if pick.game_start:
             if pick.game_start.tzinfo is None:
                 game_start = et.localize(pick.game_start)
@@ -440,13 +442,18 @@ def check_finished_games_results() -> int:
             if game and game.game_time:
                 game_start = parse_game_time_to_datetime(game.game_time, pick.date)
         
-        if not game_start:
-            continue
+        should_check = False
+        if game_start:
+            duration_hours = GAME_DURATION_HOURS.get(pick.league, 2.5)
+            expected_end = game_start + timedelta(hours=duration_hours)
+            if now >= expected_end:
+                should_check = True
+        else:
+            pick_datetime = et.localize(datetime.combine(pick.date, datetime.min.time()))
+            if now > pick_datetime + timedelta(hours=24):
+                should_check = True
         
-        duration_hours = GAME_DURATION_HOURS.get(pick.league, 2.5)
-        expected_end = game_start + timedelta(hours=duration_hours)
-        
-        if now >= expected_end:
+        if should_check:
             try:
                 if pick.pick_type == "spread":
                     updated = check_spread_pick_result(pick)
@@ -2973,7 +2980,7 @@ def get_schedule_windows():
 
 @app.route('/check_results', methods=['POST'])
 def check_results():
-    updated = check_pick_results()
+    updated = check_finished_games_results()
     return jsonify({"success": True, "results_updated": updated})
 
 @app.route('/api/check_game_results', methods=['POST'])

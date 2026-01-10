@@ -273,7 +273,7 @@
             </div>
         </div>
 
-        <div class="filter-bar" style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
+        <div class="filter-bar" style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center;">
             <select id="leagueFilter" onchange="filterPicks()" style="background: var(--bg-input); border: 1px solid var(--border); color: var(--text); padding: 0.5rem 0.75rem; border-radius: 8px; font-size: 0.8rem; font-weight: 600;">
                 <option value="all">All Leagues</option>
                 <option value="NBA">NBA</option>
@@ -294,6 +294,9 @@
                 <option value="L">Losses Only</option>
                 <option value="pending">Pending</option>
             </select>
+            <button id="checkResultsBtn" onclick="manualCheckResults()" style="background: linear-gradient(135deg, rgba(123, 44, 191, 0.3), rgba(123, 44, 191, 0.1)); border: 1px solid var(--accent); color: var(--text); padding: 0.5rem 0.75rem; border-radius: 8px; font-size: 0.8rem; font-weight: 600; cursor: pointer; margin-left: auto;">
+                <i class="bi bi-arrow-repeat"></i> Check Results
+            </button>
         </div>
 
         <div class="section-title">
@@ -400,6 +403,35 @@
         }
         
         let lastPicksHash = '';
+        
+        function manualCheckResults() {
+            hapticFeedback();
+            const btn = document.getElementById('checkResultsBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Checking...';
+            
+            fetch('/check_results', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    btn.disabled = false;
+                    if (data.results_updated > 0) {
+                        btn.innerHTML = '<i class="bi bi-check-circle"></i> ' + data.results_updated + ' Updated!';
+                        setTimeout(() => location.reload(), 1000);
+                    } else {
+                        btn.innerHTML = '<i class="bi bi-check"></i> All Checked';
+                        setTimeout(() => {
+                            btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Check Results';
+                        }, 2000);
+                    }
+                })
+                .catch(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-x-circle"></i> Error';
+                    setTimeout(() => {
+                        btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Check Results';
+                    }, 2000);
+                });
+        }
         
         function checkForUpdates() {
             fetch('/api/check_game_results', { method: 'POST' })
