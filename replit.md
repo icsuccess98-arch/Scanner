@@ -52,7 +52,7 @@ The sports betting calculator uses four distinct models for pick generation:
 2.  **Standard Spreads** - Model 2
     -   Spread picks using expected margin vs Bovada spread lines
     -   Same edge thresholds as totals
-    -   Historical qualification: Average margin must support spread line (75% threshold)
+    -   Historical qualification: Average margin must support spread line (80% threshold)
     -   Alt spread selection: Best alternate with odds -180 or better
 
 3.  **Away Favorite + O/U** - Model 3 (User record: 51-14)
