@@ -1132,14 +1132,16 @@ def fetch_first_half_history(team: str, league: str, limit: int = 20) -> dict:
             
             # Get homeAway status from header
             for comp in competitors:
-                comp_id = str(comp.get("id", ""))
+                # ESPN stores team id under comp["team"]["id"] or fallback to comp["id"]
+                comp_id = str(comp.get("team", {}).get("id", "") or comp.get("id", ""))
                 if comp_id == str(team_id):
                     team_is_away = comp.get("homeAway") == "away"
                     break
             
             # Get linescores from header (easier format)
             for comp in competitors:
-                comp_id = str(comp.get("id", ""))
+                # ESPN stores team id under comp["team"]["id"] or fallback to comp["id"]
+                comp_id = str(comp.get("team", {}).get("id", "") or comp.get("id", ""))
                 linescores = comp.get("linescores", [])
                 
                 if len(linescores) < 2:
@@ -1275,7 +1277,8 @@ def fetch_first_half_h2h(away_team: str, home_team: str, league: str, limit: int
             home_1h = 0
             
             for comp in h_comps:
-                comp_id = str(comp.get("id", ""))
+                # ESPN stores team id under comp["team"]["id"] or fallback to comp["id"]
+                comp_id = str(comp.get("team", {}).get("id", "") or comp.get("id", ""))
                 linescores = comp.get("linescores", [])
                 
                 if len(linescores) < 2:
