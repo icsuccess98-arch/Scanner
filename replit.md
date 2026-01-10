@@ -35,7 +35,7 @@ The overarching vision is to provide robust, automated, and data-backed trading 
     -   **Bet Direction**: Binary rules for OVER/UNDER based on `Projected_Total` vs. `Bovada_Line` plus threshold.
     -   **Historical Qualification**: Totals picks require 60%+ historical O/U hit rate from last 10 games. H2H history also considered if 3+ games exist. Spreads use margin-based validation.
     -   **Alt Lines**: Fetched from Bovada, selecting the best value under/over the main line, with odds strictly -180 or better.
-    -   **Pinnacle EV Comparison**: Fetches Pinnacle odds alongside Bovada to calculate Expected Value (EV). EV formula: `(p_true * decimal_payout) - 1` where `p_true` is Pinnacle's implied probability. Picks must have non-negative EV (≥0%) to qualify.
+    -   **Pinnacle EV Comparison**: Fetches Pinnacle odds alongside Bovada to calculate Expected Value (EV). EV formula: `(p_true * decimal_payout) - 1` where `p_true` is Pinnacle's implied probability. Picks with negative EV are excluded; picks without Pinnacle data (NULL EV) are allowed through.
     -   **Result Checking**: Automatic result checking refreshes approximately 2.5-3.5 hours after game start.
     -   **Automation**: Daily scheduled tasks for fetching games, stats, odds, posting picks to Discord, and checking results.
 
@@ -94,6 +94,7 @@ The sports betting calculator uses four distinct models for pick generation:
 2.  **Standard Spreads** - Model 2
     -   Spread picks using expected margin vs Bovada spread lines
     -   Same edge thresholds as totals
+    -   **Separate qualification tracking**: Uses `spread_history_qualified` column (independent from totals `history_qualified`)
     -   Historical qualification: HOME favorites need 85% margin threshold; AWAY underdogs must have positive margin
     -   Alt spread selection: Best alternate with odds -180 or better
 
