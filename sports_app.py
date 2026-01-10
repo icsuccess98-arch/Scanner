@@ -479,9 +479,9 @@ class BulletproofPickValidator:
     }
     
     CONFIDENCE_TIERS = {
-        "SUPERMAX": {"edge": 12, "ev": 3.0, "history": 75},
-        "HIGH": {"edge": 10, "ev": 1.0, "history": 70},
-        "MEDIUM": {"edge": 8, "ev": 0, "history": 65},
+        "SUPERMAX": {"edge": 12, "ev": 3.0, "history": 70},
+        "HIGH": {"edge": 10, "ev": 1.0, "history": 65},
+        "MEDIUM": {"edge": 8, "ev": 0, "history": 60},
         "LOW": {"edge": 0, "ev": -999, "history": 60}
     }
     
@@ -591,16 +591,16 @@ class BulletproofPickValidator:
         
         ev_val = ev if ev is not None else 0
         
-        # SUPERMAX: Edge 12+, EV 3%+, History 75%+
-        if edge >= 12 and ev_val >= 3.0 and history_pct >= 75:
+        # SUPERMAX: Edge 12+, EV 3%+, History 70%+
+        if edge >= 12 and ev_val >= 3.0 and history_pct >= 70:
             return "SUPERMAX"
         
-        # HIGH: Edge 10+, EV 1%+, History 70%+
-        if edge >= 10 and ev_val >= 1.0 and history_pct >= 70:
+        # HIGH: Edge 10+, EV 1%+, History 65%+
+        if edge >= 10 and ev_val >= 1.0 and history_pct >= 65:
             return "HIGH"
         
-        # MEDIUM: Edge 8+, EV 0%+, History 65%+
-        if edge >= 8 and ev_val >= 0 and history_pct >= 65:
+        # MEDIUM: Edge 8+, EV 0%+, History 60%+
+        if edge >= 8 and ev_val >= 0 and history_pct >= 60:
             return "MEDIUM"
         
         # LOW: Meets minimum thresholds
