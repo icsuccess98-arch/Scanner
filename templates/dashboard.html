@@ -800,10 +800,7 @@
                             {% if pick.direction == 'HOME' %}{{ pick.game.home_team }}{% else %}{{ pick.game.away_team }}{% endif %} {{ "%+.1f"|format(pick.line) if pick.line else '' }}{% if pick.odds %} <span style="font-size: 0.7rem; opacity: 0.85;">({{ pick.odds }})</span>{% endif %}
                         </span>
                         {% endif %}
-                        <span class="top-pick-edge" style="display: flex; align-items: center; gap: 6px;">
-                            <span style="color: var(--green);">+{{ "%.1f"|format(pick.edge) }}</span>
-                            {% if pick.history_pct %}<span style="font-size: 0.7rem; color: var(--gold);">{{ "%.0f"|format(pick.history_pct) }}%</span>{% endif %}
-                        </span>
+                        <span class="top-pick-edge">+{{ "%.1f"|format(pick.edge) }}</span>
                     </div>
                     {% endfor %}
                     {% if not analytics.top_picks %}
