@@ -39,6 +39,34 @@ The overarching vision is to provide robust, automated, and data-backed trading 
     -   **Result Checking**: Automatic result checking refreshes approximately 2.5-3.5 hours after game start.
     -   **Automation**: Daily scheduled tasks for fetching games, stats, odds, posting picks to Discord, and checking results.
 
+### Advanced Qualification Factors (Backend)
+Additional data-driven factors that disqualify picks during game scanning:
+
+1.  **Recent Form Weighting**
+    -   Calculates PPG from last 5 games vs season average
+    -   Tracks form trending: UP (recent > season + 2pts), DOWN (recent < season - 2pts), or STABLE
+    -   Spreads disqualified if betting on a team with declining form AND recent margin doesn't support the pick
+
+2.  **Injury Data Integration**
+    -   Fetches injury reports from ESPN API for both teams
+    -   Tracks "Out" and "Doubtful" players
+    -   `has_key_injuries` flag triggers if 2+ players are out/doubtful
+    -   Disqualifies OVER picks if either team has key injuries
+    -   Disqualifies spread picks if the team being bet on has key injuries
+
+3.  **Sharp Money Detection (Line Movement)**
+    -   Stores opening line when first fetched from Bovada
+    -   Compares current line to opening line to detect movement
+    -   Sharp movement threshold: 1.5+ points
+    -   `SHARP_AGREES`: Line moved in direction of our pick (confirmation)
+    -   `SHARP_DISAGREES`: Line moved against our pick (disqualification trigger)
+    -   Picks disqualified when sharp money moves against the model's direction
+
+4.  **Strength of Schedule Factor**
+    -   `calculate_sos_factor()` compares opponent's PPG allowed to league average
+    -   Returns multiplier (>1 = tough schedule, <1 = easy schedule)
+    -   Available for future projection adjustments
+
 ### Betting Models (4 Total)
 The sports betting calculator uses four distinct models for pick generation:
 

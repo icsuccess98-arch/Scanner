@@ -50,6 +50,282 @@ THRESHOLDS = {
     "NHL": 0.5
 }
 
+injury_cache = {}
+line_movement_cache = {}
+opening_lines_store = {}
+
+def fetch_team_injuries(team_name: str, league: str) -> dict:
+    """
+    Fetch injury data from ESPN for key player availability.
+    Returns: {"has_key_injuries": bool, "injured_starters": int, "details": list}
+    """
+    et = pytz.timezone('America/New_York')
+    today_str = datetime.now(et).strftime("%Y-%m-%d")
+    cache_key = f"injuries:{today_str}:{league}:{team_name.lower()}"
+    
+    if cache_key in injury_cache:
+        return injury_cache[cache_key]
+    
+    try:
+        sport_map = {
+            "NBA": "basketball/nba",
+            "CBB": "basketball/mens-college-basketball",
+            "NFL": "football/nfl",
+            "CFB": "football/college-football",
+            "NHL": "hockey/nhl"
+        }
+        sport = sport_map.get(league)
+        if not sport:
+            return {"has_key_injuries": False, "injured_starters": 0, "details": []}
+        
+        team_id = get_espn_team_id(team_name, league)
+        if not team_id:
+            return {"has_key_injuries": False, "injured_starters": 0, "details": []}
+        
+        url = f"https://sports.core.api.espn.com/v2/sports/{sport}/teams/{team_id}/injuries?limit=50"
+        resp = requests.get(url, timeout=10)
+        if resp.status_code != 200:
+            return {"has_key_injuries": False, "injured_starters": 0, "details": []}
+        
+        data = resp.json()
+        items = data.get("items", [])
+        
+        injured_starters = 0
+        injury_details = []
+        
+        for item in items:
+            if "$ref" in item:
+                try:
+                    injury_resp = requests.get(item["$ref"], timeout=5)
+                    if injury_resp.status_code == 200:
+                        injury_data = injury_resp.json()
+                        status = injury_data.get("status", "").lower()
+                        if status in ["out", "doubtful"]:
+                            injured_starters += 1
+                            injury_details.append({
+                                "status": status,
+                                "type": injury_data.get("type", {}).get("description", "Unknown")
+                            })
+                except:
+                    continue
+        
+        result = {
+            "has_key_injuries": injured_starters >= 2,
+            "injured_starters": injured_starters,
+            "details": injury_details[:5]
+        }
+        injury_cache[cache_key] = result
+        return result
+    except Exception as e:
+        logger.debug(f"Injury fetch error for {team_name}: {e}")
+        return {"has_key_injuries": False, "injured_starters": 0, "details": []}
+
+def store_opening_line(event_id: str, line: float):
+    """
+    Store the first line we see as the opening line for comparison.
+    Called when we first fetch odds for a game.
+    """
+    if event_id and line and event_id not in opening_lines_store:
+        opening_lines_store[event_id] = {
+            "line": line,
+            "timestamp": datetime.now(pytz.timezone('America/New_York')).isoformat()
+        }
+        logger.debug(f"Stored opening line for {event_id}: {line}")
+
+def get_line_movement(event_id: str, current_line: float) -> dict:
+    """
+    Get line movement by comparing stored opening line with current line.
+    Returns: {"opening_line": float, "current_line": float, "movement": float}
+    """
+    if event_id not in opening_lines_store:
+        return {"opening_line": None, "current_line": current_line, "movement": 0}
+    
+    opening = opening_lines_store[event_id]["line"]
+    movement = current_line - opening
+    
+    return {
+        "opening_line": opening,
+        "current_line": current_line,
+        "movement": movement
+    }
+
+def fetch_opening_line(sport_key: str, event_id: str, current_line: float = None) -> dict:
+    """
+    Track line movement by comparing stored opening line vs current.
+    If we have a stored opening, compare. Otherwise just return current.
+    Returns: {"opening_line": float, "current_line": float, "movement": float, "sharp_move": bool}
+    """
+    et = pytz.timezone('America/New_York')
+    today_str = datetime.now(et).strftime("%Y-%m-%d")
+    cache_key = f"line_movement:{today_str}:{sport_key}:{event_id}"
+    
+    if cache_key in line_movement_cache:
+        cached = line_movement_cache[cache_key]
+        if current_line and cached.get("opening_line"):
+            cached["current_line"] = current_line
+            cached["movement"] = current_line - cached["opening_line"]
+        return cached
+    
+    result = {"opening_line": None, "current_line": current_line, "movement": 0, "sharp_move": False}
+    
+    if event_id in opening_lines_store and current_line:
+        opening = opening_lines_store[event_id]["line"]
+        result["opening_line"] = opening
+        result["current_line"] = current_line
+        result["movement"] = current_line - opening
+        result["sharp_move"] = abs(result["movement"]) >= 1.5
+    
+    line_movement_cache[cache_key] = result
+    return result
+
+def detect_sharp_money(opening_line: float, current_line: float, direction: str = None) -> dict:
+    """
+    Detect sharp money based on line movement patterns.
+    Sharp indicators:
+    - Line moved 1.5+ points in same direction as our pick (sharp agrees)
+    - Line moved 1.5+ points against our pick (sharp disagrees - warning)
+    - Reverse line movement (public on one side, line moves other way)
+    
+    Returns: {"sharp_aligned": bool, "sharp_against": bool, "movement": float, "signal": str}
+    """
+    if opening_line is None or current_line is None:
+        return {"sharp_aligned": False, "sharp_against": False, "movement": 0, "signal": "NO_DATA"}
+    
+    movement = current_line - opening_line
+    
+    if direction == "O":
+        if movement >= 1.5:
+            return {"sharp_aligned": True, "sharp_against": False, "movement": movement, "signal": "SHARP_AGREES"}
+        elif movement <= -1.5:
+            return {"sharp_aligned": False, "sharp_against": True, "movement": movement, "signal": "SHARP_DISAGREES"}
+    elif direction == "U":
+        if movement <= -1.5:
+            return {"sharp_aligned": True, "sharp_against": False, "movement": movement, "signal": "SHARP_AGREES"}
+        elif movement >= 1.5:
+            return {"sharp_aligned": False, "sharp_against": True, "movement": movement, "signal": "SHARP_DISAGREES"}
+    
+    return {"sharp_aligned": False, "sharp_against": False, "movement": movement, "signal": "NEUTRAL"}
+
+def calculate_recent_form_ppg(games: list) -> dict:
+    """
+    Calculate PPG and Opp PPG from last 5 games for recent form.
+    Returns: {"ppg": float, "opp_ppg": float, "games_used": int}
+    """
+    if len(games) < 3:
+        return {"ppg": 0, "opp_ppg": 0, "games_used": 0}
+    
+    recent = games[-5:] if len(games) >= 5 else games
+    
+    ppg = sum(g["team_score"] for g in recent) / len(recent)
+    opp_ppg = sum(g["opp_score"] for g in recent) / len(recent)
+    
+    return {"ppg": ppg, "opp_ppg": opp_ppg, "games_used": len(recent)}
+
+def calculate_blended_stats(season_ppg: float, season_opp: float, 
+                           recent_ppg: float, recent_opp: float,
+                           recent_weight: float = 0.6) -> Tuple[float, float]:
+    """
+    Blend season stats with recent form (default 60% recent, 40% season).
+    Returns: (blended_ppg, blended_opp_ppg)
+    """
+    if recent_ppg == 0 or recent_opp == 0:
+        return season_ppg, season_opp
+    
+    season_weight = 1 - recent_weight
+    
+    blended_ppg = (recent_ppg * recent_weight) + (season_ppg * season_weight)
+    blended_opp = (recent_opp * recent_weight) + (season_opp * season_weight)
+    
+    return blended_ppg, blended_opp
+
+def calculate_sos_factor(opp_ppg: float, league: str) -> float:
+    """
+    Calculate strength of schedule adjustment factor.
+    League average defensive ratings used as baseline.
+    Returns: multiplier (>1 = tough schedule, <1 = easy schedule)
+    """
+    league_avg_def = {
+        "NBA": 114.0,
+        "CBB": 70.0,
+        "NFL": 22.0,
+        "CFB": 25.0,
+        "NHL": 3.0
+    }
+    avg = league_avg_def.get(league, 100)
+    if avg == 0:
+        return 1.0
+    
+    return opp_ppg / avg
+
+def check_line_movement_sharp(opening: float, current: float, threshold: float = 1.5) -> bool:
+    """
+    Detect sharp money movement (significant line shift).
+    Sharp move = line moved 1.5+ points in either direction.
+    """
+    if opening is None or current is None:
+        return False
+    movement = abs(current - opening)
+    return movement >= threshold
+
+def calculate_advanced_qualification_score(game, away_games: list, home_games: list) -> dict:
+    """
+    Calculate advanced qualification factors for a game.
+    Incorporates recent form, opponent strength, injuries, and line movement.
+    Returns: {
+        "recent_form_boost": float (-2 to +2),
+        "injury_penalty": float (0 to -3),
+        "sharp_money_aligned": bool,
+        "sos_adjusted_edge": float,
+        "total_adjustment": float
+    }
+    """
+    adjustments = {
+        "recent_form_boost": 0,
+        "injury_penalty": 0,
+        "sharp_money_aligned": False,
+        "sos_factor": 1.0,
+        "total_adjustment": 0
+    }
+    
+    try:
+        if len(away_games) >= 3:
+            away_recent = calculate_recent_form_ppg(away_games)
+            away_margin_recent = sum(g["margin"] for g in away_games[-5:]) / min(5, len(away_games))
+            away_margin_season = sum(g["margin"] for g in away_games) / len(away_games)
+            
+            if away_margin_recent > away_margin_season + 3:
+                adjustments["recent_form_boost"] += 1.0
+            elif away_margin_recent < away_margin_season - 3:
+                adjustments["recent_form_boost"] -= 1.0
+        
+        if len(home_games) >= 3:
+            home_recent = calculate_recent_form_ppg(home_games)
+            home_margin_recent = sum(g["margin"] for g in home_games[-5:]) / min(5, len(home_games))
+            home_margin_season = sum(g["margin"] for g in home_games) / len(home_games)
+            
+            if home_margin_recent > home_margin_season + 3:
+                adjustments["recent_form_boost"] -= 0.5
+            elif home_margin_recent < home_margin_season - 3:
+                adjustments["recent_form_boost"] += 0.5
+        
+        away_injuries = fetch_team_injuries(game.away_team, game.league)
+        home_injuries = fetch_team_injuries(game.home_team, game.league)
+        
+        if game.spread_direction == "AWAY" and away_injuries["has_key_injuries"]:
+            adjustments["injury_penalty"] -= 2
+        elif game.spread_direction == "HOME" and home_injuries["has_key_injuries"]:
+            adjustments["injury_penalty"] -= 2
+        
+        if game.direction == "O" and (away_injuries["has_key_injuries"] or home_injuries["has_key_injuries"]):
+            adjustments["injury_penalty"] -= 1
+        
+        adjustments["total_adjustment"] = adjustments["recent_form_boost"] + adjustments["injury_penalty"]
+        
+    except Exception as e:
+        logger.debug(f"Advanced qualification error: {e}")
+    
+    return adjustments
+
 DIRECTIONAL_PREFIXES = {'eastern', 'western', 'central', 'northern', 'southern', 
                          'southeast', 'southwest', 'northeast', 'northwest'}
 DIRECTIONAL_ABBREVS = {'e': 'eastern', 'w': 'western', 'c': 'central', 'n': 'northern', 
@@ -327,6 +603,38 @@ def calculate_expected_scores(away_ppg: float, away_opp: float,
     exp_away = (away_ppg + home_opp) / 2
     exp_home = (home_ppg + away_opp) / 2
     return exp_away, exp_home, exp_away + exp_home
+
+def calculate_blended_expected_scores(game, away_games: list, home_games: list) -> Tuple[float, float, float]:
+    """
+    Calculate expected scores using blended stats (60% recent form, 40% season).
+    Uses the locked formula with blended PPG values.
+    Returns: (expected_away, expected_home, projected_total)
+    """
+    if not all([game.away_ppg, game.away_opp_ppg, game.home_ppg, game.home_opp_ppg]):
+        raise ValueError("Insufficient data — no play")
+    
+    away_recent = calculate_recent_form_ppg(away_games) if away_games else {"ppg": 0, "opp_ppg": 0}
+    home_recent = calculate_recent_form_ppg(home_games) if home_games else {"ppg": 0, "opp_ppg": 0}
+    
+    if away_recent["ppg"] > 0 and home_recent["ppg"] > 0:
+        blended_away_ppg, blended_away_opp = calculate_blended_stats(
+            game.away_ppg, game.away_opp_ppg,
+            away_recent["ppg"], away_recent["opp_ppg"]
+        )
+        blended_home_ppg, blended_home_opp = calculate_blended_stats(
+            game.home_ppg, game.home_opp_ppg,
+            home_recent["ppg"], home_recent["opp_ppg"]
+        )
+        
+        return calculate_expected_scores(
+            blended_away_ppg, blended_away_opp,
+            blended_home_ppg, blended_home_opp
+        )
+    
+    return calculate_expected_scores(
+        game.away_ppg, game.away_opp_ppg,
+        game.home_ppg, game.home_opp_ppg
+    )
 
 def check_spread_qualification(expected_away: float, expected_home: float, 
                                 spread_line: float, league: str) -> Tuple[bool, Optional[str], float]:
@@ -1338,6 +1646,11 @@ def update_game_historical_data(game: Game) -> bool:
     TOTALS: 60% O/U hit rate required (either team)
     SPREADS: Average margin must support the spread line (calculated on-the-fly)
     
+    ADVANCED FACTORS (integrated into qualification):
+    - Recent form weighting (60% last 5 games, 40% season)
+    - Injury data (2+ starters out = penalty)
+    - Strength of schedule adjustment
+    
     For spreads, we use average margin as a proxy:
     - If picking HOME favorite: Home avg margin should exceed 85% of spread
     - If picking AWAY underdog: Must have positive avg margin (winning on average)
@@ -1360,6 +1673,31 @@ def update_game_historical_data(game: Game) -> bool:
         away_avg_margin = calculate_avg_margin(away_games)
         home_avg_margin = calculate_avg_margin(home_games)
         
+        away_recent = calculate_recent_form_ppg(away_games)
+        home_recent = calculate_recent_form_ppg(home_games)
+        
+        away_recent_margin = sum(g["margin"] for g in away_games[-5:]) / min(5, len(away_games)) if away_games else 0
+        home_recent_margin = sum(g["margin"] for g in home_games[-5:]) / min(5, len(home_games)) if home_games else 0
+        
+        away_form_trending = "UP" if away_recent_margin > away_avg_margin + 2 else ("DOWN" if away_recent_margin < away_avg_margin - 2 else "STABLE")
+        home_form_trending = "UP" if home_recent_margin > home_avg_margin + 2 else ("DOWN" if home_recent_margin < home_avg_margin - 2 else "STABLE")
+        
+        away_injuries = fetch_team_injuries(game.away_team, game.league)
+        home_injuries = fetch_team_injuries(game.home_team, game.league)
+        
+        injury_concern = False
+        if game.direction == "O":
+            if away_injuries["has_key_injuries"] or home_injuries["has_key_injuries"]:
+                injury_concern = True
+                logger.info(f"{game.away_team} @ {game.home_team}: INJURY CONCERN for OVER - Away injured: {away_injuries['injured_starters']}, Home injured: {home_injuries['injured_starters']}")
+        
+        if game.spread_direction == "AWAY" and away_injuries["has_key_injuries"]:
+            injury_concern = True
+            logger.info(f"{game.away_team} @ {game.home_team}: INJURY CONCERN for AWAY spread - {away_injuries['injured_starters']} key players out")
+        elif game.spread_direction == "HOME" and home_injuries["has_key_injuries"]:
+            injury_concern = True
+            logger.info(f"{game.away_team} @ {game.home_team}: INJURY CONCERN for HOME spread - {home_injuries['injured_starters']} key players out")
+        
         h2h = fetch_h2h_history(game.away_team, game.home_team, game.league, direction)
         game.h2h_ou_pct = h2h["ou_pct"]
         h2h_games = h2h["games_found"]
@@ -1371,24 +1709,68 @@ def update_game_historical_data(game: Game) -> bool:
             h2h_qualified = (game.h2h_ou_pct or 0) >= 60
             totals_qualified = totals_qualified and h2h_qualified
         
+        if totals_qualified and injury_concern:
+            logger.info(f"{game.away_team} @ {game.home_team}: Totals DISQUALIFIED due to injury concern")
+            totals_qualified = False
+        
+        sharp_against = False
+        if game.sport_key and game.event_id and game.line:
+            opening_data = fetch_opening_line(game.sport_key, game.event_id, game.line)
+            if opening_data.get("opening_line"):
+                sharp_signal = detect_sharp_money(
+                    opening_data["opening_line"],
+                    opening_data["current_line"],
+                    game.direction
+                )
+                if sharp_signal["sharp_against"]:
+                    sharp_against = True
+                    logger.info(f"{game.away_team} @ {game.home_team}: SHARP MONEY AGAINST our {game.direction} pick - line moved {sharp_signal['movement']:.1f} points (open: {opening_data['opening_line']}, now: {opening_data['current_line']})")
+                elif sharp_signal["sharp_aligned"]:
+                    logger.info(f"{game.away_team} @ {game.home_team}: Sharp money ALIGNED with our {game.direction} pick - line moved {sharp_signal['movement']:.1f} points")
+        
+        if totals_qualified and sharp_against:
+            logger.info(f"{game.away_team} @ {game.home_team}: Totals DISQUALIFIED due to sharp money against")
+            totals_qualified = False
+        
         spread_qualified = False
         if game.spread_is_qualified and game.spread_line is not None:
             spread_line = game.spread_line
             
             if game.spread_direction == "HOME":
-                # HOME favorite: margin must cover 85% of spread
                 spread_qualified = home_avg_margin >= abs(spread_line) * 0.85
+                
+                if spread_qualified and home_form_trending == "DOWN":
+                    logger.info(f"{game.away_team} @ {game.home_team}: HOME spread marginal due to declining form")
+                    if home_recent_margin < abs(spread_line) * 0.5:
+                        spread_qualified = False
+                        logger.info(f"{game.away_team} @ {game.home_team}: HOME spread DISQUALIFIED - recent form too weak")
+                        
             elif game.spread_direction == "AWAY":
-                # AWAY underdog: must have positive margin (winning on average)
                 spread_qualified = away_avg_margin > 0
+                
+                if spread_qualified and away_form_trending == "DOWN":
+                    logger.info(f"{game.away_team} @ {game.home_team}: AWAY spread marginal due to declining form")
+                    if away_recent_margin < 0:
+                        spread_qualified = False
+                        logger.info(f"{game.away_team} @ {game.home_team}: AWAY spread DISQUALIFIED - recent form shows losses")
             else:
                 spread_qualified = True
             
-            logger.info(f"{game.away_team} @ {game.home_team}: Margins Away={away_avg_margin:.1f}/Home={home_avg_margin:.1f}, Spread={spread_line}, spread_qualified={spread_qualified}")
+            if spread_qualified and injury_concern:
+                logger.info(f"{game.away_team} @ {game.home_team}: Spread DISQUALIFIED due to injury concern")
+                spread_qualified = False
+            
+            if spread_qualified and sharp_against:
+                logger.info(f"{game.away_team} @ {game.home_team}: Spread DISQUALIFIED due to sharp money against")
+                spread_qualified = False
+            
+            logger.info(f"{game.away_team} @ {game.home_team}: Margins Away={away_avg_margin:.1f}(recent:{away_recent_margin:.1f})/Home={home_avg_margin:.1f}(recent:{home_recent_margin:.1f}), Spread={spread_line}, spread_qualified={spread_qualified}")
         
         game.history_qualified = totals_qualified or spread_qualified
         
-        logger.info(f"{game.away_team} @ {game.home_team}: O/U {game.away_ou_pct:.1f}%/{game.home_ou_pct:.1f}%, totals={totals_qualified}, spread={spread_qualified}, qualified={game.history_qualified}")
+        form_info = f"Form: Away={away_form_trending}, Home={home_form_trending}"
+        injury_info = f"Injuries: Away={away_injuries['injured_starters']}, Home={home_injuries['injured_starters']}"
+        logger.info(f"{game.away_team} @ {game.home_team}: O/U {game.away_ou_pct:.1f}%/{game.home_ou_pct:.1f}%, {form_info}, {injury_info}, qualified={game.history_qualified}")
         
         return game.history_qualified
     except Exception as e:
@@ -2687,6 +3069,7 @@ def fetch_odds_internal() -> dict:
                                     bovada_over_odds = outcome.get("price")
                                     if line is not None:
                                         game.line = line
+                                        store_opening_line(event.get("id"), line)
                                         if all([game.away_ppg, game.away_opp_ppg, game.home_ppg, game.home_opp_ppg]):
                                             exp_away, exp_home, proj_total = calculate_expected_scores(
                                                 game.away_ppg, game.away_opp_ppg, 
