@@ -4655,7 +4655,9 @@ def history():
         if p.result is None:
             # Check if game has started yet
             if p.game_start:
-                game_start_et = p.game_start.replace(tzinfo=pytz.UTC).astimezone(et) if p.game_start.tzinfo else et.localize(p.game_start)
+                # game_start is stored as UTC (from Odds API), convert to ET for comparison
+                game_start_utc = p.game_start.replace(tzinfo=pytz.UTC) if p.game_start.tzinfo is None else p.game_start
+                game_start_et = game_start_utc.astimezone(et)
                 if game_start_et > now:
                     upcoming_picks.append(p)
                 else:
