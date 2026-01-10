@@ -339,9 +339,9 @@ def detect_sharp_money(opening_line: float, current_line: float, direction: str 
     - Line moves UP = sharps on OVER, moves DOWN = sharps on UNDER
     
     For SPREADS (direction = "HOME" or "AWAY"):
-    - Spread line from home perspective (negative = home favored)
-    - Line moves MORE NEGATIVE (e.g., -7 → -9) = sharps on HOME
-    - Line moves MORE POSITIVE (e.g., -7 → -5) = sharps on AWAY
+    - Spread line is stored in AWAY PERSPECTIVE (positive = away underdog, negative = away favorite)
+    - Line moves UP (e.g., 7 → 9): away underdog getting more points = sharps on HOME
+    - Line moves DOWN (e.g., 7 → 5): away underdog getting fewer points = sharps on AWAY
     
     Returns: {"sharp_aligned": bool, "sharp_against": bool, "movement": float, "signal": str}
     """
@@ -362,18 +362,18 @@ def detect_sharp_money(opening_line: float, current_line: float, direction: str 
         elif movement >= 1.5:
             return {"sharp_aligned": False, "sharp_against": True, "movement": movement, "signal": "SHARP_DISAGREES"}
     
-    # SPREADS: line is from home perspective (negative = home favored)
-    # Movement negative = line going more toward home (sharps on home)
-    # Movement positive = line going more toward away (sharps on away)
+    # SPREADS: line is in AWAY PERSPECTIVE (positive = away underdog)
+    # Movement positive = spread went up (away getting more points) = sharps on HOME favorite
+    # Movement negative = spread went down (away getting fewer points) = sharps on AWAY
     elif direction == "HOME":
-        if movement <= -1.5:  # Line moved -7 → -9, sharps on HOME
+        if movement >= 1.5:  # Line moved 7 → 9, home favorite stronger, sharps on HOME
             return {"sharp_aligned": True, "sharp_against": False, "movement": movement, "signal": "SHARP_AGREES"}
-        elif movement >= 1.5:  # Line moved -7 → -5, sharps on AWAY
+        elif movement <= -1.5:  # Line moved 7 → 5, away getting value, sharps on AWAY
             return {"sharp_aligned": False, "sharp_against": True, "movement": movement, "signal": "SHARP_DISAGREES"}
     elif direction == "AWAY":
-        if movement >= 1.5:  # Line moved -7 → -5, sharps on AWAY
+        if movement <= -1.5:  # Line moved 7 → 5, sharps on AWAY
             return {"sharp_aligned": True, "sharp_against": False, "movement": movement, "signal": "SHARP_AGREES"}
-        elif movement <= -1.5:  # Line moved -7 → -9, sharps on HOME
+        elif movement >= 1.5:  # Line moved 7 → 9, sharps on HOME
             return {"sharp_aligned": False, "sharp_against": True, "movement": movement, "signal": "SHARP_DISAGREES"}
     
     return {"sharp_aligned": False, "sharp_against": False, "movement": movement, "signal": "NEUTRAL"}
@@ -2120,7 +2120,11 @@ def update_game_historical_data(game: Game) -> bool:
                 logger.info(f"{game.away_team} @ {game.home_team}: Spread DISQUALIFIED due to sharp money against")
                 spread_qualified = False
             
-            logger.info(f"{game.away_team} @ {game.home_team}: Margins Away={away_avg_margin:.1f}(recent:{away_recent_margin:.1f})/Home={home_avg_margin:.1f}(recent:{home_recent_margin:.1f}), Spread={spread_line}, spread_qualified={spread_qualified}")
+            if spread_qualified and game.spread_ev is not None and game.spread_ev < 0:
+                logger.info(f"{game.away_team} @ {game.home_team}: Spread DISQUALIFIED due to negative EV ({game.spread_ev:.2f}%)")
+                spread_qualified = False
+            
+            logger.info(f"{game.away_team} @ {game.home_team}: Margins Away={away_avg_margin:.1f}(recent:{away_recent_margin:.1f})/Home={home_avg_margin:.1f}(recent:{home_recent_margin:.1f}), Spread={spread_line}, spread_qualified={spread_qualified}, EV={game.spread_ev}")
         
         game.history_qualified = totals_qualified or spread_qualified
         
