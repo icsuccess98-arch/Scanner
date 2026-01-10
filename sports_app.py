@@ -706,7 +706,8 @@ class Game(db.Model):
     home_spread_pct = db.Column(db.Float)  # Home team's spread cover rate
     h2h_ou_pct = db.Column(db.Float)  # Head-to-head O/U hit rate
     h2h_spread_pct = db.Column(db.Float)  # Head-to-head spread cover rate
-    history_qualified = db.Column(db.Boolean, default=None)  # NULL = not checked, True/False = checked
+    history_qualified = db.Column(db.Boolean, default=None)  # NULL = not checked, True/False = checked (for TOTALS)
+    spread_history_qualified = db.Column(db.Boolean, default=None)  # Separate history qualification for SPREADS
     # Pinnacle comparison for EV calculation
     bovada_total_odds = db.Column(db.Integer)  # Bovada odds for our totals pick
     pinnacle_total_odds = db.Column(db.Integer)  # Pinnacle odds for same line
@@ -2177,7 +2178,9 @@ def update_game_historical_data(game: Game) -> bool:
             
             logger.info(f"{game.away_team} @ {game.home_team}: Margins Away={away_avg_margin:.1f}(recent:{away_recent_margin:.1f})/Home={home_avg_margin:.1f}(recent:{home_recent_margin:.1f}), Spread={spread_line}, spread_qualified={spread_qualified}, EV={game.spread_ev}")
         
-        game.history_qualified = totals_qualified or spread_qualified
+        # Track totals and spreads qualification SEPARATELY
+        game.history_qualified = totals_qualified  # For TOTALS only
+        game.spread_history_qualified = spread_qualified  # For SPREADS only
         
         form_info = f"Form: Away={away_form_trending}, Home={home_form_trending}"
         injury_info = f"Injuries: Away={away_injuries['injured_starters']}, Home={home_injuries['injured_starters']}"
@@ -2475,9 +2478,9 @@ def dashboard():
     # If history_qualified is False, hide the game
     qualified = [g for g in edge_qualified if g.history_qualified == True]
     
-    # SPREADS: Also require history_qualified (margin validation done during fetch)
-    # Must have history_qualified = True AND verified non-negative EV (NULL EV = unverified, excluded)
-    spread_qualified = [g for g in edge_spread_qualified if g.history_qualified == True 
+    # SPREADS: Use spread_history_qualified (separate from totals qualification)
+    # Must have spread_history_qualified = True AND verified non-negative EV
+    spread_qualified = [g for g in edge_spread_qualified if g.spread_history_qualified == True 
                         and g.spread_ev is not None and g.spread_ev >= 0]
     spread_qualified.sort(key=lambda x: x.alt_spread_edge or x.spread_edge or 0, reverse=True)
     
@@ -2507,10 +2510,10 @@ def dashboard():
             supermax_type = 'spread'
             supermax_edge = effective_spread_edge
     
-    # Combined qualified: games that qualify for EITHER totals OR spreads AND pass historical threshold
+    # Combined qualified: games that qualify for totals (with history) OR spreads (with spread_history)
     all_qualified_games = [g for g in all_games if 
-        ((g.is_qualified or g.spread_is_qualified) and 
-         g.history_qualified == True)]
+        (g.is_qualified and g.history_qualified == True) or 
+        (g.spread_is_qualified and g.spread_history_qualified == True and g.spread_ev is not None and g.spread_ev >= 0)]
     
     if show_only_qualified:
         games = all_qualified_games
@@ -3928,7 +3931,7 @@ def post_discord():
     all_qualified = Game.query.filter_by(date=today, is_qualified=True, history_qualified=True).order_by(Game.edge.desc()).all()
     games = [g for g in all_qualified if not (g.game_time and 'final' in g.game_time.lower())]
     
-    spread_qualified_raw = Game.query.filter_by(date=today, spread_is_qualified=True, history_qualified=True).order_by(Game.spread_edge.desc()).all()
+    spread_qualified_raw = Game.query.filter_by(date=today, spread_is_qualified=True, spread_history_qualified=True).order_by(Game.spread_edge.desc()).all()
     spread_qualified = [g for g in spread_qualified_raw if g.spread_ev is not None and g.spread_ev >= 0]
     spread_games = [g for g in spread_qualified if not (g.game_time and 'final' in g.game_time.lower())]
     
@@ -4090,7 +4093,7 @@ def post_discord_window(window: str):
     
     # Get qualified games for this window (must pass historical qualification + positive EV)
     all_qualified = Game.query.filter_by(date=today, is_qualified=True, history_qualified=True).order_by(Game.edge.desc()).all()
-    spread_qualified_raw = Game.query.filter_by(date=today, spread_is_qualified=True, history_qualified=True).order_by(Game.spread_edge.desc()).all()
+    spread_qualified_raw = Game.query.filter_by(date=today, spread_is_qualified=True, spread_history_qualified=True).order_by(Game.spread_edge.desc()).all()
     spread_qualified = [g for g in spread_qualified_raw if g.spread_ev is not None and g.spread_ev >= 0]
     
     # Filter by window and exclude finished games
