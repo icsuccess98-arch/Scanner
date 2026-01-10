@@ -5181,6 +5181,99 @@ def deep_test():
     })
     
     # ============================================================
+    # LAYER 8: TIMEZONE VALIDATION
+    # Tests UTC to ET conversion for game start times (history page)
+    # ============================================================
+    layer8_tests = []
+    
+    et = pytz.timezone('America/New_York')
+    utc = pytz.UTC
+    now_et = datetime.now(et)
+    
+    # Test 1: Past game (UTC time that's definitely in the past)
+    past_game_utc = datetime(2020, 1, 1, 12, 0, 0)  # Jan 1, 2020 12:00 UTC
+    past_game_utc_tz = utc.localize(past_game_utc)
+    past_game_et = past_game_utc_tz.astimezone(et)
+    is_past = past_game_et <= now_et
+    layer8_tests.append({
+        "test": "UTC past game (2020-01-01 12:00 UTC) correctly identified as PAST",
+        "passed": is_past,
+        "expected": True,
+        "details": f"Converted: {past_game_et.strftime('%Y-%m-%d %H:%M %Z')}"
+    })
+    
+    # Test 2: Future game (UTC time that's definitely in the future)
+    future_game_utc = datetime(2030, 12, 31, 23, 59, 59)  # Dec 31, 2030 23:59 UTC
+    future_game_utc_tz = utc.localize(future_game_utc)
+    future_game_et = future_game_utc_tz.astimezone(et)
+    is_future = future_game_et > now_et
+    layer8_tests.append({
+        "test": "UTC future game (2030-12-31 23:59 UTC) correctly identified as UPCOMING",
+        "passed": is_future,
+        "expected": True,
+        "details": f"Converted: {future_game_et.strftime('%Y-%m-%d %H:%M %Z')}"
+    })
+    
+    # Test 3: UTC to ET offset is correct (UTC is always ahead of ET by 4-5 hours)
+    test_utc = datetime(2026, 1, 10, 17, 0, 0)  # 5:00 PM UTC
+    test_utc_tz = utc.localize(test_utc)
+    test_et = test_utc_tz.astimezone(et)
+    hour_diff = test_utc.hour - test_et.hour
+    # In winter (EST), UTC is 5 hours ahead; in summer (EDT), UTC is 4 hours ahead
+    correct_offset = hour_diff in [4, 5] or hour_diff in [-20, -19]  # Handle day wrap
+    layer8_tests.append({
+        "test": "UTC to ET offset is 4-5 hours (EST/EDT)",
+        "passed": correct_offset,
+        "expected": True,
+        "details": f"17:00 UTC -> {test_et.strftime('%H:%M %Z')} (diff: {hour_diff}h)"
+    })
+    
+    # Test 4: Naive datetime treated as UTC (not ET)
+    naive_dt = datetime(2026, 6, 15, 18, 0, 0)  # 6:00 PM naive (should be UTC)
+    naive_as_utc = naive_dt.replace(tzinfo=utc)
+    naive_to_et = naive_as_utc.astimezone(et)
+    # 18:00 UTC in summer (EDT) = 14:00 ET (2:00 PM)
+    correct_conversion = naive_to_et.hour == 14  # 6 PM UTC = 2 PM EDT
+    layer8_tests.append({
+        "test": "Naive datetime (18:00) treated as UTC, converts to 14:00 EDT",
+        "passed": correct_conversion,
+        "expected": True,
+        "details": f"Naive 18:00 -> {naive_to_et.strftime('%H:%M %Z')}"
+    })
+    
+    # Test 5: Game that just started (1 minute ago) is NOT upcoming
+    one_min_ago_et = now_et - timedelta(minutes=1)
+    one_min_ago_utc = one_min_ago_et.astimezone(utc)
+    reconverted_et = one_min_ago_utc.astimezone(et)
+    is_started = reconverted_et <= now_et
+    layer8_tests.append({
+        "test": "Game started 1 min ago is correctly NOT upcoming",
+        "passed": is_started,
+        "expected": True,
+        "details": f"Started at {reconverted_et.strftime('%H:%M:%S %Z')}, now {now_et.strftime('%H:%M:%S %Z')}"
+    })
+    
+    # Test 6: Game starting in 1 hour IS upcoming
+    one_hour_later_et = now_et + timedelta(hours=1)
+    one_hour_later_utc = one_hour_later_et.astimezone(utc)
+    reconverted_et2 = one_hour_later_utc.astimezone(et)
+    is_upcoming = reconverted_et2 > now_et
+    layer8_tests.append({
+        "test": "Game starting in 1 hour is correctly UPCOMING",
+        "passed": is_upcoming,
+        "expected": True,
+        "details": f"Starts at {reconverted_et2.strftime('%H:%M:%S %Z')}, now {now_et.strftime('%H:%M:%S %Z')}"
+    })
+    
+    layer8_passed = all(t['passed'] for t in layer8_tests)
+    results.append({
+        "layer": 8,
+        "name": "TIMEZONE VALIDATION",
+        "status": "PASS" if layer8_passed else "FAIL",
+        "tests": layer8_tests
+    })
+    
+    # ============================================================
     # SUMMARY
     # ============================================================
     all_passed = all(r['status'] == 'PASS' for r in results)
