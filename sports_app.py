@@ -2689,271 +2689,180 @@ def validate_espn_event_date(event: dict, today: date, et) -> bool:
         pass
     return False
 
+def fetch_scoreboard_parallel(urls: dict, timeout: int = 30) -> dict:
+    """Fetch multiple scoreboards in parallel. Returns {league: response_json}"""
+    results = {}
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        futures = {}
+        for league, url in urls.items():
+            futures[executor.submit(requests.get, url, timeout=timeout)] = league
+        for future in as_completed(futures):
+            league = futures[future]
+            try:
+                resp = future.result()
+                results[league] = resp.json() if resp.status_code == 200 else {}
+            except Exception as e:
+                logger.debug(f"Scoreboard fetch error for {league}: {e}")
+                results[league] = {}
+    return results
+
+def process_espn_events(events: list, today: date, et, league: str) -> tuple:
+    """Process ESPN events and extract game data + team IDs for stats batch."""
+    games_data = []
+    team_ids = set()
+    for event in events:
+        if not validate_espn_event_date(event, today, et):
+            continue
+        comps = event.get("competitions", [{}])[0]
+        teams = comps.get("competitors", [])
+        if len(teams) == 2:
+            away = next((t for t in teams if t.get("homeAway") == "away"), None)
+            home = next((t for t in teams if t.get("homeAway") == "home"), None)
+            if away and home:
+                away_id = away.get("team", {}).get("id")
+                home_id = home.get("team", {}).get("id")
+                team_ids.add(away_id)
+                team_ids.add(home_id)
+                games_data.append({
+                    "away_name": away.get("team", {}).get("shortDisplayName", ""),
+                    "home_name": home.get("team", {}).get("shortDisplayName", ""),
+                    "away_id": away_id, "home_id": home_id,
+                    "game_time": event.get("status", {}).get("type", {}).get("shortDetail", ""),
+                    "league": league
+                })
+    return games_data, team_ids
+
 @app.route('/fetch_games', methods=['POST'])
 def fetch_games():
+    start_time = time.time()
     et = pytz.timezone('America/New_York')
     today = datetime.now(et).date()
     today_str = today.strftime("%Y%m%d")
     
-    nba_stats = get_nba_stats()
-    nhl_stats = get_nhl_stats()
     games_added = 0
     leagues_cleared = []
     
-    try:
-        nba_game_ids = [g.id for g in Game.query.filter_by(date=today, league="NBA").all()]
-        safe_delete_games(nba_game_ids)
-        db.session.commit()
-        leagues_cleared.append("NBA")
-        
-        nba_url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={today_str}"
-        resp = requests.get(nba_url, timeout=30)
-        events = resp.json().get("events", [])
-        nba_today_count = 0
-        
-        for event in events:
-            if not validate_espn_event_date(event, today, et):
-                continue
-            nba_today_count += 1
-            
-            comps = event.get("competitions", [{}])[0]
-            teams = comps.get("competitors", [])
-            if len(teams) == 2:
-                away = next((t for t in teams if t.get("homeAway") == "away"), None)
-                home = next((t for t in teams if t.get("homeAway") == "home"), None)
-                if away and home:
-                    away_name = away.get("team", {}).get("shortDisplayName", "")
-                    home_name = home.get("team", {}).get("shortDisplayName", "")
-                    game_time = event.get("status", {}).get("type", {}).get("shortDetail", "")
-                    
-                    away_s = find_team_stats(away_name, nba_stats)
-                    home_s = find_team_stats(home_name, nba_stats)
-                    
-                    game = Game(
-                        date=today, league="NBA", away_team=away_name, home_team=home_name,
-                        game_time=game_time,
-                        away_ppg=away_s["ppg"] if away_s else None,
-                        away_opp_ppg=away_s["opp_ppg"] if away_s else None,
-                        home_ppg=home_s["ppg"] if home_s else None,
-                        home_opp_ppg=home_s["opp_ppg"] if home_s else None
-                    )
-                    db.session.add(game)
-                    games_added += 1
-        
-        if nba_today_count == 0:
-            print(f"NBA: No games found for today ({today})")
-    except Exception as e:
-        print(f"NBA games error: {e}")
+    for league in ["NBA", "NHL", "CBB", "CFB", "NFL"]:
+        game_ids = [g.id for g in Game.query.filter_by(date=today, league=league).all()]
+        if game_ids:
+            safe_delete_games(game_ids)
+        leagues_cleared.append(league)
+    db.session.commit()
     
-    try:
-        nhl_game_ids = [g.id for g in Game.query.filter_by(date=today, league="NHL").all()]
-        safe_delete_games(nhl_game_ids)
-        db.session.commit()
-        leagues_cleared.append("NHL")
-        
-        nhl_url = f"https://api-web.nhle.com/v1/schedule/{today.strftime('%Y-%m-%d')}"
-        resp = requests.get(nhl_url, timeout=30)
-        game_weeks = resp.json().get("gameWeek", [])
-        nhl_today_count = 0
-        
-        for gw in game_weeks:
-            if gw.get("date") == today.strftime("%Y-%m-%d"):
-                for game_data in gw.get("games", []):
-                    away_name = game_data.get("awayTeam", {}).get("placeName", {}).get("default", "")
-                    home_name = game_data.get("homeTeam", {}).get("placeName", {}).get("default", "")
-                    start_time = game_data.get("startTimeUTC", "")
-                    
-                    if away_name and home_name:
-                        nhl_today_count += 1
-                        away_s = find_team_stats(away_name, nhl_stats)
-                        home_s = find_team_stats(home_name, nhl_stats)
-                        
-                        nhl_game_time = ""
-                        if start_time:
-                            try:
-                                utc_dt = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
-                                et_dt = utc_dt.astimezone(et)
-                                nhl_game_time = et_dt.strftime("%-m/%-d - %-I:%M %p EST")
-                            except Exception:
-                                nhl_game_time = start_time[:10]
-                        
-                        game = Game(
-                            date=today, league="NHL", away_team=away_name, home_team=home_name,
-                            game_time=nhl_game_time,
-                            away_ppg=away_s["ppg"] if away_s else None,
-                            away_opp_ppg=away_s["opp_ppg"] if away_s else None,
-                            home_ppg=home_s["ppg"] if home_s else None,
-                            home_opp_ppg=home_s["opp_ppg"] if home_s else None
-                        )
-                        db.session.add(game)
-                        games_added += 1
-        
-        if nhl_today_count == 0:
-            print(f"NHL: No games found for today ({today})")
-    except Exception as e:
-        print(f"NHL games error: {e}")
+    scoreboard_urls = {
+        "NBA": f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={today_str}",
+        "CBB": f"https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates={today_str}&limit=500&groups=50",
+        "NFL": f"https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates={today_str}",
+        "CFB": f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates={today_str}&limit=100",
+        "NHL": f"https://api-web.nhle.com/v1/schedule/{today.strftime('%Y-%m-%d')}"
+    }
     
-    try:
-        cbb_game_ids = [g.id for g in Game.query.filter_by(date=today, league="CBB").all()]
-        safe_delete_games(cbb_game_ids)
-        db.session.commit()
-        leagues_cleared.append("CBB")
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        stats_futures = {
+            executor.submit(get_nba_stats): "NBA",
+            executor.submit(get_nhl_stats): "NHL"
+        }
+        scoreboards = fetch_scoreboard_parallel(scoreboard_urls, timeout=60)
         
-        cbb_url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates={today_str}&limit=500&groups=50"
-        resp = requests.get(cbb_url, timeout=60)
-        events = resp.json().get("events", [])
-        
-        cbb_games_data = []
-        all_team_ids = set()
-        for event in events:
-            if not validate_espn_event_date(event, today, et):
-                continue
-            comps = event.get("competitions", [{}])[0]
-            teams = comps.get("competitors", [])
-            if len(teams) == 2:
-                away = next((t for t in teams if t.get("homeAway") == "away"), None)
-                home = next((t for t in teams if t.get("homeAway") == "home"), None)
-                if away and home:
-                    away_id = away.get("team", {}).get("id")
-                    home_id = home.get("team", {}).get("id")
-                    all_team_ids.add(away_id)
-                    all_team_ids.add(home_id)
-                    cbb_games_data.append({
-                        "away_name": away.get("team", {}).get("shortDisplayName", ""),
-                        "home_name": home.get("team", {}).get("shortDisplayName", ""),
-                        "away_id": away_id, "home_id": home_id,
-                        "game_time": event.get("status", {}).get("type", {}).get("shortDetail", "")
+        nba_stats = {}
+        nhl_stats = {}
+        for future in as_completed(stats_futures):
+            league = stats_futures[future]
+            try:
+                if league == "NBA":
+                    nba_stats = future.result()
+                else:
+                    nhl_stats = future.result()
+            except:
+                pass
+    
+    all_games_data = []
+    all_team_ids = {"CBB": set(), "CFB": set(), "NFL": set()}
+    
+    nba_events = scoreboards.get("NBA", {}).get("events", [])
+    nba_games, _ = process_espn_events(nba_events, today, et, "NBA")
+    for gd in nba_games:
+        away_s = find_team_stats(gd["away_name"], nba_stats)
+        home_s = find_team_stats(gd["home_name"], nba_stats)
+        gd["away_ppg"] = away_s["ppg"] if away_s else None
+        gd["away_opp"] = away_s["opp_ppg"] if away_s else None
+        gd["home_ppg"] = home_s["ppg"] if home_s else None
+        gd["home_opp"] = home_s["opp_ppg"] if home_s else None
+    all_games_data.extend(nba_games)
+    
+    nhl_data = scoreboards.get("NHL", {})
+    for gw in nhl_data.get("gameWeek", []):
+        if gw.get("date") == today.strftime("%Y-%m-%d"):
+            for game_data in gw.get("games", []):
+                away_name = game_data.get("awayTeam", {}).get("placeName", {}).get("default", "")
+                home_name = game_data.get("homeTeam", {}).get("placeName", {}).get("default", "")
+                start_time_utc = game_data.get("startTimeUTC", "")
+                if away_name and home_name:
+                    nhl_game_time = ""
+                    if start_time_utc:
+                        try:
+                            utc_dt = datetime.fromisoformat(start_time_utc.replace("Z", "+00:00"))
+                            et_dt = utc_dt.astimezone(et)
+                            nhl_game_time = et_dt.strftime("%-m/%-d - %-I:%M %p EST")
+                        except:
+                            nhl_game_time = start_time_utc[:10]
+                    away_s = find_team_stats(away_name, nhl_stats)
+                    home_s = find_team_stats(home_name, nhl_stats)
+                    all_games_data.append({
+                        "away_name": away_name, "home_name": home_name,
+                        "game_time": nhl_game_time, "league": "NHL",
+                        "away_ppg": away_s["ppg"] if away_s else None,
+                        "away_opp": away_s["opp_ppg"] if away_s else None,
+                        "home_ppg": home_s["ppg"] if home_s else None,
+                        "home_opp": home_s["opp_ppg"] if home_s else None
                     })
-        
-        cbb_stats = fetch_team_stats_batch(list(all_team_ids), fetch_cbb_team_stats)
-        
-        for gd in cbb_games_data:
-            away_ppg, away_opp = cbb_stats.get(gd["away_id"], (None, None))
-            home_ppg, home_opp = cbb_stats.get(gd["home_id"], (None, None))
-            game = Game(
-                date=today, league="CBB", away_team=gd["away_name"], home_team=gd["home_name"],
-                game_time=gd["game_time"],
-                away_ppg=away_ppg, away_opp_ppg=away_opp,
-                home_ppg=home_ppg, home_opp_ppg=home_opp
-            )
-            db.session.add(game)
-            games_added += 1
-        
-        if len(cbb_games_data) == 0:
-            print(f"CBB: No games found for today ({today})")
-    except Exception as e:
-        print(f"CBB games error: {e}")
     
-    try:
-        cfb_game_ids = [g.id for g in Game.query.filter_by(date=today, league="CFB").all()]
-        safe_delete_games(cfb_game_ids)
-        db.session.commit()
-        leagues_cleared.append("CFB")
-        
-        cfb_url = f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates={today_str}&limit=100"
-        resp = requests.get(cfb_url, timeout=30)
-        events = resp.json().get("events", [])
-        
-        cfb_games_data = []
-        cfb_team_ids = set()
-        for event in events:
-            if not validate_espn_event_date(event, today, et):
-                continue
-            comps = event.get("competitions", [{}])[0]
-            teams = comps.get("competitors", [])
-            if len(teams) == 2:
-                away = next((t for t in teams if t.get("homeAway") == "away"), None)
-                home = next((t for t in teams if t.get("homeAway") == "home"), None)
-                if away and home:
-                    away_id = away.get("team", {}).get("id")
-                    home_id = home.get("team", {}).get("id")
-                    cfb_team_ids.add(away_id)
-                    cfb_team_ids.add(home_id)
-                    cfb_games_data.append({
-                        "away_name": away.get("team", {}).get("shortDisplayName", ""),
-                        "home_name": home.get("team", {}).get("shortDisplayName", ""),
-                        "away_id": away_id, "home_id": home_id,
-                        "game_time": event.get("status", {}).get("type", {}).get("shortDetail", "")
-                    })
-        
-        cfb_stats = fetch_team_stats_batch(list(cfb_team_ids), fetch_cfb_team_stats)
-        
-        for gd in cfb_games_data:
-            away_ppg, away_opp = cfb_stats.get(gd["away_id"], (None, None))
-            home_ppg, home_opp = cfb_stats.get(gd["home_id"], (None, None))
-            game = Game(
-                date=today, league="CFB", away_team=gd["away_name"], home_team=gd["home_name"],
-                game_time=gd["game_time"],
-                away_ppg=away_ppg, away_opp_ppg=away_opp,
-                home_ppg=home_ppg, home_opp_ppg=home_opp
-            )
-            db.session.add(game)
-            games_added += 1
-        
-        if len(cfb_games_data) == 0:
-            print(f"CFB: No games found for today ({today})")
-    except Exception as e:
-        print(f"CFB games error: {e}")
+    for league in ["CBB", "CFB", "NFL"]:
+        events = scoreboards.get(league, {}).get("events", [])
+        games, team_ids = process_espn_events(events, today, et, league)
+        all_team_ids[league] = team_ids
+        all_games_data.extend(games)
     
-    try:
-        nfl_game_ids = [g.id for g in Game.query.filter_by(date=today, league="NFL").all()]
-        safe_delete_games(nfl_game_ids)
-        db.session.commit()
-        leagues_cleared.append("NFL")
+    stats_fetchers = {"CBB": fetch_cbb_team_stats, "CFB": fetch_cfb_team_stats, "NFL": fetch_nfl_team_stats}
+    all_stats = {}
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        futures = {}
+        for league, team_ids in all_team_ids.items():
+            if team_ids:
+                futures[executor.submit(fetch_team_stats_batch, list(team_ids), stats_fetchers[league])] = league
+        for future in as_completed(futures):
+            league = futures[future]
+            try:
+                all_stats[league] = future.result()
+            except:
+                all_stats[league] = {}
+    
+    for gd in all_games_data:
+        league = gd.get("league")
+        if league in ["CBB", "CFB", "NFL"]:
+            stats = all_stats.get(league, {})
+            gd["away_ppg"], gd["away_opp"] = stats.get(gd.get("away_id"), (None, None))
+            gd["home_ppg"], gd["home_opp"] = stats.get(gd.get("home_id"), (None, None))
         
-        nfl_url = f"https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates={today_str}"
-        resp = requests.get(nfl_url, timeout=30)
-        events = resp.json().get("events", [])
-        
-        nfl_games_data = []
-        nfl_team_ids = set()
-        for event in events:
-            if not validate_espn_event_date(event, today, et):
-                continue
-            comps = event.get("competitions", [{}])[0]
-            teams = comps.get("competitors", [])
-            if len(teams) == 2:
-                away = next((t for t in teams if t.get("homeAway") == "away"), None)
-                home = next((t for t in teams if t.get("homeAway") == "home"), None)
-                if away and home:
-                    away_id = away.get("team", {}).get("id")
-                    home_id = home.get("team", {}).get("id")
-                    nfl_team_ids.add(away_id)
-                    nfl_team_ids.add(home_id)
-                    nfl_games_data.append({
-                        "away_name": away.get("team", {}).get("shortDisplayName", ""),
-                        "home_name": home.get("team", {}).get("shortDisplayName", ""),
-                        "away_id": away_id, "home_id": home_id,
-                        "game_time": event.get("status", {}).get("type", {}).get("shortDetail", "")
-                    })
-        
-        nfl_stats = fetch_team_stats_batch(list(nfl_team_ids), fetch_nfl_team_stats)
-        
-        for gd in nfl_games_data:
-            away_ppg, away_opp = nfl_stats.get(gd["away_id"], (None, None))
-            home_ppg, home_opp = nfl_stats.get(gd["home_id"], (None, None))
-            game = Game(
-                date=today, league="NFL", away_team=gd["away_name"], home_team=gd["home_name"],
-                game_time=gd["game_time"],
-                away_ppg=away_ppg, away_opp_ppg=away_opp,
-                home_ppg=home_ppg, home_opp_ppg=home_opp
-            )
-            db.session.add(game)
-            games_added += 1
-        
-        if len(nfl_games_data) == 0:
-            print(f"NFL: No games found for today ({today})")
-    except Exception as e:
-        print(f"NFL games error: {e}")
+        game = Game(
+            date=today, league=league, 
+            away_team=gd["away_name"], home_team=gd["home_name"],
+            game_time=gd.get("game_time", ""),
+            away_ppg=gd.get("away_ppg"), away_opp_ppg=gd.get("away_opp"),
+            home_ppg=gd.get("home_ppg"), home_opp_ppg=gd.get("home_opp")
+        )
+        db.session.add(game)
+        games_added += 1
     
     db.session.commit()
-    print(f"Fetch complete: {games_added} games added, leagues cleared: {leagues_cleared}")
+    fetch_time = time.time() - start_time
+    logger.info(f"Games fetch complete in {fetch_time:.2f}s: {games_added} games added")
     
-    # Automatically fetch odds after games are loaded
     odds_result = fetch_odds_internal()
-    
-    # Automatically fetch historical data to set history_qualified flag
     history_result = fetch_history_internal()
+    
+    total_time = time.time() - start_time
+    logger.info(f"Total fetch_games completed in {total_time:.2f}s")
     
     return jsonify({
         "success": True, 
@@ -2962,7 +2871,8 @@ def fetch_games():
         "lines_updated": odds_result.get("lines_updated", 0),
         "spreads_updated": odds_result.get("spreads_updated", 0),
         "alt_lines_found": odds_result.get("alt_lines_found", 0),
-        "history_checked": history_result.get("games_checked", 0)
+        "history_checked": history_result.get("games_checked", 0),
+        "fetch_time_seconds": round(total_time, 2)
     })
 
 @app.route('/fetch_stats', methods=['POST'])
@@ -2971,8 +2881,28 @@ def fetch_stats():
     nhl_stats = get_nhl_stats()
     return jsonify({"success": True, "counts": {"nba": len(nba_stats), "nhl": len(nhl_stats)}})
 
+def fetch_odds_for_league(league: str, sport_key: str, api_key: str) -> tuple:
+    """Fetch odds for a single league. Returns (league, events_list)."""
+    try:
+        url = f"https://api.the-odds-api.com/v4/sports/{sport_key}/odds/"
+        params = {
+            "apiKey": api_key,
+            "regions": "us",
+            "markets": "totals,spreads",
+            "oddsFormat": "american",
+            "bookmakers": "bovada,pinnacle"
+        }
+        resp = requests.get(url, params=params, timeout=30)
+        if resp.status_code == 200:
+            return (league, sport_key, resp.json())
+        return (league, sport_key, [])
+    except Exception as e:
+        logger.debug(f"Odds fetch error for {league}: {e}")
+        return (league, sport_key, [])
+
 def fetch_odds_internal() -> dict:
-    """Internal function to fetch odds from Bovada via The Odds API."""
+    """Internal function to fetch odds from Bovada via The Odds API - PARALLEL."""
+    start_time = time.time()
     api_key = os.environ.get("ODDS_API_KEY")
     if not api_key:
         return {"success": False, "lines_updated": 0, "spreads_updated": 0, "alt_lines_found": 0}
@@ -2991,7 +2921,6 @@ def fetch_odds_internal() -> dict:
     lines_updated = 0
     spreads_updated = 0
     
-    # Clear existing lines before fetching fresh - only games with current Bovada lines will be shown
     games_to_clear = Game.query.filter_by(date=today).all()
     for g in games_to_clear:
         g.line = None
@@ -3000,7 +2929,6 @@ def fetch_odds_internal() -> dict:
         g.spread_is_qualified = False
         g.edge = None
         g.spread_edge = None
-        # Clear EV fields to ensure fresh data
         g.bovada_total_odds = None
         g.pinnacle_total_odds = None
         g.bovada_spread_odds = None
@@ -3009,22 +2937,22 @@ def fetch_odds_internal() -> dict:
         g.spread_ev = None
     db.session.commit()
     
-    for league, sport_key in sport_map.items():
+    all_odds = {}
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        futures = {executor.submit(fetch_odds_for_league, league, sport_key, api_key): league 
+                   for league, sport_key in sport_map.items()}
+        for future in as_completed(futures):
+            try:
+                league, sport_key, events = future.result()
+                all_odds[league] = {"sport_key": sport_key, "events": events}
+            except:
+                pass
+    
+    for league, data in all_odds.items():
+        sport_key = data["sport_key"]
+        events = data["events"]
+        
         try:
-            url = f"https://api.the-odds-api.com/v4/sports/{sport_key}/odds/"
-            params = {
-                "apiKey": api_key,
-                "regions": "us",
-                "markets": "totals,spreads",
-                "oddsFormat": "american",
-                "bookmakers": "bovada,pinnacle"  # Fetch both for EV comparison
-            }
-            resp = requests.get(url, params=params, timeout=30)
-            if resp.status_code != 200:
-                continue
-            
-            events = resp.json()
-            
             for event in events:
                 commence_time = event.get("commence_time", "")
                 if commence_time:
