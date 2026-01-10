@@ -273,8 +273,11 @@ with app.app_context():
             with db.engine.connect() as conn:
                 conn.execute(text("ALTER TABLE game ADD COLUMN nba_1h_ml_odds INTEGER"))
                 conn.execute(text("ALTER TABLE game ADD COLUMN nba_1h_ml_qualified BOOLEAN DEFAULT FALSE"))
+                conn.execute(text("ALTER TABLE game ADD COLUMN nba_1h_away_win_pct FLOAT"))
+                conn.execute(text("ALTER TABLE game ADD COLUMN nba_1h_h2h_win_pct FLOAT"))
+                conn.execute(text("ALTER TABLE game ADD COLUMN nba_1h_history_qualified BOOLEAN"))
                 conn.commit()
-                logger.info("Migration: Added Model 4 columns (nba_1h_ml_odds, nba_1h_ml_qualified)")
+                logger.info("Migration: Added Model 4 columns (nba_1h_ml_odds, nba_1h_ml_qualified, history fields)")
     except Exception as e:
         logger.warning(f"Migration check: {e}")
 
@@ -1117,40 +1120,41 @@ def fetch_first_half_history(team: str, league: str, limit: int = 20) -> dict:
                 continue
             
             summary = summary_resp.json()
-            boxscore = summary.get("boxscore", {})
-            teams_data = boxscore.get("teams", [])
             
-            if len(teams_data) < 2:
-                continue
+            # Get homeAway from header competitors (more reliable)
+            header = summary.get("header", {})
+            competitions = header.get("competitions", [{}])[0]
+            competitors = competitions.get("competitors", [])
             
             team_1h_score = 0
             opp_1h_score = 0
             team_is_away = False
             
-            for t in teams_data:
-                t_info = t.get("team", {})
-                t_id = str(t_info.get("id", ""))
-                stats = t.get("statistics", [])
+            # Get homeAway status from header
+            for comp in competitors:
+                comp_id = str(comp.get("id", ""))
+                if comp_id == str(team_id):
+                    team_is_away = comp.get("homeAway") == "away"
+                    break
+            
+            # Get linescores from header (easier format)
+            for comp in competitors:
+                comp_id = str(comp.get("id", ""))
+                linescores = comp.get("linescores", [])
                 
-                linescores = None
-                for stat in stats:
-                    if stat.get("name") == "linescores":
-                        linescores = stat.get("displayValue", "").split("-")
-                        break
-                
-                if not linescores or len(linescores) < 2:
+                if len(linescores) < 2:
                     continue
                 
                 try:
-                    q1 = int(linescores[0]) if linescores[0] else 0
-                    q2 = int(linescores[1]) if linescores[1] else 0
+                    # linescores is array of objects with 'value' field
+                    q1 = int(linescores[0].get("value", 0)) if isinstance(linescores[0], dict) else int(linescores[0])
+                    q2 = int(linescores[1].get("value", 0)) if isinstance(linescores[1], dict) else int(linescores[1])
                     half_score = q1 + q2
-                except (ValueError, IndexError):
+                except (ValueError, IndexError, TypeError):
                     continue
                 
-                if t_id == str(team_id):
+                if comp_id == str(team_id):
                     team_1h_score = half_score
-                    team_is_away = t_info.get("homeAway") == "away"
                 else:
                     opp_1h_score = half_score
             
@@ -1262,36 +1266,32 @@ def fetch_first_half_h2h(away_team: str, home_team: str, league: str, limit: int
                 continue
             
             summary = summary_resp.json()
-            boxscore = summary.get("boxscore", {})
-            teams_data = boxscore.get("teams", [])
+            
+            # Get linescores from header competitors (more reliable)
+            header = summary.get("header", {})
+            h_comps = header.get("competitions", [{}])[0].get("competitors", [])
             
             away_1h = 0
             home_1h = 0
             
-            for t in teams_data:
-                t_info = t.get("team", {})
-                t_id = str(t_info.get("id", ""))
-                stats = t.get("statistics", [])
+            for comp in h_comps:
+                comp_id = str(comp.get("id", ""))
+                linescores = comp.get("linescores", [])
                 
-                linescores = None
-                for stat in stats:
-                    if stat.get("name") == "linescores":
-                        linescores = stat.get("displayValue", "").split("-")
-                        break
-                
-                if not linescores or len(linescores) < 2:
+                if len(linescores) < 2:
                     continue
                 
                 try:
-                    q1 = int(linescores[0]) if linescores[0] else 0
-                    q2 = int(linescores[1]) if linescores[1] else 0
+                    # linescores is array of objects with 'value' field
+                    q1 = int(linescores[0].get("value", 0)) if isinstance(linescores[0], dict) else int(linescores[0])
+                    q2 = int(linescores[1].get("value", 0)) if isinstance(linescores[1], dict) else int(linescores[1])
                     half_score = q1 + q2
-                except (ValueError, IndexError):
+                except (ValueError, IndexError, TypeError):
                     continue
                 
-                if t_id == str(away_id):
+                if comp_id == str(away_id):
                     away_1h = half_score
-                elif t_id == str(home_id):
+                elif comp_id == str(home_id):
                     home_1h = half_score
             
             if away_1h > 0 or home_1h > 0:
@@ -1851,17 +1851,19 @@ def dashboard():
         })
     
     # Model 4: NBA 1H ML for away favorites
-    # Re-verify away-favorite condition to avoid stale picks
+    # Re-verify away-favorite condition and history qualification
     model4_games = Game.query.filter(
         Game.date == today,
         Game.league == 'NBA',
         Game.nba_1h_ml_qualified == True,
+        Game.nba_1h_history_qualified == True,
         Game.spread_line > 0  # Must still be away favorite
     ).all()
     for g in model4_games:
         # Use spread_edge as the edge metric for consistency
         edge = g.spread_edge or g.spread_line or 0
-        history_pct = 0  # No historical tracking for 1H ML yet
+        # Use the higher of away 1H win% or H2H 1H win%
+        history_pct = max(g.nba_1h_away_win_pct or 0, g.nba_1h_h2h_win_pct or 0)
         model_bonus = 0  # No bonus for Model 4
         weighted_score = edge + (history_pct * 0.15) + model_bonus
         combined_picks.append({

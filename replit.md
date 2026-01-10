@@ -66,7 +66,9 @@ The sports betting calculator uses four distinct models for pick generation:
     -   NBA games where away team is the favorite (spread_line > 0)
     -   Take 1st Half money line on the away favorite
     -   Uses The Odds API market key: `h2h_h1`
-    -   Fetched alongside alt lines during odds fetch
+    -   Historical qualification: 65%+ away team 1H win rate (last 15-20 games)
+    -   H2H qualification: 60%+ if 5+ games exist between the teams
+    -   Uses ESPN event summary for period-by-period linescore data
     -   Displayed in TOP 5 with orange styling to distinguish from other models
 
 ### TOP 5 Ranking Algorithm
