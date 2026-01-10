@@ -790,9 +790,9 @@
                 <div class="col-md-6">
                     <div class="mb-2" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">TOP 5 PICKS</div>
                     {% for pick in analytics.top_picks %}
-                    <div class="top-pick-row" style="flex-wrap: wrap;">
+                    <div class="top-pick-row">
                         <span class="badge" style="width: 36px; height: 24px; font-size: 0.65rem; background: var(--bg-card); color: var(--text-muted);">{{ pick.game.league }}</span>
-                        <span class="top-pick-matchup ms-2" style="white-space: normal; overflow: visible;">{{ pick.game.away_team }} @ {{ pick.game.home_team }}</span>
+                        <span class="top-pick-matchup ms-2">{{ pick.game.away_team }} @ {{ pick.game.home_team }}</span>
                         {% if pick.pick_type == 'totals' %}
                         <span class="direction-chip {% if pick.direction == 'O' %}over{% else %}under{% endif %}">{{ pick.direction }}{{ pick.line }}</span>
                         {% else %}
