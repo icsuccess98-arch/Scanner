@@ -247,6 +247,14 @@ def detect_sharp_money(opening_line: float, current_line: float, direction: str 
     - Line moved 1.5+ points against our pick (sharp disagrees - warning)
     - Reverse line movement (public on one side, line moves other way)
     
+    For TOTALS (direction = "O" or "U"):
+    - Line moves UP = sharps on OVER, moves DOWN = sharps on UNDER
+    
+    For SPREADS (direction = "HOME" or "AWAY"):
+    - Spread line from home perspective (negative = home favored)
+    - Line moves MORE NEGATIVE (e.g., -7 → -9) = sharps on HOME
+    - Line moves MORE POSITIVE (e.g., -7 → -5) = sharps on AWAY
+    
     Returns: {"sharp_aligned": bool, "sharp_against": bool, "movement": float, "signal": str}
     """
     if opening_line is None or current_line is None:
@@ -254,6 +262,7 @@ def detect_sharp_money(opening_line: float, current_line: float, direction: str 
     
     movement = current_line - opening_line
     
+    # TOTALS: line movement = total points moved up/down
     if direction == "O":
         if movement >= 1.5:
             return {"sharp_aligned": True, "sharp_against": False, "movement": movement, "signal": "SHARP_AGREES"}
@@ -263,6 +272,20 @@ def detect_sharp_money(opening_line: float, current_line: float, direction: str 
         if movement <= -1.5:
             return {"sharp_aligned": True, "sharp_against": False, "movement": movement, "signal": "SHARP_AGREES"}
         elif movement >= 1.5:
+            return {"sharp_aligned": False, "sharp_against": True, "movement": movement, "signal": "SHARP_DISAGREES"}
+    
+    # SPREADS: line is from home perspective (negative = home favored)
+    # Movement negative = line going more toward home (sharps on home)
+    # Movement positive = line going more toward away (sharps on away)
+    elif direction == "HOME":
+        if movement <= -1.5:  # Line moved -7 → -9, sharps on HOME
+            return {"sharp_aligned": True, "sharp_against": False, "movement": movement, "signal": "SHARP_AGREES"}
+        elif movement >= 1.5:  # Line moved -7 → -5, sharps on AWAY
+            return {"sharp_aligned": False, "sharp_against": True, "movement": movement, "signal": "SHARP_DISAGREES"}
+    elif direction == "AWAY":
+        if movement >= 1.5:  # Line moved -7 → -5, sharps on AWAY
+            return {"sharp_aligned": True, "sharp_against": False, "movement": movement, "signal": "SHARP_AGREES"}
+        elif movement <= -1.5:  # Line moved -7 → -9, sharps on HOME
             return {"sharp_aligned": False, "sharp_against": True, "movement": movement, "signal": "SHARP_DISAGREES"}
     
     return {"sharp_aligned": False, "sharp_against": False, "movement": movement, "signal": "NEUTRAL"}
@@ -1774,22 +1797,48 @@ def update_game_historical_data(game: Game) -> bool:
             logger.info(f"{game.away_team} @ {game.home_team}: Totals DISQUALIFIED due to injury concern")
             totals_qualified = False
         
-        sharp_against = False
+        totals_sharp_against = False
+        spread_sharp_against = False
+        
+        # Check sharp money for TOTALS
         if game.sport_key and game.event_id and game.line:
             opening_data = fetch_opening_line(game.sport_key, game.event_id, game.line)
             if opening_data.get("opening_line"):
                 sharp_signal = detect_sharp_money(
                     opening_data["opening_line"],
                     opening_data["current_line"],
-                    game.direction
+                    game.direction  # "O" or "U" for totals
                 )
                 if sharp_signal["sharp_against"]:
-                    sharp_against = True
+                    totals_sharp_against = True
                     logger.info(f"{game.away_team} @ {game.home_team}: SHARP MONEY AGAINST our {game.direction} pick - line moved {sharp_signal['movement']:.1f} points (open: {opening_data['opening_line']}, now: {opening_data['current_line']})")
                 elif sharp_signal["sharp_aligned"]:
                     logger.info(f"{game.away_team} @ {game.home_team}: Sharp money ALIGNED with our {game.direction} pick - line moved {sharp_signal['movement']:.1f} points")
         
-        if totals_qualified and sharp_against:
+        # Check sharp money for SPREADS (separate check using spread line)
+        if game.spread_direction and game.spread_line is not None:
+            # Use spread line for spread sharp money detection
+            spread_sharp_signal = detect_sharp_money(
+                game.spread_line,  # Opening is stored when first fetched
+                game.spread_line,  # Current - same for now (would need opening spread tracking)
+                game.spread_direction  # "HOME" or "AWAY"
+            )
+            # Note: For now spreads use same opening_lines_store as totals
+            # Full spread CLV tracking would need separate opening_spread_store
+            if game.sport_key and game.event_id:
+                spread_cache_key = f"spread_opening:{game.event_id}"
+                if spread_cache_key in opening_lines_store:
+                    opening_spread = opening_lines_store[spread_cache_key]["line"]
+                    spread_sharp_signal = detect_sharp_money(
+                        opening_spread,
+                        game.spread_line,
+                        game.spread_direction
+                    )
+                    if spread_sharp_signal["sharp_against"]:
+                        spread_sharp_against = True
+                        logger.info(f"{game.away_team} @ {game.home_team}: SHARP MONEY AGAINST our {game.spread_direction} spread - line moved {spread_sharp_signal['movement']:.1f} points")
+        
+        if totals_qualified and totals_sharp_against:
             logger.info(f"{game.away_team} @ {game.home_team}: Totals DISQUALIFIED due to sharp money against")
             totals_qualified = False
         
@@ -1821,7 +1870,7 @@ def update_game_historical_data(game: Game) -> bool:
                 logger.info(f"{game.away_team} @ {game.home_team}: Spread DISQUALIFIED due to injury concern")
                 spread_qualified = False
             
-            if spread_qualified and sharp_against:
+            if spread_qualified and spread_sharp_against:
                 logger.info(f"{game.away_team} @ {game.home_team}: Spread DISQUALIFIED due to sharp money against")
                 spread_qualified = False
             
@@ -3125,6 +3174,13 @@ def fetch_odds_internal() -> dict:
                                     home_spread_odds = outcome.get("price")
                                     if spread_line is not None:
                                         game.spread_line = spread_line
+                                        # Store opening spread line for CLV tracking
+                                        spread_cache_key = f"spread_opening:{event.get('id')}"
+                                        if spread_cache_key not in opening_lines_store:
+                                            opening_lines_store[spread_cache_key] = {
+                                                "line": spread_line,
+                                                "timestamp": datetime.now(pytz.timezone('America/New_York')).isoformat()
+                                            }
                                         if all([game.away_ppg, game.away_opp_ppg, game.home_ppg, game.home_opp_ppg]):
                                             exp_away, exp_home, _ = calculate_expected_scores(
                                                 game.away_ppg, game.away_opp_ppg, 
