@@ -1327,10 +1327,8 @@ def dashboard():
         db.session.commit()
     
     all_games_db = Game.query.filter_by(date=today).order_by(Game.edge.desc()).all()
-    all_games = [g for g in all_games_db if is_game_upcoming(g)]
-    
-    # Only show games with Bovada lines
-    all_games = [g for g in all_games if g.line is not None or g.spread_line is not None]
+    # Show all games from today's slate (includes in-progress and completed)
+    all_games = all_games_db
     
     # Games qualified by edge threshold
     edge_qualified = [g for g in all_games if g.is_qualified]
