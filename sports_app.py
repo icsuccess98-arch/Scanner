@@ -712,8 +712,14 @@ class UniversalSpreadHandler:
         
         away_spread_raw = float(away_spread_outcome.get("point", 0))
         home_spread_raw = float(home_spread_outcome.get("point", 0))
-        away_odds = away_spread_outcome.get("price", -110)
-        home_odds = home_spread_outcome.get("price", -110)
+        try:
+            away_odds = int(away_spread_outcome.get("price", -110))
+        except (ValueError, TypeError):
+            away_odds = -110
+        try:
+            home_odds = int(home_spread_outcome.get("price", -110))
+        except (ValueError, TypeError):
+            home_odds = -110
         
         away_ml = None
         home_ml = None
