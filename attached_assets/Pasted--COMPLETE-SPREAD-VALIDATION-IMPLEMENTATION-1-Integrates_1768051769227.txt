@@ -1,0 +1,498 @@
+"""
+COMPLETE SPREAD VALIDATION IMPLEMENTATION
+1. Integrates validation into existing codebase
+2. One-time audit script to fix all existing games
+3. Prevents future spread sign errors
+"""
+
+import logging
+from typing import Dict, List, Optional, Tuple
+from datetime import datetime
+from supabase import create_client, Client
+import os
+
+logger = logging.getLogger(__name__)
+
+# ============================================================================
+# PART 1: SPREAD VALIDATION UTILITIES (Add to utils or models file)
+# ============================================================================
+
+class SpreadValidator:
+    """Validates spread signs using multiple methods"""
+    
+    @staticmethod
+    def validate_spread_vs_moneyline(
+        spread: float,
+        away_ml: Optional[float],
+        home_ml: Optional[float],
+        away_team: str,
+        home_team: str
+    ) -> Tuple[bool, Optional[str], Optional[float]]:
+        """
+        Validates spread sign against moneyline odds
+        Returns: (is_valid, error_message, corrected_spread)
+        
+        LOGIC:
+        - Negative spread = away team is FAVORITE (giving points)
+        - Positive spread = away team is UNDERDOG (getting points)
+        - Lower moneyline = FAVORITE
+        - Higher moneyline = UNDERDOG
+        """
+        if not away_ml or not home_ml:
+            return True, None, None
+        
+        # Determine favorite by moneyline
+        away_is_favorite_by_ml = away_ml < home_ml
+        
+        # Determine favorite by spread (negative = favorite)
+        away_is_favorite_by_spread = spread < 0
+        
+        # They should match!
+        if away_is_favorite_by_ml != away_is_favorite_by_spread:
+            error_msg = (
+                f"SPREAD SIGN ERROR: {away_team} @ {home_team}\n"
+                f"  Spread: {spread} (says {'FAV' if spread < 0 else 'DOG'})\n"
+                f"  Moneylines: {away_ml} vs {home_ml} (says {'FAV' if away_is_favorite_by_ml else 'DOG'})\n"
+                f"  ❌ MISMATCH DETECTED"
+            )
+            
+            # Return corrected spread
+            corrected_spread = -spread
+            
+            return False, error_msg, corrected_spread
+        
+        return True, None, None
+    
+    @staticmethod
+    def validate_spread_magnitude(spread: float, away_team: str, home_team: str) -> bool:
+        """Check if spread is within reasonable bounds"""
+        if abs(spread) > 50:
+            logger.warning(
+                f"Extremely large spread: {away_team} @ {home_team} = {spread}. "
+                f"Verify this is correct!"
+            )
+            return False
+        return True
+    
+    @staticmethod
+    def determine_favorite_and_spread(
+        away_team: str,
+        home_team: str,
+        spread: float,
+        away_ml: Optional[float],
+        home_ml: Optional[float]
+    ) -> Dict:
+        """
+        Returns clear favorite/underdog designation with validated spread
+        """
+        # Validate first
+        is_valid, error, corrected = SpreadValidator.validate_spread_vs_moneyline(
+            spread, away_ml, home_ml, away_team, home_team
+        )
+        
+        # Use corrected spread if validation failed
+        final_spread = corrected if corrected is not None else spread
+        
+        if final_spread < 0:
+            # Away team is favorite (giving points)
+            return {
+                'favorite': away_team,
+                'underdog': home_team,
+                'spread': abs(final_spread),  # Always positive for display
+                'favorite_spread': final_spread,
+                'underdog_spread': -final_spread,
+                'validation_passed': is_valid,
+                'validation_error': error,
+                'corrected': corrected is not None
+            }
+        else:
+            # Home team is favorite (away team getting points)
+            return {
+                'favorite': home_team,
+                'underdog': away_team,
+                'spread': abs(final_spread),
+                'favorite_spread': -final_spread,
+                'underdog_spread': final_spread,
+                'validation_passed': is_valid,
+                'validation_error': error,
+                'corrected': corrected is not None
+            }
+
+
+# ============================================================================
+# PART 2: INTEGRATE INTO EXISTING fetch_games() FUNCTION
+# ============================================================================
+
+def fetch_games_with_validation(api_key: str, sport: str = 'basketball_ncaab'):
+    """
+    Enhanced fetch_games with built-in spread validation
+    REPLACE YOUR EXISTING fetch_games() WITH THIS
+    """
+    import requests
+    
+    logger.info(f"Fetching games for {sport}...")
+    
+    url = f"https://api.the-odds-api.com/v4/sports/{sport}/odds/"
+    params = {
+        'apiKey': api_key,
+        'regions': 'us',
+        'markets': 'spreads,h2h',
+        'oddsFormat': 'american'
+    }
+    
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        games_data = response.json()
+        
+        validated_games = []
+        validation_errors = []
+        corrections_made = []
+        
+        for game_data in games_data:
+            try:
+                # Extract basic info
+                away_team = game_data.get('away_team')
+                home_team = game_data.get('home_team')
+                commence_time = game_data.get('commence_time')
+                
+                # Get first bookmaker (or aggregate later)
+                bookmakers = game_data.get('bookmakers', [])
+                if not bookmakers:
+                    continue
+                
+                bookmaker = bookmakers[0]
+                markets = bookmaker.get('markets', [])
+                
+                # Extract spreads
+                spreads_market = next((m for m in markets if m['key'] == 'spreads'), None)
+                h2h_market = next((m for m in markets if m['key'] == 'h2h'), None)
+                
+                if not spreads_market or not h2h_market:
+                    continue
+                
+                # Get spread (ALWAYS from away team perspective)
+                spread_outcomes = spreads_market.get('outcomes', [])
+                away_spread_outcome = next((o for o in spread_outcomes if o['name'] == away_team), None)
+                
+                if not away_spread_outcome:
+                    logger.warning(f"No spread found for away team: {away_team} @ {home_team}")
+                    continue
+                
+                spread = float(away_spread_outcome.get('point', 0))
+                spread_price = away_spread_outcome.get('price', -110)
+                
+                # Get moneylines
+                h2h_outcomes = h2h_market.get('outcomes', [])
+                away_ml_outcome = next((o for o in h2h_outcomes if o['name'] == away_team), None)
+                home_ml_outcome = next((o for o in h2h_outcomes if o['name'] == home_team), None)
+                
+                away_ml = away_ml_outcome.get('price') if away_ml_outcome else None
+                home_ml = home_ml_outcome.get('price') if home_ml_outcome else None
+                
+                # ⚠️ CRITICAL VALIDATION STEP ⚠️
+                is_valid, error_msg, corrected_spread = SpreadValidator.validate_spread_vs_moneyline(
+                    spread, away_ml, home_ml, away_team, home_team
+                )
+                
+                if not is_valid:
+                    logger.error(f"🚨 SPREAD VALIDATION FAILED:")
+                    logger.error(error_msg)
+                    validation_errors.append({
+                        'game': f"{away_team} @ {home_team}",
+                        'original_spread': spread,
+                        'corrected_spread': corrected_spread,
+                        'error': error_msg
+                    })
+                    
+                    # Use corrected spread
+                    if corrected_spread is not None:
+                        corrections_made.append({
+                            'game': f"{away_team} @ {home_team}",
+                            'from': spread,
+                            'to': corrected_spread
+                        })
+                        spread = corrected_spread
+                
+                # Validate magnitude
+                SpreadValidator.validate_spread_magnitude(spread, away_team, home_team)
+                
+                # Get favorite/underdog info
+                fav_info = SpreadValidator.determine_favorite_and_spread(
+                    away_team, home_team, spread, away_ml, home_ml
+                )
+                
+                # Build game object
+                game = {
+                    'away_team': away_team,
+                    'home_team': home_team,
+                    'commence_time': commence_time,
+                    'spread': spread,  # VALIDATED AND CORRECTED
+                    'spread_price': spread_price,
+                    'away_moneyline': away_ml,
+                    'home_moneyline': home_ml,
+                    'favorite': fav_info['favorite'],
+                    'underdog': fav_info['underdog'],
+                    'spread_magnitude': fav_info['spread'],
+                    'validation_passed': fav_info['validation_passed'],
+                    'spread_corrected': fav_info['corrected'],
+                    'bookmaker': bookmaker.get('title', 'Unknown'),
+                    'fetched_at': datetime.now().isoformat()
+                }
+                
+                validated_games.append(game)
+                
+            except Exception as e:
+                logger.error(f"Error processing game: {e}")
+                continue
+        
+        # Log validation summary
+        logger.info(f"✅ Fetched {len(validated_games)} games")
+        
+        if validation_errors:
+            logger.error(f"🚨 FOUND {len(validation_errors)} SPREAD SIGN ERRORS!")
+            for error in validation_errors:
+                logger.error(error)
+        
+        if corrections_made:
+            logger.warning(f"🔧 CORRECTED {len(corrections_made)} SPREADS:")
+            for correction in corrections_made:
+                logger.warning(f"  {correction['game']}: {correction['from']} → {correction['to']}")
+        
+        return {
+            'games': validated_games,
+            'validation_errors': validation_errors,
+            'corrections_made': corrections_made,
+            'total_fetched': len(validated_games)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching games: {e}")
+        return {'games': [], 'validation_errors': [], 'corrections_made': []}
+
+
+# ============================================================================
+# PART 3: ONE-TIME AUDIT SCRIPT TO FIX ALL EXISTING GAMES
+# ============================================================================
+
+def audit_and_fix_all_games_in_database():
+    """
+    ONE-TIME SCRIPT: Audits and fixes all games in database
+    Run this ONCE to fix existing data
+    """
+    # Initialize Supabase client
+    url = os.getenv('SUPABASE_URL')
+    key = os.getenv('SUPABASE_KEY')
+    supabase: Client = create_client(url, key)
+    
+    logger.info("=" * 80)
+    logger.info("STARTING DATABASE SPREAD AUDIT")
+    logger.info("=" * 80)
+    
+    try:
+        # Fetch ALL games from database
+        response = supabase.table('games').select('*').execute()
+        all_games = response.data
+        
+        logger.info(f"Found {len(all_games)} games in database")
+        
+        total_games = len(all_games)
+        games_with_errors = []
+        games_fixed = []
+        
+        for game in all_games:
+            game_id = game.get('id')
+            away_team = game.get('away_team')
+            home_team = game.get('home_team')
+            spread = game.get('spread')
+            away_ml = game.get('away_moneyline')
+            home_ml = game.get('home_moneyline')
+            
+            if spread is None or away_ml is None or home_ml is None:
+                continue
+            
+            # Validate this game
+            is_valid, error_msg, corrected_spread = SpreadValidator.validate_spread_vs_moneyline(
+                spread, away_ml, home_ml, away_team, home_team
+            )
+            
+            if not is_valid:
+                logger.error(f"\n🚨 ERROR FOUND: {away_team} @ {home_team}")
+                logger.error(error_msg)
+                
+                games_with_errors.append({
+                    'id': game_id,
+                    'game': f"{away_team} @ {home_team}",
+                    'wrong_spread': spread,
+                    'correct_spread': corrected_spread,
+                    'away_ml': away_ml,
+                    'home_ml': home_ml
+                })
+                
+                # FIX IT IN DATABASE
+                try:
+                    update_response = supabase.table('games').update({
+                        'spread': corrected_spread,
+                        'spread_corrected': True,
+                        'original_spread': spread,
+                        'corrected_at': datetime.now().isoformat()
+                    }).eq('id', game_id).execute()
+                    
+                    logger.warning(f"✅ FIXED: {away_team} @ {home_team}")
+                    logger.warning(f"   Changed spread from {spread} to {corrected_spread}")
+                    
+                    games_fixed.append({
+                        'id': game_id,
+                        'game': f"{away_team} @ {home_team}",
+                        'fixed': True
+                    })
+                    
+                except Exception as e:
+                    logger.error(f"❌ FAILED TO FIX: {e}")
+        
+        # SUMMARY REPORT
+        logger.info("\n" + "=" * 80)
+        logger.info("AUDIT COMPLETE - SUMMARY")
+        logger.info("=" * 80)
+        logger.info(f"Total games audited: {total_games}")
+        logger.info(f"Games with spread errors: {len(games_with_errors)}")
+        logger.info(f"Games successfully fixed: {len(games_fixed)}")
+        logger.info(f"Error rate: {len(games_with_errors)/total_games*100:.2f}%")
+        
+        if games_with_errors:
+            logger.info("\n📋 DETAILED ERROR REPORT:")
+            for error in games_with_errors:
+                logger.info(f"\n  Game: {error['game']}")
+                logger.info(f"  Original spread: {error['wrong_spread']}")
+                logger.info(f"  Corrected spread: {error['correct_spread']}")
+                logger.info(f"  Moneylines: Away={error['away_ml']}, Home={error['home_ml']}")
+        
+        return {
+            'total_audited': total_games,
+            'errors_found': len(games_with_errors),
+            'games_fixed': len(games_fixed),
+            'error_details': games_with_errors
+        }
+        
+    except Exception as e:
+        logger.error(f"Audit failed: {e}")
+        return None
+
+
+# ============================================================================
+# PART 4: SPECIFIC FIX FOR BOSTON COLLEGE GAME
+# ============================================================================
+
+def fix_boston_college_game_now():
+    """
+    IMMEDIATE FIX for the Boston College game from screenshot
+    """
+    url = os.getenv('SUPABASE_URL')
+    key = os.getenv('SUPABASE_KEY')
+    supabase: Client = create_client(url, key)
+    
+    logger.info("🚨 FIXING BOSTON COLLEGE GAME")
+    
+    try:
+        # Find the Boston College game
+        response = supabase.table('games').select('*').eq(
+            'away_team', 'Boston College'
+        ).eq('home_team', 'Louisville').execute()
+        
+        if not response.data:
+            logger.error("Boston College game not found in database")
+            return False
+        
+        game = response.data[0]
+        game_id = game['id']
+        current_spread = game['spread']
+        
+        logger.info(f"Found game: Boston College @ Louisville")
+        logger.info(f"Current (WRONG) spread: {current_spread}")
+        logger.info(f"Correct spread should be: {-current_spread}")
+        
+        # Fix it
+        correct_spread = -current_spread  # Flip the sign
+        
+        update_response = supabase.table('games').update({
+            'spread': correct_spread,
+            'spread_corrected': True,
+            'original_spread': current_spread,
+            'corrected_at': datetime.now().isoformat()
+        }).eq('id', game_id).execute()
+        
+        logger.info("✅ BOSTON COLLEGE GAME FIXED!")
+        logger.info(f"   Spread changed from {current_spread} to {correct_spread}")
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"Failed to fix Boston College game: {e}")
+        return False
+
+
+# ============================================================================
+# PART 5: USAGE INSTRUCTIONS
+# ============================================================================
+
+"""
+HOW TO IMPLEMENT THIS IN YOUR APP:
+
+1. REPLACE your current fetch_games() function with fetch_games_with_validation()
+
+2. RUN THE ONE-TIME AUDIT (do this ONCE):
+   
+   python
+   if __name__ == '__main__':
+       # Fix Boston College immediately
+       fix_boston_college_game_now()
+       
+       # Then audit everything else
+       audit_and_fix_all_games_in_database()
+
+3. ADD VALIDATION CHECK to your bet qualification logic:
+
+   def qualify_picks(games):
+       qualified = []
+       for game in games:
+           if not game.get('validation_passed', True):
+               logger.warning(f"Skipping {game['away_team']} @ {game['home_team']} - failed validation")
+               continue
+           
+           # Rest of your qualification logic...
+           
+       return qualified
+
+4. MONITOR GOING FORWARD:
+   - Check logs daily for validation errors
+   - If corrections_made > 0, investigate why the API is returning wrong signs
+   - Set up alerts if validation failures exceed threshold
+
+5. DATABASE CHANGES (optional but recommended):
+   Add these columns to your games table:
+   - validation_passed (boolean)
+   - spread_corrected (boolean)
+   - original_spread (float)
+   - corrected_at (timestamp)
+"""
+
+if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
+    
+    print("\n" + "="*80)
+    print("SPREAD VALIDATION & AUDIT SCRIPT")
+    print("="*80 + "\n")
+    
+    print("Step 1: Fix Boston College game immediately...")
+    fix_boston_college_game_now()
+    
+    print("\nStep 2: Audit all games in database...")
+    results = audit_and_fix_all_games_in_database()
+    
+    if results:
+        print("\n" + "="*80)
+        print("AUDIT RESULTS:")
+        print(f"  Total games: {results['total_audited']}")
+        print(f"  Errors found: {results['errors_found']}")
+        print(f"  Games fixed: {results['games_fixed']}")
+        print("="*80)
