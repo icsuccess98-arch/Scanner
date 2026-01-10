@@ -61,6 +61,60 @@ injury_cache = {}
 line_movement_cache = {}
 opening_lines_store = {}
 
+def api_request_with_retry(url: str, timeout: int = 30, max_retries: int = 2, **kwargs) -> requests.Response:
+    """Make API request with simple retry logic for transient failures.
+    Returns the response object or raises exception after all retries fail.
+    """
+    last_exception = None
+    for attempt in range(max_retries):
+        try:
+            resp = requests.get(url, timeout=timeout, **kwargs)
+            if resp.status_code == 200:
+                return resp
+            elif resp.status_code >= 500:  # Server error - retry
+                wait = (2 ** attempt) * 0.3
+                logger.debug(f"API server error {resp.status_code} for {url[:60]}, retrying in {wait}s")
+                time.sleep(wait)
+            else:  # Client error - don't retry
+                return resp
+        except requests.RequestException as e:
+            last_exception = e
+            wait = (2 ** attempt) * 0.3
+            logger.debug(f"API request error (attempt {attempt+1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                time.sleep(wait)
+    if last_exception:
+        raise last_exception
+    return resp
+
+def post_to_discord_with_retry(webhook_url: str, payload: dict, max_retries: int = 3) -> tuple:
+    """Post to Discord with retry logic and exponential backoff.
+    Returns (success: bool, status_code: int, error_msg: str or None)
+    """
+    for attempt in range(max_retries):
+        try:
+            resp = requests.post(webhook_url, json=payload, timeout=15)
+            if resp.status_code in [200, 204]:
+                return (True, resp.status_code, None)
+            elif resp.status_code == 429:  # Rate limited
+                retry_after = int(resp.headers.get('Retry-After', 2))
+                logger.warning(f"Discord rate limited, waiting {retry_after}s (attempt {attempt+1}/{max_retries})")
+                time.sleep(retry_after)
+            elif resp.status_code >= 500:  # Server error - retry
+                wait = (2 ** attempt) * 0.5
+                logger.warning(f"Discord server error {resp.status_code}, retrying in {wait}s")
+                time.sleep(wait)
+            else:  # Client error - don't retry
+                logger.error(f"Discord post failed with status {resp.status_code}: {resp.text[:200]}")
+                return (False, resp.status_code, resp.text[:200])
+        except requests.RequestException as e:
+            wait = (2 ** attempt) * 0.5
+            logger.warning(f"Discord request error (attempt {attempt+1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                time.sleep(wait)
+    logger.error(f"Discord post failed after {max_retries} attempts")
+    return (False, 0, "Max retries exceeded")
+
 def fetch_team_injuries(team_name: str, league: str) -> dict:
     """
     Fetch injury data from ESPN for key player availability.
@@ -3115,7 +3169,7 @@ def fetch_odds_internal() -> dict:
                                         spreads_updated += 1
                                     break
         except Exception as e:
-            print(f"Odds fetch error for {league}: {e}")
+            logger.error(f"Odds processing error for {league}: {e}")
     
     db.session.commit()
     
@@ -3574,7 +3628,9 @@ def post_discord():
     
     webhook = os.environ.get("SPORTS_DISCORD_WEBHOOK")
     if webhook:
-        resp = requests.post(webhook, json={"content": msg})
+        success, status_code, error = post_to_discord_with_retry(webhook, {"content": msg})
+        if not success:
+            return jsonify({"success": False, "message": f"Discord post failed: {error}", "status": status_code})
         
         # Only save the Supermax/Lock of the Day to history (not all picks)
         sm_game = supermax['game']
@@ -3615,7 +3671,7 @@ def post_discord():
             db.session.add(pick)
             db.session.commit()
         
-        return jsonify({"success": True, "status": resp.status_code, "picks_count": 1})
+        return jsonify({"success": True, "status": status_code, "picks_count": 1})
     
     return jsonify({"success": False, "message": "Discord webhook not configured"})
 
@@ -3690,7 +3746,9 @@ def post_discord_window(window: str):
     
     webhook = os.environ.get("SPORTS_DISCORD_WEBHOOK")
     if webhook:
-        resp = requests.post(webhook, json={"content": msg})
+        success, status_code, error = post_to_discord_with_retry(webhook, {"content": msg})
+        if not success:
+            return jsonify({"success": False, "message": f"Discord post failed: {error}", "status": status_code})
         
         # Save to history
         matchup = f"{sm_game.away_team} @ {sm_game.home_team}"
@@ -3727,7 +3785,7 @@ def post_discord_window(window: str):
         db.session.add(pick)
         db.session.commit()
         
-        return jsonify({"success": True, "window": window, "status": resp.status_code})
+        return jsonify({"success": True, "window": window, "status": status_code})
     
     return jsonify({"success": False, "message": "Discord webhook not configured"})
 
