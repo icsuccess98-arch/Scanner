@@ -2361,14 +2361,9 @@ def fetch_odds_internal() -> dict:
                                             if bovada_odds and pinnacle_odds:
                                                 game.total_ev = calculate_ev(bovada_odds, pinnacle_odds)
                                             
-                                            # Apply EV threshold to qualification
-                                            if qualified:
-                                                if game.total_ev is not None and game.total_ev < EV_THRESHOLD:
-                                                    game.is_qualified = False  # Fails EV threshold
-                                                else:
-                                                    game.is_qualified = True
-                                            else:
-                                                game.is_qualified = False
+                                            # EV is informational only - Bovada is primary
+                                            # Qualification based on edge threshold only
+                                            game.is_qualified = qualified
                                                 
                                         lines_updated += 1
                                     break
@@ -2420,14 +2415,9 @@ def fetch_odds_internal() -> dict:
                                             if bovada_spread_odds and pinnacle_spread_odds:
                                                 game.spread_ev = calculate_ev(bovada_spread_odds, pinnacle_spread_odds)
                                             
-                                            # Apply EV threshold to qualification
-                                            if spread_qual:
-                                                if game.spread_ev is not None and game.spread_ev < EV_THRESHOLD:
-                                                    game.spread_is_qualified = False  # Fails EV threshold
-                                                else:
-                                                    game.spread_is_qualified = True
-                                            else:
-                                                game.spread_is_qualified = False
+                                            # EV is informational only - Bovada is primary
+                                            # Qualification based on edge threshold only
+                                            game.spread_is_qualified = spread_qual
                                                 
                                         spreads_updated += 1
                                     break
