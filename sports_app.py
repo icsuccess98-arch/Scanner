@@ -2813,6 +2813,8 @@ def post_discord():
                 edge_val = sm_game.spread_edge
             
             game_start_dt = parse_game_time_to_datetime(sm_game.game_time, today)
+            if game_start_dt and game_start_dt.tzinfo:
+                game_start_dt = game_start_dt.replace(tzinfo=None)
             pick = Pick(
                 game_id=sm_game.id,
                 date=today,
@@ -2922,6 +2924,8 @@ def post_discord_window(window: str):
             edge_val = sm_game.spread_edge
         
         game_start_dt = parse_game_time_to_datetime(sm_game.game_time, today)
+        if game_start_dt and game_start_dt.tzinfo:
+            game_start_dt = game_start_dt.replace(tzinfo=None)
         pick = Pick(
             game_id=sm_game.id,
             date=today,
