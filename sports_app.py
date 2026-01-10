@@ -2254,6 +2254,13 @@ def fetch_odds_internal() -> dict:
         g.spread_is_qualified = False
         g.edge = None
         g.spread_edge = None
+        # Clear EV fields to ensure fresh data
+        g.bovada_total_odds = None
+        g.pinnacle_total_odds = None
+        g.bovada_spread_odds = None
+        g.pinnacle_spread_odds = None
+        g.total_ev = None
+        g.spread_ev = None
     db.session.commit()
     
     for league, sport_key in sport_map.items():
