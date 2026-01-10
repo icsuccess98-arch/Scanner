@@ -172,6 +172,13 @@ class Game(db.Model):
     h2h_ou_pct = db.Column(db.Float)  # Head-to-head O/U hit rate
     h2h_spread_pct = db.Column(db.Float)  # Head-to-head spread cover rate
     history_qualified = db.Column(db.Boolean, default=None)  # NULL = not checked, True/False = checked
+    # Pinnacle comparison for EV calculation
+    bovada_total_odds = db.Column(db.Integer)  # Bovada odds for our totals pick
+    pinnacle_total_odds = db.Column(db.Integer)  # Pinnacle odds for same line
+    bovada_spread_odds = db.Column(db.Integer)  # Bovada odds for our spread pick
+    pinnacle_spread_odds = db.Column(db.Integer)  # Pinnacle odds for same line
+    total_ev = db.Column(db.Float)  # Expected value vs Pinnacle for totals
+    spread_ev = db.Column(db.Float)  # Expected value vs Pinnacle for spreads
     
     __table_args__ = (
         db.Index('idx_date_league', 'date', 'league'),
@@ -332,6 +339,45 @@ def check_spread_qualification(expected_away: float, expected_home: float,
     elif projected_margin <= line_margin - threshold:
         return True, "AWAY", edge
     return False, None, edge
+
+def american_to_decimal(odds: int) -> float:
+    """Convert American odds to decimal odds."""
+    if odds > 0:
+        return (odds / 100) + 1
+    else:
+        return (100 / abs(odds)) + 1
+
+def american_to_implied_prob(odds: int) -> float:
+    """Convert American odds to implied probability (no-vig)."""
+    if odds > 0:
+        return 100 / (odds + 100)
+    else:
+        return abs(odds) / (abs(odds) + 100)
+
+def calculate_ev(bovada_odds: int, pinnacle_odds: int) -> float:
+    """
+    Calculate Expected Value using Pinnacle as the true probability.
+    
+    EV = (p_true * decimal_payout) - 1
+    Where p_true comes from Pinnacle's implied probability
+    and decimal_payout comes from Bovada's odds
+    
+    Positive EV = our odds are better than the sharp market
+    
+    Example: Bovada -140, Pinnacle -180
+    - Pinnacle implies 64.3% true probability
+    - Bovada decimal = 1.714
+    - EV = (0.643 * 1.714) - 1 = 0.102 = +10.2% EV
+    """
+    if not bovada_odds or not pinnacle_odds:
+        return None
+    
+    p_true = american_to_implied_prob(pinnacle_odds)
+    decimal_bovada = american_to_decimal(bovada_odds)
+    ev = (p_true * decimal_bovada) - 1
+    return round(ev * 100, 2)  # Return as percentage
+
+EV_THRESHOLD = 0.0  # Require positive EV (0% or better)
 
 def is_game_upcoming(game: Game) -> bool:
     """Check if a game is upcoming (not finished)."""
