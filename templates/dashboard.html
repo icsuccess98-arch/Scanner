@@ -793,8 +793,9 @@
                             {% if pick.direction == 'HOME' %}
                             {{ pick.game.home_team }} {{ "%+.1f"|format(pick.line) if pick.line else '' }}
                             {% else %}
-                            {{ pick.game.away_team }} {{ "%+.1f"|format(-pick.line) if pick.line else '' }}
+                            {{ pick.game.away_team }} {{ "%+.1f"|format(pick.line) if pick.line else '' }}
                             {% endif %}
+                            {% if pick.odds %}<span class="pick-odds" style="font-size: 0.7rem; margin-left: 4px;">{{ pick.odds }}</span>{% endif %}
                         </span>
                         {% endif %}
                         <span class="top-pick-edge">+{{ "%.1f"|format(pick.edge) }}</span>

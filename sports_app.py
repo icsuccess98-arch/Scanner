@@ -1456,12 +1456,21 @@ def dashboard():
             'odds': g.alt_total_odds
         })
     for g in spread_qualified:
+        # For spread picks, calculate the correct line value for display
+        # alt_spread_line is already the picked team's perspective
+        # spread_line is home-team perspective (need to flip for away picks)
+        if g.alt_spread_line:
+            display_line = g.alt_spread_line if g.spread_direction == 'HOME' else g.alt_spread_line
+        elif g.spread_line:
+            display_line = g.spread_line if g.spread_direction == 'HOME' else -g.spread_line
+        else:
+            display_line = None
         combined_picks.append({
             'game': g,
             'edge': g.spread_edge or 0,
             'pick_type': 'spread',
             'direction': g.spread_direction,
-            'line': g.alt_spread_line if g.alt_spread_line else g.spread_line,
+            'line': display_line,
             'odds': g.alt_spread_odds
         })
     combined_picks.sort(key=lambda x: x['edge'], reverse=True)
