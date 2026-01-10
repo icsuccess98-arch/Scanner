@@ -48,11 +48,11 @@ Additional data-driven factors that disqualify picks during game scanning:
     -   Spreads disqualified if betting on a team with declining form AND recent margin doesn't support the pick
 
 2.  **Injury Data Integration**
-    -   Fetches injury reports from ESPN API for both teams
-    -   Tracks "Out" and "Doubtful" players
-    -   `has_key_injuries` flag triggers if 2+ players are out/doubtful
-    -   Disqualifies OVER picks if either team has key injuries
-    -   Disqualifies spread picks if the team being bet on has key injuries
+    -   Single ESPN API call per team (no nested player lookups)
+    -   Count-based impact scoring: 1st injured = 2.5 pts, 2nd = 2.0 pts, 3rd+ = 1.0 pts
+    -   Thresholds: 3.0 pts (concern), 4.5 pts (significant), 6.0 pts (severe)
+    -   Disqualifies OVER picks if either team has significant injuries
+    -   Disqualifies spread picks if team being bet on has key injuries
 
 3.  **Sharp Money Detection (Line Movement)**
     -   Stores opening line when first fetched from Bovada (both totals and spreads)
@@ -73,6 +73,13 @@ Additional data-driven factors that disqualify picks during game scanning:
     -   `calculate_sos_factor()` compares opponent's PPG allowed to league average
     -   Returns multiplier (>1 = tough schedule, <1 = easy schedule)
     -   Available for future projection adjustments
+
+6.  **Vig-Adjusted Edge Calculation (VigCalculator)**
+    -   Removes bookmaker vig from raw edge calculations for accurate edge assessment
+    -   Lookup table based on actual odds: -110 = 4.76% reduction, -115 = 5.5%, -120 = 6.5%, etc.
+    -   Plus money lines get smaller reductions (~2%), heavy favorites get larger reductions (up to 10%)
+    -   Multiplier always clamped to ≤1.0 to prevent edge inflation
+    -   Used by unified_spread_qualification to enforce edge threshold BEFORE margin/form/injury checks
 
 ### Betting Models (4 Total)
 The sports betting calculator uses four distinct models for pick generation:
