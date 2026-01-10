@@ -179,6 +179,9 @@ class Game(db.Model):
     pinnacle_spread_odds = db.Column(db.Integer)  # Pinnacle odds for same line
     total_ev = db.Column(db.Float)  # Expected value vs Pinnacle for totals
     spread_ev = db.Column(db.Float)  # Expected value vs Pinnacle for spreads
+    # NBA 1H Money Line for away favorites (Model 4)
+    nba_1h_ml_odds = db.Column(db.Integer)  # Away team 1st half money line odds
+    nba_1h_ml_qualified = db.Column(db.Boolean, default=False)  # Qualifies for Model 4
     
     __table_args__ = (
         db.Index('idx_date_league', 'date', 'league'),
@@ -256,6 +259,20 @@ def is_big_slate_day() -> bool:
 
 with app.app_context():
     db.create_all()
+    # Migration: Add Model 4 columns if they don't exist (PostgreSQL)
+    try:
+        from sqlalchemy import text, inspect
+        inspector = inspect(db.engine)
+        existing_columns = [col['name'] for col in inspector.get_columns('game')]
+        
+        if 'nba_1h_ml_odds' not in existing_columns:
+            with db.engine.connect() as conn:
+                conn.execute(text("ALTER TABLE game ADD COLUMN nba_1h_ml_odds INTEGER"))
+                conn.execute(text("ALTER TABLE game ADD COLUMN nba_1h_ml_qualified BOOLEAN DEFAULT FALSE"))
+                conn.commit()
+                logger.info("Migration: Added Model 4 columns (nba_1h_ml_odds, nba_1h_ml_qualified)")
+    except Exception as e:
+        logger.warning(f"Migration check: {e}")
 
 def calculate_projection(away_ppg: float, away_opp: float, 
                         home_ppg: float, home_opp: float) -> float:
@@ -1569,6 +1586,38 @@ def dashboard():
             'pinnacle_odds': g.pinnacle_spread_odds,
             'ev': g.spread_ev
         })
+    
+    # Model 4: NBA 1H ML for away favorites
+    # Re-verify away-favorite condition to avoid stale picks
+    model4_games = Game.query.filter(
+        Game.date == today,
+        Game.league == 'NBA',
+        Game.nba_1h_ml_qualified == True,
+        Game.spread_line > 0  # Must still be away favorite
+    ).all()
+    for g in model4_games:
+        # Use spread_edge as the edge metric for consistency
+        edge = g.spread_edge or g.spread_line or 0
+        history_pct = 0  # No historical tracking for 1H ML yet
+        model_bonus = 0  # No bonus for Model 4
+        weighted_score = edge + (history_pct * 0.15) + model_bonus
+        combined_picks.append({
+            'game': g,
+            'edge': edge,
+            'history_pct': history_pct,
+            'weighted_score': weighted_score,
+            'pick_type': '1h_ml',
+            'model_type': '1h_ml',
+            'direction': g.away_team,
+            'line': None,
+            'vegas_line': None,
+            'alt_line': None,
+            'odds': g.nba_1h_ml_odds,
+            'bovada_odds': None,
+            'pinnacle_odds': None,
+            'ev': None
+        })
+    
     # Sort by weighted score (edge + history) instead of just edge
     combined_picks.sort(key=lambda x: x['weighted_score'], reverse=True)
     analytics['top_picks'] = combined_picks[:5]
@@ -2473,11 +2522,15 @@ def fetch_odds_internal() -> dict:
     
     alt_lines_result = fetch_alt_lines_internal()
     
+    # Fetch Model 4: NBA 1H ML for away favorites
+    model4_result = fetch_nba_1h_ml_internal()
+    
     return {
         "success": True, 
         "lines_updated": lines_updated, 
         "spreads_updated": spreads_updated,
-        "alt_lines_found": alt_lines_result.get("alt_lines_found", 0)
+        "alt_lines_found": alt_lines_result.get("alt_lines_found", 0),
+        "model4_1h_ml_found": model4_result.get("1h_ml_found", 0)
     }
 
 @app.route('/fetch_odds', methods=['POST'])
@@ -2720,6 +2773,82 @@ def fetch_alt_lines_internal() -> dict:
     
     db.session.commit()
     return {"alt_lines_found": alt_lines_found, "games_checked": len(all_qualified)}
+
+def fetch_nba_1h_ml_internal() -> dict:
+    """Fetch 1st half money lines for NBA away favorites (Model 4)."""
+    api_key = os.environ.get("ODDS_API_KEY")
+    if not api_key:
+        return {"1h_ml_found": 0, "games_checked": 0}
+    
+    et = pytz.timezone('America/New_York')
+    today = datetime.now(et).date()
+    
+    # Reset all NBA 1H ML qualifications first (handles line changes)
+    Game.query.filter(
+        Game.date == today,
+        Game.league == 'NBA'
+    ).update({
+        'nba_1h_ml_qualified': False,
+        'nba_1h_ml_odds': None
+    }, synchronize_session=False)
+    db.session.commit()
+    
+    # Find NBA games where away team is favorite (spread_line > 0)
+    nba_away_favs = Game.query.filter(
+        Game.date == today,
+        Game.league == 'NBA',
+        Game.spread_line > 0,  # Away is favorite
+        Game.event_id.isnot(None)
+    ).all()
+    
+    if not nba_away_favs:
+        return {"1h_ml_found": 0, "games_checked": 0}
+    
+    logger.info(f"Model 4: Checking {len(nba_away_favs)} NBA away favorites for 1H ML")
+    ml_found = 0
+    
+    for game in nba_away_favs:
+        try:
+            url = f"https://api.the-odds-api.com/v4/sports/{game.sport_key}/events/{game.event_id}/odds"
+            params = {
+                "apiKey": api_key,
+                "regions": "us",
+                "markets": "h2h_h1",
+                "oddsFormat": "american",
+                "bookmakers": "draftkings,fanduel,bovada"
+            }
+            resp = requests.get(url, params=params, timeout=15)
+            if resp.status_code != 200:
+                continue
+            
+            data = resp.json()
+            bookmakers = data.get("bookmakers", [])
+            
+            # Try to find 1H ML from any bookmaker
+            for book in bookmakers:
+                markets = book.get("markets", [])
+                for market in markets:
+                    if market.get("key") == "h2h_h1":
+                        outcomes = market.get("outcomes", [])
+                        # Find the away team's 1H ML odds
+                        for outcome in outcomes:
+                            if teams_match(outcome.get("name", ""), game.away_team):
+                                odds = outcome.get("price")
+                                if odds:
+                                    game.nba_1h_ml_odds = int(odds)
+                                    game.nba_1h_ml_qualified = True
+                                    ml_found += 1
+                                    logger.info(f"Model 4: {game.away_team} @ {game.home_team} 1H ML: {odds}")
+                                    break
+                        if game.nba_1h_ml_qualified:
+                            break
+                if game.nba_1h_ml_qualified:
+                    break
+        except Exception as e:
+            logger.error(f"Model 4 error for {game.away_team} @ {game.home_team}: {e}")
+    
+    db.session.commit()
+    return {"1h_ml_found": ml_found, "games_checked": len(nba_away_favs)}
 
 @app.route('/post_discord', methods=['POST'])
 def post_discord():

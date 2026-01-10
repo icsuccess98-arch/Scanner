@@ -62,11 +62,12 @@ The sports betting calculator uses four distinct models for pick generation:
     -   Receives +2 weighted bonus in TOP 5 ranking
     -   High-confidence plays when road favorite + totals align
 
-4.  **NBA Away Favorite 1H Money Line** - Model 4 (Planned)
-    -   NBA games where away team is the favorite
+4.  **NBA Away Favorite 1H Money Line** - Model 4 (Implemented)
+    -   NBA games where away team is the favorite (spread_line > 0)
     -   Take 1st Half money line on the away favorite
     -   Uses The Odds API market key: `h2h_h1`
-    -   Requires event-specific API calls
+    -   Fetched alongside alt lines during odds fetch
+    -   Displayed in TOP 5 with orange styling to distinguish from other models
 
 ### TOP 5 Ranking Algorithm
 -   Weighted Score = Edge + (History% × 0.15) + Model Bonus

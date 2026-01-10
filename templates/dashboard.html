@@ -795,6 +795,10 @@
                         <span class="top-pick-matchup ms-2">{{ pick.game.away_team }} @ {{ pick.game.home_team }}</span>
                         {% if pick.pick_type == 'totals' %}
                         <span class="direction-chip {% if pick.direction == 'O' %}over{% else %}under{% endif %}">{{ pick.direction }}{{ "%.1f"|format(pick.line) }}{% if pick.odds %} <span style="font-size: 0.7rem; opacity: 0.85;">({{ pick.odds }})</span>{% endif %}</span>
+                        {% elif pick.pick_type == '1h_ml' %}
+                        <span class="direction-chip" style="background: rgba(255, 165, 0, 0.15); color: #FFA500;">
+                            {{ pick.direction }} 1H ML{% if pick.odds %} <span style="font-size: 0.7rem; opacity: 0.85;">({{ pick.odds }})</span>{% endif %}
+                        </span>
                         {% else %}
                         <span class="direction-chip spread-chip" style="background: rgba(76, 130, 255, 0.15); color: var(--accent);">
                             {% if pick.direction == 'HOME' %}{{ pick.game.home_team }}{% else %}{{ pick.game.away_team }}{% endif %} {{ "%+.1f"|format(pick.line) if pick.line else '' }}{% if pick.odds %} <span style="font-size: 0.7rem; opacity: 0.85;">({{ pick.odds }})</span>{% endif %}
