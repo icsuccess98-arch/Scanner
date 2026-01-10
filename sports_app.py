@@ -1499,7 +1499,10 @@ def dashboard():
             'pick_type': 'totals',
             'direction': g.direction,
             'line': g.alt_total_line if g.alt_total_line else g.line,
-            'odds': g.alt_total_odds
+            'odds': g.alt_total_odds,
+            'bovada_odds': g.bovada_total_odds,
+            'pinnacle_odds': g.pinnacle_total_odds,
+            'ev': g.total_ev
         })
     for g in spread_qualified:
         # For spread picks, calculate the correct line value for display
@@ -1517,7 +1520,10 @@ def dashboard():
             'pick_type': 'spread',
             'direction': g.spread_direction,
             'line': display_line,
-            'odds': g.alt_spread_odds
+            'odds': g.alt_spread_odds,
+            'bovada_odds': g.bovada_spread_odds,
+            'pinnacle_odds': g.pinnacle_spread_odds,
+            'ev': g.spread_ev
         })
     combined_picks.sort(key=lambda x: x['edge'], reverse=True)
     analytics['top_picks'] = combined_picks[:5]

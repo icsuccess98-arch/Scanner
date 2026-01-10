@@ -460,6 +460,9 @@
         .top-pick-row:last-child { border-bottom: none; }
         .top-pick-matchup { font-weight: 500; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .top-pick-edge { font-weight: 700; color: #FFD700; flex-shrink: 0; }
+        .ev-badge { padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.65rem; font-weight: 600; flex-shrink: 0; }
+        .ev-badge.positive { background: rgba(0, 230, 118, 0.2); color: #00E676; }
+        .ev-badge.negative { background: rgba(255, 82, 82, 0.2); color: #FF5252; }
         .btn-clear {
             background: transparent;
             border: 1px solid var(--red);
@@ -699,8 +702,14 @@
                     <div class="lock-edge-top mb-1">
                         {% if supermax_type == 'totals' %}
                         EDGE {{ "%.1f"|format(supermax_lock.edge) }} PTS
+                        {% if supermax_lock.total_ev is not none %}
+                        <span class="ev-badge {% if supermax_lock.total_ev >= 0 %}positive{% else %}negative{% endif %}" style="margin-left: 0.5rem;" title="Bovada {{ supermax_lock.bovada_total_odds }} vs Pinnacle {{ supermax_lock.pinnacle_total_odds }}">{{ "%+.1f"|format(supermax_lock.total_ev) }}% EV</span>
+                        {% endif %}
                         {% else %}
                         EDGE {{ "%.1f"|format(supermax_lock.spread_edge) }} PTS
+                        {% if supermax_lock.spread_ev is not none %}
+                        <span class="ev-badge {% if supermax_lock.spread_ev >= 0 %}positive{% else %}negative{% endif %}" style="margin-left: 0.5rem;" title="Bovada {{ supermax_lock.bovada_spread_odds }} vs Pinnacle {{ supermax_lock.pinnacle_spread_odds }}">{{ "%+.1f"|format(supermax_lock.spread_ev) }}% EV</span>
+                        {% endif %}
                         {% endif %}
                     </div>
                     <span class="lock-badge{% if supermax_type == 'spread' %}" style="background: linear-gradient(135deg, var(--accent) 0%, #6B9FFF 100%);{% else %}">{% endif %}<i class="bi bi-lightning-charge-fill"></i> SUPERMAX</span>
@@ -799,6 +808,9 @@
                         </span>
                         {% endif %}
                         <span class="top-pick-edge">+{{ "%.1f"|format(pick.edge) }}</span>
+                        {% if pick.ev is not none %}
+                        <span class="ev-badge {% if pick.ev >= 0 %}positive{% else %}negative{% endif %}" title="Bovada {{ pick.bovada_odds }} vs Pinnacle {{ pick.pinnacle_odds }}">{{ "%+.1f"|format(pick.ev) }}% EV</span>
+                        {% endif %}
                     </div>
                     {% endfor %}
                     {% if not analytics.top_picks %}
