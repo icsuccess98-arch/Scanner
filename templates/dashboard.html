@@ -1032,48 +1032,24 @@
             if ('vibrate' in navigator) navigator.vibrate(10);
         }
         
-        // Offline mode detection and caching
+        // Offline mode detection
         let isOffline = !navigator.onLine;
         
         function updateOfflineStatus() {
             isOffline = !navigator.onLine;
             const banner = document.getElementById('offlineBanner');
-            if (isOffline) {
-                banner.classList.add('show');
-                loadCachedPicks();
-            } else {
-                banner.classList.remove('show');
-            }
-        }
-        
-        function cachePicks() {
-            try {
-                const picks = {
-                    timestamp: new Date().toISOString(),
-                    totals_qualified: {{ totals_qualified }},
-                    spreads_qualified: {{ spreads_qualified }},
-                    total_games: {{ total_games }}
-                };
-                localStorage.setItem('730_cached_picks', JSON.stringify(picks));
-            } catch(e) { console.log('Cache error:', e); }
-        }
-        
-        function loadCachedPicks() {
-            const cached = localStorage.getItem('730_cached_picks');
-            if (cached) {
-                const data = JSON.parse(cached);
-                console.log('Loaded cached picks from:', data.timestamp);
+            if (banner) {
+                if (isOffline) {
+                    banner.classList.add('show');
+                } else {
+                    banner.classList.remove('show');
+                }
             }
         }
         
         window.addEventListener('online', updateOfflineStatus);
         window.addEventListener('offline', updateOfflineStatus);
-        
-        // Cache picks on page load
-        document.addEventListener('DOMContentLoaded', () => {
-            updateOfflineStatus();
-            if (!isOffline) cachePicks();
-        });
+        document.addEventListener('DOMContentLoaded', updateOfflineStatus);
         
         function fetchGames() {
             hapticFeedback();
