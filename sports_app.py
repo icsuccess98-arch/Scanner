@@ -2258,7 +2258,7 @@ def fetch_odds_internal() -> dict:
                 "regions": "us",
                 "markets": "totals,spreads",
                 "oddsFormat": "american",
-                "bookmakers": "bovada"
+                "bookmakers": "bovada,pinnacle"  # Fetch both for EV comparison
             }
             resp = requests.get(url, params=params, timeout=30)
             if resp.status_code != 200:
@@ -2292,59 +2292,132 @@ def fetch_odds_internal() -> dict:
                         game.sport_key = sport_key
                         bookmakers = event.get("bookmakers", [])
                         bovada_book = next((b for b in bookmakers if b.get("key") == "bovada"), None)
+                        pinnacle_book = next((b for b in bookmakers if b.get("key") == "pinnacle"), None)
                         if not bovada_book:
                             continue  # Skip games not on Bovada
-                        book = bovada_book
-                        if book:
-                            markets = book.get("markets", [])
-                            for market in markets:
-                                if market.get("key") == "totals":
-                                    outcomes = market.get("outcomes", [])
-                                    for outcome in outcomes:
-                                        if outcome.get("name") == "Over":
-                                            line = outcome.get("point")
-                                            if line is not None:
-                                                game.line = line
-                                                if all([game.away_ppg, game.away_opp_ppg, game.home_ppg, game.home_opp_ppg]):
-                                                    exp_away, exp_home, proj_total = calculate_expected_scores(
-                                                        game.away_ppg, game.away_opp_ppg, 
-                                                        game.home_ppg, game.home_opp_ppg
-                                                    )
-                                                    game.expected_away = exp_away
-                                                    game.expected_home = exp_home
-                                                    game.projected_total = proj_total
-                                                    game.projected_margin = exp_home - exp_away
-                                                    qualified, direction, edge = check_qualification(
-                                                        game.projected_total, game.line, game.league
-                                                    )
-                                                    game.is_qualified = qualified
-                                                    game.direction = direction
-                                                    game.edge = edge
-                                                lines_updated += 1
-                                            break
-                                elif market.get("key") == "spreads":
-                                    outcomes = market.get("outcomes", [])
-                                    for outcome in outcomes:
-                                        if teams_match(outcome.get("name", ""), home_team):
-                                            spread_line = outcome.get("point")
-                                            if spread_line is not None:
-                                                game.spread_line = spread_line
-                                                if all([game.away_ppg, game.away_opp_ppg, game.home_ppg, game.home_opp_ppg]):
-                                                    exp_away, exp_home, _ = calculate_expected_scores(
-                                                        game.away_ppg, game.away_opp_ppg, 
-                                                        game.home_ppg, game.home_opp_ppg
-                                                    )
-                                                    game.expected_away = exp_away
-                                                    game.expected_home = exp_home
-                                                    game.projected_margin = exp_home - exp_away
-                                                    spread_qual, spread_dir, spread_edge = check_spread_qualification(
-                                                        exp_away, exp_home, spread_line, game.league
-                                                    )
-                                                    game.spread_is_qualified = spread_qual
-                                                    game.spread_direction = spread_dir
-                                                    game.spread_edge = spread_edge
-                                                spreads_updated += 1
-                                            break
+                        
+                        # Extract Bovada markets
+                        bovada_markets = {m.get("key"): m for m in bovada_book.get("markets", [])}
+                        pinnacle_markets = {m.get("key"): m for m in pinnacle_book.get("markets", [])} if pinnacle_book else {}
+                        
+                        # Process TOTALS
+                        if "totals" in bovada_markets:
+                            totals_market = bovada_markets["totals"]
+                            outcomes = totals_market.get("outcomes", [])
+                            for outcome in outcomes:
+                                if outcome.get("name") == "Over":
+                                    line = outcome.get("point")
+                                    bovada_over_odds = outcome.get("price")
+                                    if line is not None:
+                                        game.line = line
+                                        if all([game.away_ppg, game.away_opp_ppg, game.home_ppg, game.home_opp_ppg]):
+                                            exp_away, exp_home, proj_total = calculate_expected_scores(
+                                                game.away_ppg, game.away_opp_ppg, 
+                                                game.home_ppg, game.home_opp_ppg
+                                            )
+                                            game.expected_away = exp_away
+                                            game.expected_home = exp_home
+                                            game.projected_total = proj_total
+                                            game.projected_margin = exp_home - exp_away
+                                            qualified, direction, edge = check_qualification(
+                                                game.projected_total, game.line, game.league
+                                            )
+                                            game.direction = direction
+                                            game.edge = edge
+                                            
+                                            # Get matching outcome from Bovada based on direction
+                                            bovada_odds = None
+                                            pinnacle_odds = None
+                                            if direction == "OVER":
+                                                bovada_odds = bovada_over_odds
+                                            elif direction == "UNDER":
+                                                under_outcome = next((o for o in outcomes if o.get("name") == "Under"), None)
+                                                bovada_odds = under_outcome.get("price") if under_outcome else None
+                                            
+                                            # Get Pinnacle odds for same direction
+                                            if pinnacle_markets.get("totals") and direction:
+                                                pinn_outcomes = pinnacle_markets["totals"].get("outcomes", [])
+                                                pinn_name = "Over" if direction == "OVER" else "Under"
+                                                pinn_outcome = next((o for o in pinn_outcomes if o.get("name") == pinn_name), None)
+                                                if pinn_outcome:
+                                                    pinnacle_odds = pinn_outcome.get("price")
+                                            
+                                            # Store and calculate EV
+                                            game.bovada_total_odds = bovada_odds
+                                            game.pinnacle_total_odds = pinnacle_odds
+                                            if bovada_odds and pinnacle_odds:
+                                                game.total_ev = calculate_ev(bovada_odds, pinnacle_odds)
+                                            
+                                            # Apply EV threshold to qualification
+                                            if qualified:
+                                                if game.total_ev is not None and game.total_ev < EV_THRESHOLD:
+                                                    game.is_qualified = False  # Fails EV threshold
+                                                else:
+                                                    game.is_qualified = True
+                                            else:
+                                                game.is_qualified = False
+                                                
+                                        lines_updated += 1
+                                    break
+                        
+                        # Process SPREADS
+                        if "spreads" in bovada_markets:
+                            spreads_market = bovada_markets["spreads"]
+                            outcomes = spreads_market.get("outcomes", [])
+                            for outcome in outcomes:
+                                if teams_match(outcome.get("name", ""), home_team):
+                                    spread_line = outcome.get("point")
+                                    home_spread_odds = outcome.get("price")
+                                    if spread_line is not None:
+                                        game.spread_line = spread_line
+                                        if all([game.away_ppg, game.away_opp_ppg, game.home_ppg, game.home_opp_ppg]):
+                                            exp_away, exp_home, _ = calculate_expected_scores(
+                                                game.away_ppg, game.away_opp_ppg, 
+                                                game.home_ppg, game.home_opp_ppg
+                                            )
+                                            game.expected_away = exp_away
+                                            game.expected_home = exp_home
+                                            game.projected_margin = exp_home - exp_away
+                                            spread_qual, spread_dir, spread_edge = check_spread_qualification(
+                                                exp_away, exp_home, spread_line, game.league
+                                            )
+                                            game.spread_direction = spread_dir
+                                            game.spread_edge = spread_edge
+                                            
+                                            # Get odds based on spread direction
+                                            bovada_spread_odds = None
+                                            pinnacle_spread_odds = None
+                                            if spread_dir == "HOME":
+                                                bovada_spread_odds = home_spread_odds
+                                            elif spread_dir == "AWAY":
+                                                away_outcome = next((o for o in outcomes if teams_match(o.get("name", ""), away_team)), None)
+                                                bovada_spread_odds = away_outcome.get("price") if away_outcome else None
+                                            
+                                            # Get Pinnacle odds for same direction
+                                            if pinnacle_markets.get("spreads") and spread_dir:
+                                                pinn_outcomes = pinnacle_markets["spreads"].get("outcomes", [])
+                                                pick_team = home_team if spread_dir == "HOME" else away_team
+                                                pinn_outcome = next((o for o in pinn_outcomes if teams_match(o.get("name", ""), pick_team)), None)
+                                                if pinn_outcome:
+                                                    pinnacle_spread_odds = pinn_outcome.get("price")
+                                            
+                                            # Store and calculate EV
+                                            game.bovada_spread_odds = bovada_spread_odds
+                                            game.pinnacle_spread_odds = pinnacle_spread_odds
+                                            if bovada_spread_odds and pinnacle_spread_odds:
+                                                game.spread_ev = calculate_ev(bovada_spread_odds, pinnacle_spread_odds)
+                                            
+                                            # Apply EV threshold to qualification
+                                            if spread_qual:
+                                                if game.spread_ev is not None and game.spread_ev < EV_THRESHOLD:
+                                                    game.spread_is_qualified = False  # Fails EV threshold
+                                                else:
+                                                    game.spread_is_qualified = True
+                                            else:
+                                                game.spread_is_qualified = False
+                                                
+                                        spreads_updated += 1
+                                    break
         except Exception as e:
             print(f"Odds fetch error for {league}: {e}")
     
