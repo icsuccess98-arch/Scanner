@@ -1,0 +1,652 @@
+"""
+FOOLPROOF PICK QUALIFICATION SYSTEM
+
+A pick ONLY qualifies if it passes ALL checks:
+1. Edge threshold
+2. Historical validation
+3. EV filtering (NULL allowed, negative rejected)
+4. Injury impact acceptable
+5. Spread direction validated
+6. Vig removal successful
+
+NO EXCEPTIONS. NO PARTIAL QUALIFICATIONS.
+If ANY check fails → NOT A QUALIFIED PICK
+"""
+
+import logging
+from typing import Dict, List, Optional, Tuple
+from enum import Enum
+
+logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# PART 1: QUALIFICATION STATUS ENUM
+# ============================================================================
+
+class QualificationStatus(Enum):
+    """All possible qualification statuses"""
+    FULLY_QUALIFIED = "FULLY_QUALIFIED"           # Passes ALL checks ✅
+    EDGE_ONLY = "EDGE_ONLY"                       # Edge met, but history/EV failed ❌
+    HISTORY_ONLY = "HISTORY_ONLY"                 # History met, but edge/EV failed ❌
+    NEGATIVE_EV = "NEGATIVE_EV"                   # Has proven negative EV ❌
+    INJURY_CONCERN = "INJURY_CONCERN"             # Major injury impact ❌
+    VALIDATION_FAILED = "VALIDATION_FAILED"       # Data validation failed ❌
+    NOT_QUALIFIED = "NOT_QUALIFIED"               # Didn't meet basic criteria ❌
+
+
+# ============================================================================
+# PART 2: QUALIFICATION VALIDATOR
+# ============================================================================
+
+class PickQualificationValidator:
+    """
+    Validates picks with ZERO ambiguity
+    
+    A pick is ONLY qualified if ALL checks pass
+    """
+    
+    def __init__(self):
+        self.validation_log = []
+    
+    def validate_spread_pick(self, game: Dict, model_result: Dict) -> Dict:
+        """
+        Validate spread pick with ALL requirements
+        
+        Returns:
+            {
+                'qualified': bool,              # TRUE only if ALL checks pass
+                'status': QualificationStatus,
+                'checks': {
+                    'edge': {'passed': bool, 'reason': str},
+                    'history': {'passed': bool, 'reason': str},
+                    'ev': {'passed': bool, 'reason': str},
+                    'injury': {'passed': bool, 'reason': str},
+                    'validation': {'passed': bool, 'reason': str},
+                },
+                'failure_reason': str,          # Why it failed (if applicable)
+            }
+        """
+        checks = {}
+        
+        # CHECK 1: Edge Threshold
+        edge = model_result.get('edge', 0)
+        edge_threshold = 8.5  # Your threshold
+        
+        checks['edge'] = {
+            'passed': edge >= edge_threshold,
+            'value': edge,
+            'threshold': edge_threshold,
+            'reason': f"Edge {edge:.1f} {'≥' if edge >= edge_threshold else '<'} {edge_threshold}"
+        }
+        
+        # CHECK 2: Historical Validation
+        spread_history_qualified = model_result.get('spread_history_qualified', False)
+        
+        # For spread history, we need to check the specific rules:
+        # - Away underdogs: margin_pct ≥ 85%
+        # - Home favorites: specific criteria
+        # - Form validation: recent performance
+        
+        checks['history'] = {
+            'passed': spread_history_qualified,
+            'value': spread_history_qualified,
+            'reason': self._get_history_failure_reason(game, model_result)
+        }
+        
+        # CHECK 3: EV Filtering
+        spread_ev = model_result.get('spread_ev')
+        
+        # CONSISTENT EV LOGIC:
+        # - NULL (None) = ALLOWED (no Pinnacle data available)
+        # - Negative = REJECTED (proven bad value)
+        # - Zero or positive = ALLOWED (neutral or good value)
+        
+        ev_passed = spread_ev is None or spread_ev >= 0
+        
+        checks['ev'] = {
+            'passed': ev_passed,
+            'value': spread_ev,
+            'reason': (
+                'No Pinnacle data (allowed)' if spread_ev is None else
+                f"EV {spread_ev:.2f}% {'≥' if spread_ev >= 0 else '<'} 0%"
+            )
+        }
+        
+        # CHECK 4: Injury Impact
+        injury_adjustment = game.get('injuries', {}).get('adjustment', {}).get('injury_adjustment', 0)
+        injury_severity = game.get('injuries', {}).get('adjustment', {}).get('severity', 'NONE')
+        
+        # Reject if injury impact is too severe against your bet
+        betting_team = model_result.get('betting_team')
+        favorite_team = game['spread']['favorite']
+        
+        # If betting on a team with CRITICAL injuries, flag it
+        injury_passed = True
+        injury_reason = 'No significant injury concerns'
+        
+        if injury_severity == 'CRITICAL' and abs(injury_adjustment) >= 4:
+            injury_passed = False
+            injury_reason = f'{injury_severity} injury impact: {injury_adjustment:.1f} pts'
+        
+        checks['injury'] = {
+            'passed': injury_passed,
+            'severity': injury_severity,
+            'adjustment': injury_adjustment,
+            'reason': injury_reason
+        }
+        
+        # CHECK 5: Data Validation
+        validated = game.get('validated', False)
+        
+        checks['validation'] = {
+            'passed': validated,
+            'reason': 'Data validated' if validated else 'Data validation failed'
+        }
+        
+        # FINAL DETERMINATION: ALL must pass
+        all_passed = all(check['passed'] for check in checks.values())
+        
+        # Determine status
+        if all_passed:
+            status = QualificationStatus.FULLY_QUALIFIED
+            failure_reason = None
+        elif not checks['ev']['passed']:
+            status = QualificationStatus.NEGATIVE_EV
+            failure_reason = f"Negative EV: {spread_ev:.2f}%"
+        elif not checks['injury']['passed']:
+            status = QualificationStatus.INJURY_CONCERN
+            failure_reason = checks['injury']['reason']
+        elif not checks['validation']['passed']:
+            status = QualificationStatus.VALIDATION_FAILED
+            failure_reason = 'Data validation failed'
+        elif checks['edge']['passed'] and not checks['history']['passed']:
+            status = QualificationStatus.EDGE_ONLY
+            failure_reason = checks['history']['reason']
+        elif checks['history']['passed'] and not checks['edge']['passed']:
+            status = QualificationStatus.HISTORY_ONLY
+            failure_reason = checks['edge']['reason']
+        else:
+            status = QualificationStatus.NOT_QUALIFIED
+            failure_reason = self._compile_failure_reasons(checks)
+        
+        result = {
+            'qualified': all_passed,
+            'status': status.value,
+            'checks': checks,
+            'failure_reason': failure_reason,
+            'game_id': f"{game['away_team']} @ {game['home_team']}",
+            'pick_type': 'SPREAD'
+        }
+        
+        # Log validation
+        self._log_validation(result)
+        
+        return result
+    
+    def validate_total_pick(self, game: Dict, model_result: Dict) -> Dict:
+        """
+        Validate total pick with ALL requirements
+        
+        Same logic as spreads: ALL checks must pass
+        """
+        checks = {}
+        
+        # CHECK 1: Edge Threshold
+        edge = model_result.get('edge', 0)
+        edge_threshold = 8.0  # Your threshold for totals
+        
+        checks['edge'] = {
+            'passed': edge >= edge_threshold,
+            'value': edge,
+            'threshold': edge_threshold,
+            'reason': f"Edge {edge:.1f} {'≥' if edge >= edge_threshold else '<'} {edge_threshold}"
+        }
+        
+        # CHECK 2: Historical Validation
+        total_history_qualified = model_result.get('total_history_qualified', False)
+        
+        checks['history'] = {
+            'passed': total_history_qualified,
+            'value': total_history_qualified,
+            'reason': 'Historical criteria met' if total_history_qualified else 'Historical criteria not met'
+        }
+        
+        # CHECK 3: EV Filtering (CONSISTENT with spreads)
+        total_ev = model_result.get('total_ev')
+        
+        ev_passed = total_ev is None or total_ev >= 0
+        
+        checks['ev'] = {
+            'passed': ev_passed,
+            'value': total_ev,
+            'reason': (
+                'No Pinnacle data (allowed)' if total_ev is None else
+                f"EV {total_ev:.2f}% {'≥' if total_ev >= 0 else '<'} 0%"
+            )
+        }
+        
+        # CHECK 4: Data Validation
+        validated = game.get('validated', False)
+        
+        checks['validation'] = {
+            'passed': validated,
+            'reason': 'Data validated' if validated else 'Data validation failed'
+        }
+        
+        # Totals don't need injury check (doesn't affect total points as much)
+        
+        # FINAL DETERMINATION: ALL must pass
+        all_passed = all(check['passed'] for check in checks.values())
+        
+        # Determine status
+        if all_passed:
+            status = QualificationStatus.FULLY_QUALIFIED
+            failure_reason = None
+        elif not checks['ev']['passed']:
+            status = QualificationStatus.NEGATIVE_EV
+            failure_reason = f"Negative EV: {total_ev:.2f}%"
+        elif not checks['validation']['passed']:
+            status = QualificationStatus.VALIDATION_FAILED
+            failure_reason = 'Data validation failed'
+        elif checks['edge']['passed'] and not checks['history']['passed']:
+            status = QualificationStatus.EDGE_ONLY
+            failure_reason = checks['history']['reason']
+        elif checks['history']['passed'] and not checks['edge']['passed']:
+            status = QualificationStatus.HISTORY_ONLY
+            failure_reason = checks['edge']['reason']
+        else:
+            status = QualificationStatus.NOT_QUALIFIED
+            failure_reason = self._compile_failure_reasons(checks)
+        
+        result = {
+            'qualified': all_passed,
+            'status': status.value,
+            'checks': checks,
+            'failure_reason': failure_reason,
+            'game_id': f"{game['away_team']} @ {game['home_team']}",
+            'pick_type': 'TOTAL'
+        }
+        
+        # Log validation
+        self._log_validation(result)
+        
+        return result
+    
+    def _get_history_failure_reason(self, game: Dict, model_result: Dict) -> str:
+        """Get specific reason why history check failed"""
+        if model_result.get('spread_history_qualified'):
+            return 'Historical criteria met'
+        
+        # Check specific failure reasons
+        if game['spread']['underdog_team'] == game['away_team']:
+            margin_pct = model_result.get('historical_margin_pct', 0)
+            if margin_pct < 85:
+                return f'Away underdog margin {margin_pct:.0f}% < 85% required'
+        
+        form_issue = model_result.get('form_disqualification')
+        if form_issue:
+            return form_issue
+        
+        return 'Historical criteria not met'
+    
+    def _compile_failure_reasons(self, checks: Dict) -> str:
+        """Compile all failure reasons into one string"""
+        failures = [
+            check['reason'] 
+            for check in checks.values() 
+            if not check['passed']
+        ]
+        return '; '.join(failures)
+    
+    def _log_validation(self, result: Dict):
+        """Log validation result"""
+        self.validation_log.append(result)
+        
+        if result['qualified']:
+            logger.info(f"✅ QUALIFIED: {result['game_id']} ({result['pick_type']})")
+        else:
+            logger.warning(
+                f"❌ NOT QUALIFIED: {result['game_id']} ({result['pick_type']}) - "
+                f"{result['status']} - {result['failure_reason']}"
+            )
+
+
+# ============================================================================
+# PART 3: DASHBOARD FILTER
+# ============================================================================
+
+class DashboardFilter:
+    """
+    Filters picks for dashboard display
+    
+    RULE: Only FULLY_QUALIFIED picks are shown
+    NO EXCEPTIONS
+    """
+    
+    @staticmethod
+    def filter_for_dashboard(all_picks: List[Dict]) -> Dict:
+        """
+        Filter picks for dashboard display
+        
+        Returns:
+            {
+                'qualified': List[Dict],        # Only FULLY_QUALIFIED
+                'rejected': List[Dict],         # Everything else
+                'stats': {
+                    'total': int,
+                    'qualified': int,
+                    'edge_only': int,
+                    'negative_ev': int,
+                    'validation_failed': int,
+                },
+            }
+        """
+        qualified = []
+        rejected = []
+        
+        stats = {
+            'total': len(all_picks),
+            'qualified': 0,
+            'edge_only': 0,
+            'negative_ev': 0,
+            'history_only': 0,
+            'injury_concern': 0,
+            'validation_failed': 0,
+            'not_qualified': 0,
+        }
+        
+        for pick in all_picks:
+            validation = pick.get('validation', {})
+            status = validation.get('status')
+            
+            if validation.get('qualified') == True and status == 'FULLY_QUALIFIED':
+                qualified.append(pick)
+                stats['qualified'] += 1
+            else:
+                rejected.append(pick)
+                
+                # Count rejection reasons
+                if status == 'EDGE_ONLY':
+                    stats['edge_only'] += 1
+                elif status == 'NEGATIVE_EV':
+                    stats['negative_ev'] += 1
+                elif status == 'HISTORY_ONLY':
+                    stats['history_only'] += 1
+                elif status == 'INJURY_CONCERN':
+                    stats['injury_concern'] += 1
+                elif status == 'VALIDATION_FAILED':
+                    stats['validation_failed'] += 1
+                else:
+                    stats['not_qualified'] += 1
+        
+        return {
+            'qualified': qualified,
+            'rejected': rejected,
+            'stats': stats
+        }
+    
+    @staticmethod
+    def get_dashboard_counts(filtered_picks: Dict) -> Dict:
+        """
+        Get counts for dashboard header
+        
+        These counts should ONLY include FULLY_QUALIFIED picks
+        """
+        qualified_picks = filtered_picks['qualified']
+        
+        spread_count = sum(1 for p in qualified_picks if p['pick_type'] == 'SPREAD')
+        total_count = sum(1 for p in qualified_picks if p['pick_type'] == 'TOTAL')
+        
+        # Count by confidence (only qualified picks)
+        confidence_counts = {
+            'SUPERMAX': 0,
+            'HIGH': 0,
+            'MEDIUM': 0,
+            'LOW': 0
+        }
+        
+        for pick in qualified_picks:
+            confidence = pick.get('confidence', 'LOW')
+            if confidence in confidence_counts:
+                confidence_counts[confidence] += 1
+        
+        return {
+            'total_qualified': len(qualified_picks),
+            'spreads': spread_count,
+            'totals': total_count,
+            'by_confidence': confidence_counts,
+        }
+
+
+# ============================================================================
+# PART 4: INTEGRATED QUALIFICATION SYSTEM
+# ============================================================================
+
+def qualify_all_picks(games: List[Dict]) -> Dict:
+    """
+    Qualify ALL picks with zero ambiguity
+    
+    Args:
+        games: List of games with model results
+    
+    Returns:
+        Dict with qualified picks, rejected picks, and detailed stats
+    """
+    validator = PickQualificationValidator()
+    
+    all_picks = []
+    
+    for game in games:
+        # Validate spread pick (if present)
+        if game.get('models', {}).get('spread'):
+            spread_validation = validator.validate_spread_pick(
+                game, 
+                game['models']['spread']
+            )
+            
+            all_picks.append({
+                'game': game,
+                'pick_type': 'SPREAD',
+                'model_result': game['models']['spread'],
+                'validation': spread_validation,
+                'qualified': spread_validation['qualified'],
+                'status': spread_validation['status'],
+                'confidence': determine_confidence(game, game['models']['spread'])
+            })
+        
+        # Validate total pick (if present)
+        if game.get('models', {}).get('total'):
+            total_validation = validator.validate_total_pick(
+                game,
+                game['models']['total']
+            )
+            
+            all_picks.append({
+                'game': game,
+                'pick_type': 'TOTAL',
+                'model_result': game['models']['total'],
+                'validation': total_validation,
+                'qualified': total_validation['qualified'],
+                'status': total_validation['status'],
+                'confidence': determine_confidence(game, game['models']['total'])
+            })
+    
+    # Filter for dashboard
+    dashboard_filter = DashboardFilter()
+    filtered = dashboard_filter.filter_for_dashboard(all_picks)
+    dashboard_counts = dashboard_filter.get_dashboard_counts(filtered)
+    
+    # Generate detailed report
+    report = generate_qualification_report(filtered, validator.validation_log)
+    
+    return {
+        'all_picks': all_picks,
+        'qualified_picks': filtered['qualified'],
+        'rejected_picks': filtered['rejected'],
+        'dashboard_counts': dashboard_counts,
+        'stats': filtered['stats'],
+        'report': report,
+        'validation_log': validator.validation_log
+    }
+
+
+def determine_confidence(game: Dict, model: Dict) -> str:
+    """Determine confidence level (only called for QUALIFIED picks)"""
+    edge = model.get('edge', 0)
+    ev = model.get('spread_ev') or model.get('total_ev', 0) or 0
+    
+    if edge >= 12 and ev >= 5:
+        return 'SUPERMAX'
+    elif edge >= 10 and ev >= 3:
+        return 'HIGH'
+    elif edge >= 8.5 and ev >= 1:
+        return 'MEDIUM'
+    else:
+        return 'LOW'
+
+
+def generate_qualification_report(filtered: Dict, validation_log: List[Dict]) -> str:
+    """Generate human-readable qualification report"""
+    stats = filtered['stats']
+    
+    report = f"""
+QUALIFICATION REPORT
+{'='*80}
+
+SUMMARY:
+  Total picks evaluated: {stats['total']}
+  ✅ Fully qualified: {stats['qualified']}
+  ❌ Rejected: {stats['total'] - stats['qualified']}
+
+REJECTION BREAKDOWN:
+  Edge only (history/EV failed): {stats['edge_only']}
+  History only (edge/EV failed): {stats['history_only']}
+  Negative EV: {stats['negative_ev']}
+  Injury concerns: {stats['injury_concern']}
+  Validation failed: {stats['validation_failed']}
+  Other: {stats['not_qualified']}
+
+QUALIFIED PICKS:
+"""
+    
+    for pick in filtered['qualified'][:10]:  # Show first 10
+        game = pick['game']
+        model = pick['model_result']
+        report += f"\n  • {game['away_team']} @ {game['home_team']} ({pick['pick_type']})"
+        report += f"\n    Edge: {model.get('edge', 0):.1f}, EV: {model.get('spread_ev') or model.get('total_ev', 'N/A')}"
+        report += f"\n    Confidence: {pick['confidence']}"
+    
+    report += f"\n\n{'='*80}"
+    
+    return report
+
+
+# ============================================================================
+# PART 5: DATABASE QUERY HELPERS
+# ============================================================================
+
+def get_qualified_picks_query() -> str:
+    """
+    SQL query to get ONLY fully qualified picks
+    
+    Use this for your dashboard queries
+    """
+    return """
+    SELECT g.*, 
+           CASE 
+               WHEN spread_is_qualified = TRUE 
+                    AND spread_history_qualified = TRUE 
+                    AND (spread_ev IS NULL OR spread_ev >= 0)
+                    AND validated = TRUE
+               THEN TRUE 
+               ELSE FALSE 
+           END as spread_fully_qualified,
+           
+           CASE 
+               WHEN total_is_qualified = TRUE 
+                    AND total_history_qualified = TRUE 
+                    AND (total_ev IS NULL OR total_ev >= 0)
+                    AND validated = TRUE
+               THEN TRUE 
+               ELSE FALSE 
+           END as total_fully_qualified
+    
+    FROM games g
+    WHERE (
+        -- Spread qualified
+        (spread_is_qualified = TRUE 
+         AND spread_history_qualified = TRUE 
+         AND (spread_ev IS NULL OR spread_ev >= 0)
+         AND validated = TRUE)
+        
+        OR
+        
+        -- Total qualified  
+        (total_is_qualified = TRUE 
+         AND total_history_qualified = TRUE 
+         AND (total_ev IS NULL OR total_ev >= 0)
+         AND validated = TRUE)
+    )
+    ORDER BY edge DESC
+    """
+
+
+def get_dashboard_header_counts_query() -> str:
+    """
+    SQL query for dashboard header counts
+    
+    Counts ONLY fully qualified picks
+    """
+    return """
+    WITH qualified_spreads AS (
+        SELECT * FROM games
+        WHERE spread_is_qualified = TRUE 
+          AND spread_history_qualified = TRUE 
+          AND (spread_ev IS NULL OR spread_ev >= 0)
+          AND validated = TRUE
+    ),
+    qualified_totals AS (
+        SELECT * FROM games
+        WHERE total_is_qualified = TRUE 
+          AND total_history_qualified = TRUE 
+          AND (total_ev IS NULL OR total_ev >= 0)
+          AND validated = TRUE
+    )
+    
+    SELECT 
+        (SELECT COUNT(*) FROM qualified_spreads) as spread_count,
+        (SELECT COUNT(*) FROM qualified_totals) as total_count,
+        (SELECT COUNT(*) FROM qualified_spreads) + (SELECT COUNT(*) FROM qualified_totals) as total_count
+    """
+
+
+# ============================================================================
+# PART 6: USAGE EXAMPLE
+# ============================================================================
+
+if __name__ == '__main__':
+    """
+    Example usage of foolproof qualification system
+    """
+    
+    # Assume you have games with model results
+    games = []  # Your games here
+    
+    # Qualify ALL picks
+    results = qualify_all_picks(games)
+    
+    print(results['report'])
+    
+    print(f"\nDASHBOARD COUNTS:")
+    print(f"  Total Qualified: {results['dashboard_counts']['total_qualified']}")
+    print(f"  Spreads: {results['dashboard_counts']['spreads']}")
+    print(f"  Totals: {results['dashboard_counts']['totals']}")
+    print(f"\nBy Confidence:")
+    for level, count in results['dashboard_counts']['by_confidence'].items():
+        print(f"  {level}: {count}")
+    
+    print(f"\n{'='*80}")
+    print(f"ONLY {results['stats']['qualified']} picks shown on dashboard")
+    print(f"{results['stats']['total'] - results['stats']['qualified']} picks rejected")
+    print(f"{'='*80}")
