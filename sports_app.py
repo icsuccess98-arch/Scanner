@@ -734,6 +734,86 @@ class BulletproofPickValidator:
         return best_picks
 
 
+class DashboardFilter:
+    """
+    Filters picks for dashboard display
+    
+    RULE: Only FULLY_QUALIFIED picks are shown
+    NO EXCEPTIONS
+    """
+    
+    @staticmethod
+    def filter_for_dashboard(validation_results: list) -> dict:
+        """
+        Filter validation results for dashboard display
+        
+        Args:
+            validation_results: List of validation dicts from BulletproofPickValidator
+        
+        Returns:
+            {
+                'qualified': List[Dict],        # Only FULLY_QUALIFIED
+                'rejected': List[Dict],         # Everything else
+                'stats': {
+                    'total': int,
+                    'qualified': int,
+                    'edge_only': int,
+                    'negative_ev': int,
+                    'history_only': int,
+                    'not_qualified': int,
+                },
+            }
+        """
+        qualified = []
+        rejected = []
+        stats = {
+            'total': 0,
+            'qualified': 0,
+            'edge_only': 0,
+            'negative_ev': 0,
+            'history_only': 0,
+            'not_qualified': 0
+        }
+        
+        for result in validation_results:
+            stats['total'] += 1
+            status = result.get('status', 'NOT_QUALIFIED')
+            
+            if status == QualificationStatus.FULLY_QUALIFIED.value:
+                qualified.append(result)
+                stats['qualified'] += 1
+            else:
+                rejected.append(result)
+                if status == QualificationStatus.EDGE_ONLY.value:
+                    stats['edge_only'] += 1
+                elif status == QualificationStatus.NEGATIVE_EV.value:
+                    stats['negative_ev'] += 1
+                elif status == QualificationStatus.HISTORY_ONLY.value:
+                    stats['history_only'] += 1
+                else:
+                    stats['not_qualified'] += 1
+        
+        # Sort qualified by edge descending
+        qualified.sort(key=lambda x: x.get('edge', 0), reverse=True)
+        
+        return {
+            'qualified': qualified,
+            'rejected': rejected,
+            'stats': stats
+        }
+    
+    @staticmethod
+    def get_rejection_summary(rejected: list) -> str:
+        """Get a summary of why picks were rejected"""
+        reasons = {}
+        for r in rejected:
+            status = r.get('status', 'UNKNOWN')
+            reasons[status] = reasons.get(status, 0) + 1
+        
+        summary_parts = [f"{count} {status}" for status, count in reasons.items()]
+        return ", ".join(summary_parts) if summary_parts else "None rejected"
+
+
 def calculate_recent_form_ppg(games: list) -> dict:
     """
     Calculate PPG and Opp PPG from last 5 games for recent form.
