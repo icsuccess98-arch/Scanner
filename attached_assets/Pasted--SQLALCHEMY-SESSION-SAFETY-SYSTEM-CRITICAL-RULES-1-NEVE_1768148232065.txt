@@ -1,0 +1,509 @@
+"""
+SQLALCHEMY SESSION SAFETY SYSTEM
+
+CRITICAL RULES:
+1. NEVER use threads with SQLAlchemy sessions
+2. NEVER share sessions across threads
+3. NEVER use parallel processing with database writes
+4. ALWAYS use sequential processing for database operations
+5. ALWAYS commit/rollback in the same thread that created the session
+
+This prevents:
+- History data not saving
+- Race conditions
+- Session corruption
+- Data loss
+"""
+
+import logging
+from typing import Dict, List, Optional, Callable
+from contextlib import contextmanager
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, Session, scoped_session
+from sqlalchemy.pool import NullPool
+import time
+
+logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# PART 1: SAFE SESSION MANAGEMENT
+# ============================================================================
+
+class SafeSessionManager:
+    """
+    Thread-safe session manager for SQLAlchemy
+    
+    RULES:
+    - One session per request
+    - No sharing across threads
+    - Always cleanup properly
+    - Sequential operations only
+    """
+    
+    def __init__(self, database_url: str):
+        """Initialize with safe settings"""
+        # Use NullPool to avoid connection issues
+        self.engine = create_engine(
+            database_url,
+            poolclass=NullPool,  # No connection pooling across threads
+            echo=False,
+            pool_pre_ping=True,  # Verify connections before use
+        )
+        
+        # Create scoped session factory
+        self.session_factory = scoped_session(
+            sessionmaker(bind=self.engine, expire_on_commit=False)
+        )
+    
+    @contextmanager
+    def get_session(self) -> Session:
+        """
+        Get a safe session with automatic cleanup
+        
+        Usage:
+            with session_manager.get_session() as session:
+                # Do database operations
+                session.add(obj)
+                session.commit()
+        """
+        session = self.session_factory()
+        try:
+            yield session
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Session error: {e}")
+            raise
+        finally:
+            session.close()
+            self.session_factory.remove()  # Remove thread-local session
+    
+    def execute_safe(self, operation: Callable, *args, **kwargs):
+        """
+        Execute a database operation safely
+        
+        Args:
+            operation: Function that takes session as first arg
+            *args, **kwargs: Additional arguments to pass
+        
+        Returns:
+            Result of operation or None if failed
+        """
+        with self.get_session() as session:
+            try:
+                result = operation(session, *args, **kwargs)
+                return result
+            except Exception as e:
+                logger.error(f"Operation failed: {e}")
+                return None
+
+
+# ============================================================================
+# PART 2: SEQUENTIAL PROCESSING (NO THREADS)
+# ============================================================================
+
+class SequentialProcessor:
+    """
+    Process games sequentially (NO parallelization)
+    
+    This is SLOWER but SAFE for database operations
+    """
+    
+    def __init__(self, session_manager: SafeSessionManager):
+        self.session_manager = session_manager
+    
+    def process_games_safely(
+        self, 
+        games: List[Dict], 
+        processor_func: Callable
+    ) -> List[Dict]:
+        """
+        Process games one at a time (sequential)
+        
+        Args:
+            games: List of games to process
+            processor_func: Function(session, game) -> processed_game
+        
+        Returns:
+            List of processed games
+        """
+        processed_games = []
+        errors = []
+        
+        logger.info(f"Processing {len(games)} games sequentially (safe mode)")
+        start_time = time.time()
+        
+        for i, game in enumerate(games, 1):
+            try:
+                # Each game gets its own session
+                with self.session_manager.get_session() as session:
+                    processed = processor_func(session, game)
+                    processed_games.append(processed)
+                
+                # Log progress every 10 games
+                if i % 10 == 0:
+                    logger.info(f"Processed {i}/{len(games)} games...")
+                    
+            except Exception as e:
+                logger.error(f"Error processing game {i}: {e}")
+                errors.append({
+                    'game': game.get('away_team', 'Unknown') + ' @ ' + game.get('home_team', 'Unknown'),
+                    'error': str(e)
+                })
+                continue
+        
+        elapsed = time.time() - start_time
+        logger.info(f"✅ Processed {len(processed_games)} games in {elapsed:.1f}s (sequential)")
+        
+        if errors:
+            logger.warning(f"⚠️  {len(errors)} games failed processing")
+        
+        return processed_games
+
+
+# ============================================================================
+# PART 3: SAFE FETCH GAMES IMPLEMENTATION
+# ============================================================================
+
+def fetch_games_safe(
+    api_key: str,
+    session_manager: SafeSessionManager,
+    sport: str = 'basketball_ncaab'
+) -> List[Dict]:
+    """
+    Fetch and process games SAFELY (no threading issues)
+    
+    This replaces any parallel/threaded implementation
+    """
+    import requests
+    
+    logger.info("=" * 80)
+    logger.info("🔒 SAFE FETCH GAMES (Sequential Processing)")
+    logger.info("=" * 80)
+    
+    # STEP 1: Fetch from API (no database involved yet)
+    url = f"https://api.the-odds-api.com/v4/sports/{sport}/odds/"
+    params = {
+        'apiKey': api_key,
+        'regions': 'us',
+        'markets': 'spreads,h2h,totals',
+        'oddsFormat': 'american',
+        'bookmakers': 'bovada'
+    }
+    
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        games_data = response.json()
+    except Exception as e:
+        logger.error(f"API error: {e}")
+        return []
+    
+    logger.info(f"📥 Fetched {len(games_data)} games from API")
+    
+    # STEP 2: Process games sequentially (SAFE)
+    processor = SequentialProcessor(session_manager)
+    
+    def process_single_game(session: Session, game_data: Dict) -> Dict:
+        """
+        Process a single game with database access
+        
+        This function has access to the session and can do database operations
+        """
+        # Extract game data
+        away_team = game_data.get('away_team')
+        home_team = game_data.get('home_team')
+        
+        # Process spread, odds, etc. (your existing logic)
+        processed_game = {
+            'away_team': away_team,
+            'home_team': home_team,
+            # ... all your existing game processing
+        }
+        
+        # ✅ SAFE: Save to database in same session
+        save_game_to_database(session, processed_game)
+        
+        # ✅ SAFE: Fetch history in same session
+        history = get_team_history(session, away_team, home_team)
+        processed_game['history'] = history
+        
+        # ✅ SAFE: Save history in same session
+        save_history_to_database(session, processed_game, history)
+        
+        return processed_game
+    
+    # Process all games sequentially
+    processed_games = processor.process_games_safely(games_data, process_single_game)
+    
+    logger.info("=" * 80)
+    logger.info(f"✅ Successfully processed {len(processed_games)} games")
+    logger.info("=" * 80)
+    
+    return processed_games
+
+
+# ============================================================================
+# PART 4: SAFE DATABASE OPERATIONS
+# ============================================================================
+
+def save_game_to_database(session: Session, game: Dict) -> None:
+    """
+    Save game to database safely
+    
+    Args:
+        session: Active SQLAlchemy session (from same thread)
+        game: Game data to save
+    """
+    from your_models import Game  # Your SQLAlchemy model
+    
+    try:
+        # Check if game exists
+        existing = session.query(Game).filter_by(
+            away_team=game['away_team'],
+            home_team=game['home_team'],
+            commence_time=game['commence_time']
+        ).first()
+        
+        if existing:
+            # Update existing game
+            for key, value in game.items():
+                if hasattr(existing, key):
+                    setattr(existing, key, value)
+        else:
+            # Create new game
+            new_game = Game(**game)
+            session.add(new_game)
+        
+        # Commit happens in context manager
+        
+    except Exception as e:
+        logger.error(f"Error saving game: {e}")
+        raise
+
+
+def get_team_history(session: Session, away_team: str, home_team: str) -> Dict:
+    """
+    Get team history safely from database
+    
+    Args:
+        session: Active SQLAlchemy session (from same thread)
+        away_team: Away team name
+        home_team: Home team name
+    
+    Returns:
+        Dict with history data
+    """
+    from your_models import TeamHistory  # Your SQLAlchemy model
+    
+    try:
+        away_history = session.query(TeamHistory).filter_by(
+            team_name=away_team
+        ).first()
+        
+        home_history = session.query(TeamHistory).filter_by(
+            team_name=home_team
+        ).first()
+        
+        return {
+            'away': away_history.to_dict() if away_history else {},
+            'home': home_history.to_dict() if home_history else {},
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching history: {e}")
+        return {'away': {}, 'home': {}}
+
+
+def save_history_to_database(session: Session, game: Dict, history: Dict) -> None:
+    """
+    Save history data safely
+    
+    CRITICAL: This is where the bug was happening with threads
+    
+    Args:
+        session: Active SQLAlchemy session (from same thread)
+        game: Game data
+        history: History data to save
+    """
+    from your_models import TeamHistory  # Your SQLAlchemy model
+    
+    try:
+        for team_type in ['away', 'home']:
+            team_name = game[f'{team_type}_team']
+            team_history = history.get(team_type, {})
+            
+            if not team_history:
+                continue
+            
+            # Find or create history record
+            existing = session.query(TeamHistory).filter_by(
+                team_name=team_name
+            ).first()
+            
+            if existing:
+                # Update existing
+                for key, value in team_history.items():
+                    if hasattr(existing, key):
+                        setattr(existing, key, value)
+            else:
+                # Create new
+                new_history = TeamHistory(
+                    team_name=team_name,
+                    **team_history
+                )
+                session.add(new_history)
+        
+        # ✅ SAFE: Commit happens in context manager
+        logger.info(f"✅ History saved for {game['away_team']} @ {game['home_team']}")
+        
+    except Exception as e:
+        logger.error(f"Error saving history: {e}")
+        raise
+
+
+# ============================================================================
+# PART 5: ANTI-PATTERNS TO AVOID
+# ============================================================================
+
+"""
+❌ NEVER DO THIS:
+
+# BAD: Using threads with SQLAlchemy
+from concurrent.futures import ThreadPoolExecutor
+
+def process_game_threaded(game):
+    session = Session()  # ❌ Each thread creates own session
+    # ... database operations
+    session.close()
+
+with ThreadPoolExecutor(max_workers=10) as executor:
+    executor.map(process_game_threaded, games)  # ❌ WILL CAUSE ISSUES
+
+
+# BAD: Sharing session across threads
+session = Session()  # ❌ Created in main thread
+
+def process_in_thread(game):
+    session.add(game)  # ❌ Using session from different thread
+    session.commit()
+
+thread = Thread(target=process_in_thread, args=(game,))
+thread.start()
+
+
+# BAD: Parallel processing with database
+import multiprocessing
+
+def process_with_db(game):
+    session = Session()  # ❌ Each process creates session
+    # ... operations
+
+with multiprocessing.Pool(4) as pool:
+    pool.map(process_with_db, games)  # ❌ SESSION ISSUES
+"""
+
+"""
+✅ ALWAYS DO THIS:
+
+# GOOD: Sequential processing
+for game in games:
+    with session_manager.get_session() as session:
+        process_game(session, game)
+        # Session auto-commits/rolls back
+
+
+# GOOD: One session per operation
+def process_game_safely(game):
+    with session_manager.get_session() as session:
+        # All operations in same session
+        save_game(session, game)
+        history = get_history(session, game)
+        save_history(session, history)
+        # Auto-commit when context exits
+
+
+# GOOD: Batch operations in single session
+with session_manager.get_session() as session:
+    for game in games:
+        save_game(session, game)
+    # All games committed together
+"""
+
+
+# ============================================================================
+# PART 6: PERFORMANCE OPTIMIZATION (SAFE)
+# ============================================================================
+
+class SafeBatchProcessor:
+    """
+    Batch processing that's safe for SQLAlchemy
+    
+    Processes multiple games in a single session (FAST)
+    But still sequential (SAFE)
+    """
+    
+    def __init__(self, session_manager: SafeSessionManager, batch_size: int = 10):
+        self.session_manager = session_manager
+        self.batch_size = batch_size
+    
+    def process_in_batches(
+        self, 
+        games: List[Dict],
+        processor_func: Callable
+    ) -> List[Dict]:
+        """
+        Process games in batches (faster than one-by-one, but still safe)
+        
+        Args:
+            games: List of games
+            processor_func: Function(session, games_batch) -> processed_batch
+        
+        Returns:
+            List of all processed games
+        """
+        all_processed = []
+        
+        for i in range(0, len(games), self.batch_size):
+            batch = games[i:i + self.batch_size]
+            
+            # Each batch gets its own session
+            with self.session_manager.get_session() as session:
+                try:
+                    processed_batch = processor_func(session, batch)
+                    all_processed.extend(processed_batch)
+                    logger.info(f"Processed batch {i//self.batch_size + 1} ({len(batch)} games)")
+                except Exception as e:
+                    logger.error(f"Batch {i//self.batch_size + 1} failed: {e}")
+                    continue
+        
+        return all_processed
+
+
+# ============================================================================
+# PART 7: INTEGRATION EXAMPLE
+# ============================================================================
+
+def main_fetch_workflow():
+    """
+    Complete fetch workflow with safe database handling
+    """
+    import os
+    
+    # Initialize session manager
+    database_url = os.getenv('DATABASE_URL')
+    session_manager = SafeSessionManager(database_url)
+    
+    # Fetch games safely
+    api_key = os.getenv('ODDS_API_KEY')
+    games = fetch_games_safe(api_key, session_manager)
+    
+    logger.info(f"✅ Fetched and saved {len(games)} games safely")
+    
+    return games
+
+
+if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
+    main_fetch_workflow()
