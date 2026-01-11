@@ -3295,9 +3295,9 @@ def dashboard():
     combined_picks.sort(key=lambda x: x['weighted_score'], reverse=True)
     analytics['top_picks'] = combined_picks[:5]
     
-    # Auto-save top picks to history (independent of Discord posting)
+    # Auto-save ONLY the supermax (Lock of the Day) to history
     if combined_picks:
-        auto_save_qualified_picks(combined_picks[:5], today)
+        auto_save_qualified_picks([combined_picks[0]], today)
     
     global last_game_count
     last_game_count['count'] = len(all_games)
