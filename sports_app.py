@@ -5,11 +5,28 @@ from datetime import datetime, date, timedelta
 from typing import Tuple, Optional
 from functools import wraps
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from enum import Enum
 from flask import Flask, render_template, request, jsonify, redirect, url_for, make_response
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase, validates
 import requests
 import pytz
+
+
+class QualificationStatus(Enum):
+    """
+    FOOLPROOF PICK QUALIFICATION SYSTEM
+    
+    A pick ONLY qualifies if it passes ALL checks.
+    NO EXCEPTIONS. NO PARTIAL QUALIFICATIONS.
+    """
+    FULLY_QUALIFIED = "FULLY_QUALIFIED"           # Passes ALL checks
+    EDGE_ONLY = "EDGE_ONLY"                       # Edge met, but history/EV failed
+    HISTORY_ONLY = "HISTORY_ONLY"                 # History met, but edge/EV failed
+    NEGATIVE_EV = "NEGATIVE_EV"                   # Has proven negative EV
+    INJURY_CONCERN = "INJURY_CONCERN"             # Major injury impact
+    VALIDATION_FAILED = "VALIDATION_FAILED"       # Data validation failed
+    NOT_QUALIFIED = "NOT_QUALIFIED"               # Didn't meet basic criteria
 
 logging.basicConfig(
     level=logging.INFO,
@@ -566,11 +583,17 @@ class BulletproofPickValidator:
         # DETERMINE IF VALIDATED
         validated = len(checks_failed) == 0
         
+        # DETERMINE QUALIFICATION STATUS
+        status = cls._determine_qualification_status(
+            validated, checks_passed, checks_failed, edge, ev, history_qualified, threshold
+        )
+        
         # CALCULATE CONFIDENCE TIER
         confidence_tier = cls._calculate_confidence_tier(edge, ev, history_pct, validated)
         
         return {
             "validated": validated,
+            "status": status.value,
             "confidence_tier": confidence_tier,
             "checks_passed": checks_passed,
             "checks_failed": checks_failed,
@@ -582,6 +605,26 @@ class BulletproofPickValidator:
             "pick_type": pick_type,
             "league": league
         }
+    
+    @classmethod
+    def _determine_qualification_status(cls, validated: bool, checks_passed: list, checks_failed: list,
+                                         edge: float, ev, history_qualified: bool, threshold: float) -> QualificationStatus:
+        """Determine the exact qualification status for clear logging"""
+        if validated:
+            return QualificationStatus.FULLY_QUALIFIED
+        
+        has_edge = edge >= threshold
+        has_history = history_qualified
+        has_ev_problem = ev is not None and ev < 0
+        
+        if has_ev_problem:
+            return QualificationStatus.NEGATIVE_EV
+        elif has_edge and not has_history:
+            return QualificationStatus.EDGE_ONLY
+        elif has_history and not has_edge:
+            return QualificationStatus.HISTORY_ONLY
+        else:
+            return QualificationStatus.NOT_QUALIFIED
     
     @classmethod
     def _calculate_confidence_tier(cls, edge: float, ev: Optional[float], history_pct: float, validated: bool) -> str:
