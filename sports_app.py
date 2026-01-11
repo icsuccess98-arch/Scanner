@@ -2511,15 +2511,6 @@ def update_game_historical_data(game: Game) -> bool:
                 logger.info(f"{game.away_team} @ {game.home_team}: Spread DISQUALIFIED due to sharp money against")
                 spread_qualified = False
             
-            # EV filter: Must have verified non-negative EV (NULL = unverified = disqualified)
-            if spread_qualified:
-                if game.spread_ev is None:
-                    logger.info(f"{game.away_team} @ {game.home_team}: Spread DISQUALIFIED - EV not verified (NULL)")
-                    spread_qualified = False
-                elif game.spread_ev < 0:
-                    logger.info(f"{game.away_team} @ {game.home_team}: Spread DISQUALIFIED due to negative EV ({game.spread_ev:.2f}%)")
-                    spread_qualified = False
-            
             logger.info(f"{game.away_team} @ {game.home_team}: Margins Away={away_avg_margin:.1f}(recent:{away_recent_margin:.1f})/Home={home_avg_margin:.1f}(recent:{home_recent_margin:.1f}), Spread={spread_line}, spread_qualified={spread_qualified}, EV={game.spread_ev}")
         
         # Track totals and spreads qualification SEPARATELY
