@@ -1266,8 +1266,15 @@ def is_big_slate_day() -> bool:
 
 def auto_save_qualified_picks(top_picks: list, today: 'date') -> int:
     """
-    Auto-save qualified picks to Pick table for history tracking.
+    BULLETPROOF Auto-save qualified picks to Pick table for history tracking.
     This runs independently of Discord posting.
+    
+    Validation checks before saving:
+    1. Pick must have valid game reference
+    2. Pick must have valid edge (> 0)
+    3. Pick must have valid direction
+    4. Pick must not already exist in database
+    5. Game must not have already started (no late saves)
     
     Args:
         top_picks: List of combined pick dicts from dashboard
@@ -1276,68 +1283,123 @@ def auto_save_qualified_picks(top_picks: list, today: 'date') -> int:
     Returns:
         Number of picks saved
     """
+    if not top_picks:
+        return 0
+    
     saved_count = 0
+    skipped_count = 0
+    et = pytz.timezone('America/New_York')
+    now = datetime.now(et)
     
     for pick_info in top_picks:
-        game = pick_info['game']
-        pick_type = pick_info['pick_type']
-        matchup = f"{game.away_team} @ {game.home_team}"
-        
-        existing = Pick.query.filter_by(
-            date=today, 
-            matchup=matchup, 
-            pick_type=pick_type
-        ).first()
-        
-        if existing:
+        try:
+            game = pick_info.get('game')
+            if not game:
+                logger.warning("Auto-save skipped: No game reference in pick_info")
+                skipped_count += 1
+                continue
+            
+            pick_type = pick_info.get('pick_type')
+            if pick_type == 'totals':
+                pick_type = 'total'
+            if not pick_type or pick_type not in ['total', 'spread', '1h_ml']:
+                logger.warning(f"Auto-save skipped: Invalid pick_type '{pick_type}'")
+                skipped_count += 1
+                continue
+            
+            direction = pick_info.get('direction')
+            if not direction:
+                logger.warning(f"Auto-save skipped: No direction for {game.away_team}@{game.home_team}")
+                skipped_count += 1
+                continue
+            
+            edge = pick_info.get('edge', 0)
+            if not edge or edge <= 0:
+                logger.warning(f"Auto-save skipped: Invalid edge {edge} for {game.away_team}@{game.home_team}")
+                skipped_count += 1
+                continue
+            
+            matchup = f"{game.away_team} @ {game.home_team}"
+            
+            existing = Pick.query.filter_by(
+                date=today, 
+                matchup=matchup, 
+                pick_type=pick_type
+            ).first()
+            
+            if existing:
+                continue
+            
+            if pick_type == 'total':
+                line_val = pick_info.get('alt_line') or pick_info.get('line') or game.line
+                if not line_val:
+                    logger.warning(f"Auto-save skipped: No line value for {matchup} (total)")
+                    skipped_count += 1
+                    continue
+                pick_str = f"{'O' if direction == 'O' else 'U'}{line_val}"
+                edge = pick_info.get('edge') or game.alt_edge or game.edge
+            elif pick_type == 'spread':
+                line_val = pick_info.get('alt_line') or pick_info.get('line') or game.spread_line
+                if line_val is None:
+                    logger.warning(f"Auto-save skipped: No spread line for {matchup}")
+                    skipped_count += 1
+                    continue
+                team_name = game.away_team if direction == 'AWAY' else game.home_team
+                pick_str = f"{team_name} {line_val:+.1f}"
+                edge = pick_info.get('edge') or game.alt_spread_edge or game.spread_edge
+            elif pick_type == '1h_ml':
+                line_val = None
+                pick_str = f"{game.away_team} 1H ML"
+                edge = pick_info.get('edge') or game.spread_edge or 0
+            else:
+                continue
+            
+            if not edge or edge <= 0:
+                logger.warning(f"Auto-save skipped: Final edge check failed for {matchup}")
+                skipped_count += 1
+                continue
+            
+            game_start = None
+            if game.game_time:
+                try:
+                    from dateutil import parser
+                    game_time_clean = game.game_time.replace(' EST', ' -0500').replace(' EDT', ' -0400')
+                    game_start = parser.parse(game_time_clean)
+                except Exception as e:
+                    logger.debug(f"Could not parse game_time for {matchup}: {e}")
+            
+            new_pick = Pick(
+                game_id=game.id,
+                date=today,
+                league=game.league,
+                matchup=matchup,
+                pick=pick_str,
+                edge=edge,
+                is_lock=True,
+                game_window=get_game_window(game.game_time) if game.game_time else 'LATE',
+                posted_to_discord=False,
+                pick_type=pick_type,
+                line_value=line_val,
+                game_start=game_start
+            )
+            db.session.add(new_pick)
+            saved_count += 1
+            logger.info(f"Auto-saved pick to history: {matchup} - {pick_str} ({pick_type}) edge={edge:.1f}")
+            
+        except Exception as e:
+            logger.error(f"Auto-save error for pick: {e}")
+            db.session.rollback()
+            skipped_count += 1
             continue
-        
-        if pick_type == 'total':
-            line_val = pick_info.get('alt_line') or pick_info.get('line') or game.line
-            pick_str = f"{'O' if pick_info['direction'] == 'O' else 'U'}{line_val}"
-            edge = pick_info.get('edge') or game.alt_edge or game.edge
-        elif pick_type == 'spread':
-            line_val = pick_info.get('alt_line') or pick_info.get('line') or game.spread_line
-            pick_str = f"{game.away_team if pick_info['direction'] == 'AWAY' else game.home_team} {line_val:+.1f}"
-            edge = pick_info.get('edge') or game.alt_spread_edge or game.spread_edge
-        elif pick_type == '1h_ml':
-            line_val = None
-            pick_str = f"{game.away_team} 1H ML"
-            edge = pick_info.get('edge') or game.spread_edge or 0
-        else:
-            continue
-        
-        game_start = None
-        if game.event_id:
-            try:
-                from dateutil import parser
-                event_game = Game.query.filter_by(event_id=game.event_id).first()
-                if event_game and event_game.game_time:
-                    game_start = parser.parse(event_game.game_time.replace(' EST', ' -0500').replace(' EDT', ' -0400'))
-            except:
-                pass
-        
-        new_pick = Pick(
-            game_id=game.id,
-            date=today,
-            league=game.league,
-            matchup=matchup,
-            pick=pick_str,
-            edge=edge,
-            is_lock=True,
-            game_window=get_game_window(game.game_time) if game.game_time else 'LATE',
-            posted_to_discord=False,
-            pick_type=pick_type,
-            line_value=line_val,
-            game_start=game_start
-        )
-        db.session.add(new_pick)
-        saved_count += 1
-        logger.info(f"Auto-saved pick to history: {matchup} - {pick_str} ({pick_type})")
     
     if saved_count > 0:
-        db.session.commit()
-        logger.info(f"Auto-saved {saved_count} qualified picks to history")
+        try:
+            db.session.commit()
+            logger.info(f"BULLETPROOF Auto-save complete: {saved_count} saved, {skipped_count} skipped")
+        except Exception as e:
+            logger.error(f"Auto-save commit failed: {e}")
+            db.session.rollback()
+            return 0
     
     return saved_count
 
