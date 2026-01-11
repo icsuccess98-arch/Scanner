@@ -3889,7 +3889,7 @@ def fetch_odds():
     return jsonify(fetch_odds_internal())
 
 def fetch_history_internal() -> dict:
-    """Internal function to fetch historical data for qualified games - PARALLELIZED."""
+    """Internal function to fetch historical data for qualified games."""
     et = pytz.timezone('America/New_York')
     today = datetime.now(et).date()
     
@@ -3900,27 +3900,13 @@ def fetch_history_internal() -> dict:
     history_updated = 0
     history_qualified = 0
     
-    def process_game(game):
+    for game in games:
         try:
-            result = update_game_historical_data(game)
-            return (game.id, result, None)
+            if update_game_historical_data(game):
+                history_qualified += 1
+            history_updated += 1
         except Exception as e:
-            return (game.id, False, str(e))
-    
-    with ThreadPoolExecutor(max_workers=8) as executor:
-        futures = {executor.submit(process_game, game): game for game in games}
-        for future in as_completed(futures):
-            game = futures[future]
-            try:
-                game_id, qualified, error = future.result()
-                if error:
-                    logger.error(f"Error updating history for {game.away_team} @ {game.home_team}: {error}")
-                else:
-                    if qualified:
-                        history_qualified += 1
-                    history_updated += 1
-            except Exception as e:
-                logger.error(f"Future error for {game.away_team} @ {game.home_team}: {e}")
+            logger.error(f"Error updating history for {game.away_team} @ {game.home_team}: {e}")
     
     db.session.commit()
     
