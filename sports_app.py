@@ -4247,15 +4247,43 @@ def fetch_alt_lines_internal() -> dict:
         Game.event_id.isnot(None)
     ).all()
     
-    all_qualified = list({g.id: g for g in (qualified_totals + qualified_spreads)}.values())
-    logger.info(f"Alt lines: checking {len(all_qualified)} qualified games (parallel)")
+    near_miss_totals = Game.query.filter(
+        Game.date == today,
+        Game.is_qualified == False,
+        Game.edge >= 6.0,
+        Game.event_id.isnot(None),
+        Game.projected_total.isnot(None)
+    ).all()
     
-    game_infos = [{
-        'id': g.id, 'event_id': g.event_id, 'sport_key': g.sport_key,
-        'away_team': g.away_team, 'home_team': g.home_team,
-        'is_qualified': g.is_qualified, 'direction': g.direction, 'line': g.line,
-        'spread_is_qualified': g.spread_is_qualified, 'spread_direction': g.spread_direction, 'spread_line': g.spread_line
-    } for g in all_qualified if g.event_id and g.sport_key]
+    near_miss_spreads = Game.query.filter(
+        Game.date == today,
+        Game.spread_is_qualified == False,
+        Game.spread_edge >= 6.0,
+        Game.event_id.isnot(None),
+        Game.projected_margin.isnot(None)
+    ).all()
+    
+    all_games = list({g.id: g for g in (qualified_totals + qualified_spreads + near_miss_totals + near_miss_spreads)}.values())
+    logger.info(f"Alt lines: checking {len(all_games)} games ({len(qualified_totals)} qual totals, {len(qualified_spreads)} qual spreads, {len(near_miss_totals)} near-miss totals, {len(near_miss_spreads)} near-miss spreads)")
+    
+    game_infos = []
+    for g in all_games:
+        if not g.event_id or not g.sport_key:
+            continue
+        direction = g.direction
+        if not direction and g.projected_total and g.line:
+            direction = 'O' if g.projected_total > g.line else 'U'
+        spread_direction = g.spread_direction
+        if not spread_direction and g.projected_margin is not None and g.spread_line is not None:
+            spread_direction = 'AWAY' if g.projected_margin > g.spread_line else 'HOME'
+        game_infos.append({
+            'id': g.id, 'event_id': g.event_id, 'sport_key': g.sport_key,
+            'away_team': g.away_team, 'home_team': g.home_team,
+            'is_qualified': g.is_qualified or (g.edge and g.edge >= 6.0),
+            'direction': direction, 'line': g.line,
+            'spread_is_qualified': g.spread_is_qualified or (g.spread_edge and g.spread_edge >= 6.0),
+            'spread_direction': spread_direction, 'spread_line': g.spread_line
+        })
     
     alt_lines_found = 0
     results = {}
@@ -4266,7 +4294,7 @@ def fetch_alt_lines_internal() -> dict:
             result = future.result()
             results[result['game_id']] = result
     
-    for game in all_qualified:
+    for game in all_games:
         if game.id in results:
             r = results[game.id]
             if r['alt_total']:
@@ -4274,12 +4302,15 @@ def fetch_alt_lines_internal() -> dict:
                 alt_lines_found += 1
                 if game.projected_total is not None:
                     game.alt_edge = abs(game.projected_total - game.alt_total_line)
-                    logger.info(f"Alt edge recalc: {game.away_team}@{game.home_team} main={game.edge:.1f} -> alt={game.alt_edge:.1f}")
+                    main_edge = game.edge if game.edge else 0
+                    logger.info(f"Alt edge recalc: {game.away_team}@{game.home_team} main={main_edge:.1f} -> alt={game.alt_edge:.1f}")
+                    threshold = THRESHOLDS.get(game.league, 8.0)
+                    if game.alt_edge >= threshold and not game.is_qualified:
+                        game.is_qualified = True
+                        game.direction = 'O' if game.projected_total > game.line else 'U'
+                        logger.info(f"NEAR-MISS PROMOTED: {game.away_team}@{game.home_team} now qualifies with alt edge {game.alt_edge:.1f}")
             if r['alt_spread']:
                 raw_alt_line, alt_odds = r['alt_spread']
-                # Normalize alt_spread_line to AWAY perspective (same as spread_line)
-                # For HOME picks, the API returns home team's line - negate to get away perspective
-                # For AWAY picks, the API returns away team's line - use as-is
                 if game.spread_direction == 'HOME':
                     game.alt_spread_line = -raw_alt_line
                 else:
@@ -4287,12 +4318,18 @@ def fetch_alt_lines_internal() -> dict:
                 game.alt_spread_odds = alt_odds
                 alt_lines_found += 1
                 if game.projected_margin is not None:
-                    # alt_spread_line is now in away perspective, same as spread_line
                     game.alt_spread_edge = abs(game.projected_margin - game.alt_spread_line)
-                    logger.info(f"Alt spread edge recalc: {game.away_team}@{game.home_team} main={game.spread_edge:.1f} -> alt={game.alt_spread_edge:.1f}")
+                    main_edge = game.spread_edge if game.spread_edge else 0
+                    logger.info(f"Alt spread edge recalc: {game.away_team}@{game.home_team} main={main_edge:.1f} -> alt={game.alt_spread_edge:.1f}")
+                    threshold = THRESHOLDS.get(game.league, 8.0)
+                    if game.alt_spread_edge >= threshold and not game.spread_is_qualified:
+                        game.spread_is_qualified = True
+                        if not game.spread_direction:
+                            game.spread_direction = 'AWAY' if game.projected_margin > game.spread_line else 'HOME'
+                        logger.info(f"NEAR-MISS SPREAD PROMOTED: {game.away_team}@{game.home_team} now qualifies with alt spread edge {game.alt_spread_edge:.1f}")
     
     db.session.commit()
-    return {"alt_lines_found": alt_lines_found, "games_checked": len(all_qualified)}
+    return {"alt_lines_found": alt_lines_found, "games_checked": len(all_games)}
 
 def fetch_nba_1h_ml_internal() -> dict:
     """Fetch 1st half money lines for NBA away favorites (Model 4)."""
