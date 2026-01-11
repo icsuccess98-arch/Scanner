@@ -3889,7 +3889,18 @@ def fetch_odds():
     return jsonify(fetch_odds_internal())
 
 def fetch_history_internal() -> dict:
-    """Internal function to fetch historical data for qualified games."""
+    """
+    Internal function to fetch historical data for qualified games.
+    
+    FOOLPROOF SESSION SAFETY:
+    - Sequential processing only (NO threads)
+    - Commit after each game (prevents data loss)
+    - Rollback on error (prevents corruption)
+    - Progress logging every 10 games
+    """
+    import time
+    start_time = time.time()
+    
     et = pytz.timezone('America/New_York')
     today = datetime.now(et).date()
     
@@ -3897,22 +3908,43 @@ def fetch_history_internal() -> dict:
         db.or_(Game.is_qualified == True, Game.spread_is_qualified == True)
     ).all()
     
+    total_games = len(games)
     history_updated = 0
     history_qualified = 0
+    errors = []
     
-    for game in games:
+    logger.info(f"Processing {total_games} qualified games sequentially (safe mode)")
+    
+    for i, game in enumerate(games, 1):
         try:
-            if update_game_historical_data(game):
+            result = update_game_historical_data(game)
+            db.session.commit()
+            
+            if result:
                 history_qualified += 1
             history_updated += 1
+            
+            if i % 10 == 0:
+                elapsed = time.time() - start_time
+                logger.info(f"Progress: {i}/{total_games} games processed ({elapsed:.1f}s)")
+                
         except Exception as e:
-            logger.error(f"Error updating history for {game.away_team} @ {game.home_team}: {e}")
+            db.session.rollback()
+            error_msg = f"{game.away_team} @ {game.home_team}: {str(e)}"
+            errors.append(error_msg)
+            logger.error(f"Error updating history: {error_msg}")
     
-    db.session.commit()
+    elapsed = time.time() - start_time
+    logger.info(f"History fetch complete: {history_updated}/{total_games} games in {elapsed:.1f}s, {history_qualified} qualified")
+    
+    if errors:
+        logger.warning(f"{len(errors)} games failed processing")
     
     return {
         "games_checked": history_updated,
-        "history_qualified": history_qualified
+        "history_qualified": history_qualified,
+        "errors": len(errors),
+        "time_seconds": round(elapsed, 1)
     }
 
 @app.route('/fetch_history', methods=['POST'])

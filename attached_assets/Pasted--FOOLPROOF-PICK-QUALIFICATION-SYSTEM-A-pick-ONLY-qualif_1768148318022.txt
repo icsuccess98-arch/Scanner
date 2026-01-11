@@ -1,0 +1,134 @@
+"""
+FOOLPROOF PICK QUALIFICATION SYSTEM
+
+A pick ONLY qualifies if it passes ALL checks:
+1. Edge threshold
+2. Historical validation
+3. EV filtering (NULL allowed, negative rejected)
+4. Injury impact acceptable
+5. Spread direction validated
+6. Vig removal successful
+
+NO EXCEPTIONS. NO PARTIAL QUALIFICATIONS.
+If ANY check fails → NOT A QUALIFIED PICK
+"""
+
+import logging
+from typing import Dict, List, Optional, Tuple
+from enum import Enum
+
+logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# PART 1: QUALIFICATION STATUS ENUM
+# ============================================================================
+
+class QualificationStatus(Enum):
+    """All possible qualification statuses"""
+    FULLY_QUALIFIED = "FULLY_QUALIFIED"           # Passes ALL checks ✅
+    EDGE_ONLY = "EDGE_ONLY"                       # Edge met, but history/EV failed ❌
+    HISTORY_ONLY = "HISTORY_ONLY"                 # History met, but edge/EV failed ❌
+    NEGATIVE_EV = "NEGATIVE_EV"                   # Has proven negative EV ❌
+    INJURY_CONCERN = "INJURY_CONCERN"             # Major injury impact ❌
+    VALIDATION_FAILED = "VALIDATION_FAILED"       # Data validation failed ❌
+    NOT_QUALIFIED = "NOT_QUALIFIED"               # Didn't meet basic criteria ❌
+
+
+# ============================================================================
+# PART 2: QUALIFICATION VALIDATOR
+# ============================================================================
+
+class PickQualificationValidator:
+    """
+    Validates picks with ZERO ambiguity
+    
+    A pick is ONLY qualified if ALL checks pass
+    """
+    
+    def __init__(self):
+        self.validation_log = []
+    
+    def validate_spread_pick(self, game: Dict, model_result: Dict) -> Dict:
+        """
+        Validate spread pick with ALL requirements
+        
+        Returns:
+            {
+                'qualified': bool,              # TRUE only if ALL checks pass
+                'status': QualificationStatus,
+                'checks': {
+                    'edge': {'passed': bool, 'reason': str},
+                    'history': {'passed': bool, 'reason': str},
+                    'ev': {'passed': bool, 'reason': str},
+                    'injury': {'passed': bool, 'reason': str},
+                    'validation': {'passed': bool, 'reason': str},
+                },
+                'failure_reason': str,          # Why it failed (if applicable)
+            }
+        """
+        checks = {}
+        
+        # CHECK 1: Edge Threshold
+        edge = model_result.get('edge', 0)
+        edge_threshold = 8.5  # Your threshold
+        
+        checks['edge'] = {
+            'passed': edge >= edge_threshold,
+            'value': edge,
+            'threshold': edge_threshold,
+            'reason': f"Edge {edge:.1f} {'≥' if edge >= edge_threshold else '<'} {edge_threshold}"
+        }
+        
+        # CHECK 2: Historical Validation
+        spread_history_qualified = model_result.get('spread_history_qualified', False)
+        
+        # For spread history, we need to check the specific rules:
+        # - Away underdogs: margin_pct ≥ 85%
+        # - Home favorites: specific criteria
+        # - Form validation: recent performance
+        
+        checks['history'] = {
+            'passed': spread_history_qualified,
+            'value': spread_history_qualified,
+            'reason': self._get_history_failure_reason(game, model_result)
+        }
+        
+        # CHECK 3: EV Filtering
+        spread_ev = model_result.get('spread_ev')
+        
+        # CONSISTENT EV LOGIC:
+        # - NULL (None) = ALLOWED (no Pinnacle data available)
+        # - Negative = REJECTED (proven bad value)
+        # - Zero or positive = ALLOWED (neutral or good value)
+        
+        ev_passed = spread_ev is None or spread_ev >= 0
+        
+        checks['ev'] = {
+            'passed': ev_passed,
+            'value': spread_ev,
+            'reason': (
+                'No Pinnacle data (allowed)' if spread_ev is None else
+                f"EV {spread_ev:.2f}% {'≥' if spread_ev >= 0 else '<'} 0%"
+            )
+        }
+        
+        # CHECK 4: Injury Impact
+        injury_adjustment = game.get('injuries', {}).get('adjustment', {}).get('injury_adjustment', 0)
+        injury_severity = game.get('injuries', {}).get('adjustment', {}).get('severity', 'NONE')
+        
+        # Reject if injury impact is too severe against your bet
+        betting_team = model_result.get('betting_team')
+        favorite_team = game['spread']['favorite']
+        
+        # If betting on a team with CRITICAL injuries, flag it
+        injury_passed = True
+        injury_reason = 'No significant injury concerns'
+        
+        if injury_severity == 'CRITICAL' and abs(injury_adjustment) >= 4:
+            injury_passed = False
+            injury_reason = f'{injury_severity} injury impact: {injury_adjustment:.1f} pts'
+        
+        checks['injury'] = {
+            'passed': injury_passed,
+   ...
