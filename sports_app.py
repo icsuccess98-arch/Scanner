@@ -1264,6 +1264,83 @@ def is_big_slate_day() -> bool:
     today = datetime.now(et)
     return today.weekday() >= 4
 
+def auto_save_qualified_picks(top_picks: list, today: 'date') -> int:
+    """
+    Auto-save qualified picks to Pick table for history tracking.
+    This runs independently of Discord posting.
+    
+    Args:
+        top_picks: List of combined pick dicts from dashboard
+        today: Current date
+    
+    Returns:
+        Number of picks saved
+    """
+    saved_count = 0
+    
+    for pick_info in top_picks:
+        game = pick_info['game']
+        pick_type = pick_info['pick_type']
+        matchup = f"{game.away_team} @ {game.home_team}"
+        
+        existing = Pick.query.filter_by(
+            date=today, 
+            matchup=matchup, 
+            pick_type=pick_type
+        ).first()
+        
+        if existing:
+            continue
+        
+        if pick_type == 'total':
+            line_val = pick_info.get('alt_line') or pick_info.get('line') or game.line
+            pick_str = f"{'O' if pick_info['direction'] == 'O' else 'U'}{line_val}"
+            edge = pick_info.get('edge') or game.alt_edge or game.edge
+        elif pick_type == 'spread':
+            line_val = pick_info.get('alt_line') or pick_info.get('line') or game.spread_line
+            pick_str = f"{game.away_team if pick_info['direction'] == 'AWAY' else game.home_team} {line_val:+.1f}"
+            edge = pick_info.get('edge') or game.alt_spread_edge or game.spread_edge
+        elif pick_type == '1h_ml':
+            line_val = None
+            pick_str = f"{game.away_team} 1H ML"
+            edge = pick_info.get('edge') or game.spread_edge or 0
+        else:
+            continue
+        
+        game_start = None
+        if game.event_id:
+            try:
+                from dateutil import parser
+                event_game = Game.query.filter_by(event_id=game.event_id).first()
+                if event_game and event_game.game_time:
+                    game_start = parser.parse(event_game.game_time.replace(' EST', ' -0500').replace(' EDT', ' -0400'))
+            except:
+                pass
+        
+        new_pick = Pick(
+            game_id=game.id,
+            date=today,
+            league=game.league,
+            matchup=matchup,
+            pick=pick_str,
+            edge=edge,
+            is_lock=True,
+            game_window=get_game_window(game.game_time) if game.game_time else 'LATE',
+            posted_to_discord=False,
+            pick_type=pick_type,
+            line_value=line_val,
+            game_start=game_start
+        )
+        db.session.add(new_pick)
+        saved_count += 1
+        logger.info(f"Auto-saved pick to history: {matchup} - {pick_str} ({pick_type})")
+    
+    if saved_count > 0:
+        db.session.commit()
+        logger.info(f"Auto-saved {saved_count} qualified picks to history")
+    
+    return saved_count
+
 with app.app_context():
     db.create_all()
     # Migration: Add Model 4 columns if they don't exist (PostgreSQL)
@@ -3155,6 +3232,10 @@ def dashboard():
     # Sort by weighted score (edge + history) instead of just edge
     combined_picks.sort(key=lambda x: x['weighted_score'], reverse=True)
     analytics['top_picks'] = combined_picks[:5]
+    
+    # Auto-save top picks to history (independent of Discord posting)
+    if combined_picks:
+        auto_save_qualified_picks(combined_picks[:5], today)
     
     global last_game_count
     last_game_count['count'] = len(all_games)
