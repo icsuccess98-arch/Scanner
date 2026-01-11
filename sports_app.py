@@ -4930,7 +4930,20 @@ def history():
     et = pytz.timezone('America/New_York')
     now = datetime.now(et)
     
-    all_picks = Pick.query.filter_by(is_lock=True).order_by(Pick.date.desc(), Pick.edge.desc()).all()
+    all_picks_raw = Pick.query.filter_by(is_lock=True).order_by(Pick.date.desc(), Pick.edge.desc()).all()
+    
+    # BULLETPROOF: Deduplicate picks by (date, matchup, pick_type) - keep highest edge
+    seen = {}
+    all_picks = []
+    for p in all_picks_raw:
+        key = (p.date, p.matchup, p.pick_type)
+        if key not in seen:
+            seen[key] = p
+            all_picks.append(p)
+        elif p.edge and (not seen[key].edge or p.edge > seen[key].edge):
+            all_picks.remove(seen[key])
+            seen[key] = p
+            all_picks.append(p)
     
     # Separate upcoming (pending, game not started) from resulted picks
     upcoming_picks = []
