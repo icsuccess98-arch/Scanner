@@ -3395,6 +3395,7 @@ def update_game_historical_data(game: Game) -> bool:
         if totals_qualified and totals_sharp_against:
             logger.info(f"{game.away_team} @ {game.home_team}: Totals DISQUALIFIED due to sharp money against")
             totals_qualified = False
+            totals_supermax = False
         
         spread_qualified = False
         if game.spread_is_qualified and game.spread_line is not None:
