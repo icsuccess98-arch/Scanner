@@ -1,6 +1,7 @@
 import os
 import time
 import requests
+import yfinance as yf
 from datetime import datetime, timedelta
 
 # ---------------------------------------------------------
@@ -43,17 +44,8 @@ def send_discord(msg, webhook_url):
     requests.post(webhook_url, json=payload)
 
 def to_tv_symbol(sym):
-    tv_map = {
-        "XAU_USD": "OANDA:XAUUSD",
-        "XAG_USD": "OANDA:XAGUSD",
-        "WTICO_USD": "TVC:USOIL",
-        "NAS100_USD": "OANDA:NAS100USD",
-        "US30_USD": "OANDA:US30USD",
-        "SPX500_USD": "OANDA:SPX500USD",
-    }
-    if sym in tv_map:
-        return tv_map[sym]
-    return f"FX:{sym.replace('_', '')}"
+    # Stock symbols go to NYSE/NASDAQ
+    return f"NASDAQ:{sym}"
 
 def send_discord_csv(symbols, title, webhook_url):
     if not webhook_url or not symbols:
@@ -70,39 +62,36 @@ def send_discord_csv(symbols, title, webhook_url):
     requests.post(webhook_url, data=data, files=files)
 
 # ---------------------------------------------------------
-# OANDA CONFIG
+# RUN MODE CONFIG
 # ---------------------------------------------------------
 
-OANDA_KEY = os.environ["OANDA_KEY"]
-OANDA_ACCOUNT = "practice"
 RUN_MODE = os.environ.get("RUN_MODE", "ALL")
 
-OANDA_URL = f"https://api-fx{OANDA_ACCOUNT}.oanda.com/v3/instruments"
-HEADERS = {"Authorization": f"Bearer {OANDA_KEY}"}
-
 # ---------------------------------------------------------
-# ASSET GROUPS
+# ASSET GROUPS - STOCK PORTFOLIO
 # ---------------------------------------------------------
 
-FOREX = [
-    "AUD_CAD", "AUD_CHF", "AUD_JPY", "AUD_NZD", "AUD_USD",
-    "CAD_CHF", "CAD_JPY", "CHF_JPY",
-    "EUR_AUD", "EUR_CAD", "EUR_CHF", "EUR_GBP", "EUR_JPY", "EUR_NZD", "EUR_USD",
-    "GBP_AUD", "GBP_CAD", "GBP_CHF", "GBP_JPY", "GBP_NZD", "GBP_USD",
-    "NZD_CAD", "NZD_CHF", "NZD_JPY", "NZD_USD",
-    "USD_CAD", "USD_CHF", "USD_JPY"
-]
-METALS = ["XAU_USD", "XAG_USD"]
-OIL = ["WTICO_USD"]
-INDICES = ["NAS100_USD", "US30_USD", "SPX500_USD"]
+# High-yield income funds (top holdings)
+HIGH_YIELD = ["CLM", "CRF", "ECC", "QQQY", "PSEC", "GUT", "USOY"]
 
-OANDA_SYMBOLS = FOREX + METALS + OIL + INDICES
+# Covered call / Options income ETFs
+OPTIONS_INCOME = ["XDTE", "RDTE", "IWMY", "SPYI", "NVDY", "TSLY", "OARK", 
+                  "XYZY", "TSMY", "MSTY", "YMAX", "AMDY", "SNOY", "KLIP", "CRSH"]
+
+# CEFs and Income funds
+CEFS_INCOME = ["ASGI", "GOF", "TLT", "HIPS", "EIC", "BIZD", "CEPI", 
+               "BCAT", "USA", "ECAT", "GIAX", "BABO", "REM", "MST", "GLDY"]
+
+# Individual stocks
+STOCKS_INDIVIDUAL = ["CVX", "AMGN", "UBER", "AIPI", "GDXY", "GPTY", "ASG"]
+
+ALL_STOCKS = HIGH_YIELD + OPTIONS_INCOME + CEFS_INCOME + STOCKS_INDIVIDUAL
 
 GROUP_ORDER = {
-    "FOREX": FOREX,
-    "METALS": METALS,
-    "OIL": OIL,
-    "INDICES": INDICES
+    "HIGH_YIELD": HIGH_YIELD,
+    "OPTIONS_INCOME": OPTIONS_INCOME,
+    "CEFS_INCOME": CEFS_INCOME,
+    "STOCKS": STOCKS_INDIVIDUAL
 }
 
 # ---------------------------------------------------------
@@ -110,18 +99,7 @@ GROUP_ORDER = {
 # ---------------------------------------------------------
 
 def pretty(symbol):
-    out = symbol.replace("_", "/")
-    if out == "WTICO/USD":
-        return "USOIL"
-    return out
-
-def candle(c):
-    return {
-        "open": float(c["mid"]["o"]),
-        "high": float(c["mid"]["h"]),
-        "low": float(c["mid"]["l"]),
-        "close": float(c["mid"]["c"]),
-    }
+    return symbol
 
 def direction(c):
     return "UP" if c["close"] > c["open"] else "DOWN"
@@ -130,23 +108,43 @@ def arrow(d):
     return "↑" if d == "UP" else "↓"
 
 # ---------------------------------------------------------
-# FETCH CANDLES (PREVIOUS CLOSED ONLY)
+# FETCH CANDLES (YFINANCE)
 # ---------------------------------------------------------
 
 def get_closed_candles(symbol, granularity, count=5):
-    url = f"{OANDA_URL}/{symbol}/candles"
-    params = {"granularity": granularity, "count": count, "price": "M"}
-    r = requests.get(url, headers=HEADERS, params=params).json()
-
-    if "candles" not in r:
+    """Fetch candles using yfinance. Granularity: D=daily, W=weekly, M=monthly"""
+    try:
+        ticker = yf.Ticker(symbol)
+        
+        # Map granularity to yfinance interval and period
+        if granularity == "D":
+            df = ticker.history(period="1mo", interval="1d")
+        elif granularity == "W":
+            df = ticker.history(period="6mo", interval="1wk")
+        elif granularity == "M":
+            df = ticker.history(period="2y", interval="1mo")
+        else:
+            df = ticker.history(period="1mo", interval="1d")
+        
+        if df.empty or len(df) < 3:
+            return None
+        
+        # Convert to list of candle dicts (most recent last)
+        candles = []
+        for idx, row in df.iterrows():
+            candles.append({
+                "open": float(row["Open"]),
+                "high": float(row["High"]),
+                "low": float(row["Low"]),
+                "close": float(row["Close"])
+            })
+        
+        # Return last 'count' candles
+        return candles[-count:] if len(candles) >= count else candles
+        
+    except Exception as e:
+        print(f"Error fetching {symbol}: {e}")
         return None
-
-    closed = [candle(x) for x in r["candles"] if x["complete"]]
-
-    if len(closed) < 3:
-        return None
-
-    return closed
 
 # ---------------------------------------------------------
 # STRAT LOGIC
@@ -226,7 +224,7 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
     f2d = []
     aplus = {}
 
-    for symbol in OANDA_SYMBOLS:
+    for symbol in ALL_STOCKS:
 
         candles = get_closed_candles(symbol, granularity)
         if not candles:
