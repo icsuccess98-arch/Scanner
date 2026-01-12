@@ -93,6 +93,16 @@ Additional data-driven factors that disqualify picks during game scanning:
     -   Correctly converts UTC to Eastern Time for upcoming/past game separation
     -   6 tests verify: past game detection, future game detection, UTC-ET offset (4-5h), naive datetime handling, edge cases (1 min ago, 1 hour ahead)
 
+9.  **Historical Betting Lines Service** (Jan 2026)
+    -   Fetches actual Vegas closing lines from The Odds API historical endpoint
+    -   Calculates true ATS (Against The Spread) hit rates using actual lines
+    -   Calculates O/U hit rates against actual historical totals
+    -   **ATS Cover Formula**: `spread_result = actual_margin + closing_spread; covered = spread_result > 0`
+    -   **Push Handling**: Pushes (spread_result == 0 or actual_total == closing_line) are excluded from hit rate calculations
+    -   Requires paid API tier; gracefully falls back to ESPN data + current line comparison when 401 returned
+    -   Results cached with 12-hour TTL to protect API quota
+    -   Test endpoint: `/api/test_historical_lines?team=X&league=Y&direction=O|U`
+
 ### Betting Models (4 Total)
 The sports betting calculator uses four distinct models for pick generation:
 

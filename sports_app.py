@@ -311,7 +311,9 @@ class HistoricalBettingLinesService:
                 
                 closing_total = float(over_outcome.get('point', 0))
                 actual_total = away_score + home_score
+                is_push = actual_total == closing_total
                 went_over = actual_total > closing_total
+                went_under = actual_total < closing_total
                 
                 return {
                     'game_id': game.get('id'),
@@ -321,6 +323,8 @@ class HistoricalBettingLinesService:
                     'closing_line': closing_total,
                     'actual_total': actual_total,
                     'went_over': went_over,
+                    'went_under': went_under,
+                    'is_push': is_push,
                     'margin': actual_total - closing_total,
                     'bet_type': 'total',
                     'uses_actual_line': True
@@ -350,7 +354,9 @@ class HistoricalBettingLinesService:
                 else:
                     actual_margin = away_score - home_score
                 
-                covered = actual_margin > closing_spread
+                spread_result = actual_margin + closing_spread
+                is_push = spread_result == 0
+                covered = spread_result > 0
                 
                 return {
                     'game_id': game.get('id'),
@@ -361,7 +367,9 @@ class HistoricalBettingLinesService:
                     'is_home': is_home,
                     'closing_spread': closing_spread,
                     'actual_margin': actual_margin,
+                    'spread_result': spread_result,
                     'covered_spread': covered,
+                    'is_push': is_push,
                     'bet_type': 'spread',
                     'uses_actual_line': True
                 }
@@ -388,12 +396,27 @@ class HistoricalBettingLinesService:
                 'reason': f"Only {len(games)} games with historical lines found"
             }
         
-        if direction == 'O':
-            hits = sum(1 for g in games if g.get('went_over'))
-        else:
-            hits = sum(1 for g in games if not g.get('went_over'))
+        non_push_games = [g for g in games if not g.get('is_push', False)]
+        pushes = len(games) - len(non_push_games)
         
-        hit_rate = (hits / len(games)) * 100
+        if len(non_push_games) < config['min_games']:
+            return {
+                'hit_rate': None,
+                'games_found': len(games),
+                'pushes': pushes,
+                'min_required': config['min_games'],
+                'qualified': False,
+                'uses_actual_lines': True,
+                'fallback_used': False,
+                'reason': f"Only {len(non_push_games)} decisive games (excluding {pushes} pushes)"
+            }
+        
+        if direction == 'O':
+            hits = sum(1 for g in non_push_games if g.get('went_over'))
+        else:
+            hits = sum(1 for g in non_push_games if g.get('went_under', not g.get('went_over', True)))
+        
+        hit_rate = (hits / len(non_push_games)) * 100
         threshold = config['over_threshold'] if direction == 'O' else (1 - config['under_threshold'])
         qualified = (hit_rate / 100) >= threshold
         
@@ -404,7 +427,8 @@ class HistoricalBettingLinesService:
         return {
             'hit_rate': round(hit_rate, 1),
             'hits': hits,
-            'total_games': len(games),
+            'total_games': len(non_push_games),
+            'pushes': pushes,
             'direction': direction,
             'qualified': qualified,
             'threshold': threshold * 100,
@@ -436,8 +460,23 @@ class HistoricalBettingLinesService:
                 'reason': f"Only {len(games)} games with historical lines found"
             }
         
-        covers = sum(1 for g in games if g.get('covered_spread'))
-        ats_rate = covers / len(games)
+        non_push_games = [g for g in games if not g.get('is_push', False)]
+        pushes = len(games) - len(non_push_games)
+        
+        if len(non_push_games) < config['min_games']:
+            return {
+                'ats_rate': None,
+                'games_found': len(games),
+                'pushes': pushes,
+                'min_required': config['min_games'],
+                'qualified': False,
+                'uses_actual_lines': True,
+                'reason': f"Only {len(non_push_games)} decisive games (excluding {pushes} pushes)"
+            }
+        
+        covers = sum(1 for g in non_push_games if g.get('covered_spread'))
+        losses = len(non_push_games) - covers
+        ats_rate = covers / len(non_push_games)
         qualified = ats_rate >= config['ats_threshold']
         
         avg_spread = sum(g.get('closing_spread', 0) for g in games) / len(games)
@@ -445,10 +484,11 @@ class HistoricalBettingLinesService:
         
         return {
             'ats_rate': round(ats_rate * 100, 1),
-            'ats_record': f"{covers}-{len(games) - covers}",
+            'ats_record': f"{covers}-{losses}-{pushes}",
             'covers': covers,
-            'losses': len(games) - covers,
-            'total_games': len(games),
+            'losses': losses,
+            'pushes': pushes,
+            'total_games': len(non_push_games),
             'qualified': qualified,
             'threshold': config['ats_threshold'] * 100,
             'avg_spread': round(avg_spread, 1),
@@ -2954,11 +2994,44 @@ def update_game_historical_data(game: Game) -> bool:
     - Injury data (2+ starters out = penalty)
     - Strength of schedule adjustment
     
+    HISTORICAL LINES PRIORITY:
+    1. Try to fetch actual historical betting lines from Odds API
+    2. If unavailable, fall back to ESPN game data + current line comparison
+    
     For spreads, we use average margin as a proxy:
     - If picking HOME favorite: Home avg margin should exceed 85% of spread
     - If picking AWAY underdog: Must have positive avg margin (winning on average)
     """
     try:
+        direction = game.direction or "O"
+        current_line = game.line
+        uses_actual_lines = False
+        
+        away_hist_data = historical_lines_service.calculate_ou_hit_rate_with_actual_lines(
+            game.away_team, game.league, direction
+        )
+        home_hist_data = historical_lines_service.calculate_ou_hit_rate_with_actual_lines(
+            game.home_team, game.league, direction
+        )
+        
+        if away_hist_data.get('hit_rate') is not None and home_hist_data.get('hit_rate') is not None:
+            game.away_ou_pct = int(away_hist_data['hit_rate'])
+            game.home_ou_pct = int(home_hist_data['hit_rate'])
+            uses_actual_lines = True
+            logger.info(f"{game.away_team} @ {game.home_team}: Using ACTUAL historical lines - Away O/U: {game.away_ou_pct}%, Home O/U: {game.home_ou_pct}%")
+        else:
+            away_games = fetch_team_last_10_games(game.away_team, game.league)
+            home_games = fetch_team_last_10_games(game.home_team, game.league)
+            
+            if len(away_games) < 5 or len(home_games) < 5:
+                logger.info(f"Insufficient history for {game.away_team} @ {game.home_team}: {len(away_games)}/{len(home_games)} games")
+                game.history_qualified = False
+                return False
+            
+            game.away_ou_pct = calculate_ou_hit_rate(away_games, direction, current_line)
+            game.home_ou_pct = calculate_ou_hit_rate(home_games, direction, current_line)
+            logger.info(f"{game.away_team} @ {game.home_team}: Fallback to current line comparison - Away O/U: {game.away_ou_pct}%, Home O/U: {game.home_ou_pct}%")
+        
         away_games = fetch_team_last_10_games(game.away_team, game.league)
         home_games = fetch_team_last_10_games(game.home_team, game.league)
         
@@ -2966,11 +3039,6 @@ def update_game_historical_data(game: Game) -> bool:
             logger.info(f"Insufficient history for {game.away_team} @ {game.home_team}: {len(away_games)}/{len(home_games)} games")
             game.history_qualified = False
             return False
-        
-        direction = game.direction or "O"
-        current_line = game.line  # Use the actual betting line for this game
-        game.away_ou_pct = calculate_ou_hit_rate(away_games, direction, current_line)
-        game.home_ou_pct = calculate_ou_hit_rate(home_games, direction, current_line)
         game.away_spread_pct = calculate_spread_cover_rate(away_games)
         game.home_spread_pct = calculate_spread_cover_rate(home_games)
         
@@ -4537,6 +4605,27 @@ def fetch_history():
     """Fetch historical data for qualified games to apply 85% threshold."""
     result = fetch_history_internal()
     return jsonify({"success": True, **result})
+
+@app.route('/api/test_historical_lines', methods=['GET'])
+def test_historical_lines():
+    """Test endpoint for historical betting lines service."""
+    team = request.args.get('team', 'Lakers')
+    league = request.args.get('league', 'NBA')
+    direction = request.args.get('direction', 'O')
+    
+    try:
+        ou_data = historical_lines_service.calculate_ou_hit_rate_with_actual_lines(team, league, direction)
+        ats_data = historical_lines_service.calculate_ats_hit_rate(team, league)
+        
+        return jsonify({
+            "success": True,
+            "team": team,
+            "league": league,
+            "ou_data": ou_data,
+            "ats_data": ats_data
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
 
 def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_spread: bool = False, home_team: str = "", debug_game: str = "") -> tuple:
     """
