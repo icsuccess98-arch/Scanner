@@ -109,8 +109,9 @@ Additional data-driven factors that disqualify picks during game scanning:
     -   Logic: "If today's spread/total existed for last 10 games, how often would team have covered/hit?"
     -   **Push Exclusion**: Pushes (exact line matches within 0.5 pts) excluded from calculations
     -   **Confidence Tiers**: SUPERMAX (70%+), HIGH (65%+), MEDIUM (60%+), LOW (<60%)
+    -   **SUPERMAX ONLY**: History qualification requires 70%+ hit rate (SUPERMAX tier only)
+    -   Both totals AND spreads must have at least one team with 70%+ hit rate to qualify
     -   League-specific minimum games: NBA/CBB/NHL=8, NFL/CFB=4
-    -   Qualification threshold: 60% hit rate (excluding pushes)
     -   Functions: `calculate_ou_hit_rate()`, `calculate_spread_cover_rate()` both use bulletproof formulas
 
 ### Betting Models (4 Total)

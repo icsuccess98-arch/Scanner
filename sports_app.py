@@ -3335,10 +3335,11 @@ def update_game_historical_data(game: Game) -> bool:
         h2h_games = h2h["games_found"]
         
         max_ou_pct = max(game.away_ou_pct or 0, game.home_ou_pct or 0)
-        totals_qualified = max_ou_pct >= 60
+        # SUPERMAX ONLY: Require 70%+ hit rate for history qualification
+        totals_qualified = max_ou_pct >= 70
         
         if h2h_games >= 3:
-            h2h_qualified = (game.h2h_ou_pct or 0) >= 60
+            h2h_qualified = (game.h2h_ou_pct or 0) >= 70
             totals_qualified = totals_qualified and h2h_qualified
         
         if totals_qualified and injury_concern:
@@ -3418,6 +3419,11 @@ def update_game_historical_data(game: Game) -> bool:
             
             if spread_qualified and spread_sharp_against:
                 logger.info(f"{game.away_team} @ {game.home_team}: Spread DISQUALIFIED due to sharp money against")
+                spread_qualified = False
+            
+            # SUPERMAX ONLY: Spreads also require 70%+ O/U history from at least one team
+            if spread_qualified and max_ou_pct < 70:
+                logger.info(f"{game.away_team} @ {game.home_team}: Spread DISQUALIFIED - O/U history {max_ou_pct:.1f}% < 70% SUPERMAX threshold")
                 spread_qualified = False
             
             logger.info(f"{game.away_team} @ {game.home_team}: Margins Away={away_avg_margin:.1f}(recent:{away_recent_margin:.1f})/Home={home_avg_margin:.1f}(recent:{home_recent_margin:.1f}), Spread={spread_line}, spread_qualified={spread_qualified}, EV={game.spread_ev}")
