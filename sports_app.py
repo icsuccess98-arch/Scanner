@@ -2192,22 +2192,34 @@ def fetch_team_last_10_games(team_name: str, league: str) -> list:
         logger.error(f"Error fetching history for {team_name}: {e}")
         return []
 
-def calculate_ou_hit_rate(games: list, direction: str, threshold: float = 0) -> float:
+def calculate_ou_hit_rate(games: list, direction: str, current_line: float = None) -> float:
     """
-    Calculate what percentage of games would have hit the O/U.
-    For now, uses average total as the "line" proxy since we don't have historical lines.
+    Calculate what percentage of games would have hit the O/U against the CURRENT betting line.
+    This answers: "If this line existed for the team's last 10 games, how many would have gone over/under?"
+    
+    Args:
+        games: List of game dicts with 'total' (combined score)
+        direction: "O" for over, "U" for under
+        current_line: The current betting line to compare against (e.g., 224.5)
+    
+    Returns:
+        Percentage of games that would have hit (0-100)
     """
     if len(games) < 5:
         return 0.0
     
-    totals = [g["total"] for g in games]
-    avg_total = sum(totals) / len(totals)
+    # Use current line if provided, otherwise fall back to average (legacy behavior)
+    if current_line is not None and current_line > 0:
+        compare_line = current_line
+    else:
+        totals = [g["total"] for g in games]
+        compare_line = sum(totals) / len(totals)
     
     hits = 0
     for g in games:
-        if direction == "O" and g["total"] > avg_total:
+        if direction == "O" and g["total"] > compare_line:
             hits += 1
-        elif direction == "U" and g["total"] < avg_total:
+        elif direction == "U" and g["total"] < compare_line:
             hits += 1
     
     return (hits / len(games)) * 100
@@ -2650,8 +2662,9 @@ def update_game_historical_data(game: Game) -> bool:
             return False
         
         direction = game.direction or "O"
-        game.away_ou_pct = calculate_ou_hit_rate(away_games, direction)
-        game.home_ou_pct = calculate_ou_hit_rate(home_games, direction)
+        current_line = game.line  # Use the actual betting line for this game
+        game.away_ou_pct = calculate_ou_hit_rate(away_games, direction, current_line)
+        game.home_ou_pct = calculate_ou_hit_rate(home_games, direction, current_line)
         game.away_spread_pct = calculate_spread_cover_rate(away_games)
         game.home_spread_pct = calculate_spread_cover_rate(home_games)
         
