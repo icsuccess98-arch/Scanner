@@ -1,0 +1,873 @@
+“””
+FOOLPROOF HISTORICAL BETTING LINES SYSTEM
+Works for ALL leagues: NCAAB, NBA, NFL, NCAAF, MLB, NHL
+Works for ALL bet types: SPREADS and TOTALS
+
+Fetches ACTUAL historical betting lines (not team averages)
+Calculates TRUE hit rates against Vegas lines
+100% bulletproof with proper fallbacks and validation
+
+CRITICAL PRINCIPLE:
+Compare actual results to VEGAS LINES from those games
+NOT to team averages or proxies (which is meaningless for betting)
+“””
+
+import logging
+import requests
+from typing import Dict, List, Optional, Tuple
+from datetime import datetime, timedelta
+from dataclasses import dataclass
+from enum import Enum
+import time
+
+logger = logging.getLogger(**name**)
+
+# ============================================================================
+
+# PART 1: LEAGUE CONFIGURATIONS (Universal)
+
+# ============================================================================
+
+@dataclass
+class LeagueConfig:
+“”“Configuration for each league”””
+sport_key: str
+name: str
+historical_games_count: int
+min_games_for_qualifier: int
+
+```
+# SPREAD thresholds
+spread_ats_threshold: float  # Against The Spread win rate needed
+
+# TOTAL thresholds
+over_threshold: float
+under_threshold: float
+
+# Season dates
+season_start: str
+season_end: str
+```
+
+# Define all supported leagues
+
+LEAGUE_CONFIGS = {
+‘basketball_ncaab’: LeagueConfig(
+sport_key=‘basketball_ncaab’,
+name=‘College Basketball’,
+historical_games_count=10,
+min_games_for_qualifier=8,
+spread_ats_threshold=0.60,  # 60%+ ATS win rate
+over_threshold=0.60,
+under_threshold=0.40,
+season_start=‘11-01’,
+season_end=‘04-30’
+),
+‘basketball_nba’: LeagueConfig(
+sport_key=‘basketball_nba’,
+name=‘NBA’,
+historical_games_count=10,
+min_games_for_qualifier=8,
+spread_ats_threshold=0.60,
+over_threshold=0.60,
+under_threshold=0.40,
+season_start=‘10-01’,
+season_end=‘06-30’
+),
+‘americanfootball_nfl’: LeagueConfig(
+sport_key=‘americanfootball_nfl’,
+name=‘NFL’,
+historical_games_count=5,
+min_games_for_qualifier=4,
+spread_ats_threshold=0.60,
+over_threshold=0.60,
+under_threshold=0.40,
+season_start=‘09-01’,
+season_end=‘02-28’
+),
+‘americanfootball_ncaaf’: LeagueConfig(
+sport_key=‘americanfootball_ncaaf’,
+name=‘College Football’,
+historical_games_count=5,
+min_games_for_qualifier=4,
+spread_ats_threshold=0.60,
+over_threshold=0.60,
+under_threshold=0.40,
+season_start=‘08-15’,
+season_end=‘01-31’
+),
+‘baseball_mlb’: LeagueConfig(
+sport_key=‘baseball_mlb’,
+name=‘MLB’,
+historical_games_count=10,
+min_games_for_qualifier=8,
+spread_ats_threshold=0.60,  # Run line
+over_threshold=0.60,
+under_threshold=0.40,
+season_start=‘03-15’,
+season_end=‘11-15’
+),
+‘icehockey_nhl’: LeagueConfig(
+sport_key=‘icehockey_nhl’,
+name=‘NHL’,
+historical_games_count=10,
+min_games_for_qualifier=8,
+spread_ats_threshold=0.60,  # Puck line
+over_threshold=0.60,
+under_threshold=0.40,
+season_start=‘10-01’,
+season_end=‘06-30’
+),
+}
+
+# ============================================================================
+
+# PART 2: UNIVERSAL HISTORICAL LINES FETCHER
+
+# ============================================================================
+
+class UniversalHistoricalFetcher:
+“””
+Fetches historical betting lines for ANY league, ANY bet type
+“””
+
+```
+def __init__(self, api_key: str):
+    self.api_key = api_key
+    self.base_url = "https://api.the-odds-api.com/v4"
+    self.cache = {}
+
+def fetch_historical_games(
+    self,
+    team_name: str,
+    league: str,
+    bet_type: str,  # 'spread' or 'total'
+    num_games: Optional[int] = None
+) -> List[Dict]:
+    """
+    Fetch historical games with ACTUAL betting lines
+    
+    Args:
+        team_name: Team to fetch for
+        league: League key
+        bet_type: 'spread' or 'total'
+        num_games: Override default from league config
+    
+    Returns:
+        List of games with actual Vegas lines and results
+    """
+    league_config = LEAGUE_CONFIGS.get(league)
+    if not league_config:
+        logger.error(f"Unknown league: {league}")
+        return []
+    
+    if num_games is None:
+        num_games = league_config.historical_games_count
+    
+    # Check cache
+    cache_key = f"{league}:{team_name}:{bet_type}:{num_games}"
+    if cache_key in self.cache:
+        cached_data, cached_time = self.cache[cache_key]
+        if (datetime.now() - cached_time).seconds < 3600:
+            return cached_data
+    
+    logger.info(f"Fetching {bet_type} history for {team_name} ({league_config.name})")
+    
+    try:
+        historical_games = self._fetch_from_api(
+            sport_key=league_config.sport_key,
+            team_name=team_name,
+            bet_type=bet_type,
+            days_back=60
+        )
+        
+        # Sort by date (most recent first)
+        historical_games.sort(key=lambda x: x.get('commence_time', ''), reverse=True)
+        
+        # Take requested number
+        historical_games = historical_games[:num_games]
+        
+        # Cache result
+        self.cache[cache_key] = (historical_games, datetime.now())
+        
+        logger.info(f"✅ Fetched {len(historical_games)} {bet_type} games for {team_name}")
+        return historical_games
+        
+    except Exception as e:
+        logger.error(f"Error fetching historical games: {e}")
+        return []
+
+def _fetch_from_api(
+    self,
+    sport_key: str,
+    team_name: str,
+    bet_type: str,
+    days_back: int
+) -> List[Dict]:
+    """Fetch from Odds API historical endpoint"""
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=days_back)
+    
+    # Determine which market to fetch
+    market = 'spreads' if bet_type == 'spread' else 'totals'
+    
+    url = f"{self.base_url}/historical/sports/{sport_key}/odds"
+    params = {
+        'apiKey': self.api_key,
+        'regions': 'us',
+        'markets': f'{market},h2h',  # Always get h2h for scores
+        'oddsFormat': 'american',
+        'dateFrom': start_date.strftime('%Y-%m-%dT%H:%M:%SZ'),
+        'dateTo': end_date.strftime('%Y-%m-%dT%H:%M:%SZ'),
+    }
+    
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        all_games = response.json()
+        
+        # Filter to this team's games
+        team_games = [
+            game for game in all_games
+            if (self._team_match(game.get('away_team', ''), team_name) or
+                self._team_match(game.get('home_team', ''), team_name))
+        ]
+        
+        # Extract relevant data
+        processed = []
+        for game in team_games:
+            extracted = self._extract_game_data(game, team_name, bet_type)
+            if extracted:
+                processed.append(extracted)
+        
+        return processed
+        
+    except Exception as e:
+        logger.error(f"API error: {e}")
+        return []
+
+def _extract_game_data(
+    self,
+    game: Dict,
+    team_name: str,
+    bet_type: str
+) -> Optional[Dict]:
+    """Extract relevant data based on bet type"""
+    try:
+        bookmakers = game.get('bookmakers', [])
+        if not bookmakers:
+            return None
+        
+        # Use closing line (last bookmaker update)
+        bookmaker = bookmakers[-1]
+        markets = bookmaker.get('markets', [])
+        
+        away_team = game.get('away_team')
+        home_team = game.get('home_team')
+        is_home = self._team_match(home_team, team_name)
+        
+        if bet_type == 'spread':
+            return self._extract_spread_data(
+                game, markets, away_team, home_team, team_name, is_home
+            )
+        else:  # total
+            return self._extract_total_data(
+                game, markets, away_team, home_team, team_name
+            )
+            
+    except Exception as e:
+        logger.error(f"Error extracting game data: {e}")
+        return None
+
+def _extract_spread_data(
+    self,
+    game: Dict,
+    markets: List[Dict],
+    away_team: str,
+    home_team: str,
+    team_name: str,
+    is_home: bool
+) -> Optional[Dict]:
+    """Extract spread betting data"""
+    spreads_market = next((m for m in markets if m['key'] == 'spreads'), None)
+    if not spreads_market:
+        return None
+    
+    outcomes = spreads_market.get('outcomes', [])
+    
+    # Find team's spread
+    team_outcome = None
+    for outcome in outcomes:
+        if self._team_match(outcome['name'], team_name):
+            team_outcome = outcome
+            break
+    
+    if not team_outcome:
+        return None
+    
+    closing_spread = float(team_outcome.get('point', 0))
+    
+    # Get actual final scores
+    scores = game.get('scores')
+    if not scores:
+        return None
+    
+    away_score = scores.get('away_score')
+    home_score = scores.get('home_score')
+    
+    if away_score is None or home_score is None:
+        return None
+    
+    # Calculate if covered spread
+    if is_home:
+        actual_margin = home_score - away_score
+    else:
+        actual_margin = away_score - home_score
+    
+    covered = actual_margin > closing_spread
+    
+    return {
+        'game_id': game.get('id'),
+        'commence_time': game.get('commence_time'),
+        'away_team': away_team,
+        'home_team': home_team,
+        'team_name': team_name,
+        'is_home': is_home,
+        'closing_spread': closing_spread,
+        'actual_margin': actual_margin,
+        'covered_spread': covered,
+        'away_score': away_score,
+        'home_score': home_score,
+        'completed': True,
+        'bet_type': 'spread'
+    }
+
+def _extract_total_data(
+    self,
+    game: Dict,
+    markets: List[Dict],
+    away_team: str,
+    home_team: str,
+    team_name: str
+) -> Optional[Dict]:
+    """Extract totals betting data"""
+    totals_market = next((m for m in markets if m['key'] == 'totals'), None)
+    if not totals_market:
+        return None
+    
+    outcomes = totals_market.get('outcomes', [])
+    over_outcome = next((o for o in outcomes if o['name'] == 'Over'), None)
+    
+    if not over_outcome:
+        return None
+    
+    closing_total = float(over_outcome.get('point', 0))
+    
+    # Get actual scores
+    scores = game.get('scores')
+    if not scores:
+        return None
+    
+    away_score = scores.get('away_score')
+    home_score = scores.get('home_score')
+    
+    if away_score is None or home_score is None:
+        return None
+    
+    actual_total = away_score + home_score
+    went_over = actual_total > closing_total
+    
+    return {
+        'game_id': game.get('id'),
+        'commence_time': game.get('commence_time'),
+        'away_team': away_team,
+        'home_team': home_team,
+        'team_name': team_name,
+        'closing_total': closing_total,
+        'actual_total': actual_total,
+        'went_over': went_over,
+        'margin': actual_total - closing_total,
+        'away_score': away_score,
+        'home_score': home_score,
+        'completed': True,
+        'bet_type': 'total'
+    }
+
+def _team_match(self, api_team: str, db_team: str) -> bool:
+    """Fuzzy match team names"""
+    from difflib import SequenceMatcher
+    
+    api_norm = api_team.lower().strip()
+    db_norm = db_team.lower().strip()
+    
+    if api_norm == db_norm:
+        return True
+    
+    ratio = SequenceMatcher(None, api_norm, db_norm).ratio()
+    return ratio >= 0.85
+```
+
+# ============================================================================
+
+# PART 3: SPREAD PERFORMANCE CALCULATOR (All Leagues)
+
+# ============================================================================
+
+class SpreadPerformanceCalculator:
+“””
+Calculate Against The Spread (ATS) performance
+Works for all leagues
+“””
+
+```
+def __init__(self, fetcher: UniversalHistoricalFetcher):
+    self.fetcher = fetcher
+
+def calculate_ats_record(
+    self,
+    team_name: str,
+    league: str,
+    location: Optional[str] = None  # 'home', 'away', or None for all
+) -> Dict:
+    """
+    Calculate team's Against The Spread record
+    
+    Args:
+        team_name: Team to analyze
+        league: League key
+        location: Filter by home/away
+    
+    Returns:
+        ATS performance data
+    """
+    league_config = LEAGUE_CONFIGS.get(league)
+    if not league_config:
+        return self._empty_result(f"Unknown league: {league}")
+    
+    # Fetch historical spread data
+    historical = self.fetcher.fetch_historical_games(
+        team_name=team_name,
+        league=league,
+        bet_type='spread'
+    )
+    
+    if not historical:
+        return self._empty_result(f"No historical spread data for {team_name}")
+    
+    # Filter by location if specified
+    if location:
+        if location == 'home':
+            historical = [g for g in historical if g.get('is_home')]
+        elif location == 'away':
+            historical = [g for g in historical if not g.get('is_home')]
+    
+    if len(historical) < league_config.min_games_for_qualifier:
+        return self._empty_result(
+            f"Insufficient games: {len(historical)} "
+            f"(need {league_config.min_games_for_qualifier})"
+        )
+    
+    # Calculate ATS record
+    covers = sum(1 for g in historical if g.get('covered_spread'))
+    total_games = len(historical)
+    ats_rate = covers / total_games
+    
+    # Calculate average spread performance
+    avg_spread = sum(g.get('closing_spread', 0) for g in historical) / total_games
+    avg_margin = sum(g.get('actual_margin', 0) for g in historical) / total_games
+    avg_vs_spread = avg_margin - avg_spread
+    
+    # Determine if qualifies
+    qualifies = ats_rate >= league_config.spread_ats_threshold
+    
+    return {
+        'team': team_name,
+        'league': league_config.name,
+        'location': location or 'all',
+        'ats_record': f"{covers}-{total_games - covers}",
+        'ats_rate': ats_rate,
+        'covers': covers,
+        'losses': total_games - covers,
+        'total_games': total_games,
+        'qualifies': qualifies,
+        'threshold': league_config.spread_ats_threshold,
+        'avg_spread': avg_spread,
+        'avg_margin': avg_margin,
+        'avg_vs_spread': avg_vs_spread,
+        'game_details': historical,
+        'uses_actual_lines': True,
+        'sufficient_data': True
+    }
+
+def _empty_result(self, reason: str) -> Dict:
+    """Return empty result"""
+    logger.warning(f"Empty ATS result: {reason}")
+    return {
+        'ats_rate': None,
+        'qualifies': False,
+        'sufficient_data': False,
+        'reason': reason
+    }
+```
+
+# ============================================================================
+
+# PART 4: TOTALS PERFORMANCE CALCULATOR (All Leagues)
+
+# ============================================================================
+
+class TotalsPerformanceCalculator:
+“””
+Calculate Over/Under performance
+Works for all leagues
+“””
+
+```
+def __init__(self, fetcher: UniversalHistoricalFetcher):
+    self.fetcher = fetcher
+
+def calculate_ou_record(
+    self,
+    team_name: str,
+    league: str,
+    location: Optional[str] = None
+) -> Dict:
+    """
+    Calculate team's Over/Under record
+    
+    Args:
+        team_name: Team to analyze
+        league: League key
+        location: Filter by home/away
+    
+    Returns:
+        O/U performance data
+    """
+    league_config = LEAGUE_CONFIGS.get(league)
+    if not league_config:
+        return self._empty_result(f"Unknown league: {league}")
+    
+    # Fetch historical totals data
+    historical = self.fetcher.fetch_historical_games(
+        team_name=team_name,
+        league=league,
+        bet_type='total'
+    )
+    
+    if not historical:
+        return self._empty_result(f"No historical totals data for {team_name}")
+    
+    # Note: For totals, location is less relevant but can be filtered
+    if location:
+        # Filter based on team_name appearing as home/away
+        if location == 'home':
+            historical = [g for g in historical if g.get('home_team') == team_name]
+        elif location == 'away':
+            historical = [g for g in historical if g.get('away_team') == team_name]
+    
+    if len(historical) < league_config.min_games_for_qualifier:
+        return self._empty_result(
+            f"Insufficient games: {len(historical)} "
+            f"(need {league_config.min_games_for_qualifier})"
+        )
+    
+    # Calculate O/U record
+    overs = sum(1 for g in historical if g.get('went_over'))
+    total_games = len(historical)
+    over_rate = overs / total_games
+    under_rate = 1 - over_rate
+    
+    # Calculate average performance
+    avg_line = sum(g.get('closing_total', 0) for g in historical) / total_games
+    avg_actual = sum(g.get('actual_total', 0) for g in historical) / total_games
+    avg_vs_line = avg_actual - avg_line
+    
+    # Determine qualification
+    qualifies_over = over_rate >= league_config.over_threshold
+    qualifies_under = over_rate <= league_config.under_threshold
+    
+    return {
+        'team': team_name,
+        'league': league_config.name,
+        'location': location or 'all',
+        'ou_record': f"{overs}O-{total_games - overs}U",
+        'over_rate': over_rate,
+        'under_rate': under_rate,
+        'overs': overs,
+        'unders': total_games - overs,
+        'total_games': total_games,
+        'qualifies_over': qualifies_over,
+        'qualifies_under': qualifies_under,
+        'over_threshold': league_config.over_threshold,
+        'under_threshold': league_config.under_threshold,
+        'avg_line': avg_line,
+        'avg_actual': avg_actual,
+        'avg_vs_line': avg_vs_line,
+        'game_details': historical,
+        'uses_actual_lines': True,
+        'sufficient_data': True
+    }
+
+def _empty_result(self, reason: str) -> Dict:
+    """Return empty result"""
+    logger.warning(f"Empty O/U result: {reason}")
+    return {
+        'over_rate': None,
+        'under_rate': None,
+        'qualifies_over': False,
+        'qualifies_under': False,
+        'sufficient_data': False,
+        'reason': reason
+    }
+```
+
+# ============================================================================
+
+# PART 5: UNIFIED QUALIFICATION SYSTEM
+
+# ============================================================================
+
+def qualify_spread_pick_universal(
+game: Dict,
+league: str,
+betting_team: str,
+calculator: SpreadPerformanceCalculator
+) -> Dict:
+“””
+Qualify spread pick using historical ATS performance
+Works for ALL leagues
+
+```
+Args:
+    game: Current game data
+    league: League key
+    betting_team: Team you're betting on
+    calculator: Spread performance calculator
+
+Returns:
+    Qualification result
+"""
+# Determine if betting team is home or away
+is_home = game['home_team'] == betting_team
+location = 'home' if is_home else 'away'
+
+# Calculate ATS record
+ats_data = calculator.calculate_ats_record(
+    team_name=betting_team,
+    league=league,
+    location=location  # Check performance at this location
+)
+
+if not ats_data['sufficient_data']:
+    return {
+        'qualified': False,
+        'reason': ats_data.get('reason', 'Insufficient data'),
+        'ats_data': ats_data
+    }
+
+# Check if qualifies
+qualified = ats_data['qualifies']
+
+# Determine confidence
+ats_rate = ats_data['ats_rate']
+if ats_rate >= 0.70:
+    confidence = 'SUPERMAX'
+elif ats_rate >= 0.65:
+    confidence = 'HIGH'
+elif ats_rate >= 0.60:
+    confidence = 'MEDIUM'
+else:
+    confidence = 'LOW'
+
+return {
+    'qualified': qualified,
+    'betting_team': betting_team,
+    'location': location,
+    'spread': game.get('spread'),
+    'ats_record': ats_data['ats_record'],
+    'ats_rate': ats_rate,
+    'confidence': confidence if qualified else None,
+    'avg_vs_spread': ats_data['avg_vs_spread'],
+    'total_games': ats_data['total_games'],
+    'uses_actual_lines': True,
+    'reason': 'Qualified' if qualified else f"ATS rate {ats_rate:.1%} below {ats_data['threshold']:.1%}"
+}
+```
+
+def qualify_total_pick_universal(
+game: Dict,
+league: str,
+pick: str,  # ‘OVER’ or ‘UNDER’
+calculator: TotalsPerformanceCalculator
+) -> Dict:
+“””
+Qualify totals pick using historical O/U performance
+Works for ALL leagues
+
+```
+Args:
+    game: Current game data
+    league: League key
+    pick: 'OVER' or 'UNDER'
+    calculator: Totals performance calculator
+
+Returns:
+    Qualification result
+"""
+away_team = game['away_team']
+home_team = game['home_team']
+current_line = game.get('total_line')
+
+if not current_line:
+    return {
+        'qualified': False,
+        'reason': 'No total line available'
+    }
+
+# Get O/U records for both teams
+away_ou = calculator.calculate_ou_record(away_team, league)
+home_ou = calculator.calculate_ou_record(home_team, league)
+
+if not away_ou['sufficient_data'] or not home_ou['sufficient_data']:
+    return {
+        'qualified': False,
+        'reason': 'Insufficient historical totals data',
+        'away_data': away_ou,
+        'home_data': home_ou
+    }
+
+# Qualification logic - BOTH teams must agree
+if pick == 'OVER':
+    qualified = away_ou['qualifies_over'] and home_ou['qualifies_over']
+    avg_over_rate = (away_ou['over_rate'] + home_ou['over_rate']) / 2
+    
+    if avg_over_rate >= 0.70:
+        confidence = 'SUPERMAX'
+    elif avg_over_rate >= 0.65:
+        confidence = 'HIGH'
+    elif avg_over_rate >= 0.60:
+        confidence = 'MEDIUM'
+    else:
+        confidence = 'LOW'
+
+elif pick == 'UNDER':
+    qualified = away_ou['qualifies_under'] and home_ou['qualifies_under']
+    avg_under_rate = (away_ou['under_rate'] + home_ou['under_rate']) / 2
+    
+    if avg_under_rate >= 0.70:
+        confidence = 'SUPERMAX'
+    elif avg_under_rate >= 0.65:
+        confidence = 'HIGH'
+    elif avg_under_rate >= 0.60:
+        confidence = 'MEDIUM'
+    else:
+        confidence = 'LOW'
+
+else:
+    return {'qualified': False, 'reason': f'Invalid pick type: {pick}'}
+
+return {
+    'qualified': qualified,
+    'pick': pick,
+    'current_line': current_line,
+    'confidence': confidence if qualified else None,
+    'away_team': away_team,
+    'home_team': home_team,
+    'away_ou_record': away_ou['ou_record'],
+    'home_ou_record': home_ou['ou_record'],
+    'away_over_rate': away_ou['over_rate'],
+    'home_over_rate': home_ou['over_rate'],
+    'away_games': away_ou['total_games'],
+    'home_games': home_ou['total_games'],
+    'uses_actual_lines': True,
+    'reason': 'Qualified' if qualified else 'Does not meet thresholds'
+}
+```
+
+# ============================================================================
+
+# PART 6: COMPLETE USAGE EXAMPLE (All Leagues, All Bet Types)
+
+# ============================================================================
+
+def complete_example_all_leagues():
+“””
+Complete example showing all leagues and all bet types
+“””
+import os
+
+```
+api_key = os.getenv('ODDS_API_KEY')
+
+# Initialize
+fetcher = UniversalHistoricalFetcher(api_key)
+spread_calc = SpreadPerformanceCalculator(fetcher)
+total_calc = TotalsPerformanceCalculator(fetcher)
+
+# Test games from different leagues
+test_games = [
+    {
+        'away_team': 'Duke',
+        'home_team': 'North Carolina',
+        'spread': -3.5,
+        'total_line': 145.5,
+        'league': 'basketball_ncaab'
+    },
+    {
+        'away_team': 'Lakers',
+        'home_team': 'Warriors',
+        'spread': -5.5,
+        'total_line': 225.5,
+        'league': 'basketball_nba'
+    },
+    {
+        'away_team': 'Chiefs',
+        'home_team': 'Bills',
+        'spread': -2.5,
+        'total_line': 51.5,
+        'league': 'americanfootball_nfl'
+    },
+]
+
+for game in test_games:
+    print(f"\n{'='*80}")
+    print(f"Game: {game['away_team']} @ {game['home_team']}")
+    print(f"League: {LEAGUE_CONFIGS[game['league']].name}")
+    print(f"{'='*80}")
+    
+    # Test SPREAD qualification
+    print(f"\n📊 SPREAD: {game['away_team']} {game['spread']}")
+    spread_result = qualify_spread_pick_universal(
+        game=game,
+        league=game['league'],
+        betting_team=game['away_team'],
+        calculator=spread_calc
+    )
+    print(f"  Qualified: {spread_result['qualified']}")
+    if spread_result['qualified']:
+        print(f"  ATS Record: {spread_result['ats_record']}")
+        print(f"  ATS Rate: {spread_result['ats_rate']:.1%}")
+        print(f"  Confidence: {spread_result['confidence']}")
+    else:
+        print(f"  Reason: {spread_result['reason']}")
+    
+    # Test TOTAL qualification (OVER)
+    print(f"\n📈 TOTAL: OVER {game['total_line']}")
+    over_result = qualify_total_pick_universal(
+        game=game,
+        league=game['league'],
+        pick='OVER',
+        calculator=total_calc
+    )
+    print(f"  Qualified: {over_result['qualified']}")
+    if over_result['qualified']:
+        print(f"  Away O/U: {over_result['away_ou_record']} ({over_result['away_over_rate']:.1%})")
+        print(f"  Home O/U: {over_result['home_ou_record']} ({over_result['home_over_rate']:.1%})")
+        print(f"  Confidence: {over_result['confidence']}")
+    else:
+        print(f"  Reason: {over_result['reason']}")
+```
+
+if **name** == ‘**main**’:
+logging.basicConfig(level=logging.INFO)
+complete_example_all_leagues()
