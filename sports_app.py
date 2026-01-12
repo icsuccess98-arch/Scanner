@@ -3335,16 +3335,21 @@ def update_game_historical_data(game: Game) -> bool:
         h2h_games = h2h["games_found"]
         
         max_ou_pct = max(game.away_ou_pct or 0, game.home_ou_pct or 0)
-        # SUPERMAX ONLY: Require 70%+ hit rate for history qualification
-        totals_qualified = max_ou_pct >= 70
+        # Standard qualification for edge analysis (60%+)
+        totals_qualified = max_ou_pct >= 60
+        # SUPERMAX qualification for history posting (70%+)
+        totals_supermax = max_ou_pct >= 70
         
         if h2h_games >= 3:
-            h2h_qualified = (game.h2h_ou_pct or 0) >= 70
+            h2h_qualified = (game.h2h_ou_pct or 0) >= 60
+            h2h_supermax = (game.h2h_ou_pct or 0) >= 70
             totals_qualified = totals_qualified and h2h_qualified
+            totals_supermax = totals_supermax and h2h_supermax
         
         if totals_qualified and injury_concern:
             logger.info(f"{game.away_team} @ {game.home_team}: Totals DISQUALIFIED due to injury concern")
             totals_qualified = False
+            totals_supermax = False
         
         totals_sharp_against = False
         spread_sharp_against = False
@@ -3421,16 +3426,17 @@ def update_game_historical_data(game: Game) -> bool:
                 logger.info(f"{game.away_team} @ {game.home_team}: Spread DISQUALIFIED due to sharp money against")
                 spread_qualified = False
             
-            # SUPERMAX ONLY: Spreads also require 70%+ O/U history from at least one team
-            if spread_qualified and max_ou_pct < 70:
-                logger.info(f"{game.away_team} @ {game.home_team}: Spread DISQUALIFIED - O/U history {max_ou_pct:.1f}% < 70% SUPERMAX threshold")
-                spread_qualified = False
+            # Spread SUPERMAX: also require 70%+ history for history posting
+            spread_supermax = spread_qualified and max_ou_pct >= 70
             
-            logger.info(f"{game.away_team} @ {game.home_team}: Margins Away={away_avg_margin:.1f}(recent:{away_recent_margin:.1f})/Home={home_avg_margin:.1f}(recent:{home_recent_margin:.1f}), Spread={spread_line}, spread_qualified={spread_qualified}, EV={game.spread_ev}")
+            logger.info(f"{game.away_team} @ {game.home_team}: Margins Away={away_avg_margin:.1f}(recent:{away_recent_margin:.1f})/Home={home_avg_margin:.1f}(recent:{home_recent_margin:.1f}), Spread={spread_line}, spread_qualified={spread_qualified}, spread_supermax={spread_supermax}, EV={game.spread_ev}")
+        else:
+            spread_supermax = False
         
-        # Track totals and spreads qualification SEPARATELY
-        game.history_qualified = totals_qualified  # For TOTALS only
-        game.spread_history_qualified = spread_qualified  # For SPREADS only
+        # EDGE ANALYSIS uses 60% threshold (totals_qualified, spread_qualified)
+        # HISTORY POSTING uses 70% SUPERMAX threshold (totals_supermax, spread_supermax)
+        game.history_qualified = totals_supermax  # SUPERMAX for history tab
+        game.spread_history_qualified = spread_supermax  # SUPERMAX for history tab
         
         form_info = f"Form: Away={away_form_trending}, Home={home_form_trending}"
         injury_info = f"Injuries: Away={away_injuries['injured_starters']}, Home={home_injuries['injured_starters']}"
