@@ -172,6 +172,227 @@ LEAGUE_HISTORICAL_CONFIG = {
 
 historical_lines_cache = {}
 
+class BulletproofCurrentLineCalculator:
+    """
+    BULLETPROOF Current Line Calculator
+    Uses current Vegas lines + ESPN results - NO PAID API NEEDED
+    
+    Logic:
+    1. Get current Vegas line for today's game
+    2. Look at team's last N ESPN game results
+    3. Apply current line to those past games
+    4. Calculate hypothetical performance with proper push handling
+    """
+    
+    def __init__(self):
+        self.min_games = {
+            'NBA': 8, 'CBB': 8, 'NFL': 4, 'CFB': 4, 'NHL': 8
+        }
+        self.thresholds = {
+            'qualify': 0.60,
+            'supermax': 0.70,
+            'high': 0.65,
+            'medium': 0.60
+        }
+    
+    def calculate_total_performance(self, games: list, current_total: float, direction: str, league: str) -> dict:
+        """
+        Calculate how team's games would have performed against CURRENT total line.
+        Properly excludes pushes from hit rate calculations.
+        """
+        min_games = self.min_games.get(league, 8)
+        
+        if not games or len(games) < 5:
+            return {
+                'hit_rate': None,
+                'qualified': False,
+                'sufficient_data': False,
+                'reason': f'Insufficient games: {len(games) if games else 0} (need {min_games})'
+            }
+        
+        overs = 0
+        unders = 0
+        pushes = 0
+        game_details = []
+        
+        for g in games:
+            actual_total = g.get('total', g.get('team_score', 0) + g.get('opp_score', 0))
+            diff = actual_total - current_total
+            
+            if abs(diff) < 0.5:
+                pushes += 1
+                result = 'PUSH'
+            elif diff > 0:
+                overs += 1
+                result = 'OVER'
+            else:
+                unders += 1
+                result = 'UNDER'
+            
+            game_details.append({
+                'actual_total': actual_total,
+                'current_line': current_total,
+                'margin': diff,
+                'result': result
+            })
+        
+        total_games = len(games)
+        non_push_games = total_games - pushes
+        
+        if non_push_games < min_games:
+            return {
+                'hit_rate': None,
+                'qualified': False,
+                'sufficient_data': False,
+                'overs': overs,
+                'unders': unders,
+                'pushes': pushes,
+                'total_games': total_games,
+                'reason': f'Only {non_push_games} decisive games (excluding {pushes} pushes), need {min_games}'
+            }
+        
+        if direction == 'O':
+            hits = overs
+            hit_rate = (overs / non_push_games) * 100
+        else:
+            hits = unders
+            hit_rate = (unders / non_push_games) * 100
+        
+        qualified = (hit_rate / 100) >= self.thresholds['qualify']
+        
+        confidence = None
+        if qualified:
+            rate_decimal = hit_rate / 100
+            if rate_decimal >= self.thresholds['supermax']:
+                confidence = 'SUPERMAX'
+            elif rate_decimal >= self.thresholds['high']:
+                confidence = 'HIGH'
+            elif rate_decimal >= self.thresholds['medium']:
+                confidence = 'MEDIUM'
+            else:
+                confidence = 'LOW'
+        
+        return {
+            'hit_rate': round(hit_rate, 1),
+            'hits': hits,
+            'total_games': non_push_games,
+            'overs': overs,
+            'unders': unders,
+            'pushes': pushes,
+            'all_games': total_games,
+            'direction': direction,
+            'qualified': qualified,
+            'confidence': confidence,
+            'threshold': self.thresholds['qualify'] * 100,
+            'current_line': current_total,
+            'sufficient_data': True,
+            'uses_current_line': True,
+            'record': f"{hits}-{non_push_games - hits}-{pushes}",
+            'game_details': game_details
+        }
+    
+    def calculate_spread_performance(self, games: list, current_spread: float, league: str) -> dict:
+        """
+        Calculate how team would have performed against CURRENT spread.
+        Uses correct ATS formula: spread_result = actual_margin + closing_spread
+        Properly excludes pushes from cover rate calculations.
+        """
+        min_games = self.min_games.get(league, 8)
+        
+        if not games or len(games) < 5:
+            return {
+                'cover_rate': None,
+                'qualified': False,
+                'sufficient_data': False,
+                'reason': f'Insufficient games: {len(games) if games else 0} (need {min_games})'
+            }
+        
+        covers = 0
+        losses = 0
+        pushes = 0
+        game_details = []
+        
+        for g in games:
+            actual_margin = g.get('margin', g.get('team_score', 0) - g.get('opp_score', 0))
+            
+            spread_result = actual_margin + current_spread
+            
+            if abs(spread_result) < 0.5:
+                pushes += 1
+                result = 'PUSH'
+            elif spread_result > 0:
+                covers += 1
+                result = 'COVER'
+            else:
+                losses += 1
+                result = 'NO_COVER'
+            
+            game_details.append({
+                'actual_margin': actual_margin,
+                'current_spread': current_spread,
+                'spread_result': spread_result,
+                'result': result
+            })
+        
+        total_games = len(games)
+        non_push_games = total_games - pushes
+        
+        if non_push_games < min_games:
+            return {
+                'cover_rate': None,
+                'qualified': False,
+                'sufficient_data': False,
+                'covers': covers,
+                'losses': losses,
+                'pushes': pushes,
+                'total_games': total_games,
+                'reason': f'Only {non_push_games} decisive games (excluding {pushes} pushes), need {min_games}'
+            }
+        
+        cover_rate = (covers / non_push_games) * 100
+        qualified = (cover_rate / 100) >= self.thresholds['qualify']
+        
+        confidence = None
+        if qualified:
+            rate_decimal = cover_rate / 100
+            if rate_decimal >= self.thresholds['supermax']:
+                confidence = 'SUPERMAX'
+            elif rate_decimal >= self.thresholds['high']:
+                confidence = 'HIGH'
+            elif rate_decimal >= self.thresholds['medium']:
+                confidence = 'MEDIUM'
+            else:
+                confidence = 'LOW'
+        
+        return {
+            'cover_rate': round(cover_rate, 1),
+            'covers': covers,
+            'losses': losses,
+            'pushes': pushes,
+            'total_games': non_push_games,
+            'all_games': total_games,
+            'qualified': qualified,
+            'confidence': confidence,
+            'threshold': self.thresholds['qualify'] * 100,
+            'current_spread': current_spread,
+            'sufficient_data': True,
+            'uses_current_line': True,
+            'record': f"{covers}-{losses}-{pushes}",
+            'game_details': game_details
+        }
+    
+    def get_confidence_tier(self, rate: float) -> str:
+        if rate >= 70:
+            return 'SUPERMAX'
+        elif rate >= 65:
+            return 'HIGH'
+        elif rate >= 60:
+            return 'MEDIUM'
+        else:
+            return 'LOW'
+
+bulletproof_calculator = BulletproofCurrentLineCalculator()
+
 class HistoricalBettingLinesService:
     def __init__(self):
         self.base_url = "https://api.the-odds-api.com/v4"
@@ -2540,8 +2761,8 @@ def fetch_team_last_10_games(team_name: str, league: str) -> list:
 
 def calculate_ou_hit_rate(games: list, direction: str, current_line: float = None) -> float:
     """
-    Calculate what percentage of games would have hit the O/U against the CURRENT betting line.
-    This answers: "If this line existed for the team's last 10 games, how many would have gone over/under?"
+    BULLETPROOF: Calculate O/U hit rate against CURRENT line with proper push handling.
+    Pushes (exact line matches) are EXCLUDED from the calculation to prevent bias.
     
     Args:
         games: List of game dicts with 'total' (combined score)
@@ -2549,12 +2770,11 @@ def calculate_ou_hit_rate(games: list, direction: str, current_line: float = Non
         current_line: The current betting line to compare against (e.g., 224.5)
     
     Returns:
-        Percentage of games that would have hit (0-100)
+        Percentage of non-push games that would have hit (0-100)
     """
     if len(games) < 5:
         return 0.0
     
-    # Use current line if provided, otherwise fall back to average (legacy behavior)
     if current_line is not None and current_line > 0:
         compare_line = current_line
     else:
@@ -2562,13 +2782,26 @@ def calculate_ou_hit_rate(games: list, direction: str, current_line: float = Non
         compare_line = sum(totals) / len(totals)
     
     hits = 0
+    pushes = 0
+    
     for g in games:
-        if direction == "O" and g["total"] > compare_line:
+        total = g["total"]
+        diff = total - compare_line
+        
+        if abs(diff) < 0.5:
+            pushes += 1
+            continue
+        
+        if direction == "O" and diff > 0:
             hits += 1
-        elif direction == "U" and g["total"] < compare_line:
+        elif direction == "U" and diff < 0:
             hits += 1
     
-    return (hits / len(games)) * 100
+    non_push_games = len(games) - pushes
+    if non_push_games == 0:
+        return 0.0
+    
+    return (hits / non_push_games) * 100
 
 def calculate_avg_margin(games: list) -> float:
     """
@@ -2582,30 +2815,57 @@ def calculate_avg_margin(games: list) -> float:
     margins = [g["margin"] for g in games]
     return sum(margins) / len(margins)
 
-def calculate_spread_cover_rate(games: list, spread_direction: str = None, avg_spread: float = None) -> float:
+def calculate_spread_cover_rate(games: list, spread_direction: str = None, current_spread: float = None) -> float:
     """
-    Calculate what percentage of games the team would have covered the spread.
-    Uses average margin as proxy for typical spread, then checks if team beat that margin.
+    BULLETPROOF: Calculate spread cover rate using correct ATS formula with push handling.
     
-    For underdogs (getting points): Cover if loss is within spread or win
-    For favorites (giving points): Cover if win margin exceeds spread
+    ATS Cover Formula: spread_result = actual_margin + closing_spread
+    - covered = spread_result > 0
+    - push = spread_result == 0 (excluded from calculation)
+    
+    Example:
+    - Team is -5 favorite (closing_spread = -5)
+    - Wins by 8 (actual_margin = +8)
+    - spread_result = 8 + (-5) = 3 > 0 → COVERED
+    
+    Args:
+        games: List of game dicts with 'margin' (team_score - opp_score)
+        spread_direction: 'HOME' or 'AWAY' (currently unused but available)
+        current_spread: The current spread to test against (optional, uses avg if not provided)
+    
+    Returns:
+        Percentage of non-push games that would have covered (0-100)
     """
     if len(games) < 5:
         return 0.0
     
     margins = [g["margin"] for g in games]
-    avg_margin = sum(margins) / len(margins)
+    
+    if current_spread is not None:
+        test_spread = current_spread
+    else:
+        avg_margin = sum(margins) / len(margins)
+        test_spread = -avg_margin if avg_margin > 0 else abs(avg_margin)
     
     covers = 0
-    for g in games:
-        if avg_margin < 0:
-            if g["margin"] >= avg_margin:
-                covers += 1
-        else:
-            if g["margin"] >= avg_margin:
-                covers += 1
+    pushes = 0
     
-    return (covers / len(games)) * 100
+    for g in games:
+        actual_margin = g["margin"]
+        spread_result = actual_margin + test_spread
+        
+        if abs(spread_result) < 0.5:
+            pushes += 1
+            continue
+        
+        if spread_result > 0:
+            covers += 1
+    
+    non_push_games = len(games) - pushes
+    if non_push_games == 0:
+        return 0.0
+    
+    return (covers / non_push_games) * 100
 
 def fetch_h2h_history(team1: str, team2: str, league: str, direction: str = "O") -> dict:
     """

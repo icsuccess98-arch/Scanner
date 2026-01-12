@@ -1,0 +1,661 @@
+"""
+BULLETPROOF CURRENT LINES SYSTEM
+NO HISTORICAL ODDS API NEEDED
+
+Uses:
+1. Current Vegas lines (free Odds API)
+2. ESPN game results (free)
+3. Compares team performance against current market lines
+
+Works for ALL leagues: NCAAB, NBA, NFL, NCAAF, MLB, NHL
+Works for ALL bet types: SPREADS and TOTALS
+
+ZERO cost for historical data - uses only free APIs
+"""
+
+import logging
+from typing import Dict, List, Optional
+from datetime import datetime, timedelta
+
+logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# PART 1: CURRENT LINE PERFORMANCE CALCULATOR
+# ============================================================================
+
+class CurrentLinePerformanceCalculator:
+    """
+    Calculate betting performance using CURRENT lines + ESPN results
+    
+    NO HISTORICAL ODDS API NEEDED
+    
+    Logic:
+    1. Get current Vegas line for today's game
+    2. Look at team's last 10 ESPN game results
+    3. Apply current line to those past games
+    4. Calculate hypothetical performance
+    
+    Example:
+    - Today's line: Duke -5.5
+    - Duke's last 10 games from ESPN:
+      Game 1: Won by 8 → Would cover -5.5 ✅
+      Game 2: Won by 3 → Wouldn't cover -5.5 ❌
+      Game 3: Won by 12 → Would cover -5.5 ✅
+      ...
+    - Result: 7/10 would have covered current line
+    """
+    
+    def __init__(self):
+        self.min_games = {
+            'basketball_ncaab': 8,
+            'basketball_nba': 8,
+            'americanfootball_nfl': 4,
+            'americanfootball_ncaaf': 4,
+            'baseball_mlb': 8,
+            'icehockey_nhl': 8,
+        }
+    
+    def calculate_spread_performance(
+        self,
+        team_name: str,
+        current_spread: float,
+        espn_results: List[Dict],
+        league: str
+    ) -> Dict:
+        """
+        Calculate how team would have performed against CURRENT spread
+        
+        Args:
+            team_name: Team to analyze
+            current_spread: Today's Vegas spread
+            espn_results: Last N games from ESPN (with scores)
+            league: League key
+        
+        Returns:
+            Performance metrics
+        """
+        min_games = self.min_games.get(league, 8)
+        
+        if len(espn_results) < min_games:
+            return {
+                'qualified': False,
+                'reason': f'Insufficient games: {len(espn_results)} (need {min_games})',
+                'sufficient_data': False
+            }
+        
+        covers = 0
+        pushes = 0
+        total_games = 0
+        
+        game_details = []
+        
+        for game in espn_results:
+            # Get actual margin from ESPN
+            if game.get('is_home'):
+                actual_margin = game['team_score'] - game['opponent_score']
+            else:
+                actual_margin = game['team_score'] - game['opponent_score']
+            
+            # Apply current spread to past game
+            # Positive spread = underdog, negative = favorite
+            if current_spread > 0:
+                # Team is underdog - add points
+                margin_vs_spread = actual_margin + current_spread
+            else:
+                # Team is favorite - subtract points they're giving
+                margin_vs_spread = actual_margin + current_spread  # current_spread is negative
+            
+            # Check if would have covered
+            if abs(margin_vs_spread) < 0.5:
+                # Push (within 0.5 points)
+                pushes += 1
+                result = 'PUSH'
+            elif margin_vs_spread > 0:
+                # Covered
+                covers += 1
+                result = 'COVER'
+            else:
+                # Didn't cover
+                result = 'NO_COVER'
+            
+            total_games += 1
+            
+            game_details.append({
+                'opponent': game['opponent'],
+                'actual_margin': actual_margin,
+                'current_spread': current_spread,
+                'margin_vs_spread': margin_vs_spread,
+                'result': result,
+                'date': game.get('game_date')
+            })
+        
+        # Calculate cover rate (exclude pushes)
+        non_push_games = total_games - pushes
+        if non_push_games == 0:
+            return {
+                'qualified': False,
+                'reason': 'All games were pushes',
+                'sufficient_data': False
+            }
+        
+        cover_rate = covers / non_push_games
+        
+        # Qualification threshold: 60%
+        qualifies = cover_rate >= 0.60
+        
+        return {
+            'qualified': qualifies,
+            'cover_rate': cover_rate,
+            'covers': covers,
+            'losses': non_push_games - covers,
+            'pushes': pushes,
+            'total_games': total_games,
+            'non_push_games': non_push_games,
+            'record': f"{covers}-{non_push_games - covers}-{pushes}",
+            'current_spread': current_spread,
+            'game_details': game_details,
+            'uses_current_line': True,
+            'sufficient_data': True,
+            'threshold': 0.60
+        }
+    
+    def calculate_total_performance(
+        self,
+        team_name: str,
+        current_total: float,
+        espn_results: List[Dict],
+        league: str
+    ) -> Dict:
+        """
+        Calculate how team's games would have performed against CURRENT total
+        
+        Args:
+            team_name: Team to analyze
+            current_total: Today's Vegas total
+            espn_results: Last N games from ESPN
+            league: League key
+        
+        Returns:
+            Performance metrics
+        """
+        min_games = self.min_games.get(league, 8)
+        
+        if len(espn_results) < min_games:
+            return {
+                'qualified_over': False,
+                'qualified_under': False,
+                'reason': f'Insufficient games: {len(espn_results)} (need {min_games})',
+                'sufficient_data': False
+            }
+        
+        overs = 0
+        pushes = 0
+        total_games = 0
+        
+        game_details = []
+        
+        for game in espn_results:
+            # Get actual total from ESPN
+            actual_total = game['team_score'] + game['opponent_score']
+            
+            # Compare to current line
+            diff = actual_total - current_total
+            
+            if abs(diff) < 0.5:
+                # Push
+                pushes += 1
+                result = 'PUSH'
+            elif diff > 0:
+                # Over
+                overs += 1
+                result = 'OVER'
+            else:
+                # Under
+                result = 'UNDER'
+            
+            total_games += 1
+            
+            game_details.append({
+                'opponent': game['opponent'],
+                'actual_total': actual_total,
+                'current_line': current_total,
+                'margin': diff,
+                'result': result,
+                'date': game.get('game_date')
+            })
+        
+        # Calculate rates (exclude pushes)
+        non_push_games = total_games - pushes
+        if non_push_games == 0:
+            return {
+                'qualified_over': False,
+                'qualified_under': False,
+                'reason': 'All games were pushes',
+                'sufficient_data': False
+            }
+        
+        over_rate = overs / non_push_games
+        under_rate = 1 - over_rate
+        
+        # Qualification thresholds
+        qualifies_over = over_rate >= 0.60
+        qualifies_under = under_rate >= 0.60  # Same as over_rate <= 0.40
+        
+        return {
+            'qualified_over': qualifies_over,
+            'qualified_under': qualifies_under,
+            'over_rate': over_rate,
+            'under_rate': under_rate,
+            'overs': overs,
+            'unders': non_push_games - overs,
+            'pushes': pushes,
+            'total_games': total_games,
+            'non_push_games': non_push_games,
+            'record': f"{overs}O-{non_push_games - overs}U-{pushes}P",
+            'current_total': current_total,
+            'game_details': game_details,
+            'uses_current_line': True,
+            'sufficient_data': True,
+            'over_threshold': 0.60,
+            'under_threshold': 0.40
+        }
+
+
+# ============================================================================
+# PART 2: ESPN RESULTS FETCHER (Free API)
+# ============================================================================
+
+class ESPNResultsFetcher:
+    """
+    Fetch completed game results from ESPN
+    FREE - No API key needed
+    """
+    
+    def fetch_team_results(
+        self,
+        team_name: str,
+        league: str,
+        num_games: int = 10
+    ) -> List[Dict]:
+        """
+        Fetch team's recent completed games from ESPN
+        
+        Args:
+            team_name: Team to fetch
+            league: League key
+            num_games: Number of recent games
+        
+        Returns:
+            List of completed games with scores
+        """
+        # This would integrate with your existing ESPN data fetch
+        # For now, placeholder to show structure
+        
+        # In your actual implementation, query your database:
+        # SELECT * FROM games
+        # WHERE (away_team = team_name OR home_team = team_name)
+        #   AND completed = TRUE
+        #   AND league = league
+        # ORDER BY game_date DESC
+        # LIMIT num_games
+        
+        results = []
+        # ... fetch from database ...
+        return results
+    
+    def get_team_results_from_db(
+        self,
+        session,
+        team_name: str,
+        league: str,
+        num_games: int = 10
+    ) -> List[Dict]:
+        """
+        Get team results from your existing database
+        
+        Args:
+            session: SQLAlchemy session
+            team_name: Team name
+            league: League key
+            num_games: Number of games to fetch
+        
+        Returns:
+            List of game results
+        """
+        from your_models import Game  # Your SQLAlchemy model
+        
+        # Query completed games
+        games = session.query(Game).filter(
+            ((Game.away_team == team_name) | (Game.home_team == team_name)) &
+            (Game.completed == True) &
+            (Game.league == league)
+        ).order_by(Game.game_date.desc()).limit(num_games).all()
+        
+        results = []
+        for game in games:
+            is_home = game.home_team == team_name
+            
+            results.append({
+                'game_id': game.id,
+                'team_name': team_name,
+                'opponent': game.away_team if is_home else game.home_team,
+                'is_home': is_home,
+                'team_score': game.home_score if is_home else game.away_score,
+                'opponent_score': game.away_score if is_home else game.home_score,
+                'game_date': game.game_date,
+                'completed': True
+            })
+        
+        return results
+
+
+# ============================================================================
+# PART 3: INTEGRATED QUALIFICATION SYSTEM
+# ============================================================================
+
+def qualify_spread_with_current_line(
+    game: Dict,
+    betting_team: str,
+    current_spread: float,
+    league: str,
+    session
+) -> Dict:
+    """
+    Qualify spread pick using CURRENT line + ESPN results
+    
+    NO HISTORICAL ODDS API NEEDED
+    
+    Args:
+        game: Current game data
+        betting_team: Team you're betting on
+        current_spread: Current Vegas spread
+        league: League key
+        session: Database session
+    
+    Returns:
+        Qualification result
+    """
+    calculator = CurrentLinePerformanceCalculator()
+    fetcher = ESPNResultsFetcher()
+    
+    # Get team's recent results from ESPN/database
+    espn_results = fetcher.get_team_results_from_db(
+        session=session,
+        team_name=betting_team,
+        league=league,
+        num_games=10
+    )
+    
+    if not espn_results:
+        return {
+            'qualified': False,
+            'reason': 'No historical game data available'
+        }
+    
+    # Calculate performance against current spread
+    performance = calculator.calculate_spread_performance(
+        team_name=betting_team,
+        current_spread=current_spread,
+        espn_results=espn_results,
+        league=league
+    )
+    
+    if not performance['sufficient_data']:
+        return {
+            'qualified': False,
+            'reason': performance.get('reason', 'Insufficient data')
+        }
+    
+    # Determine confidence
+    cover_rate = performance['cover_rate']
+    if cover_rate >= 0.70:
+        confidence = 'SUPERMAX'
+    elif cover_rate >= 0.65:
+        confidence = 'HIGH'
+    elif cover_rate >= 0.60:
+        confidence = 'MEDIUM'
+    else:
+        confidence = 'LOW'
+    
+    return {
+        'qualified': performance['qualified'],
+        'betting_team': betting_team,
+        'current_spread': current_spread,
+        'cover_record': performance['record'],
+        'cover_rate': cover_rate,
+        'confidence': confidence if performance['qualified'] else None,
+        'total_games': performance['total_games'],
+        'uses_current_line': True,
+        'methodology': 'Current line applied to historical results',
+        'reason': 'Qualified' if performance['qualified'] else f"Cover rate {cover_rate:.1%} below 60%"
+    }
+
+
+def qualify_total_with_current_line(
+    game: Dict,
+    pick: str,  # 'OVER' or 'UNDER'
+    current_total: float,
+    league: str,
+    session
+) -> Dict:
+    """
+    Qualify total pick using CURRENT line + ESPN results
+    
+    NO HISTORICAL ODDS API NEEDED
+    
+    Args:
+        game: Current game data
+        pick: 'OVER' or 'UNDER'
+        current_total: Current Vegas total
+        league: League key
+        session: Database session
+    
+    Returns:
+        Qualification result
+    """
+    calculator = CurrentLinePerformanceCalculator()
+    fetcher = ESPNResultsFetcher()
+    
+    away_team = game['away_team']
+    home_team = game['home_team']
+    
+    # Get both teams' results
+    away_results = fetcher.get_team_results_from_db(
+        session=session,
+        team_name=away_team,
+        league=league,
+        num_games=10
+    )
+    
+    home_results = fetcher.get_team_results_from_db(
+        session=session,
+        team_name=home_team,
+        league=league,
+        num_games=10
+    )
+    
+    if not away_results or not home_results:
+        return {
+            'qualified': False,
+            'reason': 'Insufficient historical game data'
+        }
+    
+    # Calculate both teams' performance
+    away_performance = calculator.calculate_total_performance(
+        team_name=away_team,
+        current_total=current_total,
+        espn_results=away_results,
+        league=league
+    )
+    
+    home_performance = calculator.calculate_total_performance(
+        team_name=home_team,
+        current_total=current_total,
+        espn_results=home_results,
+        league=league
+    )
+    
+    if not away_performance['sufficient_data'] or not home_performance['sufficient_data']:
+        return {
+            'qualified': False,
+            'reason': 'Insufficient data for one or both teams'
+        }
+    
+    # Check if both teams agree
+    if pick == 'OVER':
+        qualified = (away_performance['qualified_over'] and 
+                    home_performance['qualified_over'])
+        
+        avg_over_rate = (away_performance['over_rate'] + 
+                        home_performance['over_rate']) / 2
+        
+        if avg_over_rate >= 0.70:
+            confidence = 'SUPERMAX'
+        elif avg_over_rate >= 0.65:
+            confidence = 'HIGH'
+        elif avg_over_rate >= 0.60:
+            confidence = 'MEDIUM'
+        else:
+            confidence = 'LOW'
+    
+    elif pick == 'UNDER':
+        qualified = (away_performance['qualified_under'] and 
+                    home_performance['qualified_under'])
+        
+        avg_under_rate = (away_performance['under_rate'] + 
+                         home_performance['under_rate']) / 2
+        
+        if avg_under_rate >= 0.70:
+            confidence = 'SUPERMAX'
+        elif avg_under_rate >= 0.65:
+            confidence = 'HIGH'
+        elif avg_under_rate >= 0.60:
+            confidence = 'MEDIUM'
+        else:
+            confidence = 'LOW'
+    
+    else:
+        return {'qualified': False, 'reason': f'Invalid pick: {pick}'}
+    
+    return {
+        'qualified': qualified,
+        'pick': pick,
+        'current_total': current_total,
+        'confidence': confidence if qualified else None,
+        'away_team': away_team,
+        'home_team': home_team,
+        'away_record': away_performance['record'],
+        'home_record': home_performance['record'],
+        'away_over_rate': away_performance['over_rate'],
+        'home_over_rate': home_performance['over_rate'],
+        'uses_current_line': True,
+        'methodology': 'Current line applied to historical results',
+        'reason': 'Qualified' if qualified else 'Both teams must meet threshold'
+    }
+
+
+# ============================================================================
+# PART 4: INTEGRATION EXAMPLE
+# ============================================================================
+
+def process_todays_games(session, league: str):
+    """
+    Process today's games with current line methodology
+    
+    NO HISTORICAL ODDS API COSTS
+    """
+    from your_models import Game
+    
+    # Get today's games
+    today = datetime.now().date()
+    games = session.query(Game).filter(
+        (Game.game_date == today) &
+        (Game.league == league) &
+        (Game.completed == False)
+    ).all()
+    
+    qualified_picks = []
+    
+    for game in games:
+        # SPREAD qualification
+        if game.spread and game.spread != 0:
+            # Determine which team to bet (from your model)
+            betting_team = determine_betting_team(game)  # Your logic
+            
+            spread_result = qualify_spread_with_current_line(
+                game=game.to_dict(),
+                betting_team=betting_team,
+                current_spread=game.spread,
+                league=league,
+                session=session
+            )
+            
+            if spread_result['qualified']:
+                qualified_picks.append({
+                    'type': 'SPREAD',
+                    **spread_result
+                })
+        
+        # TOTAL qualification
+        if game.total:
+            # Determine OVER or UNDER (from your model)
+            pick = determine_total_pick(game)  # Your logic
+            
+            total_result = qualify_total_with_current_line(
+                game=game.to_dict(),
+                pick=pick,
+                current_total=game.total,
+                league=league,
+                session=session
+            )
+            
+            if total_result['qualified']:
+                qualified_picks.append({
+                    'type': 'TOTAL',
+                    **total_result
+                })
+    
+    return qualified_picks
+
+
+# ============================================================================
+# PART 5: USAGE NOTES
+# ============================================================================
+
+"""
+ADVANTAGES OF CURRENT LINE METHODOLOGY:
+
+1. FREE - No historical odds API costs
+2. SIMPLE - Uses data you already have (ESPN + current odds)
+3. EFFECTIVE - Still measures betting edge
+4. FAST - No external API calls for historical data
+
+METHODOLOGY EXPLAINED:
+
+Instead of asking:
+"How often did team cover their historical spreads?"
+
+We ask:
+"If today's spread existed for their last 10 games, 
+ how often would they have covered?"
+
+This is valid because:
+- Current spread reflects current market opinion
+- Applying it to past performance shows consistency
+- Teams that consistently beat current line = edge
+
+EXAMPLE:
+
+Duke vs UNC today:
+- Current spread: Duke -5.5
+- Duke's last 10 results:
+  Won by 8, 3, 12, 6, 15, 4, 9, 11, 7, 10
+- Against -5.5: 7/10 would cover (70%)
+- Qualification: QUALIFIED (70% > 60%) ✅
+- Confidence: SUPERMAX
+
+This tells us: Duke consistently performs well enough
+that they would beat today's spread in 70% of past games.
+That's a betting edge!
+"""

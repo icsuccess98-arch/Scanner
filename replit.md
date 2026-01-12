@@ -103,6 +103,16 @@ Additional data-driven factors that disqualify picks during game scanning:
     -   Results cached with 12-hour TTL to protect API quota
     -   Test endpoint: `/api/test_historical_lines?team=X&league=Y&direction=O|U`
 
+10. **Bulletproof Current Line System** (Jan 2026)
+    -   NO PAID API NEEDED - Uses free ESPN data + current Vegas lines
+    -   `BulletproofCurrentLineCalculator` class applies current line to past game results
+    -   Logic: "If today's spread/total existed for last 10 games, how often would team have covered/hit?"
+    -   **Push Exclusion**: Pushes (exact line matches within 0.5 pts) excluded from calculations
+    -   **Confidence Tiers**: SUPERMAX (70%+), HIGH (65%+), MEDIUM (60%+), LOW (<60%)
+    -   League-specific minimum games: NBA/CBB/NHL=8, NFL/CFB=4
+    -   Qualification threshold: 60% hit rate (excluding pushes)
+    -   Functions: `calculate_ou_hit_rate()`, `calculate_spread_cover_rate()` both use bulletproof formulas
+
 ### Betting Models (4 Total)
 The sports betting calculator uses four distinct models for pick generation:
 
