@@ -154,6 +154,312 @@ class VigCalculator:
         
         return raw_edge * min(vig_multiplier, 1.0)
 
+LEAGUE_SPORT_KEYS = {
+    'NBA': 'basketball_nba',
+    'CBB': 'basketball_ncaab',
+    'NFL': 'americanfootball_nfl',
+    'CFB': 'americanfootball_ncaaf',
+    'NHL': 'icehockey_nhl'
+}
+
+LEAGUE_HISTORICAL_CONFIG = {
+    'NBA': {'games_count': 10, 'min_games': 8, 'ats_threshold': 0.60, 'over_threshold': 0.60, 'under_threshold': 0.40},
+    'CBB': {'games_count': 10, 'min_games': 8, 'ats_threshold': 0.60, 'over_threshold': 0.60, 'under_threshold': 0.40},
+    'NFL': {'games_count': 5, 'min_games': 4, 'ats_threshold': 0.60, 'over_threshold': 0.60, 'under_threshold': 0.40},
+    'CFB': {'games_count': 5, 'min_games': 4, 'ats_threshold': 0.60, 'over_threshold': 0.60, 'under_threshold': 0.40},
+    'NHL': {'games_count': 10, 'min_games': 8, 'ats_threshold': 0.60, 'over_threshold': 0.60, 'under_threshold': 0.40}
+}
+
+historical_lines_cache = {}
+
+class HistoricalBettingLinesService:
+    def __init__(self):
+        self.base_url = "https://api.the-odds-api.com/v4"
+        self.cache = {}
+        self.cache_ttl = 43200
+    
+    def _get_api_key(self):
+        return os.environ.get("API_KEY", "")
+    
+    def _team_match(self, api_team: str, db_team: str) -> bool:
+        from difflib import SequenceMatcher
+        if not api_team or not db_team:
+            return False
+        api_norm = api_team.lower().strip()
+        db_norm = db_team.lower().strip()
+        if api_norm == db_norm:
+            return True
+        if db_norm in api_norm or api_norm in db_norm:
+            return True
+        ratio = SequenceMatcher(None, api_norm, db_norm).ratio()
+        return ratio >= 0.75
+    
+    def fetch_historical_games_with_lines(self, team_name: str, league: str, bet_type: str = 'total', num_games: int = 10) -> list:
+        sport_key = LEAGUE_SPORT_KEYS.get(league)
+        if not sport_key:
+            logger.warning(f"Historical lines: Unknown league {league}")
+            return []
+        
+        cache_key = f"hist:{league}:{team_name}:{bet_type}:{num_games}"
+        if cache_key in self.cache:
+            cached_data, cached_time = self.cache[cache_key]
+            if (datetime.now() - cached_time).seconds < self.cache_ttl:
+                return cached_data
+        
+        api_key = self._get_api_key()
+        if not api_key:
+            logger.warning("Historical lines: No API key available")
+            return []
+        
+        try:
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=60)
+            market = 'spreads' if bet_type == 'spread' else 'totals'
+            
+            url = f"{self.base_url}/historical/sports/{sport_key}/odds"
+            params = {
+                'apiKey': api_key,
+                'regions': 'us',
+                'markets': market,
+                'oddsFormat': 'american',
+                'date': start_date.strftime('%Y-%m-%dT12:00:00Z')
+            }
+            
+            logger.info(f"Historical lines: Fetching {bet_type} history for {team_name} ({league})")
+            resp = requests.get(url, params=params, timeout=15)
+            
+            if resp.status_code != 200:
+                logger.warning(f"Historical lines API error: {resp.status_code}")
+                return []
+            
+            data = resp.json()
+            all_games = data.get('data', [])
+            
+            team_games = []
+            for game in all_games:
+                away_team = game.get('away_team', '')
+                home_team = game.get('home_team', '')
+                
+                if self._team_match(away_team, team_name) or self._team_match(home_team, team_name):
+                    extracted = self._extract_game_data(game, team_name, bet_type)
+                    if extracted:
+                        team_games.append(extracted)
+            
+            team_games.sort(key=lambda x: x.get('commence_time', ''), reverse=True)
+            team_games = team_games[:num_games]
+            
+            self.cache[cache_key] = (team_games, datetime.now())
+            logger.info(f"Historical lines: Found {len(team_games)} games with actual lines for {team_name}")
+            return team_games
+            
+        except Exception as e:
+            logger.error(f"Historical lines fetch error: {e}")
+            return []
+    
+    def _extract_game_data(self, game: dict, team_name: str, bet_type: str) -> dict:
+        try:
+            bookmakers = game.get('bookmakers', [])
+            if not bookmakers:
+                return None
+            
+            preferred_books = ['pinnacle', 'fanduel', 'draftkings', 'bovada']
+            bookmaker = None
+            for pref in preferred_books:
+                for bm in bookmakers:
+                    if pref in bm.get('key', '').lower():
+                        bookmaker = bm
+                        break
+                if bookmaker:
+                    break
+            if not bookmaker:
+                bookmaker = bookmakers[0]
+            
+            markets = bookmaker.get('markets', [])
+            away_team = game.get('away_team')
+            home_team = game.get('home_team')
+            scores = game.get('scores')
+            
+            if not scores:
+                return None
+            
+            away_score = None
+            home_score = None
+            for score in scores:
+                if score.get('name') == away_team:
+                    away_score = score.get('score')
+                elif score.get('name') == home_team:
+                    home_score = score.get('score')
+            
+            if away_score is None or home_score is None:
+                return None
+            
+            try:
+                away_score = int(away_score)
+                home_score = int(home_score)
+            except (ValueError, TypeError):
+                return None
+            
+            if bet_type == 'total':
+                totals_market = next((m for m in markets if m['key'] == 'totals'), None)
+                if not totals_market:
+                    return None
+                
+                outcomes = totals_market.get('outcomes', [])
+                over_outcome = next((o for o in outcomes if o['name'] == 'Over'), None)
+                if not over_outcome:
+                    return None
+                
+                closing_total = float(over_outcome.get('point', 0))
+                actual_total = away_score + home_score
+                went_over = actual_total > closing_total
+                
+                return {
+                    'game_id': game.get('id'),
+                    'commence_time': game.get('commence_time'),
+                    'away_team': away_team,
+                    'home_team': home_team,
+                    'closing_line': closing_total,
+                    'actual_total': actual_total,
+                    'went_over': went_over,
+                    'margin': actual_total - closing_total,
+                    'bet_type': 'total',
+                    'uses_actual_line': True
+                }
+            
+            elif bet_type == 'spread':
+                spreads_market = next((m for m in markets if m['key'] == 'spreads'), None)
+                if not spreads_market:
+                    return None
+                
+                outcomes = spreads_market.get('outcomes', [])
+                is_home = self._team_match(home_team, team_name)
+                
+                team_outcome = None
+                for outcome in outcomes:
+                    if self._team_match(outcome['name'], team_name):
+                        team_outcome = outcome
+                        break
+                
+                if not team_outcome:
+                    return None
+                
+                closing_spread = float(team_outcome.get('point', 0))
+                
+                if is_home:
+                    actual_margin = home_score - away_score
+                else:
+                    actual_margin = away_score - home_score
+                
+                covered = actual_margin > closing_spread
+                
+                return {
+                    'game_id': game.get('id'),
+                    'commence_time': game.get('commence_time'),
+                    'away_team': away_team,
+                    'home_team': home_team,
+                    'team_name': team_name,
+                    'is_home': is_home,
+                    'closing_spread': closing_spread,
+                    'actual_margin': actual_margin,
+                    'covered_spread': covered,
+                    'bet_type': 'spread',
+                    'uses_actual_line': True
+                }
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Extract game data error: {e}")
+            return None
+    
+    def calculate_ou_hit_rate_with_actual_lines(self, team_name: str, league: str, direction: str = 'O') -> dict:
+        config = LEAGUE_HISTORICAL_CONFIG.get(league, LEAGUE_HISTORICAL_CONFIG['NBA'])
+        games = self.fetch_historical_games_with_lines(team_name, league, 'total', config['games_count'])
+        
+        if len(games) < config['min_games']:
+            logger.info(f"Historical lines: Insufficient data for {team_name} ({len(games)}/{config['min_games']} games)")
+            return {
+                'hit_rate': None,
+                'games_found': len(games),
+                'min_required': config['min_games'],
+                'qualified': False,
+                'uses_actual_lines': True,
+                'fallback_used': False,
+                'reason': f"Only {len(games)} games with historical lines found"
+            }
+        
+        if direction == 'O':
+            hits = sum(1 for g in games if g.get('went_over'))
+        else:
+            hits = sum(1 for g in games if not g.get('went_over'))
+        
+        hit_rate = (hits / len(games)) * 100
+        threshold = config['over_threshold'] if direction == 'O' else (1 - config['under_threshold'])
+        qualified = (hit_rate / 100) >= threshold
+        
+        avg_line = sum(g.get('closing_line', 0) for g in games) / len(games)
+        avg_actual = sum(g.get('actual_total', 0) for g in games) / len(games)
+        avg_vs_line = avg_actual - avg_line
+        
+        return {
+            'hit_rate': round(hit_rate, 1),
+            'hits': hits,
+            'total_games': len(games),
+            'direction': direction,
+            'qualified': qualified,
+            'threshold': threshold * 100,
+            'avg_line': round(avg_line, 1),
+            'avg_actual': round(avg_actual, 1),
+            'avg_vs_line': round(avg_vs_line, 1),
+            'uses_actual_lines': True,
+            'fallback_used': False,
+            'game_details': games
+        }
+    
+    def calculate_ats_hit_rate(self, team_name: str, league: str, location: str = None) -> dict:
+        config = LEAGUE_HISTORICAL_CONFIG.get(league, LEAGUE_HISTORICAL_CONFIG['NBA'])
+        games = self.fetch_historical_games_with_lines(team_name, league, 'spread', config['games_count'])
+        
+        if location:
+            if location == 'home':
+                games = [g for g in games if g.get('is_home')]
+            elif location == 'away':
+                games = [g for g in games if not g.get('is_home')]
+        
+        if len(games) < config['min_games']:
+            return {
+                'ats_rate': None,
+                'games_found': len(games),
+                'min_required': config['min_games'],
+                'qualified': False,
+                'uses_actual_lines': True,
+                'reason': f"Only {len(games)} games with historical lines found"
+            }
+        
+        covers = sum(1 for g in games if g.get('covered_spread'))
+        ats_rate = covers / len(games)
+        qualified = ats_rate >= config['ats_threshold']
+        
+        avg_spread = sum(g.get('closing_spread', 0) for g in games) / len(games)
+        avg_margin = sum(g.get('actual_margin', 0) for g in games) / len(games)
+        
+        return {
+            'ats_rate': round(ats_rate * 100, 1),
+            'ats_record': f"{covers}-{len(games) - covers}",
+            'covers': covers,
+            'losses': len(games) - covers,
+            'total_games': len(games),
+            'qualified': qualified,
+            'threshold': config['ats_threshold'] * 100,
+            'avg_spread': round(avg_spread, 1),
+            'avg_margin': round(avg_margin, 1),
+            'avg_vs_spread': round(avg_margin - avg_spread, 1),
+            'uses_actual_lines': True,
+            'location': location or 'all'
+        }
+
+historical_lines_service = HistoricalBettingLinesService()
+
 def api_request_with_retry(url: str, timeout: int = 30, max_retries: int = 2, **kwargs) -> requests.Response:
     """Make API request with simple retry logic for transient failures.
     Returns the response object or raises exception after all retries fail.
