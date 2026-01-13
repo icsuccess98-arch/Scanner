@@ -430,21 +430,16 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
     
     for tier in [1, 2, 3, 4]:
         data = tier_data[tier]
-        has_content = any([data["u20"], data["f2u"], data["f2d"], data["ii"], data["inside"], data["outside"]])
+        # Only bullish setups: U20, F2D, II, Inside, Outside (no F2U)
+        has_content = any([data["u20"], data["f2d"], data["ii"], data["inside"], data["outside"]])
         if not has_content:
             continue
             
         msg += f"**{tier_names[tier]}**\n\n"
         
         if data["u20"]:
-            msg += "⚠️ **Under 20MA (U20)**\n"
+            msg += "⚠️ **U20**\n"
             for item in data["u20"]:
-                msg += f"{item}\n"
-            msg += "\n"
-        
-        if data["f2u"]:
-            msg += "🔴 **F2U**\n"
-            for item in data["f2u"]:
                 msg += f"{item}\n"
             msg += "\n"
         
