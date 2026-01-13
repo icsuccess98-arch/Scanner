@@ -424,48 +424,37 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
             tier = get_tier(sym)
             tier_data[tier]["outside"].append(f"• {sym}")
     
-    msg = ""
-    tier_names = {1: "🏦 TIER 1 — Anchor Funds", 2: "📊 TIER 2 — Index Options", 
-                  3: "📈 TIER 3 — Single-Stock", 4: "📋 OTHER"}
+    # Combine all tickers by category (across all tiers)
+    all_u20 = []
+    all_f2d = []
+    all_ii = []
+    all_inside = []
+    all_outside = []
     
     for tier in [1, 2, 3, 4]:
         data = tier_data[tier]
-        # Only bullish setups: U20, F2D, II, Inside, Outside (no F2U)
-        has_content = any([data["u20"], data["f2d"], data["ii"], data["inside"], data["outside"]])
-        if not has_content:
-            continue
-            
-        msg += f"**{tier_names[tier]}**\n\n"
-        
-        if data["u20"]:
-            msg += "⚠️ **U20**\n"
-            for item in data["u20"]:
-                msg += f"{item}\n"
-            msg += "\n"
-        
-        if data["f2d"]:
-            msg += "🟢 **F2D**\n"
-            for item in data["f2d"]:
-                msg += f"{item}\n"
-            msg += "\n"
-        
-        if data["ii"]:
-            msg += "🟪 **Double Inside (II)**\n"
-            for item in data["ii"]:
-                msg += f"{item}\n"
-            msg += "\n"
-        
-        if data["inside"]:
-            msg += "📘 **Inside (1)**\n"
-            for item in data["inside"]:
-                msg += f"{item}\n"
-            msg += "\n"
-        
-        if data["outside"]:
-            msg += "📕 **Outside (3)**\n"
-            for item in data["outside"]:
-                msg += f"{item}\n"
-            msg += "\n"
+        all_u20.extend([item.replace("• ", "") for item in data["u20"]])
+        all_f2d.extend([item.replace("• ", "") for item in data["f2d"]])
+        all_ii.extend([item.replace("• ", "") for item in data["ii"]])
+        all_inside.extend([item.replace("• ", "") for item in data["inside"]])
+        all_outside.extend([item.replace("• ", "") for item in data["outside"]])
+    
+    msg = ""
+    
+    if all_u20:
+        msg += f"**U20**\n{', '.join(all_u20)}\n\n"
+    
+    if all_inside:
+        msg += f"**Inside Day (1)**\n{', '.join(all_inside)}\n\n"
+    
+    if all_f2d:
+        msg += f"**Failed 2s**\n{', '.join(all_f2d)}\n\n"
+    
+    if all_outside:
+        msg += f"**3-Bar (3)**\n{', '.join(all_outside)}\n\n"
+    
+    if all_ii:
+        msg += f"**Double Inside (II)**\n{', '.join(all_ii)}\n\n"
     
     msg = msg.strip()
     dc_msg = dc_header + msg
