@@ -68,30 +68,41 @@ def send_discord_csv(symbols, title, webhook_url):
 RUN_MODE = os.environ.get("RUN_MODE", "ALL")
 
 # ---------------------------------------------------------
-# ASSET GROUPS - STOCK PORTFOLIO
+# ASSET GROUPS BY TIER
 # ---------------------------------------------------------
 
-# High-yield income funds (top holdings)
-HIGH_YIELD = ["CLM", "CRF", "ECC", "QQQY", "PSEC", "GUT", "USOY"]
+# TIER 1: Anchor Funds (Foundational Income Funds)
+TIER_1 = ["CLM", "CRF", "ECC", "EIC", "GUT", "GOF", "ASGI", "YYY", "HIPS", 
+          "PSEC", "BCAT", "ECAT", "BIZD", "USA", "ASG", "REM"]
 
-# Covered call / Options income ETFs
-OPTIONS_INCOME = ["XDTE", "RDTE", "IWMY", "SPYI", "NVDY", "TSLY", "OARK", 
-                  "XYZY", "TSMY", "MSTY", "YMAX", "AMDY", "SNOY", "KLIP", "CRSH"]
+# TIER 2: Leveraged Index Options Funds  
+TIER_2 = ["QQQY", "XDTE", "RDTE", "IWMY", "USOY", "GLDY", "YMAX", "YMAG",
+          "AIPI", "CEPI", "GIAX", "KLIP", "GDXY", "SPYI"]
 
-# CEFs and Income funds
-CEFS_INCOME = ["ASGI", "GOF", "TLT", "HIPS", "EIC", "BIZD", "CEPI", 
-               "BCAT", "USA", "ECAT", "GIAX", "BABO", "REM", "MST", "GLDY"]
+# TIER 3: Single-Stock or Select Portfolio ETFs
+TIER_3 = ["MST", "TSLY", "NVDY", "OARK", "XYZY", "TSMY", "MSTY", "SNOY", 
+          "CRSH", "BABO", "AMDY", "GPTY"]
 
-# Individual stocks
-STOCKS_INDIVIDUAL = ["CVX", "AMGN", "UBER", "AIPI", "GDXY", "GPTY", "ASG"]
+# Additional holdings not in tier system
+OTHER = ["TLT", "CVX", "AMGN", "UBER"]
 
-ALL_STOCKS = HIGH_YIELD + OPTIONS_INCOME + CEFS_INCOME + STOCKS_INDIVIDUAL
+ALL_STOCKS = TIER_1 + TIER_2 + TIER_3 + OTHER
+
+def get_tier(symbol):
+    if symbol in TIER_1:
+        return 1
+    elif symbol in TIER_2:
+        return 2
+    elif symbol in TIER_3:
+        return 3
+    else:
+        return 4  # Other
 
 GROUP_ORDER = {
-    "HIGH_YIELD": HIGH_YIELD,
-    "OPTIONS_INCOME": OPTIONS_INCOME,
-    "CEFS_INCOME": CEFS_INCOME,
-    "STOCKS": STOCKS_INDIVIDUAL
+    "TIER_1": TIER_1,
+    "TIER_2": TIER_2,
+    "TIER_3": TIER_3,
+    "OTHER": OTHER
 }
 
 # ---------------------------------------------------------
@@ -106,6 +117,28 @@ def direction(c):
 
 def arrow(d):
     return "↑" if d == "UP" else "↓"
+
+# Cache for 20MA status
+ma20_cache = {}
+
+def is_under_20ma(symbol):
+    """Check if symbol is trading below its 20-day moving average"""
+    if symbol in ma20_cache:
+        return ma20_cache[symbol]
+    try:
+        ticker = yf.Ticker(symbol)
+        df = ticker.history(period="2mo", interval="1d")
+        if len(df) >= 20:
+            df["SMA20"] = df["Close"].rolling(window=20).mean()
+            last_close = df["Close"].iloc[-1]
+            last_sma20 = df["SMA20"].iloc[-1]
+            result = last_close < last_sma20
+            ma20_cache[symbol] = result
+            return result
+    except:
+        pass
+    ma20_cache[symbol] = False
+    return False
 
 # ---------------------------------------------------------
 # FETCH CANDLES (YFINANCE)
@@ -316,87 +349,93 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
 
         time.sleep(0.2)
 
-    # Telegram header (simple)
-    tg_header = f"📊 <b>{title} Actionables</b>\n\n"
-    
     # Discord header (with dates)
     today = datetime.now()
     yesterday = today - timedelta(days=1)
     date_header = today.strftime("%b %d, %Y")
     from_day = yesterday.strftime("%a %b %d")
-    dc_header = f"🗓 <b>{title} Actionable Strat — {date_header}</b>\n"
+    dc_header = f"🗓 **{title} Actionable Strat — {date_header}**\n"
     dc_header += f"(From {from_day} close)\n\n"
     
+    # Collect all patterns with their info
+    all_patterns = []
+    
+    # Add F2 patterns
+    for sym in f2u:
+        u20 = is_under_20ma(sym)
+        pattern = aplus.get(sym, "F2U")
+        all_patterns.append((sym, "F2U", u20, pattern))
+    
+    for sym in f2d:
+        u20 = is_under_20ma(sym)
+        pattern = aplus.get(sym, "F2D")
+        all_patterns.append((sym, "F2D", u20, pattern))
+    
+    # Add Double Inside
+    for sym in double_inside:
+        if sym not in f2u and sym not in f2d:
+            u20 = is_under_20ma(sym)
+            pattern = aplus.get(sym, "Double Inside")
+            all_patterns.append((sym, "II", u20, pattern))
+    
+    # Add Inside (1)
+    for sym in inside:
+        if sym not in f2u and sym not in f2d and sym not in double_inside:
+            u20 = is_under_20ma(sym)
+            all_patterns.append((sym, "1", u20, "Inside"))
+    
+    # Add Outside (3)
+    for sym in outside:
+        if sym not in f2u and sym not in f2d:
+            u20 = is_under_20ma(sym)
+            all_patterns.append((sym, "3", u20, "Outside"))
+    
+    # Group by tier
+    tier1_patterns = [(s, p, u, l) for s, p, u, l in all_patterns if get_tier(s) == 1]
+    tier2_patterns = [(s, p, u, l) for s, p, u, l in all_patterns if get_tier(s) == 2]
+    tier3_patterns = [(s, p, u, l) for s, p, u, l in all_patterns if get_tier(s) == 3]
+    other_patterns = [(s, p, u, l) for s, p, u, l in all_patterns if get_tier(s) == 4]
+    
     msg = ""
-
-    if aplus:
-        msg += "🔥 <b>A++ Setups</b>\n\n"
-        ups = []
-        dns = []
-
-        for sym, lbl in aplus.items():
-            lbl_short = lbl.replace("Failed 2U", "F2U").replace("Failed 2D", "F2D")
-            # F2D patterns = bullish (upside), F2U patterns = bearish (downside)
-            # Double Inside, 3-1, 1-3: check arrow direction
-            if "F2D" in lbl_short:
-                ups.append((sym, lbl_short))
-            elif "F2U" in lbl_short:
-                dns.append((sym, lbl_short))
-            elif ("Double Inside" in lbl or "3-1" in lbl or "1-3" in lbl) and "↑" in lbl:
-                ups.append((sym, lbl_short))
-            else:
-                dns.append((sym, lbl_short))
-
-        if ups:
-            msg += "<u><b>🟢 Upside</b></u>\n"
-            for sym, lbl in ups:
-                msg += f"• <b>{pretty(sym)}</b> — {lbl}\n"
-            msg += "\n"
-
-        if dns:
-            msg += "<u><b>🔴 Downside</b></u>\n"
-            for sym, lbl in dns:
-                msg += f"• <b>{pretty(sym)}</b> — {lbl}\n"
-            msg += "\n"
-
-    if double_inside:
-        msg += "<b>🟪 Double Inside (II)</b>\n"
-        for x in group_sort(double_inside):
-            msg += f"• {pretty(x)}\n"
+    
+    def format_ticker(sym, pattern, u20, label):
+        u20_tag = "(U20) " if u20 else ""
+        return f"{sym} {u20_tag}{pattern}"
+    
+    if tier1_patterns:
+        msg += "**TIER 1 (Anchor Funds)**\n"
+        for sym, pattern, u20, label in tier1_patterns:
+            msg += f"{format_ticker(sym, pattern, u20, label)}\n"
         msg += "\n"
-
-    if inside:
-        msg += "<b>📘 Inside (1)</b>\n"
-        for x in group_sort(inside):
-            msg += f"• {pretty(x)}\n"
+    
+    if tier2_patterns:
+        msg += "**TIER 2 (Index Options)**\n"
+        for sym, pattern, u20, label in tier2_patterns:
+            msg += f"{format_ticker(sym, pattern, u20, label)}\n"
         msg += "\n"
-
-    if outside:
-        msg += "<b>📕 Outside (3)</b>\n"
-        for x in group_sort(outside):
-            msg += f"• {pretty(x)}\n"
+    
+    if tier3_patterns:
+        msg += "**TIER 3 (Single-Stock)**\n"
+        for sym, pattern, u20, label in tier3_patterns:
+            msg += f"{format_ticker(sym, pattern, u20, label)}\n"
         msg += "\n"
-
-    if f2u:
-        msg += "<b>🔴 F2U</b>\n"
-        for x in group_sort(f2u):
-            msg += f"• {pretty(x)}\n"
+    
+    if other_patterns:
+        msg += "**OTHER**\n"
+        for sym, pattern, u20, label in other_patterns:
+            msg += f"{format_ticker(sym, pattern, u20, label)}\n"
         msg += "\n"
-
-    if f2d:
-        msg += "<b>🟢 F2D</b>\n"
-        for x in group_sort(f2d):
-            msg += f"• {pretty(x)}\n"
-        msg += "\n"
-
+    
     msg = msg.strip()
     dc_msg = dc_header + msg
     
-    send_discord(dc_msg, discord_webhook)
+    if msg:
+        send_discord(dc_msg, discord_webhook)
     
     # Send TradingView watchlist CSV to Discord immediately after
     all_symbols = list(set(double_inside + inside + outside + f2u + f2d + list(aplus.keys())))
-    send_discord_csv(all_symbols, title, discord_webhook)
+    if all_symbols:
+        send_discord_csv(all_symbols, title, discord_webhook)
 
 # ---------------------------------------------------------
 # RUNTIME
