@@ -43,6 +43,19 @@ def send_discord(msg, webhook_url):
     payload = {"content": discord_msg}
     requests.post(webhook_url, json=payload)
 
+def send_discord_embed(title, description, webhook_url):
+    """Send Discord embed for box-style formatting"""
+    if not webhook_url:
+        return
+    payload = {
+        "embeds": [{
+            "title": title,
+            "description": description,
+            "color": 15105570  # Orange color
+        }]
+    }
+    requests.post(webhook_url, json=payload)
+
 def to_tv_symbol(sym):
     # Stock symbols go to NYSE/NASDAQ
     return f"NASDAQ:{sym}"
@@ -353,13 +366,13 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
 
         time.sleep(0.2)
 
-    # Discord header (with dates)
+    # Discord header (with dates) - matching box format
     today = datetime.now()
-    yesterday = today - timedelta(days=1)
+    tomorrow = today + timedelta(days=1)
     date_header = today.strftime("%b %d, %Y")
-    from_day = yesterday.strftime("%a %b %d")
-    dc_header = f"🗓 **{title} Actionable Strat — {date_header}**\n"
-    dc_header += f"(From {from_day} close)\n\n"
+    dc_header = f"🗓 **{title} Actionable Strat — {date_header}**\n\n"
+    dc_header += f"**{title} Actionable Strat — for {tomorrow.strftime('%a %b %d')}**\n"
+    dc_header += f"(From {today.strftime('%a %b %d')} close)\n\n"
     
     # Get M/W/D arrows for a symbol
     def get_mwd_arrows(sym):
@@ -439,28 +452,34 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
         all_inside.extend([item.replace("• ", "") for item in data["inside"]])
         all_outside.extend([item.replace("• ", "") for item in data["outside"]])
     
-    msg = ""
+    # Build embed description
+    today = datetime.now()
+    tomorrow = today + timedelta(days=1)
+    
+    embed_title = f"🗓 {title} Actionable Strat — {today.strftime('%b %d, %Y')}"
+    
+    desc = f"**{title} Actionable Strat — for {tomorrow.strftime('%a %b %d')}**\n"
+    desc += f"(From {today.strftime('%a %b %d')} close)\n\n"
     
     if all_u20:
-        msg += f"**U20**\n{', '.join(all_u20)}\n\n"
+        desc += f"**U20**\n{', '.join(all_u20)}\n\n"
     
     if all_inside:
-        msg += f"**Inside Day (1)**\n{', '.join(all_inside)}\n\n"
+        desc += f"**Inside Day (1)**\n{', '.join(all_inside)}\n\n"
     
     if all_f2d:
-        msg += f"**Failed 2s**\n{', '.join(all_f2d)}\n\n"
+        desc += f"**Failed 2s**\n{', '.join(all_f2d)}\n\n"
     
     if all_outside:
-        msg += f"**3-Bar (3)**\n{', '.join(all_outside)}\n\n"
+        desc += f"**3-Bar (3)**\n{', '.join(all_outside)}\n\n"
     
     if all_ii:
-        msg += f"**Double Inside (II)**\n{', '.join(all_ii)}\n\n"
+        desc += f"**Double Inside (II)**\n{', '.join(all_ii)}\n\n"
     
-    msg = msg.strip()
-    dc_msg = dc_header + msg
+    desc = desc.strip()
     
-    if msg:
-        send_discord(dc_msg, discord_webhook)
+    if desc:
+        send_discord_embed(embed_title, desc, discord_webhook)
     
     # Send TradingView watchlist CSV to Discord immediately after
     all_symbols = list(set(double_inside + inside + outside + f2u + f2d + list(aplus.keys())))
