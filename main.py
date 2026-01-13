@@ -74,6 +74,32 @@ def send_discord_csv(symbols, title, webhook_url):
     data = {"content": f"📋 **{title} TradingView Watchlist**"}
     requests.post(webhook_url, data=data, files=files)
 
+def send_discord_categorized_csv(categories, title, webhook_url):
+    """Send categorized TradingView watchlist with section headers"""
+    if not webhook_url:
+        return
+    
+    # Build categorized content for TradingView
+    # TradingView format: ###SECTION_NAME### followed by symbols
+    lines = []
+    
+    for cat_name, symbols in categories.items():
+        if symbols:
+            lines.append(f"####{cat_name}####")
+            for sym in symbols:
+                lines.append(to_tv_symbol(sym))
+    
+    if not lines:
+        return
+    
+    csv_content = "\n".join(lines)
+    
+    files = {
+        "file": (f"{title.lower()}_categorized_watchlist.txt", csv_content, "text/plain")
+    }
+    data = {"content": f"📋 **{title} Categorized TradingView Watchlist**"}
+    requests.post(webhook_url, data=data, files=files)
+
 # ---------------------------------------------------------
 # RUN MODE CONFIG
 # ---------------------------------------------------------
@@ -481,10 +507,15 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
     if desc:
         send_discord_embed(embed_title, desc, discord_webhook)
     
-    # Send TradingView watchlist CSV to Discord immediately after
-    all_symbols = list(set(double_inside + inside + outside + f2u + f2d + list(aplus.keys())))
-    if all_symbols:
-        send_discord_csv(all_symbols, title, discord_webhook)
+    # Send categorized TradingView watchlist CSV to Discord
+    categories = {
+        "U20": all_u20,
+        "INSIDE_DAY": all_inside,
+        "FAILED_2s": all_f2d,
+        "3_BAR": all_outside,
+        "DOUBLE_INSIDE": all_ii
+    }
+    send_discord_categorized_csv(categories, title, discord_webhook)
 
 # ---------------------------------------------------------
 # RUNTIME
