@@ -80,12 +80,21 @@ def send_discord_categorized_csv(categories, title, webhook_url):
         return
     
     # Build categorized content for TradingView
-    # TradingView format: ###SECTION_NAME### followed by symbols
     lines = []
+    
+    # Clean category names (replace underscores with spaces)
+    name_map = {
+        "U20": "U20",
+        "INSIDE_DAY": "INSIDE DAY",
+        "FAILED_2s": "FAILED 2s",
+        "3_BAR": "3-BAR",
+        "DOUBLE_INSIDE": "DOUBLE INSIDE"
+    }
     
     for cat_name, symbols in categories.items():
         if symbols:
-            lines.append(f"####{cat_name}####")
+            display_name = name_map.get(cat_name, cat_name)
+            lines.append(display_name)
             for sym in symbols:
                 lines.append(to_tv_symbol(sym))
     
