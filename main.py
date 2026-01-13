@@ -357,74 +357,96 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
     dc_header = f"🗓 **{title} Actionable Strat — {date_header}**\n"
     dc_header += f"(From {from_day} close)\n\n"
     
-    # Collect all patterns with their info
-    all_patterns = []
+    # Get M/W/D arrows for a symbol
+    def get_mwd_arrows(sym):
+        try:
+            monthly = get_closed_candles(sym, "M")
+            weekly = get_closed_candles(sym, "W")
+            daily = get_closed_candles(sym, "D")
+            if monthly and weekly and daily:
+                m_arr = "↑" if direction(monthly[-1]) == "UP" else "↓"
+                w_arr = "↑" if direction(weekly[-1]) == "UP" else "↓"
+                d_arr = "↑" if direction(daily[-1]) == "UP" else "↓"
+                return f"{m_arr}{w_arr}{d_arr}"
+        except:
+            pass
+        return "---"
     
-    # Add F2 patterns
-    for sym in f2u:
+    # Collect patterns by tier and type
+    tier_data = {1: {"f2": [], "ii": [], "inside": [], "outside": []},
+                 2: {"f2": [], "ii": [], "inside": [], "outside": []},
+                 3: {"f2": [], "ii": [], "inside": [], "outside": []},
+                 4: {"f2": [], "ii": [], "inside": [], "outside": []}}
+    
+    # Process F2 patterns
+    for sym in f2u + f2d:
         u20 = is_under_20ma(sym)
-        pattern = aplus.get(sym, "F2U")
-        all_patterns.append((sym, "F2U", u20, pattern))
+        tier = get_tier(sym)
+        arrows = get_mwd_arrows(sym)
+        pattern_label = aplus.get(sym, "F2U" if sym in f2u else "F2D")
+        u20_tag = " (U20)" if u20 else ""
+        tier_data[tier]["f2"].append(f"• **{sym}**{u20_tag} — M/W/D {arrows} — {pattern_label}")
     
-    for sym in f2d:
-        u20 = is_under_20ma(sym)
-        pattern = aplus.get(sym, "F2D")
-        all_patterns.append((sym, "F2D", u20, pattern))
-    
-    # Add Double Inside
+    # Process Double Inside
     for sym in double_inside:
         if sym not in f2u and sym not in f2d:
             u20 = is_under_20ma(sym)
-            pattern = aplus.get(sym, "Double Inside")
-            all_patterns.append((sym, "II", u20, pattern))
+            tier = get_tier(sym)
+            arrows = get_mwd_arrows(sym)
+            u20_tag = " (U20)" if u20 else ""
+            tier_data[tier]["ii"].append(f"• {sym}{u20_tag}")
     
-    # Add Inside (1)
+    # Process Inside (1)
     for sym in inside:
         if sym not in f2u and sym not in f2d and sym not in double_inside:
             u20 = is_under_20ma(sym)
-            all_patterns.append((sym, "1", u20, "Inside"))
+            tier = get_tier(sym)
+            u20_tag = " (U20)" if u20 else ""
+            tier_data[tier]["inside"].append(f"• {sym}{u20_tag}")
     
-    # Add Outside (3)
+    # Process Outside (3)
     for sym in outside:
         if sym not in f2u and sym not in f2d:
             u20 = is_under_20ma(sym)
-            all_patterns.append((sym, "3", u20, "Outside"))
-    
-    # Group by tier
-    tier1_patterns = [(s, p, u, l) for s, p, u, l in all_patterns if get_tier(s) == 1]
-    tier2_patterns = [(s, p, u, l) for s, p, u, l in all_patterns if get_tier(s) == 2]
-    tier3_patterns = [(s, p, u, l) for s, p, u, l in all_patterns if get_tier(s) == 3]
-    other_patterns = [(s, p, u, l) for s, p, u, l in all_patterns if get_tier(s) == 4]
+            tier = get_tier(sym)
+            u20_tag = " (U20)" if u20 else ""
+            tier_data[tier]["outside"].append(f"• {sym}{u20_tag}")
     
     msg = ""
+    tier_names = {1: "🏦 TIER 1 — Anchor Funds", 2: "📊 TIER 2 — Index Options", 
+                  3: "📈 TIER 3 — Single-Stock", 4: "📋 OTHER"}
     
-    def format_ticker(sym, pattern, u20, label):
-        u20_tag = "(U20) " if u20 else ""
-        return f"{sym} {u20_tag}{pattern}"
-    
-    if tier1_patterns:
-        msg += "**TIER 1 (Anchor Funds)**\n"
-        for sym, pattern, u20, label in tier1_patterns:
-            msg += f"{format_ticker(sym, pattern, u20, label)}\n"
-        msg += "\n"
-    
-    if tier2_patterns:
-        msg += "**TIER 2 (Index Options)**\n"
-        for sym, pattern, u20, label in tier2_patterns:
-            msg += f"{format_ticker(sym, pattern, u20, label)}\n"
-        msg += "\n"
-    
-    if tier3_patterns:
-        msg += "**TIER 3 (Single-Stock)**\n"
-        for sym, pattern, u20, label in tier3_patterns:
-            msg += f"{format_ticker(sym, pattern, u20, label)}\n"
-        msg += "\n"
-    
-    if other_patterns:
-        msg += "**OTHER**\n"
-        for sym, pattern, u20, label in other_patterns:
-            msg += f"{format_ticker(sym, pattern, u20, label)}\n"
-        msg += "\n"
+    for tier in [1, 2, 3, 4]:
+        data = tier_data[tier]
+        has_content = any([data["f2"], data["ii"], data["inside"], data["outside"]])
+        if not has_content:
+            continue
+            
+        msg += f"**{tier_names[tier]}**\n\n"
+        
+        if data["f2"]:
+            msg += "🔥 **A++ Setups (F2)**\n"
+            for item in data["f2"]:
+                msg += f"{item}\n"
+            msg += "\n"
+        
+        if data["ii"]:
+            msg += "🟪 **Double Inside (II)**\n"
+            for item in data["ii"]:
+                msg += f"{item}\n"
+            msg += "\n"
+        
+        if data["inside"]:
+            msg += "📘 **Inside (1)**\n"
+            for item in data["inside"]:
+                msg += f"{item}\n"
+            msg += "\n"
+        
+        if data["outside"]:
+            msg += "📕 **Outside (3)**\n"
+            for item in data["outside"]:
+                msg += f"{item}\n"
+            msg += "\n"
     
     msg = msg.strip()
     dc_msg = dc_header + msg
