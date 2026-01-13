@@ -123,9 +123,9 @@ def send_discord_categorized_csv(categories, title, webhook_url):
     csv_content = "\n".join(lines)
     
     files = {
-        "file": (f"{title.lower()}_categorized_watchlist.txt", csv_content, "text/plain")
+        "file": (f"{title} Actionables.txt", csv_content, "text/plain")
     }
-    data = {"content": f"📋 **{title} Categorized TradingView Watchlist**"}
+    data = {"content": f"📋 **{title} Actionables TradingView Watchlist**"}
     requests.post(webhook_url, data=data, files=files)
 
 # ---------------------------------------------------------
