@@ -57,17 +57,26 @@ def send_discord_embed(title, description, webhook_url):
     requests.post(webhook_url, json=payload)
 
 def to_tv_symbol(sym):
-    # Map tickers to correct exchange
-    nyse_tickers = ["CLM", "CRF", "ECC", "EIC", "GUT", "GOF", "YYY", "HIPS", 
-                    "PSEC", "BIZD", "USA", "ASG", "REM", "CCIF", "TLT", "CVX", "AMGN"]
-    amex_tickers = ["BCAT", "ECAT", "ASGI", "MST"]
+    # Map tickers to correct TradingView exchange prefix
+    # NYQ = NYSE, PCX = AMEX (NYSE Arca), NMS/NGM = NASDAQ, BTS = AMEX
+    
+    nyse_tickers = ["CLM", "CRF", "ECC", "EIC", "GUT", "GOF", "ASG", "USA", 
+                    "UBER", "CVX", "ASGI", "CCIF", "ECAT", "BCAT"]
+    
+    amex_tickers = ["YYY", "HIPS", "BIZD", "IWMY", "YMAX", "GIAX", "KLIP", "GDXY",
+                    "BITO", "TSLY", "NVDY", "OARK", "XYZY", "TSMY", "MSTY", "SNOY",
+                    "CRSH", "BABO", "AMDY", "GPTY", "YMAG", "REM", "XDTE", "SPYI", "RDTE"]
+    
+    nasdaq_tickers = ["PSEC", "AMGN", "TLT", "QQQY", "USOY", "GLDY", "AIPI", "CEPI", "MST"]
     
     if sym in nyse_tickers:
         return f"NYSE:{sym}"
     elif sym in amex_tickers:
         return f"AMEX:{sym}"
-    else:
+    elif sym in nasdaq_tickers:
         return f"NASDAQ:{sym}"
+    else:
+        return f"AMEX:{sym}"  # Default to AMEX for most ETFs
 
 def send_discord_csv(symbols, title, webhook_url):
     if not webhook_url or not symbols:
