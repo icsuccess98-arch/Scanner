@@ -498,13 +498,21 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
     all_inside = []
     all_outside = []
     
+    # Helper to extract clean symbol from formatted string
+    def clean_symbol(item):
+        # Remove bullet, bold markers, and any text after the symbol
+        sym = item.replace("• ", "").replace("**", "")
+        if " —" in sym:
+            sym = sym.split(" —")[0]
+        return sym.strip()
+    
     for tier in [1, 2, 3, 4]:
         data = tier_data[tier]
-        all_u20.extend([item.replace("• ", "") for item in data["u20"]])
-        all_f2d.extend([item.replace("• ", "") for item in data["f2d"]])
-        all_ii.extend([item.replace("• ", "") for item in data["ii"]])
-        all_inside.extend([item.replace("• ", "") for item in data["inside"]])
-        all_outside.extend([item.replace("• ", "") for item in data["outside"]])
+        all_u20.extend([clean_symbol(item) for item in data["u20"]])
+        all_f2d.extend([clean_symbol(item) for item in data["f2d"]])
+        all_ii.extend([clean_symbol(item) for item in data["ii"]])
+        all_inside.extend([clean_symbol(item) for item in data["inside"]])
+        all_outside.extend([clean_symbol(item) for item in data["outside"]])
     
     # Build embed description
     today = datetime.now()
