@@ -94,7 +94,8 @@ def send_discord_categorized_csv(categories, title, webhook_url):
     for cat_name, symbols in categories.items():
         if symbols:
             display_name = name_map.get(cat_name, cat_name)
-            lines.append(display_name)
+            # TradingView section format: ###SECTION_NAME
+            lines.append(f"###{display_name}")
             for sym in symbols:
                 lines.append(to_tv_symbol(sym))
     
