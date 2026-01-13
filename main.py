@@ -172,8 +172,12 @@ def get_closed_candles(symbol, granularity, count=5):
                 "close": float(row["Close"])
             })
         
-        # Return last 'count' candles
-        return candles[-count:] if len(candles) >= count else candles
+        # Exclude the current incomplete candle (last one in the series)
+        # We want only fully closed candles for accurate STRAT analysis
+        closed_candles = candles[:-1] if len(candles) > 1 else candles
+        
+        # Return last 'count' closed candles
+        return closed_candles[-count:] if len(closed_candles) >= count else closed_candles
         
     except Exception as e:
         print(f"Error fetching {symbol}: {e}")
@@ -372,45 +376,64 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
             pass
         return "---"
     
-    # Collect patterns by tier and type
-    tier_data = {1: {"f2": [], "ii": [], "inside": [], "outside": []},
-                 2: {"f2": [], "ii": [], "inside": [], "outside": []},
-                 3: {"f2": [], "ii": [], "inside": [], "outside": []},
-                 4: {"f2": [], "ii": [], "inside": [], "outside": []}}
+    # Collect patterns by tier and type (U20 is now its own category)
+    tier_data = {1: {"u20": [], "f2u": [], "f2d": [], "ii": [], "inside": [], "outside": []},
+                 2: {"u20": [], "f2u": [], "f2d": [], "ii": [], "inside": [], "outside": []},
+                 3: {"u20": [], "f2u": [], "f2d": [], "ii": [], "inside": [], "outside": []},
+                 4: {"u20": [], "f2u": [], "f2d": [], "ii": [], "inside": [], "outside": []}}
     
-    # Process F2 patterns
-    for sym in f2u + f2d:
-        u20 = is_under_20ma(sym)
+    # First pass: identify all U20 tickers
+    u20_tickers = set()
+    for sym in ALL_STOCKS:
+        if is_under_20ma(sym):
+            u20_tickers.add(sym)
+    
+    # Process F2U patterns
+    for sym in f2u:
         tier = get_tier(sym)
         arrows = get_mwd_arrows(sym)
-        pattern_label = aplus.get(sym, "F2U" if sym in f2u else "F2D")
-        u20_tag = " (U20)" if u20 else ""
-        tier_data[tier]["f2"].append(f"• **{sym}**{u20_tag} — M/W/D {arrows} — {pattern_label}")
+        pattern_label = aplus.get(sym, "F2U")
+        if sym in u20_tickers:
+            tier_data[tier]["u20"].append(f"• {sym}")
+        else:
+            tier_data[tier]["f2u"].append(f"• **{sym}** — M/W/D {arrows} — {pattern_label}")
+    
+    # Process F2D patterns
+    for sym in f2d:
+        tier = get_tier(sym)
+        arrows = get_mwd_arrows(sym)
+        pattern_label = aplus.get(sym, "F2D")
+        if sym in u20_tickers:
+            tier_data[tier]["u20"].append(f"• {sym}")
+        else:
+            tier_data[tier]["f2d"].append(f"• **{sym}** — M/W/D {arrows} — {pattern_label}")
     
     # Process Double Inside
     for sym in double_inside:
         if sym not in f2u and sym not in f2d:
-            u20 = is_under_20ma(sym)
             tier = get_tier(sym)
-            arrows = get_mwd_arrows(sym)
-            u20_tag = " (U20)" if u20 else ""
-            tier_data[tier]["ii"].append(f"• {sym}{u20_tag}")
+            if sym in u20_tickers:
+                tier_data[tier]["u20"].append(f"• {sym}")
+            else:
+                tier_data[tier]["ii"].append(f"• {sym}")
     
     # Process Inside (1)
     for sym in inside:
         if sym not in f2u and sym not in f2d and sym not in double_inside:
-            u20 = is_under_20ma(sym)
             tier = get_tier(sym)
-            u20_tag = " (U20)" if u20 else ""
-            tier_data[tier]["inside"].append(f"• {sym}{u20_tag}")
+            if sym in u20_tickers:
+                tier_data[tier]["u20"].append(f"• {sym}")
+            else:
+                tier_data[tier]["inside"].append(f"• {sym}")
     
     # Process Outside (3)
     for sym in outside:
         if sym not in f2u and sym not in f2d:
-            u20 = is_under_20ma(sym)
             tier = get_tier(sym)
-            u20_tag = " (U20)" if u20 else ""
-            tier_data[tier]["outside"].append(f"• {sym}{u20_tag}")
+            if sym in u20_tickers:
+                tier_data[tier]["u20"].append(f"• {sym}")
+            else:
+                tier_data[tier]["outside"].append(f"• {sym}")
     
     msg = ""
     tier_names = {1: "🏦 TIER 1 — Anchor Funds", 2: "📊 TIER 2 — Index Options", 
@@ -418,15 +441,27 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
     
     for tier in [1, 2, 3, 4]:
         data = tier_data[tier]
-        has_content = any([data["f2"], data["ii"], data["inside"], data["outside"]])
+        has_content = any([data["u20"], data["f2u"], data["f2d"], data["ii"], data["inside"], data["outside"]])
         if not has_content:
             continue
             
         msg += f"**{tier_names[tier]}**\n\n"
         
-        if data["f2"]:
-            msg += "🔥 **A++ Setups (F2)**\n"
-            for item in data["f2"]:
+        if data["u20"]:
+            msg += "⚠️ **Under 20MA (U20)**\n"
+            for item in data["u20"]:
+                msg += f"{item}\n"
+            msg += "\n"
+        
+        if data["f2u"]:
+            msg += "🔴 **F2U**\n"
+            for item in data["f2u"]:
+                msg += f"{item}\n"
+            msg += "\n"
+        
+        if data["f2d"]:
+            msg += "🟢 **F2D**\n"
+            for item in data["f2d"]:
                 msg += f"{item}\n"
             msg += "\n"
         
