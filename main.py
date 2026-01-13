@@ -73,11 +73,11 @@ RUN_MODE = os.environ.get("RUN_MODE", "ALL")
 
 # TIER 1: Anchor Funds (Foundational Income Funds)
 TIER_1 = ["CLM", "CRF", "ECC", "EIC", "GUT", "GOF", "ASGI", "YYY", "HIPS", 
-          "PSEC", "BCAT", "ECAT", "BIZD", "USA", "ASG", "REM"]
+          "PSEC", "BCAT", "ECAT", "BIZD", "USA", "ASG", "REM", "CCIF"]
 
 # TIER 2: Leveraged Index Options Funds  
 TIER_2 = ["QQQY", "XDTE", "RDTE", "IWMY", "USOY", "GLDY", "YMAX", "YMAG",
-          "AIPI", "CEPI", "GIAX", "KLIP", "GDXY", "SPYI"]
+          "AIPI", "CEPI", "GIAX", "KLIP", "GDXY", "SPYI", "BITO"]
 
 # TIER 3: Single-Stock or Select Portfolio ETFs
 TIER_3 = ["MST", "TSLY", "NVDY", "OARK", "XYZY", "TSMY", "MSTY", "SNOY", 
@@ -382,58 +382,47 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
                  3: {"u20": [], "f2u": [], "f2d": [], "ii": [], "inside": [], "outside": []},
                  4: {"u20": [], "f2u": [], "f2d": [], "ii": [], "inside": [], "outside": []}}
     
-    # First pass: identify all U20 tickers
+    # First pass: identify ALL U20 tickers (show all, not just those with patterns)
     u20_tickers = set()
     for sym in ALL_STOCKS:
         if is_under_20ma(sym):
             u20_tickers.add(sym)
-    
-    # Process F2U patterns
-    for sym in f2u:
-        tier = get_tier(sym)
-        arrows = get_mwd_arrows(sym)
-        pattern_label = aplus.get(sym, "F2U")
-        if sym in u20_tickers:
+            tier = get_tier(sym)
             tier_data[tier]["u20"].append(f"• {sym}")
-        else:
+    
+    # Process F2U patterns (skip U20 tickers - they're already listed)
+    for sym in f2u:
+        if sym not in u20_tickers:
+            tier = get_tier(sym)
+            arrows = get_mwd_arrows(sym)
+            pattern_label = aplus.get(sym, "F2U")
             tier_data[tier]["f2u"].append(f"• **{sym}** — M/W/D {arrows} — {pattern_label}")
     
-    # Process F2D patterns
+    # Process F2D patterns (skip U20 tickers)
     for sym in f2d:
-        tier = get_tier(sym)
-        arrows = get_mwd_arrows(sym)
-        pattern_label = aplus.get(sym, "F2D")
-        if sym in u20_tickers:
-            tier_data[tier]["u20"].append(f"• {sym}")
-        else:
+        if sym not in u20_tickers:
+            tier = get_tier(sym)
+            arrows = get_mwd_arrows(sym)
+            pattern_label = aplus.get(sym, "F2D")
             tier_data[tier]["f2d"].append(f"• **{sym}** — M/W/D {arrows} — {pattern_label}")
     
-    # Process Double Inside
+    # Process Double Inside (skip U20 tickers)
     for sym in double_inside:
-        if sym not in f2u and sym not in f2d:
+        if sym not in f2u and sym not in f2d and sym not in u20_tickers:
             tier = get_tier(sym)
-            if sym in u20_tickers:
-                tier_data[tier]["u20"].append(f"• {sym}")
-            else:
-                tier_data[tier]["ii"].append(f"• {sym}")
+            tier_data[tier]["ii"].append(f"• {sym}")
     
-    # Process Inside (1)
+    # Process Inside (1) (skip U20 tickers)
     for sym in inside:
-        if sym not in f2u and sym not in f2d and sym not in double_inside:
+        if sym not in f2u and sym not in f2d and sym not in double_inside and sym not in u20_tickers:
             tier = get_tier(sym)
-            if sym in u20_tickers:
-                tier_data[tier]["u20"].append(f"• {sym}")
-            else:
-                tier_data[tier]["inside"].append(f"• {sym}")
+            tier_data[tier]["inside"].append(f"• {sym}")
     
-    # Process Outside (3)
+    # Process Outside (3) (skip U20 tickers)
     for sym in outside:
-        if sym not in f2u and sym not in f2d:
+        if sym not in f2u and sym not in f2d and sym not in u20_tickers:
             tier = get_tier(sym)
-            if sym in u20_tickers:
-                tier_data[tier]["u20"].append(f"• {sym}")
-            else:
-                tier_data[tier]["outside"].append(f"• {sym}")
+            tier_data[tier]["outside"].append(f"• {sym}")
     
     msg = ""
     tier_names = {1: "🏦 TIER 1 — Anchor Funds", 2: "📊 TIER 2 — Index Options", 
