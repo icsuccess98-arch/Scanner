@@ -4574,7 +4574,12 @@ def update_game_historical_data(game: Game) -> bool:
             
             game.away_ou_pct = calculate_ou_hit_rate(away_games, direction, current_line)
             game.home_ou_pct = calculate_ou_hit_rate(home_games, direction, current_line)
-            logger.info(f"{game.away_team} @ {game.home_team}: Fallback to current line comparison - Away O/U: {game.away_ou_pct}%, Home O/U: {game.home_ou_pct}%")
+            
+            away_non_push = len([g for g in away_games if abs(g["total"] - current_line) > 0.5])
+            home_non_push = len([g for g in home_games if abs(g["total"] - current_line) > 0.5])
+            game.history_sample_size = min(away_non_push, home_non_push)
+            
+            logger.info(f"{game.away_team} @ {game.home_team}: Fallback to current line comparison - Away O/U: {game.away_ou_pct}%, Home O/U: {game.home_ou_pct}%, Sample: {game.history_sample_size}")
         
         away_games = fetch_team_last_10_games(game.away_team, game.league)
         home_games = fetch_team_last_10_games(game.home_team, game.league)
@@ -4619,10 +4624,12 @@ def update_game_historical_data(game: Game) -> bool:
         h2h_games = h2h["games_found"]
         
         max_ou_pct = max(game.away_ou_pct or 0, game.home_ou_pct or 0)
-        # Standard qualification for edge analysis (60%+)
-        totals_qualified = max_ou_pct >= 60
-        # SUPERMAX qualification for history posting (70%+)
-        totals_supermax = max_ou_pct >= 70
+        sample_size = game.history_sample_size or 0
+        
+        # Standard qualification: 58%+ AND 10+ non-push games
+        totals_qualified = max_ou_pct >= 58 and sample_size >= 10
+        # SUPERMAX qualification for history posting (70%+ AND 10+ games)
+        totals_supermax = max_ou_pct >= 70 and sample_size >= 10
         
         if h2h_games >= 3:
             h2h_qualified = (game.h2h_ou_pct or 0) >= 60
