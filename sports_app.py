@@ -7023,10 +7023,34 @@ def fetch_odds_internal() -> dict:
                                         history_rate = max(game.away_ou_pct or 0, game.home_ou_pct or 0) / 100
                                         sample = 10 if game.history_qualified is not None else 0
                                         
-                                        # PURE MODEL: Injury checks DISABLED - qualification based on edge only
-                                        # (Injury data is still fetched for informational display but does not affect qualification)
+                                        # PRE-FLIGHT INJURY CHECK (RotoWire) - Star player injuries disqualify picks
+                                        injury_disqualified = False
+                                        try:
+                                            injury_result = quick_injury_check(
+                                                game.away_team,
+                                                game.home_team,
+                                                league
+                                            )
+                                            
+                                            if injury_result['away_impact'] > 0 or injury_result['home_impact'] > 0:
+                                                logger.info(
+                                                    f"{game.away_team} @ {game.home_team}: "
+                                                    f"Injury check [{injury_result['source']}] - "
+                                                    f"Away impact: {injury_result['away_impact']:.1f}, "
+                                                    f"Home impact: {injury_result['home_impact']:.1f}"
+                                                )
+                                            
+                                            if not injury_result['should_play']:
+                                                logger.warning(
+                                                    f"{game.away_team} @ {game.home_team}: "
+                                                    f"DISQUALIFIED - {injury_result['recommendation']}"
+                                                )
+                                                injury_disqualified = True
                                         
-                                        # PURE MODEL: Situational factor adjustments DISABLED
+                                        except Exception as e:
+                                            logger.error(f"Injury check error for {game.away_team} @ {game.home_team}: {e}")
+                                        
+                                        # Situational factors stored for display (B2B badges, rest days)
                                         # (Rest days, travel distance stored for display but do not affect projections)
                                         try:
                                             away_rest = get_rest_days_impact(game.away_team, league, today)
@@ -7081,8 +7105,10 @@ def fetch_odds_internal() -> dict:
                                         game.total_ev = qual_result.ev_pct
                                         game.true_edge = qual_result.true_edge
                                         
-                                        # PURE MODEL: Qualify if edge meets threshold (simple binary check)
-                                        game.is_qualified = edge >= threshold and game.direction is not None
+                                        # Qualify if: edge meets threshold + direction set + no star player injuries
+                                        game.is_qualified = (edge >= threshold and 
+                                                            game.direction is not None and 
+                                                            not injury_disqualified)
                                         
                                     lines_updated += 1
                         

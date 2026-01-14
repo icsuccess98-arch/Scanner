@@ -43,6 +43,9 @@ This project develops and manages three independent trading systems: a Sports Be
     -   **Bet Direction (BINARY)**:
         -   OVER: If `Projected_Total >= Bovada_Line + Threshold`
         -   UNDER: If `Bovada_Line >= Projected_Total + Threshold`
+    -   **Qualification Requirements**: Edge threshold + Direction set + No star player injuries
+    -   **Injury Disqualification**: Uses RotoWire to check star player injuries; games with significant star player injuries are disqualified.
+    -   **Vig Removal**: Uses VigRemover to calculate true edge from fair line.
     -   **Lock of the Day**: Highest absolute edge across all qualified picks.
     -   **TOP 5 Ranking**: Sorted by EDGE only (highest edge = best pick).
     -   **Star Ratings**: Based on edge only (5★ for 12+, 4★ for 10+, 3★ for 8+, 2★ otherwise).
