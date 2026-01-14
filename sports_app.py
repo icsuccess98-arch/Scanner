@@ -282,6 +282,106 @@ class ESPNClient:
 
 espn_client = ESPNClient()
 
+import re
+
+VALID_LEAGUES = {'NBA', 'CBB', 'NFL', 'CFB', 'NHL'}
+TEAM_NAME_PATTERN = re.compile(r'^[A-Za-z0-9\s\-\'\.&]+$')
+MAX_TEAM_NAME_LENGTH = 100
+
+def validate_team_name(name: str) -> bool:
+    """Validate team name to prevent injection."""
+    if not name or len(name) > MAX_TEAM_NAME_LENGTH:
+        return False
+    if not TEAM_NAME_PATTERN.match(name):
+        return False
+    return True
+
+def validate_numeric(value, field_name: str, allow_negative: bool = True) -> float:
+    """Validate numeric field."""
+    try:
+        num = float(value)
+        if not allow_negative and num < 0:
+            raise ValueError(f"{field_name} must be non-negative")
+        return num
+    except (ValueError, TypeError):
+        raise ValueError(f"Invalid {field_name}")
+
+class TeamNameMatcher:
+    """Optimized team name matching with caching."""
+    
+    def __init__(self):
+        self.name_cache = {}
+        self.match_cache = {}
+    
+    def _get_normalized_tokens(self, name: str) -> dict:
+        """Get normalized tokens with caching."""
+        if name in self.name_cache:
+            return self.name_cache[name]
+        
+        name_lower = name.lower().strip()
+        tokens = set(name_lower.split())
+        directional = None
+        for prefix in ['north', 'south', 'east', 'west', 'northern', 'southern', 'eastern', 'western']:
+            if name_lower.startswith(prefix):
+                directional = prefix
+                break
+        
+        result = {
+            'tokens': tokens,
+            'directional': directional,
+            'normalized': name_lower
+        }
+        
+        self.name_cache[name] = result
+        return result
+    
+    def match(self, name1: str, name2: str) -> bool:
+        """Match with result caching."""
+        cache_key = tuple(sorted([name1.lower(), name2.lower()]))
+        
+        if cache_key in self.match_cache:
+            return self.match_cache[cache_key]
+        
+        data1 = self._get_normalized_tokens(name1)
+        data2 = self._get_normalized_tokens(name2)
+        
+        if data1['normalized'] == data2['normalized']:
+            self.match_cache[cache_key] = True
+            return True
+        
+        if data1['directional'] and data2['directional']:
+            if data1['directional'] != data2['directional']:
+                self.match_cache[cache_key] = False
+                return False
+        
+        tokens1 = data1['tokens']
+        tokens2 = data2['tokens']
+        
+        if not tokens1 or not tokens2:
+            self.match_cache[cache_key] = False
+            return False
+        
+        overlap = tokens1 & tokens2
+        
+        if not overlap:
+            result = False
+        elif tokens1 <= tokens2 or tokens2 <= tokens1:
+            result = True
+        elif len(overlap) >= min(len(tokens1), len(tokens2)):
+            result = True
+        else:
+            result = False
+        
+        self.match_cache[cache_key] = result
+        return result
+    
+    def clear_cache(self):
+        """Clear caches to free memory."""
+        self.name_cache.clear()
+        self.match_cache.clear()
+
+team_matcher = TeamNameMatcher()
+
 SCOREBOARD_URLS = {
     'NBA': "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={}",
     'CBB': "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates={}",
@@ -5174,15 +5274,13 @@ def fetch_odds():
 
 def fetch_history_internal() -> dict:
     """
-    Internal function to fetch historical data for qualified games.
+    BULLETPROOF: Batch historical data updates with checkpointing.
     
-    FOOLPROOF SESSION SAFETY:
-    - Sequential processing only (NO threads)
-    - Commit after each game (prevents data loss)
-    - Rollback on error (prevents corruption)
-    - Progress logging every 10 games
+    Improvements:
+    - Batch commits every 5 games (faster than individual commits)
+    - Checkpoint logging for progress tracking
+    - Error details returned for debugging
     """
-    import time
     start_time = time.time()
     
     et = pytz.timezone('America/New_York')
@@ -5197,26 +5295,39 @@ def fetch_history_internal() -> dict:
     history_qualified = 0
     errors = []
     
-    logger.info(f"Processing {total_games} qualified games sequentially (safe mode)")
+    BATCH_SIZE = 5
+    batch_count = 0
+    
+    logger.info(f"Processing {total_games} games in batches of {BATCH_SIZE}")
     
     for i, game in enumerate(games, 1):
         try:
             result = update_game_historical_data(game)
-            db.session.commit()
             
             if result:
                 history_qualified += 1
             history_updated += 1
+            batch_count += 1
             
-            if i % 10 == 0:
+            if batch_count >= BATCH_SIZE or i == total_games:
+                db.session.commit()
+                batch_count = 0
                 elapsed = time.time() - start_time
-                logger.info(f"Progress: {i}/{total_games} games processed ({elapsed:.1f}s)")
-                
+                logger.info(f"Checkpoint: {i}/{total_games} games processed ({elapsed:.1f}s)")
+            
         except Exception as e:
             db.session.rollback()
+            batch_count = 0
             error_msg = f"{game.away_team} @ {game.home_team}: {str(e)}"
             errors.append(error_msg)
             logger.error(f"Error updating history: {error_msg}")
+    
+    if batch_count > 0:
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Final batch commit failed: {e}")
     
     elapsed = time.time() - start_time
     logger.info(f"History fetch complete: {history_updated}/{total_games} games in {elapsed:.1f}s, {history_qualified} qualified")
@@ -5228,6 +5339,7 @@ def fetch_history_internal() -> dict:
         "games_checked": history_updated,
         "history_qualified": history_qualified,
         "errors": len(errors),
+        "error_details": errors[:5],
         "time_seconds": round(elapsed, 1)
     }
 

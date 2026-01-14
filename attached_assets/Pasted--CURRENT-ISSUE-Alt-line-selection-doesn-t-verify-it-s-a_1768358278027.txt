@@ -1,0 +1,127 @@
+# CURRENT ISSUE: Alt line selection doesn't verify it's actually better
+def find_best_alt_line(outcomes, direction, current_line, ...):
+    # Just finds lines with good odds, but doesn't verify value
+    
+# IMPROVED:
+def find_best_alt_line_with_value_check(
+    outcomes: list, 
+    direction: str, 
+    current_line: float,
+    projected_total: float,  # ADD THIS
+    is_spread: bool = False,
+    home_team: str = "",
+    debug_game: str = ""
+) -> tuple:
+    """
+    Find best alternate line that actually provides value.
+    
+    Args:
+        projected_total: Our model's projection to verify alt line is better
+    """
+    MAX_ODDS = -180
+    MIN_ODDS = -100
+    candidates = []
+    
+    for outcome in outcomes:
+        odds = outcome.get("price", 0)
+        point = outcome.get("point")
+        name = outcome.get("name", "")
+        
+        if point is None or odds < MAX_ODDS or odds > MIN_ODDS:
+            continue
+        
+        # Verify direction matches
+        if is_spread:
+            is_home_outcome = teams_match(name, home_team)
+            if direction == "HOME" and not is_home_outcome:
+                continue
+            if direction == "AWAY" and is_home_outcome:
+                continue
+        else:
+            is_over = direction in ("OVER", "O")
+            is_under = direction in ("UNDER", "U")
+            if is_over and name != "Over":
+                continue
+            if is_under and name != "Under":
+                continue
+            
+            # VERIFY ALT LINE PROVIDES VALUE
+            if current_line and projected_total:
+                # For OVER: alt line should be easier to hit
+                if is_over:
+                    # Current edge
+                    current_edge = projected_total - current_line
+                    # Alt edge
+                    alt_edge = projected_total - point
+                    
+                    # Alt line should improve edge
+                    if alt_edge <= current_edge:
+                        logger.debug(f"Alt {point} doesn't improve edge: {alt_edge:.1f} vs {current_edge:.1f}")
+                        continue
+                    
+                    # Also verify we're still comfortably over
+                    if point >= projected_total:
+                        logger.debug(f"Alt {point} is above projection {projected_total:.1f}")
+                        continue
+                
+                # For UNDER: similar logic
+                elif is_under:
+                    current_edge = current_line - projected_total
+                    alt_edge = point - projected_total
+                    
+                    if alt_edge <= current_edge:
+                        logger.debug(f"Alt {point} doesn't improve edge: {alt_edge:.1f} vs {current_edge:.1f}")
+                        continue
+                    
+                    if point <= projected_total:
+                        logger.debug(f"Alt {point} is below projection {projected_total:.1f}")
+                        continue
+            
+            # Verify line is easier to hit than main
+            if current_line:
+                if is_over and point >= current_line:
+                    continue
+                if is_under and point <= current_line:
+                    continue
+        
+        candidates.append((point, odds))
+    
+    if not candidates:
+        return None, None
+    
+    # Sort and select best
+    is_over = direction in ("OVER", "O")
+    if is_spread:
+        if direction == "AWAY":
+            candidates.sort(key=lambda x: x[0], reverse=True)
+        else:
+            candidates.sort(key=lambda x: x[0], reverse=True)
+    elif is_over:
+        candidates.sort(key=lambda x: x[0])
+    else:
+        candidates.sort(key=lambda x: x[0], reverse=True)
+    
+    best_line, best_odds = candidates[0]
+    
+    # Final value verification
+    if projected_total and not is_spread:
+        is_over = direction in ("OVER", "O")
+        edge_gained = abs(best_line - current_line) if current_line else 0
+        
+        logger.info(f"Alt line {best_line} ({best_odds}) gains {edge_gained:.1f} points of value")
+    
+    return best_line, best_odds
+
+# Update fetch_single_alt_line to pass projection:
+def fetch_single_alt_line(game_info: dict, api_key: str) -> dict:
+    # ... fetch logic
+    
+    if market_key == "alternate_totals" and game_info['is_qualified']:
+        alt_line, alt_odds = find_best_alt_line_with_value_check(
+            outcomes, 
+            game_info['direction'], 
+            game_info['line'],
+            game_info.get('projected_total'),  # ADD THIS
+            is_spread=False,
+            debug_game=game_name
+        )

@@ -1,0 +1,66 @@
+# ADD: Structured logging with context
+import logging.handlers
+import json
+
+class StructuredLogger:
+    """JSON-structured logger for better production debugging."""
+    
+    def __init__(self, name='sports_app'):
+        self.logger = logging.getLogger(name)
+        
+        # Keep existing handlers
+        # Add JSON handler for production
+        if os.environ.get('FLASK_ENV') == 'production':
+            json_handler = logging.StreamHandler()
+            json_handler.setFormatter(self.JSONFormatter())
+            self.logger.addHandler(json_handler)
+    
+    class JSONFormatter(logging.Formatter):
+        """Format logs as JSON."""
+        def format(self, record):
+            log_data = {
+                'timestamp': datetime.utcnow().isoformat(),
+                'level': record.levelname,
+                'message': record.getMessage(),
+                'module': record.module,
+                'function': record.funcName,
+                'line': record.lineno
+            }
+            
+            # Add exception info if present
+            if record.exc_info:
+                log_data['exception'] = self.formatException(record.exc_info)
+            
+            # Add custom fields
+            if hasattr(record, 'game_id'):
+                log_data['game_id'] = record.game_id
+            if hasattr(record, 'league'):
+                log_data['league'] = record.league
+            
+            return json.dumps(log_data)
+    
+    def log_game_event(self, level, message, game=None, **kwargs):
+        """Log game-related event with context."""
+        extra = {}
+        if game:
+            extra['game_id'] = game.id
+            extra['league'] = game.league
+            extra['matchup'] = f"{game.away_team}@{game.home_team}"
+        extra.update(kwargs)
+        
+        self.logger.log(level, message, extra=extra)
+
+# Usage:
+structured_logger = StructuredLogger()
+
+# Instead of:
+logger.info(f"Game {game.id} qualified: {game.away_team}@{game.home_team}")
+
+# Use:
+structured_logger.log_game_event(
+    logging.INFO,
+    "Game qualified",
+    game=game,
+    edge=game.edge,
+    direction=game.direction
+)

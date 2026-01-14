@@ -1,0 +1,104 @@
+# CURRENT ISSUE: Doesn't handle edge cases well
+class SpreadValidator:
+    @staticmethod
+    def validate_spread_vs_moneyline(...):
+        if not away_ml or not home_ml:
+            return True, None, None  # Should this really pass?
+
+# IMPROVED:
+class ImprovedSpreadValidator:
+    """Enhanced spread validation with edge case handling."""
+    
+    @staticmethod
+    def validate_spread_vs_moneyline(
+        spread: float,
+        away_ml: Optional[float],
+        home_ml: Optional[float],
+        away_team: str,
+        home_team: str,
+        tolerance: float = 0.5
+    ) -> Tuple[bool, Optional[str], Optional[float]]:
+        """
+        Validates spread sign against moneyline odds.
+        
+        Args:
+            tolerance: Allowed difference for pick'em games
+        
+        Returns:
+            (is_valid, error_message, corrected_spread)
+        """
+        # Handle missing ML data
+        if not away_ml or not home_ml:
+            # If spread is very close to 0, assume pick'em (valid)
+            if abs(spread) <= tolerance:
+                return True, None, None
+            
+            # Otherwise, we can't validate without ML
+            warning = f"Cannot validate spread without moneyline data: {away_team} @ {home_team}"
+            logger.warning(warning)
+            return True, warning, None  # Pass but log warning
+        
+        # Handle pick'em games (ML very close, spread near 0)
+        ml_diff = abs(away_ml - home_ml)
+        if ml_diff <= 20 and abs(spread) <= tolerance:  # Within 20 cents and spread ~0
+            return True, None, None
+        
+        # Determine favorites
+        away_is_favorite_by_ml = away_ml < home_ml
+        away_is_favorite_by_spread = spread < -tolerance
+        away_is_underdog_by_spread = spread > tolerance
+        
+        # Check for consistency
+        if away_is_favorite_by_ml:
+            # ML says away favorite, spread should be negative (away perspective)
+            if away_is_underdog_by_spread:  # Spread is positive
+                error_msg = (
+                    f"SPREAD MISMATCH: {away_team} @ {home_team} | "
+                    f"ML says {away_team} favorite ({away_ml} vs {home_ml}) but "
+                    f"spread says underdog (+{spread})"
+                )
+                corrected_spread = -abs(spread)
+                return False, error_msg, corrected_spread
+        else:
+            # ML says home favorite, spread should be positive (away perspective)
+            if away_is_favorite_by_spread:  # Spread is negative
+                error_msg = (
+                    f"SPREAD MISMATCH: {away_team} @ {home_team} | "
+                    f"ML says {home_team} favorite ({home_ml} vs {away_ml}) but "
+                    f"spread says {away_team} favorite ({spread})"
+                )
+                corrected_spread = abs(spread)
+                return False, error_msg, corrected_spread
+        
+        # Additional sanity check: large ML favorite should have large spread
+        if ml_diff > 200:  # Heavy favorite (e.g., -300 vs +250)
+            expected_min_spread = 7.0
+            if abs(spread) < expected_min_spread:
+                warning = (
+                    f"UNUSUAL SPREAD: {away_team} @ {home_team} | "
+                    f"Large ML gap ({ml_diff}) but small spread ({spread})"
+                )
+                logger.warning(warning)
+                # Don't auto-correct, but flag it
+                return True, warning, None
+        
+        return True, None, None
+    
+    @staticmethod
+    def validate_spread_magnitude(spread: float, league: str) -> Tuple[bool, Optional[str]]:
+        """Validate spread is within reasonable range for league."""
+        max_spreads = {
+            'NBA': 30.0,
+            'CBB': 35.0,
+            'NFL': 28.0,
+            'CFB': 50.0,
+            'NHL': 3.5
+        }
+        
+        max_spread = max_spreads.get(league, 50.0)
+        
+        if abs(spread) > max_spread:
+            error = f"Spread {spread} exceeds max for {league} ({max_spread})"
+            return False, error
+        
+        return True, None
