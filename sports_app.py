@@ -7071,16 +7071,19 @@ def fetch_odds_internal() -> dict:
                                             
                                             situational_adj = 0.0
                                             
-                                            if away_rest['is_back_to_back']:
-                                                situational_adj += away_rest['fatigue_factor']
-                                            if home_rest['is_back_to_back']:
-                                                situational_adj += home_rest['fatigue_factor']
+                                            if away_rest['is_back_to_back'] or home_rest['is_back_to_back']:
+                                                situational_adj += min(away_rest['fatigue_factor'], home_rest['fatigue_factor'])
+                                                logger.info(f"{game.away_team} @ {game.home_team}: B2B detected, adj: {situational_adj:+.1f}pts")
+                                            
                                             if abs(travel_penalty) >= 1.0:
                                                 situational_adj += travel_penalty
+                                                distance = calculate_travel_distance(game.away_team, game.home_team)
+                                                logger.info(f"{game.away_team} @ {game.home_team}: Long travel ({distance}mi), penalty: {travel_penalty:+.1f}pts")
                                             
                                             if abs(situational_adj) >= 1.0:
+                                                original_proj = proj_total
                                                 proj_total += situational_adj
-                                                logger.info(f"{game.away_team} @ {game.home_team}: Situational adj {situational_adj:+.1f}pts")
+                                                logger.info(f"{game.away_team} @ {game.home_team}: Adjusted {original_proj:.1f} -> {proj_total:.1f} (situational: {situational_adj:+.1f})")
                                             
                                             game.days_rest_away = away_rest.get('days_rest')
                                             game.days_rest_home = home_rest.get('days_rest')
@@ -7515,32 +7518,47 @@ def dashboard_data_api():
 
 @app.route('/api/situational_stats')
 def situational_stats_api():
-    """API endpoint showing situational factor statistics."""
+    """View situational factor statistics."""
     et = pytz.timezone('America/New_York')
     today = datetime.now(et).date()
-    week_ago = today - timedelta(days=7)
     
-    recent_games = Game.query.filter(Game.date >= week_ago).all()
+    recent_games = Game.query.filter(
+        Game.date >= today - timedelta(days=7),
+        Game.date <= today
+    ).all()
     
-    b2b_away = sum(1 for g in recent_games if g.is_back_to_back_away)
-    b2b_home = sum(1 for g in recent_games if g.is_back_to_back_home)
+    stats = {
+        'total_games': len(recent_games),
+        'back_to_back_away': 0,
+        'back_to_back_home': 0,
+        'long_travel': 0,
+        'situational_adjustments': 0,
+        'total_adjustments_sum': 0.0,
+    }
     
-    games_with_travel = [g for g in recent_games if g.travel_distance and g.travel_distance > 1000]
-    avg_travel = sum(g.travel_distance for g in games_with_travel) / len(games_with_travel) if games_with_travel else 0
+    for game in recent_games:
+        if hasattr(game, 'is_back_to_back_away') and game.is_back_to_back_away:
+            stats['back_to_back_away'] += 1
+        if hasattr(game, 'is_back_to_back_home') and game.is_back_to_back_home:
+            stats['back_to_back_home'] += 1
+        if hasattr(game, 'travel_distance') and game.travel_distance and game.travel_distance >= 2000:
+            stats['long_travel'] += 1
+        if hasattr(game, 'situational_adjustment') and game.situational_adjustment:
+            if abs(game.situational_adjustment) >= 1.0:
+                stats['situational_adjustments'] += 1
+                stats['total_adjustments_sum'] += game.situational_adjustment
     
-    adjusted_games = [g for g in recent_games if g.situational_adjustment and abs(g.situational_adjustment) >= 1.0]
+    if stats['total_games'] > 0:
+        stats['back_to_back_pct'] = round((stats['back_to_back_away'] + stats['back_to_back_home']) / stats['total_games'] * 100, 1)
+        stats['long_travel_pct'] = round(stats['long_travel'] / stats['total_games'] * 100, 1)
+        stats['adjusted_pct'] = round(stats['situational_adjustments'] / stats['total_games'] * 100, 1)
+        if stats['situational_adjustments'] > 0:
+            stats['avg_adjustment'] = round(stats['total_adjustments_sum'] / stats['situational_adjustments'], 2)
     
     return jsonify({
         'success': True,
         'period': '7 days',
-        'total_games': len(recent_games),
-        'back_to_backs': {'away': b2b_away, 'home': b2b_home},
-        'travel_stats': {
-            'games_over_1000mi': len(games_with_travel),
-            'avg_distance': round(avg_travel, 0)
-        },
-        'adjustments_applied': len(adjusted_games),
-        'adjustment_rate': f"{len(adjusted_games)/len(recent_games)*100:.1f}%" if recent_games else "0%"
+        'stats': stats
     })
 
 def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_spread: bool = False, home_team: str = "", debug_game: str = "") -> tuple:
