@@ -48,7 +48,7 @@ Additional data-driven factors that disqualify picks during game scanning:
     -   Spreads disqualified if betting on a team with declining form AND recent margin doesn't support the pick
 
 2.  **Injury Data Integration (RotoWire + ESPN)** - Bulletproof Module (Jan 2026)
-    -   **Architecture**: Separate `rotowire_integration.py` module with professional-grade error handling
+    -   **Architecture**: Two modules - `rotowire_integration.py` (scraping) and `rotowire_qualification.py` (logic)
     -   **Primary**: RotoWire.com for injury reports and starting lineups (web scraping)
     -   **Fallback**: ESPN API when RotoWire data unavailable
     -   **Circuit Breaker**: After 3 consecutive failures, pauses RotoWire requests for 5 minutes
@@ -59,9 +59,15 @@ Additional data-driven factors that disqualify picks during game scanning:
     -   **InjuryImpactCalculator**: Calculates total impact with DISQUALIFY_THRESHOLD=4.5, WARNING_THRESHOLD=3.0
     -   **Lineup Confirmation**: Tracks whether starting lineups are confirmed (NBA, NFL, NHL)
     -   **Lineup Strength**: FULL_STRENGTH (5+ starters), PARTIAL (3-4), WEAK (<3)
+    -   **Lineup Bonus**: 5% edge bonus applied when both lineups confirmed
+    -   **Asymmetric Injury Detection**: Warns when injury imbalance exceeds 3.0 impact difference
     -   Disqualifies OVER picks if either team has significant injuries (impact >= 4.5)
     -   Disqualifies spread picks if team being bet on has key injuries
-    -   Test endpoint: `/api/test_rotowire?team=Lakers&league=NBA`
+    -   **API Endpoints**:
+        -   `/api/test_rotowire?team=Lakers&league=NBA` - Test injury/lineup data
+        -   `/api/check_game_injuries?away=Warriors&home=Lakers&league=NBA` - Check game injuries
+        -   `/api/rotowire_cache_stats` - View cache statistics
+        -   `/api/clear_rotowire_cache` (POST) - Clear cache
 
 3.  **Sharp Money Detection (Line Movement)**
     -   Stores opening line when first fetched from Bovada (both totals and spreads)

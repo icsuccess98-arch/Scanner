@@ -14,7 +14,16 @@ from sqlalchemy import delete
 import requests
 import pytz
 from bs4 import BeautifulSoup
-from rotowire_integration import get_team_injury_status, get_game_injury_analysis, get_cache_stats as get_rotowire_cache_stats
+from rotowire_integration import (
+    get_team_injury_status, 
+    get_game_injury_analysis, 
+    get_cache_stats as get_rotowire_cache_stats,
+    check_game_injuries as rotowire_check_game_injuries,
+    clear_cache as clear_rotowire_cache,
+    fetch_team_injuries as rotowire_fetch_injuries,
+    fetch_team_lineup as rotowire_fetch_lineup
+)
+from rotowire_qualification import qualify_game_with_injuries, quick_injury_check
 
 
 class QualificationStatus(Enum):
@@ -7001,18 +7010,39 @@ def test_rotowire():
     league = request.args.get('league', 'NBA')
     
     try:
+        injuries, source = rotowire_fetch_injuries(team, league)
+        lineup = rotowire_fetch_lineup(team, league)
+        
         team_status = get_team_injury_status(team, league)
-        
-        enhanced = fetch_enhanced_injuries(team, league)
-        
         cache_stats = get_rotowire_cache_stats()
+        
+        injury_list = []
+        for inj in injuries[:10]:
+            injury_list.append({
+                'name': inj.name,
+                'position': inj.position,
+                'status': inj.status.label,
+                'injury': inj.injury,
+                'impact_score': inj.impact_score,
+                'is_starter': inj.is_starter
+            })
         
         return jsonify({
             "success": True,
             "team": team,
             "league": league,
+            "injuries": {
+                "source": source,
+                "count": len(injuries),
+                "players": injury_list
+            },
+            "lineup": {
+                "confirmed": lineup.confirmed if lineup else False,
+                "starters": lineup.starters if lineup else [],
+                "source": lineup.source if lineup else None,
+                "strength": lineup.strength_indicator if lineup else "UNKNOWN"
+            } if lineup else None,
             "team_status": team_status,
-            "enhanced_injuries": enhanced,
             "cache_stats": cache_stats
         })
     except Exception as e:
@@ -7022,6 +7052,55 @@ def test_rotowire():
             "error": str(e),
             "traceback": traceback.format_exc()
         })
+
+@app.route('/api/check_game_injuries', methods=['GET'])
+def check_game_injuries_api():
+    """Check injuries for a specific game."""
+    away_team = request.args.get('away')
+    home_team = request.args.get('home')
+    league = request.args.get('league', 'NBA')
+    
+    if not away_team or not home_team:
+        return jsonify({'error': 'Missing required parameters: away, home'}), 400
+    
+    try:
+        result = quick_injury_check(away_team, home_team, league)
+        
+        return jsonify({
+            'success': True,
+            'away_team': away_team,
+            'home_team': home_team,
+            'league': league,
+            'should_play': result['should_play'],
+            'away_impact': result['away_impact'],
+            'home_impact': result['home_impact'],
+            'source': result['source'],
+            'recommendation': result['recommendation']
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        })
+
+@app.route('/api/rotowire_cache_stats', methods=['GET'])
+def rotowire_cache_stats():
+    """Get RotoWire cache statistics."""
+    return jsonify({
+        'success': True,
+        'cache_stats': get_rotowire_cache_stats()
+    })
+
+@app.route('/api/clear_rotowire_cache', methods=['POST'])
+def clear_rotowire_cache_api():
+    """Clear RotoWire cache (admin endpoint)."""
+    clear_rotowire_cache()
+    return jsonify({
+        'success': True,
+        'message': 'RotoWire cache cleared'
+    })
 
 def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_spread: bool = False, home_team: str = "", debug_game: str = "") -> tuple:
     """

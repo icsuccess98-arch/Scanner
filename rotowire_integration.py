@@ -651,3 +651,72 @@ def get_game_injury_analysis(away_team: str, home_team: str, league: str) -> Dic
 def get_cache_stats() -> Dict:
     """Get RotoWire cache statistics."""
     return rotowire_scraper.get_cache_stats()
+
+
+def clear_cache():
+    """Clear all cached RotoWire data."""
+    rotowire_scraper._cache.clear()
+    logger.info("RotoWire cache cleared")
+
+
+def fetch_team_injuries(team: str, league: str) -> Tuple[List[InjuredPlayer], str]:
+    """
+    Fetch injuries for a single team.
+    Returns: (list of InjuredPlayer, source str)
+    """
+    return rotowire_scraper.get_injuries(team, league)
+
+
+def fetch_team_lineup(team: str, league: str) -> Optional[LineupData]:
+    """
+    Fetch lineup for a single team.
+    Returns: LineupData or None
+    """
+    lineup, source = rotowire_scraper.get_lineups(team, league)
+    return lineup
+
+
+def check_game_injuries(away_team: str, home_team: str, league: str) -> Dict:
+    """
+    Check injuries for both teams in a game.
+    Returns comprehensive analysis for qualification decisions.
+    """
+    away_injuries, away_source = rotowire_scraper.get_injuries(away_team, league)
+    home_injuries, home_source = rotowire_scraper.get_injuries(home_team, league)
+    
+    away_impact = InjuryImpactCalculator.calculate_team_impact(away_injuries)
+    home_impact = InjuryImpactCalculator.calculate_team_impact(home_injuries)
+    
+    away_impact['source'] = away_source
+    home_impact['source'] = home_source
+    
+    away_total = away_impact['total_impact']
+    home_total = home_impact['total_impact']
+    
+    should_disqualify = (
+        away_impact['should_disqualify'] or 
+        home_impact['should_disqualify']
+    )
+    
+    asymmetric_concern = abs(away_total - home_total) >= 3.0
+    
+    if should_disqualify:
+        if away_impact['should_disqualify'] and home_impact['should_disqualify']:
+            recommendation = "SKIP - Both teams have significant injuries"
+        elif away_impact['should_disqualify']:
+            recommendation = f"SKIP - Away team ({away_team}) has major injuries"
+        else:
+            recommendation = f"SKIP - Home team ({home_team}) has major injuries"
+    elif asymmetric_concern:
+        recommendation = f"CAUTION - Injury imbalance (diff: {abs(away_total - home_total):.1f})"
+    else:
+        recommendation = "OK - Injuries within acceptable range"
+    
+    return {
+        'away': away_impact,
+        'home': home_impact,
+        'should_disqualify': should_disqualify,
+        'asymmetric_concern': asymmetric_concern,
+        'recommendation': recommendation,
+        'sources': f"{away_source}/{home_source}"
+    }
