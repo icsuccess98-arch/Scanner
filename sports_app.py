@@ -682,16 +682,27 @@ def calculate_spread_edge(game: dict, odds: GameOdds) -> dict:
     edge = abs(projected_margin - spread_line)
     result['spread_edge'] = round(edge, 1)
     
-    if projected_margin > spread_line + 0.5:
-        result['spread_direction'] = 'HOME'
-    elif projected_margin < spread_line - 0.5:
-        result['spread_direction'] = 'AWAY'
-    else:
+    # IMPROVED: Check threshold first, then determine direction
+    threshold = GameConstants.EDGE_THRESHOLDS.get(league, 8.0)
+    
+    if edge < threshold:
+        # Not enough edge to qualify
         result['spread_direction'] = None
-        logger.info(f"Spread edge too small for {away_team} @ {home_team}: {edge:.1f}")
+        logger.info(f"Spread edge too small for {away_team} @ {home_team}: {edge:.1f} < {threshold}")
         return result
     
-    threshold = GameConstants.EDGE_THRESHOLDS.get(league, 8.0)
+    # Sufficient edge exists - determine direction based on projection vs line
+    if projected_margin > spread_line:
+        # Model favors HOME more than the line suggests
+        result['spread_direction'] = 'HOME'
+    elif projected_margin < spread_line:
+        # Model favors AWAY more than the line suggests  
+        result['spread_direction'] = 'AWAY'
+    else:
+        # Exactly on the line (rare)
+        result['spread_direction'] = None
+        logger.info(f"Spread exactly on projection for {away_team} @ {home_team}")
+        return result
     
     if edge >= threshold:
         result['spread_is_qualified'] = True
@@ -4317,10 +4328,10 @@ def unified_spread_qualification(
         is_home_favorite = spread_line > 0
         
         if is_home_favorite:
-            # HOME FAVORITE: Must cover their spread (70% threshold)
-            margin_threshold = abs(spread_line) * 0.70
+            # HOME FAVORITE: Must cover their spread (50% threshold) - FIXED from 70%
+            margin_threshold = abs(spread_line) * 0.50
             if home_avg_margin < margin_threshold:
-                result["reason"] = f"HOME_FAV_MARGIN_BELOW_70%: {home_avg_margin:.1f} < {margin_threshold:.1f}"
+                result["reason"] = f"HOME_FAV_MARGIN_BELOW_50%: {home_avg_margin:.1f} < {margin_threshold:.1f}"
                 return result
         else:
             # HOME UNDERDOG: Must have positive margin (not a losing team)
@@ -4350,10 +4361,10 @@ def unified_spread_qualification(
         is_away_favorite = spread_line < 0
         
         if is_away_favorite:
-            # AWAY FAVORITE: Must cover their spread (70% threshold)
-            margin_threshold = abs(spread_line) * 0.70
+            # AWAY FAVORITE: Must cover their spread (50% threshold) - FIXED from 70%
+            margin_threshold = abs(spread_line) * 0.50
             if away_avg_margin < margin_threshold:
-                result["reason"] = f"AWAY_FAV_MARGIN_BELOW_70%: {away_avg_margin:.1f} < {margin_threshold:.1f}"
+                result["reason"] = f"AWAY_FAV_MARGIN_BELOW_50%: {away_avg_margin:.1f} < {margin_threshold:.1f}"
                 return result
         else:
             # AWAY UNDERDOG: Must have positive margin (not a losing team)
