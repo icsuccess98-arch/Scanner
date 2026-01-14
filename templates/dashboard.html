@@ -728,7 +728,7 @@
                         EDGE {{ "%.1f"|format(supermax_lock.spread_edge) }} PTS
                         {% endif %}
                     </div>
-                    <span class="lock-badge{% if supermax_type == 'spread' %}" style="background: linear-gradient(135deg, var(--accent) 0%, #6B9FFF 100%);{% else %}">{% endif %}<i class="bi bi-lightning-charge-fill"></i> {{ supermax_tier if supermax_tier else 'LOCK' }}</span>
+                    <span class="lock-badge{% if supermax_type == 'spread' %}" style="background: linear-gradient(135deg, var(--accent) 0%, #6B9FFF 100%);{% else %}">{% endif %}<i class="bi bi-lightning-charge-fill"></i> SUPERMAX</span>
                     <span class="badge mt-1" style="background: var(--bg-card); color: var(--text-muted); font-size: 0.7rem; padding: 0.25rem 0.5rem;">{{ supermax_lock.league }} {{ 'TOTALS' if supermax_type == 'totals' else 'SPREAD' }}</span>
                 </div>
                 <div class="text-center flex-grow-1">
