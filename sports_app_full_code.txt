@@ -1552,6 +1552,100 @@ def detect_sharp_money(opening_line: float, current_line: float, direction: str 
     
     return {"sharp_aligned": False, "sharp_against": False, "movement": movement, "signal": "NEUTRAL"}
 
+class SharpPickQualifier:
+    """Advanced pick qualification using sharp betting metrics."""
+    
+    CONFIDENCE_THRESHOLDS = {
+        'SUPERMAX': {'true_edge': 12.0, 'ev': 3.0, 'kelly': 0.05, 'history': 0.70},
+        'HIGH': {'true_edge': 10.0, 'ev': 1.5, 'kelly': 0.03, 'history': 0.65},
+        'MEDIUM': {'true_edge': 8.0, 'ev': 0.5, 'kelly': 0.02, 'history': 0.60},
+        'LOW': {'true_edge': 6.0, 'ev': 0.0, 'kelly': 0.01, 'history': 0.55}
+    }
+    
+    BET_SIZE_MAP = {'SUPERMAX': 5.0, 'HIGH': 3.0, 'MEDIUM': 2.0, 'LOW': 1.0}
+    
+    @classmethod
+    def qualify_pick(cls, game_data: dict) -> dict:
+        """
+        Qualify pick using sharp metrics.
+        
+        Args:
+            game_data: Dict with true_edge, ev_percentage, kelly_fraction, 
+                      history_win_rate, vig_percentage, etc.
+        """
+        reasons_pass = []
+        reasons_fail = []
+        
+        true_edge = game_data.get('true_edge', 0)
+        ev = game_data.get('ev_percentage') or 0
+        kelly = game_data.get('kelly_fraction', 0)
+        history = game_data.get('history_win_rate', 0)
+        vig = game_data.get('vig_percentage', 5.0)
+        
+        confidence = 'NONE'
+        for tier, thresholds in cls.CONFIDENCE_THRESHOLDS.items():
+            meets_tier = True
+            tier_reasons = []
+            
+            if true_edge >= thresholds['true_edge']:
+                tier_reasons.append(f"True edge {true_edge:.1f} >= {thresholds['true_edge']}")
+            else:
+                meets_tier = False
+            
+            if ev >= thresholds['ev']:
+                tier_reasons.append(f"EV {ev:.2f}% >= {thresholds['ev']}%")
+            elif ev is None or ev == 0:
+                tier_reasons.append("No Pinnacle data (EV waived)")
+            else:
+                meets_tier = False
+            
+            if history >= thresholds['history']:
+                tier_reasons.append(f"History {history*100:.0f}% >= {thresholds['history']*100:.0f}%")
+            else:
+                meets_tier = False
+            
+            if meets_tier:
+                confidence = tier
+                reasons_pass = tier_reasons
+                break
+        
+        qualified = confidence != 'NONE'
+        
+        if not qualified:
+            if true_edge < 6.0:
+                reasons_fail.append(f"True edge {true_edge:.1f} < 6.0 minimum")
+            if history < 0.55:
+                reasons_fail.append(f"History {history*100:.0f}% < 55% minimum")
+            if ev is not None and ev < 0:
+                reasons_fail.append(f"Negative EV {ev:.2f}%")
+        
+        if vig > 6.0:
+            reasons_fail.append(f"High vig {vig:.1f}% reduces value")
+        
+        bet_size = cls.BET_SIZE_MAP.get(confidence, 0)
+        if kelly > 0:
+            bet_size = min(bet_size, kelly * 100 * 0.25)
+        
+        recommendation = "PASS" if qualified else "SKIP"
+        if qualified and ev and ev > 2.0:
+            recommendation = "STRONG BET"
+        
+        return {
+            'qualified': qualified,
+            'confidence': confidence,
+            'bet_size_percentage': round(bet_size, 2),
+            'reasons_pass': reasons_pass,
+            'reasons_fail': reasons_fail,
+            'recommendation': recommendation,
+            'metrics': {
+                'true_edge': true_edge,
+                'ev': ev,
+                'kelly': kelly,
+                'history': history,
+                'vig': vig
+            }
+        }
+
 class SpreadValidator:
     """Enhanced spread validation with edge case handling."""
     
