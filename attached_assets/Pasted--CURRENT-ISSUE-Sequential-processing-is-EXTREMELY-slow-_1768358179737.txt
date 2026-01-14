@@ -1,0 +1,70 @@
+# CURRENT ISSUE: Sequential processing is EXTREMELY slow
+def fetch_history_internal() -> dict:
+    for i, game in enumerate(games, 1):
+        try:
+            result = update_game_historical_data(game)
+            db.session.commit()  # Commit after EACH game (slow!)
+        except Exception as e:
+            db.session.rollback()
+
+# BULLETPROOF: Batch commits with progress tracking
+def fetch_history_internal() -> dict:
+    """Batch historical data updates with checkpointing."""
+    start_time = time.time()
+    et = pytz.timezone('America/New_York')
+    today = datetime.now(et).date()
+    
+    games = Game.query.filter_by(date=today).filter(
+        db.or_(Game.is_qualified == True, Game.spread_is_qualified == True)
+    ).all()
+    
+    total_games = len(games)
+    history_updated = 0
+    history_qualified = 0
+    errors = []
+    
+    BATCH_SIZE = 5  # Commit every 5 games
+    batch_count = 0
+    
+    logger.info(f"Processing {total_games} games in batches of {BATCH_SIZE}")
+    
+    for i, game in enumerate(games, 1):
+        try:
+            result = update_game_historical_data(game)
+            
+            if result:
+                history_qualified += 1
+            history_updated += 1
+            batch_count += 1
+            
+            # Commit in batches for better performance
+            if batch_count >= BATCH_SIZE or i == total_games:
+                db.session.commit()
+                batch_count = 0
+                logger.info(f"Checkpoint: {i}/{total_games} games processed")
+            
+        except Exception as e:
+            db.session.rollback()
+            batch_count = 0  # Reset batch counter on error
+            error_msg = f"{game.away_team} @ {game.home_team}: {str(e)}"
+            errors.append(error_msg)
+            logger.error(f"Error updating history: {error_msg}")
+    
+    # Final commit if needed
+    if batch_count > 0:
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Final batch commit failed: {e}")
+    
+    elapsed = time.time() - start_time
+    logger.info(f"History fetch complete: {history_updated}/{total_games} games in {elapsed:.1f}s")
+    
+    return {
+        "games_checked": history_updated,
+        "history_qualified": history_qualified,
+        "errors": len(errors),
+        "error_details": errors[:5],  # Return first 5 errors
+        "time_seconds": round(elapsed, 1)
+    }
