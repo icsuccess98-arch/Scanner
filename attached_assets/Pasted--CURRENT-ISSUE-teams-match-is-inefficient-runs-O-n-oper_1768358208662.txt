@@ -1,0 +1,95 @@
+# CURRENT ISSUE: teams_match() is inefficient, runs O(n²) operations
+def teams_match(name1: str, name2: str) -> bool:
+    tokens1 = get_team_tokens(name1)  # Splits and processes every call
+    tokens2 = get_team_tokens(name2)
+    # ... multiple set operations
+
+# BULLETPROOF: Cache normalized team names
+class TeamNameMatcher:
+    """Optimized team name matching with caching."""
+    
+    def __init__(self):
+        self.name_cache = {}  # Cache normalized names
+        self.match_cache = {}  # Cache match results
+    
+    def _get_normalized_tokens(self, name):
+        """Get normalized tokens with caching."""
+        if name in self.name_cache:
+            return self.name_cache[name]
+        
+        tokens = get_team_tokens(name)
+        directional = get_directional_prefix(name)
+        
+        result = {
+            'tokens': tokens,
+            'directional': directional,
+            'normalized': normalize_team_name(name)
+        }
+        
+        self.name_cache[name] = result
+        return result
+    
+    def match(self, name1, name2):
+        """Match with result caching."""
+        # Create cache key (order-independent)
+        cache_key = tuple(sorted([name1.lower(), name2.lower()]))
+        
+        if cache_key in self.match_cache:
+            return self.match_cache[cache_key]
+        
+        # Get normalized data
+        data1 = self._get_normalized_tokens(name1)
+        data2 = self._get_normalized_tokens(name2)
+        
+        # Quick exact match check
+        if data1['normalized'] == data2['normalized']:
+            self.match_cache[cache_key] = True
+            return True
+        
+        # Directional prefix check
+        if data1['directional'] and data2['directional']:
+            if data1['directional'] != data2['directional']:
+                self.match_cache[cache_key] = False
+                return False
+        
+        # Token overlap check
+        tokens1 = data1['tokens']
+        tokens2 = data2['tokens']
+        
+        if not tokens1 or not tokens2:
+            self.match_cache[cache_key] = False
+            return False
+        
+        overlap = tokens1 & tokens2
+        
+        if not overlap:
+            result = False
+        elif tokens1 <= tokens2 or tokens2 <= tokens1:
+            result = True
+        elif len(overlap) >= min(len(tokens1), len(tokens2)):
+            result = True
+        else:
+            result = False
+        
+        self.match_cache[cache_key] = result
+        return result
+    
+    def clear_cache(self):
+        """Clear caches to free memory."""
+        self.name_cache.clear()
+        self.match_cache.clear()
+
+# Global instance
+team_matcher = TeamNameMatcher()
+
+# Replace all teams_match() calls with:
+def teams_match(name1: str, name2: str) -> bool:
+    """Wrapper for cached team matching."""
+    return team_matcher.match(name1, name2)
+
+# Add cache clearing on daily refresh:
+@app.route('/fetch_games', methods=['POST'])
+def fetch_games():
+    # Clear team matcher cache on new day
+    team_matcher.clear_cache()
+    # ... rest of function

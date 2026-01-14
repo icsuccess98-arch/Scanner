@@ -67,13 +67,66 @@ def add_cache_headers(response):
     response.headers['Expires'] = '0'
     return response
 
-THRESHOLDS = {
-    "NBA": 8.0,
-    "CBB": 8.0,
-    "NFL": 3.5,
-    "CFB": 3.5,
-    "NHL": 0.5
-}
+class GameConstants:
+    """Centralized configuration for all magic numbers and thresholds."""
+    
+    # Edge thresholds by league
+    EDGE_THRESHOLDS = {
+        "NBA": 8.0,
+        "CBB": 8.0,
+        "NFL": 3.5,
+        "CFB": 3.5,
+        "NHL": 0.5
+    }
+    
+    # Minimum games for analysis by league
+    MIN_GAMES = {
+        "NBA": 8,
+        "CBB": 8,
+        "NFL": 4,
+        "CFB": 4,
+        "NHL": 8
+    }
+    MIN_GAMES_DEFAULT = 5
+    
+    # Confidence tier thresholds
+    SUPERMAX_EDGE = 12.0
+    HIGH_EDGE = 10.0
+    MEDIUM_EDGE = 8.0
+    
+    # History qualification rates
+    HISTORY_QUALIFY_RATE = 0.60
+    SUPERMAX_HISTORY_RATE = 0.70
+    HIGH_HISTORY_RATE = 0.65
+    
+    # Retry configuration
+    RETRY_MAX_ATTEMPTS = 3
+    RETRY_BASE_DELAY = 0.3
+    RETRY_BACKOFF_MULTIPLIER = 2
+    
+    # API timeouts
+    API_TIMEOUT_DEFAULT = 15
+    API_TIMEOUT_SCOREBOARD = 30
+    API_TIMEOUT_LONG = 60
+    
+    # Cache TTLs (seconds)
+    CACHE_TTL_LIVE_SCORES = 15
+    CACHE_TTL_TEAM_STATS = 3600
+    CACHE_TTL_HISTORICAL = 43200
+    CACHE_TTL_INJURY = 21600
+    CACHE_TTL_SCHEDULE = 43200
+    CACHE_TTL_OPENING_LINE = 86400
+    
+    # Rate limits (requests per second)
+    RATE_LIMIT_ESPN = 5
+    RATE_LIMIT_ODDS_API = 2
+    
+    # Cache sizes
+    CACHE_SIZE_DEFAULT = 500
+    CACHE_SIZE_INJURY = 200
+    CACHE_SIZE_LEAGUE_INJURY = 50
+
+THRESHOLDS = GameConstants.EDGE_THRESHOLDS
 
 class TTLCache:
     """Time-based cache with max size to prevent memory leaks."""
@@ -153,6 +206,81 @@ def fetch_with_rate_limit(url, limiter, timeout=15):
     """Make HTTP request with rate limiting."""
     limiter.acquire()
     return requests.get(url, timeout=timeout)
+
+class ESPNClient:
+    """Unified ESPN API client with consistent error handling."""
+    
+    BASE_URLS = {
+        'NBA': 'basketball/nba',
+        'CBB': 'basketball/mens-college-basketball',
+        'NFL': 'football/nfl',
+        'CFB': 'football/college-football',
+        'NHL': 'hockey/nhl'
+    }
+    
+    SCOREBOARD_PARAMS = {
+        'NBA': {},
+        'CBB': {'limit': 500, 'groups': 50},
+        'NFL': {},
+        'CFB': {'limit': 100},
+        'NHL': {}
+    }
+    
+    TEAM_ENDPOINTS = {
+        'NBA': 'basketball/nba',
+        'CBB': 'basketball/mens-college-basketball',
+        'NFL': 'football/nfl',
+        'CFB': 'football/college-football',
+        'NHL': 'hockey/nhl'
+    }
+    
+    @classmethod
+    def get_scoreboard_url(cls, league: str, date_str: str) -> str:
+        """Build scoreboard URL with league-specific params."""
+        sport = cls.BASE_URLS.get(league)
+        if not sport:
+            raise ValueError(f"Unknown league: {league}")
+        
+        base = f"https://site.api.espn.com/apis/site/v2/sports/{sport}/scoreboard"
+        params = {'dates': date_str, **cls.SCOREBOARD_PARAMS.get(league, {})}
+        param_str = '&'.join(f"{k}={v}" for k, v in params.items())
+        return f"{base}?{param_str}"
+    
+    @classmethod
+    def get_team_url(cls, league: str, team_id: str) -> str:
+        """Build team stats URL."""
+        sport = cls.TEAM_ENDPOINTS.get(league)
+        if not sport:
+            raise ValueError(f"Unknown league: {league}")
+        return f"https://site.api.espn.com/apis/site/v2/sports/{sport}/teams/{team_id}"
+    
+    @classmethod
+    def get_schedule_url(cls, league: str, team_id: str) -> str:
+        """Build team schedule URL."""
+        sport = cls.TEAM_ENDPOINTS.get(league)
+        if not sport:
+            raise ValueError(f"Unknown league: {league}")
+        return f"https://site.api.espn.com/apis/site/v2/sports/{sport}/teams/{team_id}/schedule"
+    
+    @classmethod
+    def fetch_scoreboard(cls, league: str, date_str: str, timeout: int = None) -> dict:
+        """Fetch scoreboard with rate limiting and error handling."""
+        timeout = timeout or GameConstants.API_TIMEOUT_SCOREBOARD
+        url = cls.get_scoreboard_url(league, date_str)
+        resp = fetch_with_rate_limit(url, espn_limiter, timeout=timeout)
+        resp.raise_for_status()
+        return resp.json()
+    
+    @classmethod
+    def fetch_team_stats(cls, league: str, team_id: str, timeout: int = None) -> dict:
+        """Fetch team stats with rate limiting."""
+        timeout = timeout or GameConstants.API_TIMEOUT_DEFAULT
+        url = cls.get_team_url(league, team_id)
+        resp = fetch_with_rate_limit(url, espn_limiter, timeout=timeout)
+        resp.raise_for_status()
+        return resp.json()
+
+espn_client = ESPNClient()
 
 SCOREBOARD_URLS = {
     'NBA': "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={}",

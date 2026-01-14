@@ -1,0 +1,74 @@
+# CURRENT ISSUE: Same team data fetched multiple times
+def fetch_team_last_10_games(team_name: str, league: str) -> list:
+    # This gets called for BOTH home and away teams
+    # If teams play each other multiple times, fetched multiple times
+    
+# ALREADY HAVE espn_schedule_cache, but improve the caching strategy:
+
+class ESPNDataCache:
+    """Intelligent ESPN data caching with prefetching."""
+    
+    def __init__(self):
+        self.schedule_cache = TTLCache(maxsize=500, ttl=43200)  # 12 hours
+        self.team_id_cache = {}  # Permanent cache
+        self.pending_requests = {}  # Deduplication
+        self.request_lock = threading.Lock()
+    
+    def get_or_fetch_schedule(self, team_name, league, fetch_func):
+        """Get schedule with request deduplication."""
+        cache_key = f"{league}:{team_name.lower()}"
+        
+        # Check cache first
+        cached = self.schedule_cache.get(cache_key)
+        if cached:
+            return cached
+        
+        # Deduplicate concurrent requests for same team
+        with self.request_lock:
+            if cache_key in self.pending_requests:
+                # Another thread is already fetching this
+                event = self.pending_requests[cache_key]
+            else:
+                # We're the first to request this
+                event = threading.Event()
+                self.pending_requests[cache_key] = event
+        
+        if event in self.pending_requests.values() and not event.is_set():
+            # Wait for other thread to complete
+            event.wait(timeout=10)
+            cached = self.schedule_cache.get(cache_key)
+            if cached:
+                return cached
+        
+        # Fetch data
+        try:
+            data = fetch_func(team_name, league)
+            self.schedule_cache.set(cache_key, data)
+            
+            # Signal other waiting threads
+            with self.request_lock:
+                if cache_key in self.pending_requests:
+                    self.pending_requests[cache_key].set()
+                    del self.pending_requests[cache_key]
+            
+            return data
+        
+        except Exception as e:
+            # Clean up on error
+            with self.request_lock:
+                if cache_key in self.pending_requests:
+                    self.pending_requests[cache_key].set()
+                    del self.pending_requests[cache_key]
+            raise
+
+# Replace global espn_schedule_cache:
+espn_data_cache = ESPNDataCache()
+
+def fetch_team_last_10_games(team_name: str, league: str) -> list:
+    """Fetch with intelligent caching."""
+    def _fetch():
+        # Original fetch logic here
+        # ...
+        return games
+    
+    return espn_data_cache.get_or_fetch_schedule(team_name, league, _fetch)
