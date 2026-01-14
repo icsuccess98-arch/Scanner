@@ -1,0 +1,239 @@
+Fix database sync issues between preview (dev) and deployed (production):
+
+PROBLEM IDENTIFIED:
+Preview shows picks → Deploy → Production shows different/no picks
+
+ROOT CAUSES:
+1. Preview uses DEV database
+2. Production uses PROD database
+3. Databases are NOT synced
+4. Picks saved to dev don't appear in prod
+
+═══════════════════════════════════════════════════════════════════════
+
+DIAGNOSIS CHECKLIST:
+
+Check your environment variables:
+□ Preview: DATABASE_URL = dev database
+□ Production: DATABASE_URL = prod database
+□ Are they pointing to SAME database?
+
+If different databases:
+□ Dev has picks from testing
+□ Prod is empty or has old data
+□ Result: Mismatch after deployment
+
+═══════════════════════════════════════════════════════════════════════
+
+SOLUTION 1: USE SINGLE DATABASE (Recommended)
+
+Make preview and production use THE SAME database:
+
+1. UPDATE ENVIRONMENT VARIABLES:
+   In your deployment platform (Replit, Vercel, etc.):
+   
+   Preview Environment:
+   DATABASE_URL=postgresql://user:pass@host/prod_db
+   
+   Production Environment:
+   DATABASE_URL=postgresql://user:pass@host/prod_db
+   
+   ☝️ SAME database URL
+
+2. VERIFY:
+```python
+   import os
+   print(f"Database: {os.getenv('DATABASE_URL')}")
+   # Should print SAME URL in both environments
+```
+
+3. RESTART BOTH:
+   - Stop preview
+   - Deploy to production
+   - Start preview
+   - Both should now show same data
+
+═══════════════════════════════════════════════════════════════════════
+
+SOLUTION 2: AUTO-SYNC DATABASES (If must keep separate)
+
+If you MUST use separate dev/prod databases:
+
+1. SYNC SCRIPT:
+```python
+   def sync_dev_to_prod():
+       """
+       Copy picks from dev to prod before deployment
+       """
+       # Connect to BOTH databases
+       dev_db = connect_to_database(os.getenv('DEV_DATABASE_URL'))
+       prod_db = connect_to_database(os.getenv('PROD_DATABASE_URL'))
+       
+       # Get all active picks from dev
+       dev_picks = dev_db.query("""
+           SELECT * FROM picks 
+           WHERE status = 'ACTIVE' 
+           AND game_date >= CURRENT_DATE
+       """).fetchall()
+       
+       # Insert into prod (skip if exists)
+       for pick in dev_picks:
+           prod_db.execute("""
+               INSERT INTO picks (...)
+               VALUES (...)
+               ON CONFLICT (game_id, pick_type) DO UPDATE SET
+                   posted_line = EXCLUDED.posted_line,
+                   posted_edge = EXCLUDED.posted_edge,
+                   confidence = EXCLUDED.confidence
+           """)
+       
+       prod_db.commit()
+       print(f"✅ Synced {len(dev_picks)} picks to production")
+```
+
+2. RUN BEFORE DEPLOY:
+```bash
+   # In your deploy script
+   python sync_databases.py
+   replit deploy
+```
+
+3. AUTOMATED:
+```python
+   # Add to your app startup
+   if os.getenv('ENVIRONMENT') == 'production':
+       # On first production startup
+       if not picks_exist():
+           sync_from_dev()
+```
+
+═══════════════════════════════════════════════════════════════════════
+
+SOLUTION 3: CHECK DATABASE CONNECTION
+
+Verify which database each environment actually uses:
+
+1. ADD DIAGNOSTIC ENDPOINT:
+```python
+   @app.route('/api/debug/db-info')
+   def db_info():
+       """Shows which database is connected"""
+       return {
+           'database_url': os.getenv('DATABASE_URL')[:50] + '...',
+           'total_picks': db.query("SELECT COUNT(*) FROM picks").scalar(),
+           'active_picks': db.query("SELECT COUNT(*) FROM picks WHERE status='ACTIVE'").scalar(),
+           'environment': os.getenv('ENVIRONMENT', 'unknown')
+       }
+```
+
+2. CHECK IN PREVIEW:
+   Visit: https://your-preview-url/api/debug/db-info
+   
+   Expected:
+```json
+   {
+     "database_url": "postgresql://...",
+     "total_picks": 25,
+     "active_picks": 5,
+     "environment": "development"
+   }
+```
+
+3. CHECK IN PRODUCTION:
+   Visit: https://your-prod-url/api/debug/db-info
+   
+   Should show SAME counts if using same database
+
+═══════════════════════════════════════════════════════════════════════
+
+SOLUTION 4: FORCE DATA REFRESH
+
+Add a "Refresh Data" button that pulls from primary source:
+
+1. ADMIN ENDPOINT:
+```python
+   @app.route('/api/admin/refresh-picks', methods=['POST'])
+   def refresh_picks():
+       """Re-fetch and save all current picks"""
+       # Delete old picks
+       db.query("DELETE FROM picks WHERE game_date < CURRENT_DATE").execute()
+       
+       # Re-fetch games
+       games = fetch_games()
+       
+       # Re-qualify picks
+       qualified_picks = qualify_all_picks(games)
+       
+       # Save to database
+       for pick in qualified_picks:
+           save_pick_to_db(pick)
+       
+       return {'success': True, 'picks_saved': len(qualified_picks)}
+```
+
+2. UI BUTTON:
+```html
+   <button onclick="refreshPicks()">
+     🔄 Refresh Picks
+   </button>
+   
+   <script>
+   function refreshPicks() {
+     fetch('/api/admin/refresh-picks', {method: 'POST'})
+       .then(r => r.json())
+       .then(data => {
+         alert(`Refreshed ${data.picks_saved} picks`);
+         location.reload();
+       });
+   }
+   </script>
+```
+
+═══════════════════════════════════════════════════════════════════════
+
+SOLUTION 5: CHECK WHEN PICKS ARE SAVED
+
+Verify picks are actually being saved to production database:
+
+1. ADD LOGGING:
+```python
+   def save_pick_to_db(pick):
+       logger.info(f"💾 Saving pick to database: {pick['game']}")
+       logger.info(f"   Database: {os.getenv('DATABASE_URL')[:30]}...")
+       
+       result = db.picks.insert(pick)
+       
+       logger.info(f"✅ Saved pick ID: {result.id}")
+       
+       # Verify it was saved
+       verify = db.picks.find_one({'id': result.id})
+       if verify:
+           logger.info(f"✅ Verified pick exists in database")
+       else:
+           logger.error(f"❌ Pick NOT found after save!")
+```
+
+2. CHECK LOGS AFTER DEPLOY:
+   Look for:
+   - "Saving pick to database" messages
+   - "Verified pick exists" confirmations
+   - Database URL being used
+
+═══════════════════════════════════════════════════════════════════════
+
+SOLUTION 6: COMMON REPLIT ISSUE
+
+If using Replit, check these specific issues:
+
+1. REPLIT DATABASES:
+```python
+   # Replit uses different database URLs
+   # Preview: Replit Database (temporary)
+   # Production: External database (persistent)
+   
+   # FIX: Always use external database
+   DATABASE_URL = os.getenv('REPLIT_DB_URL')  # ❌ Wrong
+   DATABASE_URL = os.getenv('DATABASE_URL')   # ✅ Correct
+```
+
+2. CHECK .env FILE:
