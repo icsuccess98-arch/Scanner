@@ -1,0 +1,74 @@
+def fetch_odds_internal():
+    # ... existing scoreboard fetch code ...
+    
+    for event in events:
+        # ... existing team matching code ...
+        
+        if bovada_book:
+            totals_market = bovada_markets.get("totals")
+            
+            if totals_market:
+                outcomes = totals_market.get("outcomes", [])
+                over_outcome = next((o for o in outcomes if o.get("name") == "Over"), None)
+                under_outcome = next((o for o in outcomes if o.get("name") == "Under"), None)
+                
+                if over_outcome and under_outcome:
+                    line = over_outcome.get("point")
+                    over_odds = over_outcome.get("price", -110)
+                    under_odds = under_outcome.get("price", -110)
+                    
+                    # CALCULATE SHARP METRICS
+                    if all([game.away_ppg, game.away_opp_ppg, game.home_ppg, game.home_opp_ppg]):
+                        projected = calculate_projection(
+                            game.away_ppg, game.away_opp_ppg,
+                            game.home_ppg, game.home_opp_ppg
+                        )
+                        
+                        # Sharp edge calculation
+                        qual_result = check_qualification_sharp(
+                            projected, line, game.league, over_odds, under_odds
+                        )
+                        
+                        # Store sharp metrics
+                        game.line = line
+                        game.projected_total = projected
+                        game.true_edge = qual_result.get('true_edge')
+                        game.true_line = qual_result.get('true_line')
+                        game.vig_percentage = qual_result.get('vig_percentage')
+                        game.market_shade = qual_result.get('market_shade')
+                        
+                        # Qualification based on TRUE edge
+                        game.is_qualified = qual_result.get('qualified', False)
+                        game.direction = qual_result.get('direction')
+                        game.edge = qual_result.get('raw_edge')  # Keep for reference
+                        
+                        # Get Pinnacle odds for EV
+                        if pinnacle_book:
+                            pinn_totals = pinnacle_markets.get('totals')
+                            if pinn_totals:
+                                pinn_direction = 'Over' if game.direction == 'O' else 'Under'
+                                pinn_outcome = next(
+                                    (o for o in pinn_totals.get('outcomes', []) 
+                                     if o.get('name') == pinn_direction), None
+                                )
+                                
+                                if pinn_outcome:
+                                    pinn_odds = pinn_outcome.get('price')
+                                    
+                                    # Calculate TRUE EV
+                                    ev_data = EVCalculator.calculate_true_ev(
+                                        over_odds if game.direction == 'O' else under_odds,
+                                        pinn_odds
+                                    )
+                                    
+                                    if ev_data:
+                                        game.total_ev = ev_data['ev_percentage']
+                                        game.fair_probability = ev_data['fair_probability']
+                                        game.probability_edge = ev_data['probability_edge']
+                                        game.kelly_fraction = ev_data['kelly_fraction']
+                                        
+                                        # Fractional Kelly for safety (1/4 Kelly)
+                                        game.recommended_bet_size = min(
+                                            ev_data['kelly_fraction'] * 0.25,
+                                            0.10  # Max 10% of bankroll
+                                        )

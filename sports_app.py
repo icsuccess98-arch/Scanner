@@ -458,6 +458,81 @@ class LineMovementTracker:
 
 line_tracker = LineMovementTracker()
 
+class ClosingLineValue:
+    """Calculate Closing Line Value - measures betting edge quality."""
+    
+    @staticmethod
+    def calculate_clv(
+        opening_line: float,
+        closing_line: float,
+        bet_line: float,
+        direction: str
+    ) -> dict:
+        """
+        Calculate CLV metrics.
+        
+        For OVER/AWAY bets: lower closing line = beat the close
+        For UNDER/HOME bets: higher closing line = beat the close
+        """
+        if opening_line is None or closing_line is None or bet_line is None:
+            return {'clv_points': None, 'clv_percentage': None, 'beat_close': None}
+        
+        if direction in ('O', 'OVER', 'AWAY'):
+            clv_points = closing_line - bet_line
+            beat_close = closing_line > bet_line
+        else:
+            clv_points = bet_line - closing_line
+            beat_close = closing_line < bet_line
+        
+        clv_percentage = (clv_points / bet_line * 100) if bet_line != 0 else 0
+        
+        return {
+            'clv_points': round(clv_points, 2),
+            'clv_percentage': round(clv_percentage, 2),
+            'beat_close': beat_close,
+            'opening_line': opening_line,
+            'closing_line': closing_line,
+            'line_movement': round(closing_line - opening_line, 2)
+        }
+
+def game_has_started(pick) -> bool:
+    """Check if game has started based on game_start time."""
+    if not pick.game_start:
+        return False
+    et = pytz.timezone('America/New_York')
+    now = datetime.now(et)
+    if pick.game_start.tzinfo is None:
+        game_start = et.localize(pick.game_start)
+    else:
+        game_start = pick.game_start
+    return now >= game_start
+
+def update_pick_clv():
+    """Update CLV for picks that have closed."""
+    pending = Pick.query.filter(Pick.closing_line == None, Pick.opening_line != None).all()
+    updated = 0
+    
+    for pick in pending:
+        if not game_has_started(pick):
+            continue
+        
+        clv_data = line_tracker.get_clv(
+            str(pick.game_id) if pick.game_id else str(pick.id),
+            pick.opening_line
+        )
+        
+        if clv_data:
+            pick.closing_line = clv_data['closing_line']
+            pick.clv = clv_data['clv']
+            pick.line_moved_favor = clv_data['beat_close']
+            updated += 1
+    
+    if updated > 0:
+        db.session.commit()
+        logger.info(f"Updated CLV for {updated} picks")
+    
+    return updated
+
 SCOREBOARD_URLS = {
     'NBA': "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={}",
     'CBB': "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates={}",
