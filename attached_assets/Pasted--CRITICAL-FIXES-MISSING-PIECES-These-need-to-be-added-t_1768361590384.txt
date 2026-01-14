@@ -1,0 +1,555 @@
+"""
+CRITICAL FIXES & MISSING PIECES
+These need to be added to make the system complete and production-ready.
+"""
+
+# ============================================================================
+# FIX 1: SPREAD QUALIFICATION - Currently using old logic
+# ============================================================================
+
+def calculate_spread_edge_sharp(projected_margin: float, spread_line: float,
+                                home_odds: int, away_odds: int, 
+                                league: str, is_home_pick: bool) -> EdgeResult:
+    """
+    Calculate TRUE spread edge with vig removal.
+    
+    spread_line is stored in AWAY perspective:
+    - Positive = away is underdog (home favorite)
+    - Negative = away is favorite (home underdog)
+    """
+    # Remove vig from spread market
+    fair_spread = VigRemover.calculate_fair_line_totals(spread_line, away_odds, home_odds)
+    vig_data = VigRemover.remove_two_way_vig(away_odds, home_odds)
+    
+    raw_edge = abs(projected_margin - spread_line)
+    true_edge = abs(projected_margin - fair_spread)
+    
+    # Determine direction
+    if is_home_pick:
+        # We're picking home - check if they'll cover
+        if projected_margin >= fair_spread:
+            direction = 'HOME'
+            qualified = true_edge >= SharpEdgeCalculator.MIN_TRUE_EDGE.get(league, 2.0)
+        else:
+            direction = None
+            qualified = False
+    else:
+        # We're picking away - check if they'll cover
+        if projected_margin <= fair_spread:
+            direction = 'AWAY'
+            qualified = true_edge >= SharpEdgeCalculator.MIN_TRUE_EDGE.get(league, 2.0)
+        else:
+            direction = None
+            qualified = False
+    
+    return EdgeResult(
+        qualified=qualified,
+        direction=direction,
+        true_edge=round(true_edge, 2),
+        raw_edge=round(raw_edge, 2),
+        fair_line=round(fair_spread, 1),
+        posted_line=spread_line,
+        vig_pct=round(vig_data['vig_pct'], 2),
+        market_balance='BALANCED',  # Could add shade detection here
+        confidence='HIGH' if true_edge >= 4.0 else 'STANDARD' if qualified else 'NONE'
+    )
+
+
+# ============================================================================
+# FIX 2: HISTORICAL DATA FETCHING - Add sample size tracking
+# ============================================================================
+
+def update_game_historical_data_FIXED(game: Game) -> dict:
+    """
+    Enhanced historical data fetching with proper sample size tracking.
+    Returns dict with actual sample size for qualification.
+    """
+    try:
+        direction = game.direction or "O"
+        current_line = game.line
+        
+        # Fetch team histories
+        away_games = fetch_team_last_10_games(game.away_team, game.league)
+        home_games = fetch_team_last_10_games(game.home_team, game.league)
+        
+        if len(away_games) < 5 or len(home_games) < 5:
+            return {
+                'qualified': False,
+                'sample_size': min(len(away_games), len(home_games)),
+                'reason': 'Insufficient data'
+            }
+        
+        # Calculate O/U percentages with CURRENT line
+        away_ou_pct = calculate_ou_hit_rate(away_games, direction, current_line)
+        home_ou_pct = calculate_ou_hit_rate(home_games, direction, current_line)
+        
+        game.away_ou_pct = away_ou_pct
+        game.home_ou_pct = home_ou_pct
+        
+        # Get actual sample size (non-push games)
+        away_non_push = len([g for g in away_games if abs(g['total'] - current_line) >= 0.5])
+        home_non_push = len([g for g in home_games if abs(g['total'] - current_line) >= 0.5])
+        sample_size = min(away_non_push, home_non_push)
+        
+        # Qualification: 58%+ win rate AND 10+ games
+        max_ou_pct = max(away_ou_pct, home_ou_pct)
+        qualified = max_ou_pct >= 58.0 and sample_size >= 10
+        
+        game.history_qualified = qualified
+        
+        return {
+            'qualified': qualified,
+            'sample_size': sample_size,
+            'win_rate': max_ou_pct / 100,
+            'away_pct': away_ou_pct,
+            'home_pct': home_ou_pct
+        }
+        
+    except Exception as e:
+        logger.error(f"Historical data error for {game.away_team}@{game.home_team}: {e}")
+        return {'qualified': False, 'sample_size': 0, 'reason': str(e)}
+
+
+# ============================================================================
+# FIX 3: INJURY IMPACT - Currently too simplistic
+# ============================================================================
+
+def assess_injury_impact_detailed(team_name: str, league: str, 
+                                  pick_type: str, pick_direction: str) -> dict:
+    """
+    Detailed injury assessment with context.
+    
+    Returns:
+    {
+        'disqualify': bool,
+        'impact_score': float,
+        'reason': str,
+        'injured_players': list
+    }
+    """
+    injury_data = fetch_team_injuries(team_name, league)
+    
+    if not injury_data.get('has_key_injuries'):
+        return {'disqualify': False, 'impact_score': 0, 'reason': 'No key injuries'}
+    
+    impact_score = injury_data.get('impact_score', 0)
+    injured_count = injury_data.get('injured_starters', 0)
+    
+    # TOTALS: Injuries affect scoring
+    if pick_type == 'total':
+        if pick_direction in ('OVER', 'O'):
+            # Picking OVER - injuries hurt offense, disqualify if 2+ out
+            if injured_count >= 2:
+                return {
+                    'disqualify': True,
+                    'impact_score': impact_score,
+                    'reason': f'{injured_count} key players out - offense compromised',
+                    'injured_players': injury_data.get('details', [])
+                }
+        else:
+            # Picking UNDER - injuries help our case, but still risky if 3+
+            if injured_count >= 3:
+                return {
+                    'disqualify': True,
+                    'impact_score': impact_score,
+                    'reason': f'{injured_count} players out - too unpredictable',
+                    'injured_players': injury_data.get('details', [])
+                }
+    
+    # SPREADS: Injuries affect margin
+    elif pick_type == 'spread':
+        # If we're picking this team AND they have injuries - disqualify
+        if injured_count >= 2:
+            return {
+                'disqualify': True,
+                'impact_score': impact_score,
+                'reason': f'{injured_count} key players out - can\'t cover',
+                'injured_players': injury_data.get('details', [])
+            }
+    
+    return {
+        'disqualify': False,
+        'impact_score': impact_score,
+        'reason': f'{injured_count} injured but playable',
+        'injured_players': injury_data.get('details', [])
+    }
+
+
+# ============================================================================
+# FIX 4: COMPLETE QUALIFICATION WRAPPER with all checks
+# ============================================================================
+
+def qualify_pick_complete(game: Game, pick_type: str = 'total') -> QualificationResult:
+    """
+    COMPLETE qualification with ALL checks:
+    1. Sharp edge calculation
+    2. EV validation
+    3. Historical performance
+    4. Injury assessment
+    5. Line movement (sharp money)
+    6. Sample size validation
+    """
+    
+    if pick_type == 'total':
+        # Get odds
+        over_odds = game.bovada_total_odds or -110
+        under_odds = -110  # You'd fetch this from outcomes
+        
+        # Historical data with sample size
+        hist_result = update_game_historical_data_FIXED(game)
+        
+        # Injury check
+        away_injuries = assess_injury_impact_detailed(
+            game.away_team, game.league, 'total', game.direction
+        )
+        home_injuries = assess_injury_impact_detailed(
+            game.home_team, game.league, 'total', game.direction
+        )
+        
+        # Disqualify if injuries too severe
+        if away_injuries['disqualify'] or home_injuries['disqualify']:
+            return QualificationResult(
+                qualified=False,
+                confidence='NONE',
+                bet_size_pct=0.0,
+                true_edge=game.true_edge or 0,
+                ev_pct=game.total_ev,
+                reasons_pass=[],
+                reasons_fail=[f"Injury concern: {away_injuries.get('reason') or home_injuries.get('reason')}"],
+                recommendation='PASS'
+            )
+        
+        # Sharp qualification
+        qual_result = check_qualification_professional(
+            projected_total=game.projected_total or 0,
+            line=game.line or 0,
+            over_odds=over_odds,
+            under_odds=under_odds,
+            league=game.league,
+            pinnacle_over_odds=game.pinnacle_total_odds,
+            pinnacle_under_odds=None,  # You'd fetch this
+            historical_win_rate=hist_result.get('win_rate', 0),
+            sample_size=hist_result.get('sample_size', 0)
+        )
+        
+        # Add injury info to reasons
+        if away_injuries['impact_score'] > 0 or home_injuries['impact_score'] > 0:
+            qual_result.reasons_pass.append(
+                f"⚠️ Injuries noted but acceptable (impact: {max(away_injuries['impact_score'], home_injuries['impact_score'])})"
+            )
+        
+        return qual_result
+    
+    else:  # spread
+        # Similar logic for spreads
+        pass
+
+
+# ============================================================================
+# FIX 5: RATE LIMITING - Add exponential backoff
+# ============================================================================
+
+import time
+from functools import wraps
+
+class SmartRateLimiter:
+    """Rate limiter with exponential backoff on failures."""
+    
+    def __init__(self, requests_per_second=5, max_retries=3):
+        self.rate = requests_per_second
+        self.max_retries = max_retries
+        self.tokens = float(requests_per_second)
+        self.last_update = time.time()
+        self.lock = threading.Lock()
+        self.failure_count = 0
+    
+    def acquire(self):
+        with self.lock:
+            now = time.time()
+            elapsed = now - self.last_update
+            
+            # Add exponential backoff if we've had failures
+            if self.failure_count > 0:
+                backoff = min(2 ** self.failure_count, 60)  # Max 60s backoff
+                time.sleep(backoff)
+                self.failure_count = max(0, self.failure_count - 1)
+            
+            self.tokens = min(self.rate, self.tokens + elapsed * self.rate)
+            self.last_update = now
+            
+            if self.tokens >= 1:
+                self.tokens -= 1
+                return True
+            
+            sleep_time = (1 - self.tokens) / self.rate
+            time.sleep(sleep_time)
+            self.tokens = 0
+            return True
+    
+    def record_failure(self):
+        """Call this when API request fails."""
+        with self.lock:
+            self.failure_count += 1
+            logger.warning(f"API failure recorded, backoff count: {self.failure_count}")
+    
+    def record_success(self):
+        """Call this when API request succeeds."""
+        with self.lock:
+            self.failure_count = max(0, self.failure_count - 1)
+
+
+# Replace your existing limiters with smart limiters
+espn_limiter = SmartRateLimiter(requests_per_second=5)
+odds_limiter = SmartRateLimiter(requests_per_second=2)
+
+
+# ============================================================================
+# FIX 6: FETCH GAMES - Add error recovery
+# ============================================================================
+
+def fetch_games_with_recovery():
+    """
+    Fetch games with automatic recovery from partial failures.
+    If one league fails, continue with others.
+    """
+    et = pytz.timezone('America/New_York')
+    today = datetime.now(et).date()
+    
+    results = {
+        'success': False,
+        'games_added': 0,
+        'leagues_processed': [],
+        'leagues_failed': [],
+        'errors': []
+    }
+    
+    # Try each league independently
+    for league in ['NBA', 'NHL', 'CBB', 'CFB', 'NFL']:
+        try:
+            league_games = fetch_league_games(league, today)
+            
+            # Clear only this league's games
+            Game.query.filter_by(date=today, league=league).delete()
+            
+            # Add new games
+            for game_data in league_games:
+                game = Game(**game_data)
+                db.session.add(game)
+            
+            db.session.commit()
+            results['leagues_processed'].append(league)
+            results['games_added'] += len(league_games)
+            
+        except Exception as e:
+            logger.error(f"Failed to fetch {league}: {e}")
+            results['leagues_failed'].append(league)
+            results['errors'].append(f"{league}: {str(e)}")
+            db.session.rollback()
+            continue
+    
+    results['success'] = len(results['leagues_processed']) > 0
+    return results
+
+
+# ============================================================================
+# FIX 7: VALIDATION - Add data quality checks
+# ============================================================================
+
+def validate_game_data(game: Game) -> dict:
+    """
+    Validate game data quality before qualification.
+    Catches bad data that would cause incorrect picks.
+    """
+    errors = []
+    warnings = []
+    
+    # Check projections are reasonable
+    if game.projected_total:
+        league_ranges = {
+            'NBA': (180, 260),
+            'CBB': (120, 180),
+            'NFL': (30, 70),
+            'CFB': (35, 85),
+            'NHL': (4, 9)
+        }
+        min_total, max_total = league_ranges.get(game.league, (0, 999))
+        if not (min_total <= game.projected_total <= max_total):
+            errors.append(f"Projection {game.projected_total} outside normal range [{min_total}-{max_total}]")
+    
+    # Check stats are reasonable
+    if game.away_ppg and game.away_ppg < 0:
+        errors.append(f"Invalid away_ppg: {game.away_ppg}")
+    
+    if game.home_ppg and game.home_ppg < 0:
+        errors.append(f"Invalid home_ppg: {game.home_ppg}")
+    
+    # Check edge is reasonable
+    if game.true_edge and game.true_edge > 20:
+        warnings.append(f"Very large true edge: {game.true_edge} - verify data")
+    
+    # Check vig is reasonable
+    if game.vig_percentage and game.vig_percentage > 10:
+        warnings.append(f"Very high vig: {game.vig_percentage}% - may be bad odds")
+    
+    # Check Kelly sizing
+    if game.kelly_fraction and game.kelly_fraction > 0.15:
+        warnings.append(f"Very high Kelly: {game.kelly_fraction*100}% - verify calculation")
+    
+    return {
+        'valid': len(errors) == 0,
+        'errors': errors,
+        'warnings': warnings
+    }
+
+
+# ============================================================================
+# FIX 8: LOGGING - Add structured logging
+# ============================================================================
+
+def log_qualification_decision(game: Game, qual_result: QualificationResult):
+    """
+    Structured logging for all qualification decisions.
+    Makes debugging and analysis much easier.
+    """
+    log_data = {
+        'timestamp': datetime.now(pytz.timezone('America/New_York')).isoformat(),
+        'game': f"{game.away_team} @ {game.home_team}",
+        'league': game.league,
+        'qualified': qual_result.qualified,
+        'confidence': qual_result.confidence,
+        'true_edge': qual_result.true_edge,
+        'ev_pct': qual_result.ev_pct,
+        'kelly_pct': qual_result.bet_size_pct,
+        'reasons_pass': qual_result.reasons_pass,
+        'reasons_fail': qual_result.reasons_fail,
+        'recommendation': qual_result.recommendation
+    }
+    
+    if qual_result.qualified:
+        logger.info(f"✅ QUALIFIED: {log_data}")
+    else:
+        logger.debug(f"❌ REJECTED: {log_data}")
+    
+    # Store in database for analysis
+    # You could create a QualificationLog table to track all decisions
+
+
+# ============================================================================
+# FIX 9: FETCH ODDS - Add retry logic for API failures
+# ============================================================================
+
+def fetch_odds_for_league_with_retry(league: str, sport_key: str, 
+                                     api_key: str, max_retries: int = 3) -> tuple:
+    """Fetch odds with exponential backoff retry."""
+    
+    for attempt in range(max_retries):
+        try:
+            url = f"https://api.the-odds-api.com/v4/sports/{sport_key}/odds/"
+            params = {
+                "apiKey": api_key,
+                "regions": "us",
+                "markets": "totals,spreads,h2h",
+                "oddsFormat": "american",
+                "bookmakers": "bovada,pinnacle"
+            }
+            
+            resp = requests.get(url, params=params, timeout=30)
+            
+            if resp.status_code == 200:
+                odds_limiter.record_success()
+                return (league, sport_key, resp.json())
+            
+            elif resp.status_code == 429:  # Rate limited
+                retry_after = int(resp.headers.get('Retry-After', 60))
+                logger.warning(f"{league}: Rate limited, waiting {retry_after}s")
+                time.sleep(retry_after)
+                continue
+            
+            elif resp.status_code >= 500:  # Server error
+                wait_time = (2 ** attempt) * 1.0
+                logger.warning(f"{league}: Server error, retry in {wait_time}s")
+                time.sleep(wait_time)
+                continue
+            
+            else:
+                logger.error(f"{league}: HTTP {resp.status_code}")
+                return (league, sport_key, [])
+        
+        except Exception as e:
+            wait_time = (2 ** attempt) * 1.0
+            logger.error(f"{league} attempt {attempt+1}/{max_retries}: {e}")
+            if attempt < max_retries - 1:
+                time.sleep(wait_time)
+                odds_limiter.record_failure()
+            else:
+                return (league, sport_key, [])
+    
+    return (league, sport_key, [])
+
+
+# ============================================================================
+# FIX 10: ADD MISSING UTILITY - Calculate push-adjusted stats
+# ============================================================================
+
+def calculate_ou_hit_rate_FIXED(games: list, direction: str, 
+                               current_line: float = None) -> dict:
+    """
+    Calculate O/U hit rate with proper push handling and stats.
+    
+    Returns full statistics, not just percentage.
+    """
+    if len(games) < 5:
+        return {
+            'hit_rate': 0.0,
+            'hits': 0,
+            'total_games': 0,
+            'pushes': 0,
+            'valid': False,
+            'reason': 'Insufficient games'
+        }
+    
+    if current_line is not None and current_line > 0:
+        compare_line = current_line
+    else:
+        totals = [g["total"] for g in games]
+        compare_line = sum(totals) / len(totals)
+    
+    hits = 0
+    pushes = 0
+    
+    for g in games:
+        total = g["total"]
+        diff = total - compare_line
+        
+        if abs(diff) < 0.5:
+            pushes += 1
+            continue
+        
+        if direction == "O" and diff > 0:
+            hits += 1
+        elif direction == "U" and diff < 0:
+            hits += 1
+    
+    non_push_games = len(games) - pushes
+    
+    if non_push_games == 0:
+        return {
+            'hit_rate': 0.0,
+            'hits': 0,
+            'total_games': len(games),
+            'pushes': pushes,
+            'valid': False,
+            'reason': 'All games were pushes'
+        }
+    
+    hit_rate = (hits / non_push_games) * 100
+    
+    return {
+        'hit_rate': round(hit_rate, 1),
+        'hits': hits,
+        'total_games': non_push_games,
+        'pushes': pushes,
+        'all_games': len(games),
+        'valid': True,
+        'record': f"{hits}-{non_push_games - hits}-{pushes}"
+    }

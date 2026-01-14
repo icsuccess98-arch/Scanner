@@ -170,17 +170,25 @@ espn_schedule_cache = TTLCache(maxsize=500, ttl=43200)
 import threading
 
 class RateLimiter:
-    """Token bucket rate limiter to prevent API rate limit violations."""
-    def __init__(self, requests_per_second=10):
+    """Token bucket rate limiter with exponential backoff on failures."""
+    def __init__(self, requests_per_second=10, max_retries=3):
         self.rate = requests_per_second
+        self.max_retries = max_retries
         self.tokens = float(requests_per_second)
         self.last_update = time.time()
         self.lock = threading.Lock()
+        self.failure_count = 0
     
     def acquire(self):
         with self.lock:
             now = time.time()
             elapsed = now - self.last_update
+            
+            if self.failure_count > 0:
+                backoff = min(2 ** self.failure_count, 60)
+                time.sleep(backoff)
+                self.failure_count = max(0, self.failure_count - 1)
+            
             self.tokens = min(self.rate, self.tokens + elapsed * self.rate)
             self.last_update = now
             
@@ -192,6 +200,15 @@ class RateLimiter:
             time.sleep(sleep_time)
             self.tokens = 0
             return True
+    
+    def record_failure(self):
+        with self.lock:
+            self.failure_count += 1
+            logger.warning(f"API failure recorded, backoff count: {self.failure_count}")
+    
+    def record_success(self):
+        with self.lock:
+            self.failure_count = max(0, self.failure_count - 1)
 
 espn_limiter = RateLimiter(requests_per_second=5)
 odds_api_limiter = RateLimiter(requests_per_second=2)
@@ -1788,6 +1805,94 @@ class ProfessionalQualifier:
             reasons_fail=reasons_fail,
             recommendation=recommendation
         )
+
+
+def validate_game_data(game) -> dict:
+    """Validate game data quality before qualification."""
+    errors = []
+    warnings = []
+    
+    if game.projected_total:
+        league_ranges = {
+            'NBA': (180, 260), 'CBB': (120, 180), 'NFL': (30, 70),
+            'CFB': (35, 85), 'NHL': (4, 9)
+        }
+        min_total, max_total = league_ranges.get(game.league, (0, 999))
+        if not (min_total <= game.projected_total <= max_total):
+            errors.append(f"Projection {game.projected_total} outside range [{min_total}-{max_total}]")
+    
+    if game.away_ppg and game.away_ppg < 0:
+        errors.append(f"Invalid away_ppg: {game.away_ppg}")
+    if game.home_ppg and game.home_ppg < 0:
+        errors.append(f"Invalid home_ppg: {game.home_ppg}")
+    if game.true_edge and game.true_edge > 20:
+        warnings.append(f"Very large true edge: {game.true_edge}")
+    if game.vig_percentage and game.vig_percentage > 10:
+        warnings.append(f"Very high vig: {game.vig_percentage}%")
+    if game.kelly_fraction and game.kelly_fraction > 0.15:
+        warnings.append(f"Very high Kelly: {game.kelly_fraction*100}%")
+    
+    return {'valid': len(errors) == 0, 'errors': errors, 'warnings': warnings}
+
+
+def log_qualification_decision(game, qual_result: QualificationResult):
+    """Structured logging for qualification decisions."""
+    log_data = {
+        'game': f"{game.away_team} @ {game.home_team}",
+        'league': game.league,
+        'qualified': qual_result.qualified,
+        'confidence': qual_result.confidence,
+        'true_edge': qual_result.true_edge,
+        'ev_pct': qual_result.ev_pct,
+        'kelly_pct': qual_result.bet_size_pct,
+        'recommendation': qual_result.recommendation
+    }
+    
+    if qual_result.qualified:
+        logger.info(f"QUALIFIED: {log_data['game']} - {log_data['confidence']} "
+                   f"(Edge:{log_data['true_edge']}, EV:{log_data['ev_pct']}%)")
+    else:
+        logger.debug(f"REJECTED: {log_data['game']} - {qual_result.reasons_fail[:2]}")
+
+
+def calculate_spread_edge_sharp(projected_margin: float, spread_line: float,
+                                home_odds: int, away_odds: int, 
+                                league: str, is_home_pick: bool) -> EdgeResult:
+    """Calculate TRUE spread edge with vig removal."""
+    fair_spread = VigRemover.calculate_fair_line_totals(spread_line, away_odds, home_odds)
+    vig_data = VigRemover.remove_two_way_vig(away_odds, home_odds)
+    
+    raw_edge = abs(projected_margin - spread_line)
+    true_edge = abs(projected_margin - fair_spread)
+    
+    threshold = {'NBA': 3.0, 'CBB': 4.0, 'NFL': 2.0, 'CFB': 2.5, 'NHL': 0.3}.get(league, 2.0)
+    
+    if is_home_pick:
+        if projected_margin >= fair_spread:
+            direction = 'HOME'
+            qualified = true_edge >= threshold
+        else:
+            direction = None
+            qualified = False
+    else:
+        if projected_margin <= fair_spread:
+            direction = 'AWAY'
+            qualified = true_edge >= threshold
+        else:
+            direction = None
+            qualified = False
+    
+    return EdgeResult(
+        qualified=qualified,
+        direction=direction,
+        true_edge=round(true_edge, 2),
+        raw_edge=round(raw_edge, 2),
+        fair_line=round(fair_spread, 1),
+        posted_line=spread_line,
+        vig_pct=round(vig_data['vig_pct'], 2),
+        market_balance='BALANCED',
+        confidence='HIGH' if true_edge >= threshold * 1.5 else ('STANDARD' if qualified else 'NONE')
+    )
 
 
 class SharpThresholds:
