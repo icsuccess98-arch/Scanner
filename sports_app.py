@@ -432,6 +432,110 @@ injury_cache = TTLCache(maxsize=200, ttl=21600)
 line_movement_cache = TTLCache(maxsize=500, ttl=43200)
 opening_lines_store = TTLCache(maxsize=500, ttl=86400)
 espn_schedule_cache = TTLCache(maxsize=500, ttl=43200)
+weather_cache = TTLCache(maxsize=100, ttl=3600)
+
+# NFL/CFB Indoor stadiums (no weather impact)
+DOME_STADIUMS = {
+    'Cardinals', 'Falcons', 'Texans', 'Colts', 'Cowboys', 'Lions', 
+    'Saints', 'Vikings', 'Raiders', 'Rams', 'Chargers'
+}
+
+def get_weather_for_game(home_team: str, league: str) -> dict:
+    """
+    Get weather data for NFL/CFB outdoor games.
+    Returns None for indoor stadiums.
+    """
+    if league not in ['NFL', 'CFB']:
+        return None
+    
+    # Skip dome teams
+    for dome_team in DOME_STADIUMS:
+        if dome_team.lower() in home_team.lower():
+            return {'indoor': True, 'impact': 0}
+    
+    cache_key = f"{home_team}_{league}_{date.today().isoformat()}"
+    cached = weather_cache.get(cache_key)
+    if cached:
+        return cached
+    
+    # NFL team city mapping for weather lookup
+    NFL_CITIES = {
+        'Bills': 'Buffalo,NY', 'Patriots': 'Foxborough,MA', 'Dolphins': 'Miami,FL',
+        'Jets': 'East Rutherford,NJ', 'Ravens': 'Baltimore,MD', 'Bengals': 'Cincinnati,OH',
+        'Browns': 'Cleveland,OH', 'Steelers': 'Pittsburgh,PA', 'Titans': 'Nashville,TN',
+        'Jaguars': 'Jacksonville,FL', 'Broncos': 'Denver,CO', 'Chiefs': 'Kansas City,MO',
+        'Packers': 'Green Bay,WI', 'Bears': 'Chicago,IL', 'Seahawks': 'Seattle,WA',
+        '49ers': 'Santa Clara,CA', 'Giants': 'East Rutherford,NJ', 'Eagles': 'Philadelphia,PA',
+        'Commanders': 'Landover,MD', 'Panthers': 'Charlotte,NC', 'Buccaneers': 'Tampa,FL'
+    }
+    
+    city = None
+    for team_name, team_city in NFL_CITIES.items():
+        if team_name.lower() in home_team.lower():
+            city = team_city
+            break
+    
+    if not city:
+        return {'indoor': False, 'impact': 0, 'data_available': False}
+    
+    try:
+        api_key = os.environ.get('OPENWEATHER_API_KEY')
+        if not api_key:
+            return {'indoor': False, 'impact': 0, 'no_api_key': True}
+        
+        url = f"https://api.openweathermap.org/data/2.5/weather?q={city},US&appid={api_key}&units=imperial"
+        resp = requests.get(url, timeout=10)
+        if resp.status_code != 200:
+            return {'indoor': False, 'impact': 0, 'api_error': True}
+        
+        data = resp.json()
+        temp = data.get('main', {}).get('temp', 60)
+        wind_speed = data.get('wind', {}).get('speed', 0)
+        weather_main = data.get('weather', [{}])[0].get('main', '')
+        
+        # Calculate weather impact on totals (negative = UNDER bias)
+        impact = 0
+        weather_warning = []
+        
+        if wind_speed >= 25:
+            impact -= 5.0
+            weather_warning.append(f"Extreme wind ({wind_speed:.0f} mph)")
+        elif wind_speed >= 15:
+            impact -= 2.5
+            weather_warning.append(f"High wind ({wind_speed:.0f} mph)")
+        
+        if temp <= 20:
+            impact -= 3.0
+            weather_warning.append(f"Extreme cold ({temp:.0f}°F)")
+        elif temp <= 35:
+            impact -= 1.5
+            weather_warning.append(f"Cold weather ({temp:.0f}°F)")
+        
+        if weather_main in ['Rain', 'Snow', 'Thunderstorm']:
+            impact -= 3.0
+            weather_warning.append(weather_main)
+        elif weather_main in ['Drizzle', 'Mist']:
+            impact -= 1.0
+            weather_warning.append(weather_main)
+        
+        result = {
+            'indoor': False,
+            'temp': temp,
+            'wind_speed': wind_speed,
+            'conditions': weather_main,
+            'impact': impact,
+            'warnings': weather_warning,
+            'disqualify_total': abs(impact) >= 5.0
+        }
+        
+        weather_cache.set(cache_key, result)
+        if impact != 0:
+            logger.info(f"Weather impact for {home_team}: {impact:.1f} pts ({', '.join(weather_warning)})")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Weather API error for {home_team}: {e}")
+        return {'indoor': False, 'impact': 0, 'error': str(e)}
 
 import threading
 
@@ -8283,6 +8387,150 @@ def api_history_data():
         'pushes': pushes,
         'picks': picks_data
     })
+
+@app.route('/api/win_rate_analytics')
+def win_rate_analytics():
+    """
+    Comprehensive win rate analytics by league, confidence tier, day of week, 
+    time window, and data source.
+    """
+    picks = Pick.query.filter(Pick.result.in_(['W', 'L', 'P'])).all()
+    
+    if not picks:
+        return jsonify({'success': True, 'message': 'No completed picks yet', 'analytics': {}})
+    
+    # Initialize analytics structure
+    analytics = {
+        'overall': {'wins': 0, 'losses': 0, 'pushes': 0, 'win_rate': 0, 'total': 0},
+        'by_league': {},
+        'by_confidence_tier': {'SUPERMAX': {'wins': 0, 'losses': 0}, 'HIGH': {'wins': 0, 'losses': 0}, 
+                               'MEDIUM': {'wins': 0, 'losses': 0}, 'LOW': {'wins': 0, 'losses': 0}},
+        'by_day_of_week': {day: {'wins': 0, 'losses': 0} for day in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']},
+        'by_pick_type': {'total': {'wins': 0, 'losses': 0}, 'spread': {'wins': 0, 'losses': 0}},
+        'by_time_window': {'EARLY': {'wins': 0, 'losses': 0}, 'MID': {'wins': 0, 'losses': 0}, 'LATE': {'wins': 0, 'losses': 0}},
+        'by_injury_source': {'rotowire': {'wins': 0, 'losses': 0}, 'espn': {'wins': 0, 'losses': 0}, 'none': {'wins': 0, 'losses': 0}},
+        'recent_streak': [],
+        'best_edge_threshold': None
+    }
+    
+    for league in ['NBA', 'CBB', 'NFL', 'CFB', 'NHL']:
+        analytics['by_league'][league] = {'wins': 0, 'losses': 0, 'pushes': 0}
+    
+    # Day name mapping
+    day_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    
+    for pick in picks:
+        result = pick.result
+        league = pick.league or 'Unknown'
+        pick_type = pick.pick_type or 'total'
+        injury_source = pick.injury_source or 'none'
+        
+        # Overall
+        if result == 'W':
+            analytics['overall']['wins'] += 1
+        elif result == 'L':
+            analytics['overall']['losses'] += 1
+        else:
+            analytics['overall']['pushes'] += 1
+        analytics['overall']['total'] += 1
+        
+        # By league
+        if league in analytics['by_league']:
+            if result == 'W':
+                analytics['by_league'][league]['wins'] += 1
+            elif result == 'L':
+                analytics['by_league'][league]['losses'] += 1
+            else:
+                analytics['by_league'][league]['pushes'] += 1
+        
+        # By pick type
+        ptype = 'spread' if pick_type == 'spread' else 'total'
+        if result == 'W':
+            analytics['by_pick_type'][ptype]['wins'] += 1
+        elif result == 'L':
+            analytics['by_pick_type'][ptype]['losses'] += 1
+        
+        # By day of week
+        if pick.date:
+            day_idx = pick.date.weekday()
+            day_name = day_names[day_idx]
+            if result == 'W':
+                analytics['by_day_of_week'][day_name]['wins'] += 1
+            elif result == 'L':
+                analytics['by_day_of_week'][day_name]['losses'] += 1
+        
+        # By time window
+        window = pick.game_window or 'MID'
+        if window in analytics['by_time_window']:
+            if result == 'W':
+                analytics['by_time_window'][window]['wins'] += 1
+            elif result == 'L':
+                analytics['by_time_window'][window]['losses'] += 1
+        
+        # By confidence tier (estimate based on edge)
+        edge = pick.edge or 0
+        if edge >= 12:
+            tier = 'SUPERMAX'
+        elif edge >= 10:
+            tier = 'HIGH'
+        elif edge >= 8:
+            tier = 'MEDIUM'
+        else:
+            tier = 'LOW'
+        if result == 'W':
+            analytics['by_confidence_tier'][tier]['wins'] += 1
+        elif result == 'L':
+            analytics['by_confidence_tier'][tier]['losses'] += 1
+        
+        # By injury source
+        if injury_source in analytics['by_injury_source']:
+            if result == 'W':
+                analytics['by_injury_source'][injury_source]['wins'] += 1
+            elif result == 'L':
+                analytics['by_injury_source'][injury_source]['losses'] += 1
+    
+    # Calculate win rates
+    def calc_win_rate(wins, losses):
+        total = wins + losses
+        return round(wins / total * 100, 1) if total > 0 else 0
+    
+    analytics['overall']['win_rate'] = calc_win_rate(analytics['overall']['wins'], analytics['overall']['losses'])
+    
+    for league in analytics['by_league']:
+        d = analytics['by_league'][league]
+        d['win_rate'] = calc_win_rate(d['wins'], d['losses'])
+        d['total'] = d['wins'] + d['losses'] + d['pushes']
+    
+    for tier in analytics['by_confidence_tier']:
+        d = analytics['by_confidence_tier'][tier]
+        d['win_rate'] = calc_win_rate(d['wins'], d['losses'])
+        d['total'] = d['wins'] + d['losses']
+    
+    for day in analytics['by_day_of_week']:
+        d = analytics['by_day_of_week'][day]
+        d['win_rate'] = calc_win_rate(d['wins'], d['losses'])
+        d['total'] = d['wins'] + d['losses']
+    
+    for ptype in analytics['by_pick_type']:
+        d = analytics['by_pick_type'][ptype]
+        d['win_rate'] = calc_win_rate(d['wins'], d['losses'])
+        d['total'] = d['wins'] + d['losses']
+    
+    for window in analytics['by_time_window']:
+        d = analytics['by_time_window'][window]
+        d['win_rate'] = calc_win_rate(d['wins'], d['losses'])
+        d['total'] = d['wins'] + d['losses']
+    
+    for source in analytics['by_injury_source']:
+        d = analytics['by_injury_source'][source]
+        d['win_rate'] = calc_win_rate(d['wins'], d['losses'])
+        d['total'] = d['wins'] + d['losses']
+    
+    # Recent streak (last 20 picks)
+    recent = Pick.query.filter(Pick.result.in_(['W', 'L'])).order_by(Pick.date.desc()).limit(20).all()
+    analytics['recent_streak'] = [p.result for p in recent]
+    
+    return jsonify({'success': True, 'analytics': analytics})
 
 @app.route('/history')
 def history():
