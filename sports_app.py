@@ -4067,7 +4067,7 @@ def fetch_espn_scoreboard(league: str, date_str: str, timeout: int = 15) -> dict
     return fetch_url(url, timeout)
 
 espn_teams_cache: dict = {}  # league -> {team_name: team_id}
-espn_schedule_cache: dict = {}  # "YYYY-MM-DD:league:team_name" -> games list (date-keyed for daily refresh)
+espn_team_schedule_cache: dict = {}  # "YYYY-MM-DD:league:team_name" -> games list (date-keyed for daily refresh)
 
 def get_espn_team_id(team_name: str, league: str) -> Optional[str]:
     """Get ESPN team ID from team name using search endpoint with caching."""
@@ -4268,8 +4268,8 @@ def fetch_team_last_10_games(team_name: str, league: str) -> list:
     et = pytz.timezone('America/New_York')
     today_str = datetime.now(et).strftime("%Y-%m-%d")
     cache_key = f"{today_str}:{league}:{team_name.lower()}"
-    if cache_key in espn_schedule_cache:
-        return espn_schedule_cache[cache_key]
+    if cache_key in espn_team_schedule_cache:
+        return espn_team_schedule_cache[cache_key]
     
     try:
         sport_map = {
@@ -4340,7 +4340,7 @@ def fetch_team_last_10_games(team_name: str, league: str) -> list:
             })
         
         result = completed_games[-10:] if len(completed_games) >= 10 else completed_games
-        espn_schedule_cache[cache_key] = result
+        espn_team_schedule_cache[cache_key] = result
         return result
     except Exception as e:
         logger.error(f"Error fetching history for {team_name}: {e}")
@@ -4506,8 +4506,8 @@ def fetch_h2h_history(team1: str, team2: str, league: str, direction: str = "O")
     today_str = datetime.now(et).strftime("%Y-%m-%d")
     cache_key = f"h2h:{today_str}:{league}:{team1.lower()}:{team2.lower()}"
     
-    if cache_key in espn_schedule_cache:
-        cached = espn_schedule_cache[cache_key]
+    if cache_key in espn_team_schedule_cache:
+        cached = espn_team_schedule_cache[cache_key]
         if cached["games_found"] >= 3:
             return cached
         return cached
@@ -4586,7 +4586,7 @@ def fetch_h2h_history(team1: str, team2: str, league: str, direction: str = "O")
         
         if len(h2h_games) < 3:
             result = {"ou_pct": 0, "games_found": len(h2h_games), "games": h2h_games}
-            espn_schedule_cache[cache_key] = result
+            espn_team_schedule_cache[cache_key] = result
             return result
         
         totals = [g["total"] for g in h2h_games]
@@ -4602,7 +4602,7 @@ def fetch_h2h_history(team1: str, team2: str, league: str, direction: str = "O")
         ou_pct = (hits / len(h2h_games)) * 100
         
         result = {"ou_pct": ou_pct, "games_found": len(h2h_games), "games": h2h_games}
-        espn_schedule_cache[cache_key] = result
+        espn_team_schedule_cache[cache_key] = result
         
         logger.info(f"H2H {team1} vs {team2}: {len(h2h_games)} games, {ou_pct:.1f}% O/U rate")
         return result
@@ -4621,8 +4621,8 @@ def fetch_first_half_history(team: str, league: str, limit: int = 20) -> dict:
     today_str = datetime.now(et).strftime("%Y-%m-%d")
     cache_key = f"1h_history:{today_str}:{league}:{team.lower()}"
     
-    if cache_key in espn_schedule_cache:
-        return espn_schedule_cache[cache_key]
+    if cache_key in espn_team_schedule_cache:
+        return espn_team_schedule_cache[cache_key]
     
     try:
         sport_map = {
@@ -4714,7 +4714,7 @@ def fetch_first_half_history(team: str, league: str, limit: int = 20) -> dict:
         
         if len(first_half_games) < 5:
             result = {"win_pct": 0, "games_found": len(first_half_games), "games": first_half_games}
-            espn_schedule_cache[cache_key] = result
+            espn_team_schedule_cache[cache_key] = result
             return result
         
         wins = sum(1 for g in first_half_games if g["won_1h"])
@@ -4731,7 +4731,7 @@ def fetch_first_half_history(team: str, league: str, limit: int = 20) -> dict:
             "away_games": len(away_games),
             "games": first_half_games
         }
-        espn_schedule_cache[cache_key] = result
+        espn_team_schedule_cache[cache_key] = result
         
         logger.info(f"1H History {team}: {len(first_half_games)} games, {win_pct:.1f}% 1H win, {away_win_pct:.1f}% away 1H win")
         return result
@@ -4749,8 +4749,8 @@ def fetch_first_half_h2h(away_team: str, home_team: str, league: str, limit: int
     today_str = datetime.now(et).strftime("%Y-%m-%d")
     cache_key = f"1h_h2h:{today_str}:{league}:{away_team.lower()}:{home_team.lower()}"
     
-    if cache_key in espn_schedule_cache:
-        return espn_schedule_cache[cache_key]
+    if cache_key in espn_team_schedule_cache:
+        return espn_team_schedule_cache[cache_key]
     
     try:
         sport_map = {
@@ -4850,7 +4850,7 @@ def fetch_first_half_h2h(away_team: str, home_team: str, league: str, limit: int
         
         if len(h2h_games) < 3:
             result = {"away_win_pct": 0, "games_found": len(h2h_games), "games": h2h_games}
-            espn_schedule_cache[cache_key] = result
+            espn_team_schedule_cache[cache_key] = result
             return result
         
         away_wins = sum(1 for g in h2h_games if g["away_won_1h"])
@@ -4861,7 +4861,7 @@ def fetch_first_half_h2h(away_team: str, home_team: str, league: str, limit: int
             "games_found": len(h2h_games),
             "games": h2h_games
         }
-        espn_schedule_cache[cache_key] = result
+        espn_team_schedule_cache[cache_key] = result
         
         logger.info(f"1H H2H {away_team} vs {home_team}: {len(h2h_games)} games, {away_win_pct:.1f}% away 1H win")
         return result
