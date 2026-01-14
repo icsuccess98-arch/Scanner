@@ -9,6 +9,7 @@ from enum import Enum
 from flask import Flask, render_template, request, jsonify, redirect, url_for, make_response
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase, validates
+from sqlalchemy import delete
 import requests
 import pytz
 
@@ -3714,7 +3715,8 @@ def dashboard():
     old_game_ids = [g.id for g in Game.query.filter(Game.date < today).all()]
     if old_game_ids:
         Pick.query.filter(Pick.game_id.in_(old_game_ids)).update({Pick.game_id: None}, synchronize_session=False)
-        Game.query.filter(Game.id.in_(old_game_ids)).delete(synchronize_session=False)
+        stmt = delete(Game).where(Game.id.in_(old_game_ids))
+        db.session.execute(stmt)
         db.session.commit()
     
     all_games_db = Game.query.filter_by(date=today).order_by(Game.edge.desc()).all()
@@ -5684,7 +5686,8 @@ def safe_delete_games(game_ids: list):
     """Safely delete games by first nullifying pick references."""
     if game_ids:
         Pick.query.filter(Pick.game_id.in_(game_ids)).update({Pick.game_id: None}, synchronize_session=False)
-        Game.query.filter(Game.id.in_(game_ids)).delete(synchronize_session=False)
+        stmt = delete(Game).where(Game.id.in_(game_ids))
+        db.session.execute(stmt)
 
 @app.route('/clear_games', methods=['POST'])
 def clear_games():
