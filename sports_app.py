@@ -6065,27 +6065,30 @@ def dashboard():
     # This allows high history % to outweigh lower edges (85%+9 > 67%+11)
     # Model 3: Away Favorite + O/U gets +2 bonus when away team is favorite AND O/U qualifies with 70%+ history
     
-    # Confidence tier thresholds (matching SharpPickQualifier)
-    # SUPERMAX requires: Edge 12+, EV 3%+, History 70%+
-    # HIGH requires: Edge 10+, EV 1.5%+, History 65%+
-    # MEDIUM requires: Edge 8+, EV 0.5%+, History 60%+
-    # Note: history_pct can be either decimal (0.72) or percentage (72) - normalize first
+    # Confidence tier thresholds (BALANCED - allows slight negative EV with strong edge/history)
+    # SUPERMAX: Edge 12+, EV 3%+, History 70%+ (unchanged - elite picks)
+    # HIGH: Edge 10+, EV 1%+, History 65%+ (relaxed from 1.5%)
+    # MEDIUM: Edge 8+, EV -1%+, History 60%+ (KEY CHANGE: allows -1% EV)
+    # LOW: Edge 6+, EV -2%+, History 55%+ (NEW: adds EV floor)
     def calculate_confidence_tier(edge: float, ev: float, history_pct: float) -> str:
-        """Calculate confidence tier based on edge, EV, and history."""
+        """Calculate confidence tier based on edge, EV, and history.
+        
+        Balanced approach: Strong edge + history can overcome slight negative EV.
+        Pinnacle odds aren't perfect - our model might still be right.
+        """
         ev = ev if ev is not None else 0
         # Normalize history to percentage (0-100 scale)
-        # If history < 1, it's a decimal (0.72); if >= 1, it's already a percentage (72)
         if history_pct is not None and history_pct < 1:
             history_pct = history_pct * 100
         history_pct = history_pct or 0
         
         if edge >= 12.0 and ev >= 3.0 and history_pct >= 70:
             return 'SUPERMAX'
-        elif edge >= 10.0 and ev >= 1.5 and history_pct >= 65:
+        elif edge >= 10.0 and ev >= 1.0 and history_pct >= 65:
             return 'HIGH'
-        elif edge >= 8.0 and ev >= 0.5 and history_pct >= 60:
+        elif edge >= 8.0 and ev >= -1.0 and history_pct >= 60:
             return 'MEDIUM'
-        elif edge >= 6.0 and history_pct >= 55:
+        elif edge >= 6.0 and ev >= -2.0 and history_pct >= 55:
             return 'LOW'
         return 'NONE'
     
@@ -6200,12 +6203,24 @@ def dashboard():
     qualified_combined = [p for p in combined_picks if p['confidence_tier'] != 'NONE']
     analytics['top_picks'] = qualified_combined[:5]
     
-    # Log any rejected picks for debugging
+    # Log any rejected picks with detailed reasons
     rejected = [p for p in combined_picks[:10] if p['confidence_tier'] == 'NONE']
     if rejected:
-        logger.warning(f"Filtered {len(rejected)} picks from TOP 5 due to NONE tier (low/negative EV)")
+        logger.warning(f"Filtered {len(rejected)} picks from TOP 5 due to NONE tier")
         for r in rejected:
-            logger.debug(f"  Rejected: {r['game'].away_team} @ {r['game'].home_team} - EV: {r['ev']}, Edge: {r['edge']:.1f}")
+            g = r['game']
+            edge = r['edge']
+            ev = r['ev'] or 0
+            history = r['history_pct']
+            reasons = []
+            if edge < 6.0:
+                reasons.append(f"edge too low ({edge:.1f} < 6.0)")
+            if ev < -2.0:
+                reasons.append(f"EV too negative ({ev:.1f}% < -2.0%)")
+            if history < 55:
+                reasons.append(f"history too weak ({history:.0f}% < 55%)")
+            reason_str = ", ".join(reasons) if reasons else "unknown"
+            logger.warning(f"  Rejected {g.away_team} @ {g.home_team}: {reason_str} | Edge: {edge:.1f}, EV: {ev:.1f}%, History: {history:.0f}%")
     
     # Auto-save ONLY the supermax (Lock of the Day) to history
     # Only save if it's a properly qualified pick (not NONE tier)
