@@ -4593,7 +4593,7 @@ def fetch_odds_for_league(league: str, sport_key: str, api_key: str) -> tuple:
         return (league, sport_key, [])
 
 def fetch_odds_internal() -> dict:
-    """Internal function to fetch odds from Bovada via The Odds API - PARALLEL."""
+    """Internal function to fetch odds from Bovada via The Odds API - PARALLEL + ATOMIC."""
     start_time = time.time()
     api_key = os.environ.get("ODDS_API_KEY")
     if not api_key:
@@ -4613,7 +4613,7 @@ def fetch_odds_internal() -> dict:
     lines_updated = 0
     spreads_updated = 0
     
-    # Fetch all odds in parallel FIRST
+    # STEP 1: Fetch ALL odds in parallel FIRST (no DB changes yet)
     all_odds = {}
     with ThreadPoolExecutor(max_workers=5) as executor:
         futures = {executor.submit(fetch_odds_for_league, league, sport_key, api_key): league 
@@ -4625,11 +4625,19 @@ def fetch_odds_internal() -> dict:
             except:
                 pass
     
-    # TRANSACTIONAL SAFETY: Only clear lines if we got odds data
+    # STEP 2: Validate we got data before touching DB
     total_events = sum(len(d.get("events", [])) for d in all_odds.values())
-    if total_events > 0:
-        games_to_clear = Game.query.filter_by(date=today).all()
-        for g in games_to_clear:
+    if total_events == 0:
+        logger.warning("No odds fetched from API - keeping existing lines")
+        return {"success": False, "lines_updated": 0, "spreads_updated": 0, "alt_lines_found": 0, "reason": "no_odds_fetched"}
+    
+    # STEP 3: ATOMIC UPDATE - Clear and update within single transaction
+    try:
+        # Lock games for update to prevent concurrent modifications
+        games_to_update = Game.query.filter_by(date=today).with_for_update().all()
+        
+        # Clear all lines first (within same transaction)
+        for g in games_to_update:
             g.line = None
             g.spread_line = None
             g.is_qualified = False
@@ -4642,11 +4650,9 @@ def fetch_odds_internal() -> dict:
             g.pinnacle_spread_odds = None
             g.total_ev = None
             g.spread_ev = None
-    else:
-        logger.warning("No odds fetched from API - keeping existing lines")
-        return {"success": False, "lines_updated": 0, "spreads_updated": 0, "alt_lines_found": 0, "reason": "no_odds_fetched"}
-    
-    for league, data in all_odds.items():
+        
+        # Apply new odds data (still within same transaction)
+        for league, data in all_odds.items():
         sport_key = data["sport_key"]
         events = data["events"]
         

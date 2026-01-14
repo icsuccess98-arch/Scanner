@@ -1,0 +1,67 @@
+# CURRENT: Simple vig adjustment
+adjusted_edge = raw_edge * vig_multiplier
+
+# IMPROVED: Kelly Criterion + Confidence Intervals
+class AdvancedEdgeCalculator:
+    """Statistical edge calculation with confidence intervals."""
+    
+    @staticmethod
+    def calculate_true_edge(projected_prob, market_prob, sample_size, confidence=0.95):
+        """
+        Calculate edge with statistical confidence.
+        
+        Args:
+            projected_prob: Model's win probability
+            market_prob: Market implied probability (vig-removed)
+            sample_size: Historical games used
+            confidence: Confidence level (default 95%)
+        
+        Returns:
+            dict with edge, confidence_interval, kelly_fraction
+        """
+        import scipy.stats as stats
+        
+        # Standard error of proportion
+        std_error = (projected_prob * (1 - projected_prob) / sample_size) ** 0.5
+        
+        # Confidence interval
+        z_score = stats.norm.ppf((1 + confidence) / 2)
+        margin_of_error = z_score * std_error
+        
+        ci_lower = projected_prob - margin_of_error
+        ci_upper = projected_prob + margin_of_error
+        
+        # Edge calculation
+        edge = projected_prob - market_prob
+        edge_lower = ci_lower - market_prob
+        edge_upper = ci_upper - market_prob
+        
+        # Kelly fraction (conservative)
+        if market_prob < 1:
+            kelly_full = edge / (1 - market_prob)
+            kelly_quarter = kelly_full * 0.25  # Conservative bet sizing
+        else:
+            kelly_quarter = 0
+        
+        return {
+            'edge': edge * 100,
+            'edge_ci_lower': edge_lower * 100,
+            'edge_ci_upper': edge_upper * 100,
+            'confidence_interval': (ci_lower * 100, ci_upper * 100),
+            'kelly_fraction': kelly_quarter,
+            'sample_size': sample_size,
+            'is_significant': ci_lower > market_prob  # Conservative
+        }
+
+# Usage:
+edge_data = AdvancedEdgeCalculator.calculate_true_edge(
+    projected_prob=0.65,  # Model says 65% chance
+    market_prob=0.52,     # Market implies 52% (vig-removed)
+    sample_size=10,       # Based on 10 games
+    confidence=0.95
+)
+
+# Only bet if edge is statistically significant
+if edge_data['is_significant'] and edge_data['edge'] >= threshold:
+    # Qualified pick
+    pass
