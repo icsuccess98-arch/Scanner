@@ -75,9 +75,42 @@ THRESHOLDS = {
     "NHL": 0.5
 }
 
-injury_cache = {}
-line_movement_cache = {}
-opening_lines_store = {}
+class TTLCache:
+    """Time-based cache with max size to prevent memory leaks."""
+    def __init__(self, maxsize=1000, ttl=3600):
+        from collections import OrderedDict
+        self.cache = OrderedDict()
+        self.maxsize = maxsize
+        self.ttl = ttl
+    
+    def get(self, key):
+        if key in self.cache:
+            value, timestamp = self.cache[key]
+            if time.time() - timestamp < self.ttl:
+                return value
+            del self.cache[key]
+        return None
+    
+    def set(self, key, value):
+        if len(self.cache) >= self.maxsize:
+            self.cache.popitem(last=False)
+        self.cache[key] = (value, time.time())
+    
+    def __contains__(self, key):
+        return self.get(key) is not None
+    
+    def __getitem__(self, key):
+        return self.get(key)
+    
+    def __setitem__(self, key, value):
+        self.set(key, value)
+    
+    def clear(self):
+        self.cache.clear()
+
+injury_cache = TTLCache(maxsize=200, ttl=21600)
+line_movement_cache = TTLCache(maxsize=500, ttl=43200)
+opening_lines_store = TTLCache(maxsize=500, ttl=86400)
 
 class VigCalculator:
     """Handles all vig removal calculations for true edge computation"""
@@ -171,7 +204,7 @@ LEAGUE_HISTORICAL_CONFIG = {
     'NHL': {'games_count': 10, 'min_games': 8, 'ats_threshold': 0.60, 'over_threshold': 0.60, 'under_threshold': 0.40}
 }
 
-historical_lines_cache = {}
+historical_lines_cache = TTLCache(maxsize=500, ttl=43200)
 
 class BulletproofCurrentLineCalculator:
     """
@@ -776,7 +809,7 @@ def post_to_discord_with_retry(webhook_url: str, payload: dict, max_retries: int
     logger.error(f"Discord post failed after {max_retries} attempts")
     return (False, 0, "Max retries exceeded")
 
-league_injury_cache = {}
+league_injury_cache = TTLCache(maxsize=50, ttl=21600)
 
 def fetch_team_injuries(team_name: str, league: str) -> dict:
     """
@@ -4275,24 +4308,15 @@ def find_team_stats(name, stats_dict):
                 return val
     return None
 
-_team_stats_cache = {}
-_team_stats_cache_time = 0
-TEAM_STATS_CACHE_TTL = 3600
+_team_stats_cache = TTLCache(maxsize=500, ttl=3600)
 
 def get_cached_team_stats(team_id, sport):
-    global _team_stats_cache, _team_stats_cache_time
-    now = time.time()
-    if now - _team_stats_cache_time > TEAM_STATS_CACHE_TTL:
-        _team_stats_cache = {}
-        _team_stats_cache_time = now
     cache_key = f"{sport}_{team_id}"
-    if cache_key in _team_stats_cache:
-        return _team_stats_cache[cache_key]
-    return None
+    return _team_stats_cache.get(cache_key)
 
 def set_cached_team_stats(team_id, sport, ppg, opp_ppg):
     cache_key = f"{sport}_{team_id}"
-    _team_stats_cache[cache_key] = (ppg, opp_ppg)
+    _team_stats_cache.set(cache_key, (ppg, opp_ppg))
 
 def fetch_cbb_team_stats(team_id):
     cached = get_cached_team_stats(team_id, "cbb")
