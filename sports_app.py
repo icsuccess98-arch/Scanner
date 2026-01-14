@@ -8422,8 +8422,8 @@ def win_rate_analytics():
     for pick in picks:
         result = pick.result
         league = pick.league or 'Unknown'
-        pick_type = pick.pick_type or 'total'
-        injury_source = pick.injury_source or 'none'
+        pick_type = getattr(pick, 'pick_type', None) or 'total'
+        injury_source = getattr(pick, 'injury_source', None) or 'none'
         
         # Overall
         if result == 'W':
@@ -8460,7 +8460,7 @@ def win_rate_analytics():
                 analytics['by_day_of_week'][day_name]['losses'] += 1
         
         # By time window
-        window = pick.game_window or 'MID'
+        window = getattr(pick, 'game_window', None) or 'MID'
         if window in analytics['by_time_window']:
             if result == 'W':
                 analytics['by_time_window'][window]['wins'] += 1
