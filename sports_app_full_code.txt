@@ -393,6 +393,71 @@ class TeamNameMatcher:
 
 team_matcher = TeamNameMatcher()
 
+from collections import defaultdict
+
+class LineMovementTracker:
+    """Track complete line movement history for CLV calculation."""
+    
+    def __init__(self):
+        self.movements = defaultdict(list)
+    
+    def record_line(self, event_id: str, line: float, timestamp=None, source: str = 'bovada'):
+        """Record line observation."""
+        if timestamp is None:
+            timestamp = datetime.now(pytz.timezone('America/New_York'))
+        self.movements[event_id].append({
+            'line': line,
+            'timestamp': timestamp,
+            'source': source
+        })
+    
+    def get_opening_line(self, event_id: str) -> Optional[float]:
+        """Get first recorded line for event."""
+        movements = self.movements.get(event_id, [])
+        return movements[0]['line'] if movements else None
+    
+    def get_closing_line(self, event_id: str) -> Optional[float]:
+        """Get last recorded line for event."""
+        movements = self.movements.get(event_id, [])
+        return movements[-1]['line'] if movements else None
+    
+    def get_clv(self, event_id: str, bet_line: float) -> Optional[dict]:
+        """
+        Calculate CLV - how much value captured vs closing line.
+        Positive CLV = bet better line than close
+        """
+        movements = self.movements.get(event_id, [])
+        if not movements:
+            return None
+        
+        opening_line = movements[0]['line']
+        closing_line = movements[-1]['line']
+        
+        clv = closing_line - bet_line
+        movement = closing_line - opening_line
+        
+        return {
+            'clv': clv,
+            'bet_line': bet_line,
+            'opening_line': opening_line,
+            'closing_line': closing_line,
+            'movement': movement,
+            'beat_close': clv > 0
+        }
+    
+    def clear_old_events(self, max_age_hours: int = 24):
+        """Clear events older than max_age_hours."""
+        et = pytz.timezone('America/New_York')
+        cutoff = datetime.now(et) - timedelta(hours=max_age_hours)
+        keys_to_remove = []
+        for event_id, movements in self.movements.items():
+            if movements and movements[-1]['timestamp'] < cutoff:
+                keys_to_remove.append(event_id)
+        for key in keys_to_remove:
+            del self.movements[key]
+
+line_tracker = LineMovementTracker()
+
 SCOREBOARD_URLS = {
     'NBA': "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={}",
     'CBB': "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates={}",
@@ -2185,6 +2250,9 @@ class Game(db.Model):
         db.Index('idx_date_league', 'date', 'league'),
         db.Index('idx_qualified', 'is_qualified'),
         db.Index('idx_spread_qualified', 'spread_is_qualified'),
+        db.Index('idx_date_qualified', 'date', 'is_qualified'),
+        db.Index('idx_event_id', 'event_id'),
+        db.Index('idx_composite_search', 'date', 'league', 'away_team', 'home_team'),
     )
     
     @validates('edge')
@@ -2210,11 +2278,17 @@ class Pick(db.Model):
     pick_type = db.Column(db.String(10), default="total")
     line_value = db.Column(db.Float)
     game_start = db.Column(db.DateTime)  # When the game starts
+    opening_line = db.Column(db.Float)  # Line when pick was made
+    closing_line = db.Column(db.Float)  # Final line before game
+    clv = db.Column(db.Float)  # Closing Line Value
+    line_moved_favor = db.Column(db.Boolean)  # Did line move in our favor?
     
     __table_args__ = (
         db.Index('idx_pick_result', 'result'),
         db.Index('idx_pick_date_league', 'date', 'league'),
         db.Index('idx_pick_type', 'pick_type'),
+        db.Index('idx_date_result', 'date', 'result'),
+        db.Index('idx_is_lock_date', 'is_lock', 'date'),
     )
 
 def parse_game_time_hour(game_time_str: str) -> Optional[int]:
