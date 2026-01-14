@@ -7,8 +7,12 @@ from dataclasses import dataclass
 from functools import wraps
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from enum import Enum
+import threading
+from math import radians, sin, cos, sqrt, atan2
 from flask import Flask, render_template, request, jsonify, redirect, url_for, make_response
 from flask_sqlalchemy import SQLAlchemy
+from flask_compress import Compress
+from cachetools import TTLCache
 from sqlalchemy.orm import DeclarativeBase, validates
 from sqlalchemy import delete
 import requests
@@ -70,9 +74,116 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
 }
 db.init_app(app)
 
+compress = Compress()
+compress.init_app(app)
+logger.info("Response compression enabled")
+
 last_game_count = {}
 
 _live_scores_cache = {"data": {}, "timestamp": 0}
+
+DASHBOARD_CACHE_TTL = 30
+TEAM_STATS_CACHE_TTL = 86400
+HISTORICAL_CACHE_TTL = 21600
+
+_dashboard_cache = {"data": None, "timestamp": 0, "lock": threading.Lock()}
+_team_stats_cache = TTLCache(maxsize=200, ttl=TEAM_STATS_CACHE_TTL)
+_historical_cache = TTLCache(maxsize=500, ttl=HISTORICAL_CACHE_TTL)
+_performance_metrics = {}
+
+def get_cached_dashboard():
+    """Get cached dashboard data if still fresh."""
+    with _dashboard_cache["lock"]:
+        if time.time() - _dashboard_cache["timestamp"] < DASHBOARD_CACHE_TTL:
+            return _dashboard_cache["data"]
+    return None
+
+def set_dashboard_cache(data):
+    """Cache dashboard data for fast subsequent loads."""
+    with _dashboard_cache["lock"]:
+        _dashboard_cache["data"] = data
+        _dashboard_cache["timestamp"] = time.time()
+
+def clear_dashboard_cache():
+    """Clear dashboard cache (call after fetch_odds)."""
+    with _dashboard_cache["lock"]:
+        _dashboard_cache["timestamp"] = 0
+    logger.info("Dashboard cache cleared")
+
+def track_performance(operation: str, duration: float):
+    """Track operation performance for monitoring."""
+    if operation not in _performance_metrics:
+        _performance_metrics[operation] = []
+    _performance_metrics[operation].append({
+        'duration': duration,
+        'timestamp': time.time()
+    })
+    if len(_performance_metrics[operation]) > 100:
+        _performance_metrics[operation] = _performance_metrics[operation][-100:]
+
+CITY_COORDS = {
+    'Atlanta': (33.7490, -84.3880), 'Boston': (42.3601, -71.0589),
+    'Brooklyn': (40.6782, -73.9442), 'Charlotte': (35.2271, -80.8431),
+    'Chicago': (41.8781, -87.6298), 'Cleveland': (41.4993, -81.6944),
+    'Dallas': (32.7767, -96.7970), 'Denver': (39.7392, -104.9903),
+    'Detroit': (42.3314, -83.0458), 'Golden State': (37.7749, -122.4194),
+    'Houston': (29.7604, -95.3698), 'Los Angeles': (34.0522, -118.2437),
+    'Memphis': (35.1495, -90.0490), 'Miami': (25.7617, -80.1918),
+    'Milwaukee': (43.0389, -87.9065), 'Minnesota': (44.9778, -93.2650),
+    'New Orleans': (29.9511, -90.0715), 'New York': (40.7128, -74.0060),
+    'Oklahoma City': (35.4676, -97.5164), 'Orlando': (28.5383, -81.3792),
+    'Philadelphia': (39.9526, -75.1652), 'Phoenix': (33.4484, -112.0740),
+    'Portland': (45.5152, -122.6784), 'Sacramento': (38.5816, -121.4944),
+    'San Antonio': (29.4241, -98.4936), 'Toronto': (43.6532, -79.3832),
+    'Utah': (40.7608, -111.8910), 'Washington': (38.9072, -77.0369),
+}
+
+def calculate_travel_distance(team1: str, team2: str) -> float:
+    """Calculate great circle distance between two cities in miles."""
+    def get_city(team_name):
+        for city in CITY_COORDS.keys():
+            if city.lower() in team_name.lower():
+                return city
+        return None
+    
+    city1 = get_city(team1)
+    city2 = get_city(team2)
+    
+    if not city1 or not city2:
+        return 0.0
+    
+    lat1, lon1 = CITY_COORDS[city1]
+    lat2, lon2 = CITY_COORDS[city2]
+    
+    R = 3959
+    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+    c = 2 * atan2(sqrt(a), sqrt(1-a))
+    distance = R * c
+    
+    return round(distance, 0)
+
+def get_travel_impact(away_team: str, home_team: str, league: str) -> float:
+    """Calculate travel fatigue penalty for away team."""
+    distance = calculate_travel_distance(away_team, home_team)
+    
+    penalty = 0.0
+    
+    if league == "NBA":
+        if distance >= 2500:
+            penalty = -2.0
+        elif distance >= 1500:
+            penalty = -1.0
+    elif league == "NFL":
+        if distance >= 2000:
+            penalty = -1.5
+    elif league == "NHL":
+        if distance >= 2000:
+            penalty = -1.0
+    
+    return penalty
 LIVE_SCORES_CACHE_TTL = 15
 
 @app.after_request
@@ -7191,6 +7302,85 @@ def rotowire_status():
             'success': False,
             'error': str(e)
         })
+
+@app.route('/api/performance_metrics')
+def performance_metrics_api():
+    """View performance metrics for monitoring."""
+    metrics = {}
+    
+    for operation, measurements in _performance_metrics.items():
+        if not measurements:
+            continue
+        
+        durations = [m['duration'] for m in measurements]
+        
+        metrics[operation] = {
+            'count': len(durations),
+            'avg_ms': round(sum(durations) / len(durations) * 1000, 1),
+            'min_ms': round(min(durations) * 1000, 1),
+            'max_ms': round(max(durations) * 1000, 1),
+        }
+        
+        if len(durations) >= 20:
+            sorted_durations = sorted(durations)
+            p95_index = int(len(sorted_durations) * 0.95)
+            metrics[operation]['p95_ms'] = round(sorted_durations[p95_index] * 1000, 1)
+    
+    return jsonify({
+        'success': True,
+        'metrics': metrics,
+        'cache_stats': {
+            'dashboard_cached': get_cached_dashboard() is not None,
+            'team_stats_size': len(_team_stats_cache),
+            'historical_size': len(_historical_cache),
+        }
+    })
+
+@app.route('/api/dashboard_data')
+def dashboard_data_api():
+    """Fast API endpoint for AJAX dashboard updates."""
+    cached = get_cached_dashboard()
+    if cached:
+        return jsonify(cached)
+    
+    start = time.time()
+    et = pytz.timezone('America/New_York')
+    today = datetime.now(et).date()
+    
+    games = Game.query.filter_by(date=today).filter(
+        db.or_(Game.is_qualified == True, Game.spread_is_qualified == True)
+    ).all()
+    
+    games_data = []
+    for game in games:
+        games_data.append({
+            'id': game.id,
+            'matchup': f"{game.away_team} @ {game.home_team}",
+            'league': game.league,
+            'line': game.line,
+            'edge': game.edge,
+            'true_edge': game.true_edge,
+            'direction': game.direction,
+            'is_qualified': game.is_qualified,
+            'game_time': game.game_time,
+            'total_ev': game.total_ev,
+            'projected_total': game.projected_total,
+        })
+    
+    response_data = {
+        'success': True,
+        'games': games_data,
+        'timestamp': datetime.now(et).isoformat(),
+        'count': len(games_data)
+    }
+    
+    set_dashboard_cache(response_data)
+    
+    elapsed = time.time() - start
+    track_performance('dashboard_api', elapsed)
+    logger.info(f"Dashboard API: {len(games_data)} games in {elapsed*1000:.0f}ms")
+    
+    return jsonify(response_data)
 
 def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_spread: bool = False, home_team: str = "", debug_game: str = "") -> tuple:
     """
