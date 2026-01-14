@@ -814,11 +814,14 @@
                     <div class="mb-2" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">TOP 5 PICKS</div>
                     <div class="top5-container" style="display: flex; flex-direction: column; gap: 0.5rem;">
                     {% for pick in analytics.top_picks %}
-                    <div class="top-pick-row" style="display: grid; grid-template-columns: 36px 1fr; gap: 0.5rem; padding: 0.6rem 0.75rem; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border);">
+                    {% set tier_colors = {'ELITE': '#00ff41', 'HIGH': '#4ade80', 'MEDIUM': '#fbbf24', 'LOW': '#f87171'} %}
+                    {% set tier = pick.confidence_tier or 'MEDIUM' %}
+                    <div class="top-pick-row" style="display: grid; grid-template-columns: 36px 1fr; gap: 0.5rem; padding: 0.6rem 0.75rem; background: var(--bg-card); border-radius: 8px; border-left: 3px solid {{ tier_colors.get(tier, '#fbbf24') }}; border: 1px solid var(--border);">
                         <span class="badge" style="font-size: 0.6rem; background: var(--bg-input); color: var(--text-muted); padding: 0.2rem 0.4rem; text-align: center; align-self: start; margin-top: 2px;">{{ pick.game.league }}</span>
                         <div style="display: flex; flex-direction: column; gap: 0.35rem;">
-                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
                                 <span style="font-size: 0.8rem; font-weight: 600; color: var(--text);">{{ pick.game.away_team }} @ {{ pick.game.home_team }}</span>
+                                <span class="badge" style="background: {{ tier_colors.get(tier, '#fbbf24') }}20; color: {{ tier_colors.get(tier, '#fbbf24') }}; font-size: 0.5rem; padding: 0.1rem 0.3rem; font-weight: 700;">{{ tier }}</span>
                                 {% if pick.is_away_favorite %}<span class="badge" style="background: rgba(255, 215, 0, 0.2); color: var(--gold); font-size: 0.5rem; padding: 0.1rem 0.3rem;">AWAY FAV</span>{% endif %}
                             </div>
                             <div style="display: grid; grid-template-columns: 90px 75px 50px 60px; align-items: center; gap: 0.5rem;">
@@ -836,6 +839,13 @@
                                     {% for i in range(5) %}<span class="star {% if i < stars %}filled{% else %}empty{% endif %}">★</span>{% endfor %}
                                 </span>
                             </div>
+                            {% if pick.kelly_pct and pick.kelly_pct > 0 %}
+                            <div style="display: flex; gap: 0.75rem; font-size: 0.65rem; color: var(--text-muted);">
+                                <span title="Kelly Criterion bet size">Kelly: <strong style="color: var(--accent);">{{ "%.1f"|format(pick.kelly_pct) }}%</strong></span>
+                                {% if pick.vig_pct %}<span title="Market vig percentage">Vig: {{ "%.1f"|format(pick.vig_pct) }}%</span>{% endif %}
+                                {% if pick.rest_impact and pick.rest_impact != 0 %}<span title="Rest day impact">Rest: <strong style="color: {% if pick.rest_impact > 0 %}var(--green){% else %}var(--red){% endif %};">{{ "%+.1f"|format(pick.rest_impact) }}</strong></span>{% endif %}
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
                     {% endfor %}
