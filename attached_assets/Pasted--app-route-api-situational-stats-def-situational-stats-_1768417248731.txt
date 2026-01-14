@@ -1,0 +1,50 @@
+@app.route('/api/situational_stats')
+def situational_stats_api():
+    """
+    View situational factor statistics.
+    Shows how often each factor is triggered and their impact.
+    """
+    et = pytz.timezone('America/New_York')
+    today = datetime.now(et).date()
+    
+    # Query last 7 days of games
+    recent_games = Game.query.filter(
+        Game.date >= today - timedelta(days=7),
+        Game.date <= today
+    ).all()
+    
+    stats = {
+        'total_games': len(recent_games),
+        'back_to_back_away': 0,
+        'back_to_back_home': 0,
+        'long_travel': 0,
+        'situational_adjustments': 0,
+        'total_adjustments_sum': 0.0,
+    }
+    
+    # Calculate statistics
+    for game in recent_games:
+        if hasattr(game, 'is_back_to_back_away') and game.is_back_to_back_away:
+            stats['back_to_back_away'] += 1
+        if hasattr(game, 'is_back_to_back_home') and game.is_back_to_back_home:
+            stats['back_to_back_home'] += 1
+        if hasattr(game, 'travel_distance') and game.travel_distance and game.travel_distance >= 2000:
+            stats['long_travel'] += 1
+        if hasattr(game, 'situational_adjustment') and game.situational_adjustment:
+            if abs(game.situational_adjustment) >= 1.0:
+                stats['situational_adjustments'] += 1
+                stats['total_adjustments_sum'] += game.situational_adjustment
+    
+    # Calculate percentages
+    if stats['total_games'] > 0:
+        stats['back_to_back_pct'] = round((stats['back_to_back_away'] + stats['back_to_back_home']) / stats['total_games'] * 100, 1)
+        stats['long_travel_pct'] = round(stats['long_travel'] / stats['total_games'] * 100, 1)
+        stats['adjusted_pct'] = round(stats['situational_adjustments'] / stats['total_games'] * 100, 1)
+        if stats['situational_adjustments'] > 0:
+            stats['avg_adjustment'] = round(stats['total_adjustments_sum'] / stats['situational_adjustments'], 2)
+    
+    return jsonify({
+        'success': True,
+        'period': '7 days',
+        'stats': stats
+    })

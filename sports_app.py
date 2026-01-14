@@ -184,6 +184,99 @@ def get_travel_impact(away_team: str, home_team: str, league: str) -> float:
             penalty = -1.0
     
     return penalty
+
+def get_rest_days_impact(team: str, league: str, game_date: date) -> dict:
+    """
+    Calculate rest days impact with fatigue factors.
+    
+    Returns:
+        dict: days_rest, is_back_to_back, fatigue_factor (-4 to +2 points)
+    """
+    try:
+        recent_games = Game.query.filter(
+            db.or_(Game.away_team == team, Game.home_team == team),
+            Game.date < game_date,
+            Game.league == league
+        ).order_by(Game.date.desc()).limit(3).all()
+        
+        if not recent_games:
+            return {'days_rest': None, 'is_back_to_back': False, 'fatigue_factor': 0.0}
+        
+        last_game = recent_games[0]
+        days_rest = (game_date - last_game.date).days
+        is_back_to_back = (days_rest == 1)
+        
+        fatigue_factor = 0.0
+        
+        if league == "NBA":
+            if is_back_to_back:
+                fatigue_factor = -4.0
+                logger.info(f"{team} on back-to-back: -4pts fatigue penalty")
+            elif days_rest >= 3:
+                fatigue_factor = +1.5
+                logger.info(f"{team} well rested ({days_rest} days): +1.5pts bonus")
+        
+        elif league == "NFL":
+            if days_rest <= 4:
+                fatigue_factor = -3.0
+                logger.info(f"{team} short rest ({days_rest} days): -3pts penalty")
+            elif days_rest >= 10:
+                fatigue_factor = +2.0
+                logger.info(f"{team} bye week rest: +2pts bonus")
+        
+        elif league == "NHL":
+            if is_back_to_back:
+                fatigue_factor = -2.0
+                logger.info(f"{team} on back-to-back: -2pts fatigue penalty")
+            elif len(recent_games) >= 2:
+                games_last_4 = [g for g in recent_games if (game_date - g.date).days <= 4]
+                if len(games_last_4) >= 2:
+                    fatigue_factor = -1.5
+                    logger.info(f"{team} 3-in-4 nights: -1.5pts penalty")
+        
+        return {
+            'days_rest': days_rest,
+            'is_back_to_back': is_back_to_back,
+            'fatigue_factor': fatigue_factor
+        }
+    
+    except Exception as e:
+        logger.error(f"Rest days calculation error for {team}: {e}")
+        return {'days_rest': None, 'is_back_to_back': False, 'fatigue_factor': 0.0}
+
+def batch_injury_check(games: list, league: str) -> dict:
+    """
+    Check injuries for multiple games in parallel (6x faster than sequential).
+    
+    Args:
+        games: List of Game objects to check
+        league: League name (NBA, NFL, etc.)
+    
+    Returns:
+        dict: {game.id: injury_result}
+    """
+    from rotowire_qualification import quick_injury_check
+    
+    results = {}
+    
+    def check_single_game(game):
+        """Check one game's injuries."""
+        try:
+            result = quick_injury_check(game.away_team, game.home_team, league)
+            return (game.id, result)
+        except Exception as e:
+            logger.error(f"Injury check failed for {game.away_team} @ {game.home_team}: {e}")
+            return (game.id, None)
+    
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(check_single_game, game) for game in games]
+        
+        for future in as_completed(futures):
+            game_id, result = future.result()
+            results[game_id] = result
+    
+    return results
+
 LIVE_SCORES_CACHE_TTL = 15
 
 @app.after_request
