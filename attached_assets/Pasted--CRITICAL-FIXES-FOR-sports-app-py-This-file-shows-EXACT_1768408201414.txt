@@ -1,0 +1,444 @@
+# CRITICAL FIXES FOR sports_app.py
+
+## This file shows EXACTLY what to change to properly integrate RotoWire
+
+---
+
+## FIX #1: Update Import Section (Lines 17-26)
+
+### ❌ CURRENT (BROKEN):
+```python
+from rotowire_integration import (
+    get_team_injury_status,  # ❌ This function doesn't exist!
+    get_game_injury_analysis,  # ❌ This function doesn't exist!
+    get_cache_stats as get_rotowire_cache_stats,
+    check_game_injuries as rotowire_check_game_injuries,
+    clear_cache as clear_rotowire_cache,
+    fetch_team_injuries as rotowire_fetch_injuries,
+    fetch_team_lineup as rotowire_fetch_lineup
+)
+```
+
+### ✅ FIXED:
+```python
+from rotowire_integration import (
+    fetch_team_injuries as rotowire_fetch_injuries,
+    fetch_team_lineup as rotowire_fetch_lineup,
+    check_game_injuries as rotowire_check_game_injuries,
+    get_team_injury_status,  # ✅ Now exists in fixed version
+    get_game_injury_analysis,  # ✅ Now exists in fixed version
+    get_cache_stats as get_rotowire_cache_stats,
+    clear_cache as clear_rotowire_cache
+)
+from rotowire_qualification import (
+    qualify_game_with_injuries,
+    quick_injury_check
+)
+```
+
+---
+
+## FIX #2: Add Injury Tracking Columns to Pick Model (Line 3665)
+
+### ❌ CURRENT (BROKEN):
+```python
+class Pick(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    game_id = db.Column(db.Integer, db.ForeignKey('game.id'))
+    date = db.Column(db.Date, nullable=False)
+    # ... other columns ...
+    expected_ev = db.Column(db.Float)
+    # ❌ NO INJURY TRACKING!
+```
+
+### ✅ FIXED:
+```python
+class Pick(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    game_id = db.Column(db.Integer, db.ForeignKey('game.id'))
+    date = db.Column(db.Date, nullable=False)
+    # ... other columns ...
+    expected_ev = db.Column(db.Float)
+    
+    # ✅ NEW: RotoWire injury tracking
+    injury_source = db.Column(db.String(20))  # 'rotowire', 'espn', 'none'
+    away_injury_impact = db.Column(db.Float, default=0.0)
+    home_injury_impact = db.Column(db.Float, default=0.0)
+    lineup_confirmed = db.Column(db.Boolean, default=False)
+    injury_check_timestamp = db.Column(db.DateTime)
+    
+    __table_args__ = (
+        db.Index('idx_pick_result', 'result'),
+        db.Index('idx_pick_date_league', 'date', 'league'),
+        db.Index('idx_pick_type', 'pick_type'),
+        db.Index('idx_date_result', 'date', 'result'),
+        db.Index('idx_is_lock_date', 'is_lock', 'date'),
+        # ✅ NEW: Indexes for injury queries
+        db.Index('idx_injury_source', 'injury_source'),
+        db.Index('idx_injury_impact', 'away_injury_impact', 'home_injury_impact'),
+    )
+```
+
+---
+
+## FIX #3: CRITICAL - Add RotoWire Pre-Flight Check in fetch_odds_internal (Line 6790)
+
+This is the MOST IMPORTANT fix. Without this, RotoWire doesn't actually disqualify games.
+
+### ❌ CURRENT (BROKEN) - Line 6790:
+```python
+                                        # Get historical performance
+                                        history_rate = max(game.away_ou_pct or 0, game.home_ou_pct or 0) / 100
+                                        sample = 10 if game.history_qualified is not None else 0
+                                        
+                                        # SHARP QUALIFICATION
+                                        qual_result = check_qualification_professional(
+                                            projected_total=proj_total,
+                                            line=line,
+                                            over_odds=over_odds,
+                                            under_odds=under_odds,
+                                            league=league,
+                                            pinnacle_over_odds=pinn_over_odds,
+                                            pinnacle_under_odds=pinn_under_odds,
+                                            historical_win_rate=history_rate,
+                                            sample_size=sample
+                                        )
+```
+
+### ✅ FIXED - ADD THIS BEFORE QUALIFICATION:
+```python
+                                        # Get historical performance
+                                        history_rate = max(game.away_ou_pct or 0, game.home_ou_pct or 0) / 100
+                                        sample = 10 if game.history_qualified is not None else 0
+                                        
+                                        # ✅ PRE-FLIGHT INJURY CHECK (RotoWire)
+                                        try:
+                                            injury_result = quick_injury_check(
+                                                game.away_team,
+                                                game.home_team,
+                                                league
+                                            )
+                                            
+                                            # Log injury status
+                                            if injury_result['away_impact'] > 0 or injury_result['home_impact'] > 0:
+                                                logger.info(
+                                                    f"{game.away_team} @ {game.home_team}: "
+                                                    f"Injury check [{injury_result['source']}] - "
+                                                    f"Away impact: {injury_result['away_impact']:.1f}, "
+                                                    f"Home impact: {injury_result['home_impact']:.1f}"
+                                                )
+                                            
+                                            # If major injuries detected, SKIP qualification
+                                            if not injury_result['should_play']:
+                                                logger.warning(
+                                                    f"🚫 {game.away_team} @ {game.home_team}: "
+                                                    f"DISQUALIFIED - {injury_result['recommendation']}"
+                                                )
+                                                game.is_qualified = False
+                                                game.direction = None
+                                                lines_updated += 1
+                                                continue  # Skip to next game
+                                        
+                                        except Exception as e:
+                                            logger.error(f"Injury check error for {game.away_team} @ {game.home_team}: {e}")
+                                            # On error, allow game to proceed (fail-open)
+                                        
+                                        # If injury check passes, proceed with normal qualification
+                                        # SHARP QUALIFICATION
+                                        qual_result = check_qualification_professional(
+                                            projected_total=proj_total,
+                                            line=line,
+                                            over_odds=over_odds,
+                                            under_odds=under_odds,
+                                            league=league,
+                                            pinnacle_over_odds=pinn_over_odds,
+                                            pinnacle_under_odds=pinn_under_odds,
+                                            historical_win_rate=history_rate,
+                                            sample_size=sample
+                                        )
+```
+
+---
+
+## FIX #4: Update auto_save_qualified_picks to Include Injury Data (Line 3737)
+
+### ❌ CURRENT (BROKEN):
+```python
+def auto_save_qualified_picks(top_picks: list, today: 'date') -> int:
+    # ... validation code ...
+    
+    new_pick = Pick(
+        game_id=game.id,
+        date=today,
+        league=game.league,
+        matchup=matchup,
+        pick=pick_str,
+        edge=game.edge or game.spread_edge,
+        # ... other fields ...
+        # ❌ NO INJURY TRACKING!
+    )
+```
+
+### ✅ FIXED:
+```python
+def auto_save_qualified_picks(top_picks: list, today: 'date') -> int:
+    # ... validation code ...
+    
+    # ✅ Get injury data
+    injury_source = 'none'
+    away_impact = 0.0
+    home_impact = 0.0
+    lineup_confirmed = False
+    
+    try:
+        injury_result = quick_injury_check(game.away_team, game.home_team, game.league)
+        injury_source = injury_result.get('source', 'none')
+        away_impact = injury_result.get('away_impact', 0.0)
+        home_impact = injury_result.get('home_impact', 0.0)
+    except:
+        pass  # Fail silently
+    
+    try:
+        away_lineup = rotowire_fetch_lineup(game.away_team, game.league)
+        home_lineup = rotowire_fetch_lineup(game.home_team, game.league)
+        lineup_confirmed = (
+            away_lineup is not None and away_lineup.confirmed and
+            home_lineup is not None and home_lineup.confirmed
+        )
+    except:
+        pass  # Fail silently
+    
+    new_pick = Pick(
+        game_id=game.id,
+        date=today,
+        league=game.league,
+        matchup=matchup,
+        pick=pick_str,
+        edge=game.edge or game.spread_edge,
+        # ... other fields ...
+        
+        # ✅ NEW: Injury tracking
+        injury_source=injury_source,
+        away_injury_impact=away_impact,
+        home_injury_impact=home_impact,
+        lineup_confirmed=lineup_confirmed,
+        injury_check_timestamp=datetime.utcnow()
+    )
+```
+
+---
+
+## FIX #5: Add Database Migration
+
+Run this SQL after updating the Pick model:
+
+```sql
+-- Add injury tracking columns to Pick table
+ALTER TABLE pick ADD COLUMN injury_source VARCHAR(20);
+ALTER TABLE pick ADD COLUMN away_injury_impact FLOAT DEFAULT 0.0;
+ALTER TABLE pick ADD COLUMN home_injury_impact FLOAT DEFAULT 0.0;
+ALTER TABLE pick ADD COLUMN lineup_confirmed BOOLEAN DEFAULT FALSE;
+ALTER TABLE pick ADD COLUMN injury_check_timestamp TIMESTAMP;
+
+-- Add indexes for query performance
+CREATE INDEX idx_injury_source ON pick(injury_source);
+CREATE INDEX idx_injury_impact ON pick(away_injury_impact, home_injury_impact);
+
+-- Update existing records (set defaults)
+UPDATE pick SET injury_source = 'none' WHERE injury_source IS NULL;
+UPDATE pick SET away_injury_impact = 0.0 WHERE away_injury_impact IS NULL;
+UPDATE pick SET home_injury_impact = 0.0 WHERE home_injury_impact IS NULL;
+UPDATE pick SET lineup_confirmed = FALSE WHERE lineup_confirmed IS NULL;
+```
+
+---
+
+## FIX #6: Add Injury Impact to Dashboard Display
+
+In your template files, add injury indicators:
+
+```html
+<!-- In history.html or dashboard.html -->
+<td>
+    {{ pick.matchup }}
+    {% if pick.injury_source == 'rotowire' %}
+        <span class="badge badge-success" title="Injury data from RotoWire">🔍</span>
+    {% elif pick.injury_source == 'espn' %}
+        <span class="badge badge-warning" title="Injury data from ESPN">⚠️</span>
+    {% endif %}
+    
+    {% if pick.away_injury_impact >= 3.0 or pick.home_injury_impact >= 3.0 %}
+        <span class="badge badge-danger" title="High injury impact">🏥</span>
+    {% endif %}
+    
+    {% if pick.lineup_confirmed %}
+        <span class="badge badge-info" title="Lineups confirmed">✓</span>
+    {% endif %}
+</td>
+```
+
+---
+
+## FIX #7: Add RotoWire Status Endpoint
+
+Add this endpoint to monitor RotoWire health:
+
+```python
+@app.route('/api/rotowire_status', methods=['GET'])
+def rotowire_status():
+    """Get RotoWire integration status."""
+    try:
+        cache_stats = get_rotowire_cache_stats()
+        
+        # Test RotoWire with a known team
+        test_injuries, test_source = rotowire_fetch_injuries("Lakers", "NBA")
+        
+        return jsonify({
+            'success': True,
+            'rotowire_available': test_source == 'rotowire',
+            'espn_fallback': test_source == 'espn',
+            'test_result': {
+                'source': test_source,
+                'injuries_found': len(test_injuries)
+            },
+            'cache_stats': cache_stats,
+            'timestamp': datetime.now(pytz.timezone('America/New_York')).isoformat()
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
+```
+
+---
+
+## TESTING CHECKLIST
+
+After making these changes:
+
+1. ✅ Run database migration
+2. ✅ Restart Flask app
+3. ✅ Test injury fetching: `curl "http://localhost:5000/api/test_rotowire?team=Lakers&league=NBA"`
+4. ✅ Test RotoWire status: `curl "http://localhost:5000/api/rotowire_status"`
+5. ✅ Fetch odds: `curl -X POST "http://localhost:5000/fetch_odds"`
+6. ✅ Check logs for "DISQUALIFIED" messages
+7. ✅ Verify Pick table has injury_source populated
+8. ✅ Check cache stats: `curl "http://localhost:5000/api/rotowire_cache_stats"`
+
+---
+
+## VERIFICATION QUERIES
+
+After deployment, run these to verify it's working:
+
+```sql
+-- Check injury source distribution
+SELECT injury_source, COUNT(*) 
+FROM pick 
+WHERE date >= CURRENT_DATE - INTERVAL '7 days'
+GROUP BY injury_source;
+
+-- Expected results:
+-- rotowire: 70%+
+-- espn: 25%
+-- none: 5%
+
+-- Check high-impact injuries
+SELECT matchup, away_injury_impact, home_injury_impact, injury_source
+FROM pick
+WHERE away_injury_impact >= 3.0 OR home_injury_impact >= 3.0
+ORDER BY date DESC
+LIMIT 10;
+
+-- Check lineup confirmations
+SELECT 
+    COUNT(*) FILTER (WHERE lineup_confirmed = TRUE) as confirmed,
+    COUNT(*) FILTER (WHERE lineup_confirmed = FALSE) as not_confirmed,
+    COUNT(*) as total
+FROM pick
+WHERE date >= CURRENT_DATE - INTERVAL '7 days';
+```
+
+---
+
+## EXPECTED BEHAVIOR AFTER FIXES
+
+### Before Fix:
+- ❌ Games with major injuries still qualify
+- ❌ No injury tracking in database
+- ❌ RotoWire data fetched but not used
+- ❌ Can't analyze which picks had injuries
+
+### After Fix:
+- ✅ Games with major injuries (impact >= 4.5) are auto-disqualified
+- ✅ Every pick tracks injury source and impact scores
+- ✅ Lineup confirmations give +5% edge bonus
+- ✅ Can analyze: "Do RotoWire picks perform better than ESPN?"
+- ✅ Logs show clear disqualification reasons
+- ✅ Dashboard shows injury indicators
+
+---
+
+## FILE CHECKLIST
+
+Apply these fixes to:
+
+- [x] rotowire_integration.py → Use rotowire_integration_FIXED.py
+- [ ] sports_app.py → Apply Fixes #1-7 above
+- [ ] database → Run migration SQL (Fix #5)
+- [ ] templates/history.html → Add injury badges (Fix #6)
+- [ ] templates/dashboard.html → Add injury badges (Fix #6)
+
+---
+
+## PRIORITY ORDER
+
+1. **FIX #3** - PRE-FLIGHT INJURY CHECK (Critical - Without this, nothing works)
+2. **FIX #1** - IMPORT STATEMENTS (Critical - App won't start without this)
+3. **FIX #2** - DATABASE COLUMNS (Critical - Can't track data without this)
+4. **FIX #5** - DATABASE MIGRATION (Critical - Must run after Fix #2)
+5. **FIX #4** - AUTO-SAVE PICKS (High - Needed for tracking)
+6. **FIX #6** - DASHBOARD DISPLAY (Medium - Nice to have)
+7. **FIX #7** - STATUS ENDPOINT (Low - Monitoring only)
+
+---
+
+## ESTIMATED TIME TO IMPLEMENT
+
+- Fixes #1-3: 30 minutes
+- Fix #5 (migration): 10 minutes
+- Fix #4: 20 minutes
+- Fixes #6-7: 20 minutes
+- Testing: 30 minutes
+- **Total: ~2 hours**
+
+---
+
+## SUPPORT
+
+If you encounter errors after applying these fixes:
+
+1. Check logs for error messages
+2. Run: `curl "http://localhost:5000/api/rotowire_status"`
+3. Verify database columns were added: `\d pick` (in psql)
+4. Test injury fetching manually in Python:
+   ```python
+   from rotowire_integration import fetch_team_injuries
+   injuries, source = fetch_team_injuries("Lakers", "NBA")
+   print(f"Source: {source}, Count: {len(injuries)}")
+   ```
+
+---
+
+## SUMMARY
+
+The main issue is that **RotoWire is imported but never called** in the qualification flow. The fix is simple: add a pre-flight injury check (Fix #3) before the qualification logic. Without this 10-line code block, RotoWire does nothing.
+
+**Current flow**: 
+Fetch Odds → Calculate Edge → Qualify → Save
+
+**Fixed flow**: 
+Fetch Odds → **Check Injuries** → (If major injuries, skip) → Calculate Edge → Qualify → Save
+
+That one change makes the entire RotoWire system work as intended.
