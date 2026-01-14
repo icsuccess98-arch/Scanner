@@ -47,12 +47,17 @@ Additional data-driven factors that disqualify picks during game scanning:
     -   Tracks form trending: UP (recent > season + 2pts), DOWN (recent < season - 2pts), or STABLE
     -   Spreads disqualified if betting on a team with declining form AND recent margin doesn't support the pick
 
-2.  **Injury Data Integration**
-    -   Single ESPN API call per team (no nested player lookups)
-    -   Count-based impact scoring: 1st injured = 2.5 pts, 2nd = 2.0 pts, 3rd+ = 1.0 pts
+2.  **Injury Data Integration (RotoWire + ESPN)**
+    -   **Primary**: RotoWire.com for injury reports and starting lineups (web scraping)
+    -   **Fallback**: ESPN API when RotoWire data unavailable
+    -   **RotoWire Features**: Fetches injuries with status (Out, Doubtful, Questionable, GTD, Probable)
+    -   **Lineup Confirmation**: Tracks whether starting lineups are confirmed (NBA, NFL, NHL)
+    -   Status-weighted impact scoring: Out=3.0, Doubtful=2.5, GTD=2.0, Questionable=1.5, Probable=0.5
     -   Thresholds: 3.0 pts (concern), 4.5 pts (significant), 6.0 pts (severe)
     -   Disqualifies OVER picks if either team has significant injuries
     -   Disqualifies spread picks if team being bet on has key injuries
+    -   **Questionable Count**: Tracks multiple questionable players as additional risk factor
+    -   Test endpoint: `/api/test_rotowire?team=Lakers&league=NBA`
 
 3.  **Sharp Money Detection (Line Movement)**
     -   Stores opening line when first fetched from Bovada (both totals and spreads)

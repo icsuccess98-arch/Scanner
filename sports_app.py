@@ -13,6 +13,7 @@ from sqlalchemy.orm import DeclarativeBase, validates
 from sqlalchemy import delete
 import requests
 import pytz
+from bs4 import BeautifulSoup
 
 
 class QualificationStatus(Enum):
@@ -1806,6 +1807,314 @@ def fetch_team_injuries(team_name: str, league: str) -> dict:
         logger.debug(f"Injury fetch error for {team_name}: {e}")
         return {"has_key_injuries": False, "injured_starters": 0, "impact_score": 0, "star_out": False, "details": []}
 
+rotowire_cache = TTLCache(maxsize=100, ttl=3600)
+
+ROTOWIRE_URLS = {
+    "NBA": {
+        "injuries": "https://www.rotowire.com/basketball/injury-report.php",
+        "lineups": "https://www.rotowire.com/basketball/nba-lineups.php"
+    },
+    "CBB": {
+        "injuries": "https://www.rotowire.com/college-basketball/injury-report.php",
+        "lineups": None
+    },
+    "NFL": {
+        "injuries": "https://www.rotowire.com/football/injury-report.php",
+        "lineups": "https://www.rotowire.com/football/nfl-lineups.php"
+    },
+    "CFB": {
+        "injuries": "https://www.rotowire.com/college-football/injury-report.php",
+        "lineups": None
+    },
+    "NHL": {
+        "injuries": "https://www.rotowire.com/hockey/injury-report.php",
+        "lineups": "https://www.rotowire.com/hockey/nhl-lineups.php"
+    }
+}
+
+ROTOWIRE_STATUS_WEIGHTS = {
+    "out": 3.0,
+    "doubtful": 2.5,
+    "questionable": 1.5,
+    "probable": 0.5,
+    "gtd": 2.0,
+    "day-to-day": 1.5,
+    "ir": 3.0,
+    "pup": 3.0,
+    "suspended": 3.0
+}
+
+def fetch_rotowire_injuries(league: str) -> dict:
+    """
+    Fetch injury reports from RotoWire for all teams in a league.
+    Caches results for 1 hour to avoid excessive scraping.
+    
+    Returns: {
+        "team_name_lower": {
+            "players": [
+                {"name": str, "status": str, "injury": str, "weight": float}
+            ],
+            "total_impact": float,
+            "out_count": int,
+            "questionable_count": int
+        }
+    }
+    """
+    et = pytz.timezone('America/New_York')
+    today_str = datetime.now(et).strftime("%Y-%m-%d")
+    cache_key = f"rotowire_injuries:{today_str}:{league}"
+    
+    if cache_key in rotowire_cache:
+        return rotowire_cache[cache_key]
+    
+    if league not in ROTOWIRE_URLS:
+        return {}
+    
+    url = ROTOWIRE_URLS[league].get("injuries")
+    if not url:
+        return {}
+    
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5"
+        }
+        resp = requests.get(url, headers=headers, timeout=15)
+        if resp.status_code != 200:
+            logger.warning(f"RotoWire {league} injuries: HTTP {resp.status_code}")
+            return {}
+        
+        soup = BeautifulSoup(resp.text, 'lxml')
+        result = {}
+        
+        team_sections = soup.select('.injury-report__team, .team-card, [class*="team-injuries"]')
+        if not team_sections:
+            team_sections = soup.find_all('div', class_=lambda c: c and 'team' in c.lower())
+        
+        for section in team_sections:
+            team_name_elem = section.select_one('.team-name, .injury-report__team-name, h3, h4')
+            if not team_name_elem:
+                continue
+            
+            team_name = team_name_elem.get_text(strip=True).lower()
+            team_name = team_name.replace(' injuries', '').replace(' injury report', '').strip()
+            
+            players = []
+            player_rows = section.select('.injury-report__player, .player-row, tr')
+            
+            for row in player_rows:
+                name_elem = row.select_one('.player-name, .injury-report__player-name, td:first-child a')
+                status_elem = row.select_one('.injury-status, .injury-report__status, .status')
+                injury_elem = row.select_one('.injury-type, .injury-report__injury, .injury')
+                
+                if name_elem:
+                    player_name = name_elem.get_text(strip=True)
+                    status = status_elem.get_text(strip=True).lower() if status_elem else "unknown"
+                    injury = injury_elem.get_text(strip=True) if injury_elem else "undisclosed"
+                    
+                    weight = 0.0
+                    for key, val in ROTOWIRE_STATUS_WEIGHTS.items():
+                        if key in status:
+                            weight = val
+                            break
+                    
+                    players.append({
+                        "name": player_name,
+                        "status": status,
+                        "injury": injury,
+                        "weight": weight
+                    })
+            
+            if players:
+                out_count = sum(1 for p in players if any(s in p["status"] for s in ["out", "ir", "pup", "suspended"]))
+                questionable_count = sum(1 for p in players if any(s in p["status"] for s in ["questionable", "doubtful", "gtd", "day-to-day"]))
+                total_impact = sum(p["weight"] for p in players)
+                
+                result[team_name] = {
+                    "players": players,
+                    "total_impact": round(total_impact, 1),
+                    "out_count": out_count,
+                    "questionable_count": questionable_count
+                }
+        
+        rotowire_cache[cache_key] = result
+        if len(result) > 0:
+            logger.info(f"RotoWire {league}: Fetched injury data for {len(result)} teams")
+        else:
+            logger.debug(f"RotoWire {league}: No injury data found (page may use JavaScript rendering)")
+        return result
+        
+    except Exception as e:
+        logger.warning(f"RotoWire injuries fetch error for {league}: {e}")
+        return {}
+
+def fetch_rotowire_lineups(league: str, team_name: str = None) -> dict:
+    """
+    Fetch starting lineups from RotoWire.
+    Returns lineup status for each team showing who's confirmed to play.
+    
+    Returns: {
+        "team_name_lower": {
+            "starters": ["Player 1", "Player 2", ...],
+            "confirmed": bool,
+            "missing_starters": ["Player X"],
+            "lineup_strength": float (0-1, 1 = full strength)
+        }
+    }
+    """
+    et = pytz.timezone('America/New_York')
+    today_str = datetime.now(et).strftime("%Y-%m-%d")
+    cache_key = f"rotowire_lineups:{today_str}:{league}"
+    
+    if cache_key in rotowire_cache:
+        cached = rotowire_cache[cache_key]
+        if team_name:
+            team_key = team_name.lower().strip()
+            for key in cached:
+                if team_key in key or key in team_key:
+                    return {team_key: cached[key]}
+        return cached
+    
+    if league not in ROTOWIRE_URLS:
+        return {}
+    
+    url = ROTOWIRE_URLS[league].get("lineups")
+    if not url:
+        return {}
+    
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
+        }
+        resp = requests.get(url, headers=headers, timeout=15)
+        if resp.status_code != 200:
+            logger.warning(f"RotoWire {league} lineups: HTTP {resp.status_code}")
+            return {}
+        
+        soup = BeautifulSoup(resp.text, 'lxml')
+        result = {}
+        
+        lineup_cards = soup.select('.lineup__box, .lineup-card, [class*="lineup"]')
+        
+        for card in lineup_cards:
+            team_elem = card.select_one('.lineup__team, .team-name, [class*="team"]')
+            if not team_elem:
+                continue
+            
+            team_name_parsed = team_elem.get_text(strip=True).lower()
+            
+            starters = []
+            player_elems = card.select('.lineup__player, .player, li a')
+            for p in player_elems[:5]:
+                starters.append(p.get_text(strip=True))
+            
+            confirmed = 'confirmed' in card.get_text(strip=True).lower()
+            expected = 'expected' in card.get_text(strip=True).lower()
+            
+            result[team_name_parsed] = {
+                "starters": starters,
+                "confirmed": confirmed or expected,
+                "missing_starters": [],
+                "lineup_strength": 1.0 if confirmed else (0.9 if expected else 0.7)
+            }
+        
+        rotowire_cache[cache_key] = result
+        logger.info(f"RotoWire {league}: Fetched lineup data for {len(result)} teams")
+        return result
+        
+    except Exception as e:
+        logger.warning(f"RotoWire lineups fetch error for {league}: {e}")
+        return {}
+
+def get_rotowire_team_status(team_name: str, league: str) -> dict:
+    """
+    Get comprehensive RotoWire injury and lineup status for a specific team.
+    Combines injury report and lineup data into a single assessment.
+    
+    Returns: {
+        "has_key_injuries": bool,
+        "injured_starters": int,
+        "impact_score": float,
+        "questionable_count": int,
+        "lineup_confirmed": bool,
+        "lineup_strength": float,
+        "star_out": bool,
+        "injury_details": list,
+        "source": "rotowire"
+    }
+    """
+    team_lower = team_name.lower().strip()
+    
+    injury_data = fetch_rotowire_injuries(league)
+    lineup_data = fetch_rotowire_lineups(league)
+    
+    team_injuries = None
+    for key in injury_data:
+        if team_lower in key or key in team_lower or any(word in key for word in team_lower.split() if len(word) > 3):
+            team_injuries = injury_data[key]
+            break
+    
+    team_lineup = None
+    for key in lineup_data:
+        if team_lower in key or key in team_lower or any(word in key for word in team_lower.split() if len(word) > 3):
+            team_lineup = lineup_data[key]
+            break
+    
+    out_count = team_injuries["out_count"] if team_injuries else 0
+    questionable_count = team_injuries["questionable_count"] if team_injuries else 0
+    impact_score = team_injuries["total_impact"] if team_injuries else 0.0
+    injury_details = team_injuries["players"] if team_injuries else []
+    
+    lineup_confirmed = team_lineup["confirmed"] if team_lineup else False
+    lineup_strength = team_lineup["lineup_strength"] if team_lineup else 0.7
+    
+    star_out = out_count >= 2 or impact_score >= 5.0
+    has_key_injuries = impact_score >= 3.0 or star_out or (questionable_count >= 2 and out_count >= 1)
+    
+    return {
+        "has_key_injuries": has_key_injuries,
+        "injured_starters": out_count,
+        "impact_score": round(impact_score, 1),
+        "questionable_count": questionable_count,
+        "lineup_confirmed": lineup_confirmed,
+        "lineup_strength": round(lineup_strength, 2),
+        "star_out": star_out,
+        "injury_details": injury_details[:5],
+        "source": "rotowire"
+    }
+
+def fetch_enhanced_injuries(team_name: str, league: str) -> dict:
+    """
+    Enhanced injury fetcher that combines ESPN and RotoWire data.
+    Uses RotoWire as primary source with ESPN as fallback.
+    
+    This replaces direct calls to fetch_team_injuries for qualification.
+    """
+    rotowire_data = get_rotowire_team_status(team_name, league)
+    
+    if rotowire_data["impact_score"] > 0 or rotowire_data["lineup_confirmed"]:
+        logger.debug(f"Using RotoWire data for {team_name}: impact={rotowire_data['impact_score']}, out={rotowire_data['injured_starters']}")
+        return {
+            "has_key_injuries": rotowire_data["has_key_injuries"],
+            "injured_starters": rotowire_data["injured_starters"],
+            "impact_score": rotowire_data["impact_score"],
+            "star_out": rotowire_data["star_out"],
+            "details": [{"name": p["name"], "status": p["status"]} for p in rotowire_data["injury_details"]],
+            "questionable_count": rotowire_data["questionable_count"],
+            "lineup_confirmed": rotowire_data["lineup_confirmed"],
+            "lineup_strength": rotowire_data["lineup_strength"],
+            "source": "rotowire"
+        }
+    
+    espn_data = fetch_team_injuries(team_name, league)
+    espn_data["questionable_count"] = 0
+    espn_data["lineup_confirmed"] = False
+    espn_data["lineup_strength"] = 0.7
+    espn_data["source"] = "espn"
+    return espn_data
+
 def store_opening_line(event_id: str, line: float):
     """
     Store the first line we see as the opening line for comparison.
@@ -3039,16 +3348,27 @@ def calculate_advanced_qualification_score(game, away_games: list, home_games: l
             elif home_margin_recent < home_margin_season - 3:
                 adjustments["recent_form_boost"] += 0.5
         
-        away_injuries = fetch_team_injuries(game.away_team, game.league)
-        home_injuries = fetch_team_injuries(game.home_team, game.league)
+        away_injuries = fetch_enhanced_injuries(game.away_team, game.league)
+        home_injuries = fetch_enhanced_injuries(game.home_team, game.league)
         
         if game.spread_direction == "AWAY" and away_injuries["has_key_injuries"]:
             adjustments["injury_penalty"] -= 2
+            if away_injuries.get("questionable_count", 0) >= 2:
+                adjustments["injury_penalty"] -= 1
         elif game.spread_direction == "HOME" and home_injuries["has_key_injuries"]:
             adjustments["injury_penalty"] -= 2
+            if home_injuries.get("questionable_count", 0) >= 2:
+                adjustments["injury_penalty"] -= 1
         
         if game.direction == "O" and (away_injuries["has_key_injuries"] or home_injuries["has_key_injuries"]):
             adjustments["injury_penalty"] -= 1
+        
+        # Only penalize unconfirmed lineups if RotoWire data is available (not ESPN fallback)
+        away_is_rotowire = away_injuries.get("source") == "rotowire"
+        home_is_rotowire = home_injuries.get("source") == "rotowire"
+        if away_is_rotowire and home_is_rotowire:
+            if not away_injuries.get("lineup_confirmed") or not home_injuries.get("lineup_confirmed"):
+                adjustments["injury_penalty"] -= 0.5
         
         adjustments["total_adjustment"] = adjustments["recent_form_boost"] + adjustments["injury_penalty"]
         
@@ -4948,21 +5268,29 @@ def update_game_historical_data(game: Game) -> bool:
         away_form_trending = "UP" if away_recent_margin > away_avg_margin + 2 else ("DOWN" if away_recent_margin < away_avg_margin - 2 else "STABLE")
         home_form_trending = "UP" if home_recent_margin > home_avg_margin + 2 else ("DOWN" if home_recent_margin < home_avg_margin - 2 else "STABLE")
         
-        away_injuries = fetch_team_injuries(game.away_team, game.league)
-        home_injuries = fetch_team_injuries(game.home_team, game.league)
+        away_injuries = fetch_enhanced_injuries(game.away_team, game.league)
+        home_injuries = fetch_enhanced_injuries(game.home_team, game.league)
         
         injury_concern = False
+        away_source = away_injuries.get("source", "unknown")
+        home_source = home_injuries.get("source", "unknown")
+        
         if game.direction == "O":
             if away_injuries["has_key_injuries"] or home_injuries["has_key_injuries"]:
                 injury_concern = True
-                logger.info(f"{game.away_team} @ {game.home_team}: INJURY CONCERN for OVER - Away injured: {away_injuries['injured_starters']}, Home injured: {home_injuries['injured_starters']}")
+                away_q = away_injuries.get("questionable_count", 0)
+                home_q = home_injuries.get("questionable_count", 0)
+                logger.info(f"{game.away_team} @ {game.home_team}: INJURY CONCERN for OVER [{away_source}/{home_source}] - Away OUT: {away_injuries['injured_starters']}, Q: {away_q}, Home OUT: {home_injuries['injured_starters']}, Q: {home_q}")
         
         if game.spread_direction == "AWAY" and away_injuries["has_key_injuries"]:
             injury_concern = True
-            logger.info(f"{game.away_team} @ {game.home_team}: INJURY CONCERN for AWAY spread - {away_injuries['injured_starters']} key players out")
+            logger.info(f"{game.away_team} @ {game.home_team}: INJURY CONCERN for AWAY spread [{away_source}] - {away_injuries['injured_starters']} OUT, {away_injuries.get('questionable_count', 0)} Q")
         elif game.spread_direction == "HOME" and home_injuries["has_key_injuries"]:
             injury_concern = True
-            logger.info(f"{game.away_team} @ {game.home_team}: INJURY CONCERN for HOME spread - {home_injuries['injured_starters']} key players out")
+            logger.info(f"{game.away_team} @ {game.home_team}: INJURY CONCERN for HOME spread [{home_source}] - {home_injuries['injured_starters']} OUT, {home_injuries.get('questionable_count', 0)} Q")
+        
+        if away_injuries.get("lineup_confirmed") and home_injuries.get("lineup_confirmed"):
+            logger.debug(f"{game.away_team} @ {game.home_team}: Both lineups CONFIRMED (Away: {away_injuries.get('lineup_strength', 0):.0%}, Home: {home_injuries.get('lineup_strength', 0):.0%})")
         
         h2h = fetch_h2h_history(game.away_team, game.home_team, game.league, direction)
         game.h2h_ou_pct = h2h["ou_pct"]
@@ -6672,6 +7000,45 @@ def test_historical_lines():
         })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
+
+@app.route('/api/test_rotowire', methods=['GET'])
+def test_rotowire():
+    """Test endpoint for RotoWire injury/lineup integration."""
+    team = request.args.get('team', 'Lakers')
+    league = request.args.get('league', 'NBA')
+    
+    try:
+        injuries_data = fetch_rotowire_injuries(league)
+        lineups_data = fetch_rotowire_lineups(league)
+        
+        team_status = get_rotowire_team_status(team, league)
+        
+        enhanced = fetch_enhanced_injuries(team, league)
+        
+        team_count = len(injuries_data)
+        lineup_count = len(lineups_data)
+        
+        all_teams = list(injuries_data.keys())[:10]
+        
+        return jsonify({
+            "success": True,
+            "team": team,
+            "league": league,
+            "team_status": team_status,
+            "enhanced_injuries": enhanced,
+            "stats": {
+                "teams_with_injuries": team_count,
+                "teams_with_lineups": lineup_count,
+                "sample_teams": all_teams
+            }
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({
+            "success": False, 
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        })
 
 def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_spread: bool = False, home_team: str = "", debug_game: str = "") -> tuple:
     """
