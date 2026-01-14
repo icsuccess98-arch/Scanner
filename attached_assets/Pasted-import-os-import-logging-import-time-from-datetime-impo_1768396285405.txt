@@ -36,8 +36,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# ENHANCED: Version tracking for deployments
 APP_VERSION = "2.0.0-PEAK-PERFORMANCE"
-logger.info(f"Sports Betting App Starting - Version {APP_VERSION}")
+logger.info(f"🚀 Sports Betting App Starting - Version {APP_VERSION}")
 
 class Base(DeclarativeBase):
     pass
@@ -132,54 +133,6 @@ class GameConstants:
 
 THRESHOLDS = GameConstants.EDGE_THRESHOLDS
 
-
-def get_display_spread(game, use_alt=True) -> tuple:
-    """
-    FOOLPROOF SPREAD DISPLAY HELPER
-    
-    Returns: (team_name, display_line) with correct sign
-    
-    Database storage: spread_line is ALWAYS stored as the AWAY team's spread
-    - spread_line > 0 = away is underdog (e.g., +5.5)
-    - spread_line < 0 = away is favorite (e.g., -5.5)
-    
-    For HOME picks: negate the stored line to get home team's spread
-    For AWAY picks: use stored line as-is
-    """
-    if not game.spread_direction or not game.spread_line:
-        return (None, None)
-    
-    if use_alt and game.alt_spread_line:
-        raw_line = game.alt_spread_line
-    else:
-        raw_line = game.spread_line
-    
-    if game.spread_direction == 'HOME':
-        return (game.home_team, -raw_line)
-    else:
-        return (game.away_team, raw_line)
-
-
-def format_spread_pick(game, use_alt=True, include_odds=False) -> str:
-    """
-    FOOLPROOF SPREAD FORMAT HELPER
-    
-    Returns formatted string like "Lakers -5.5" or "Celtics +3.5 (-110)"
-    """
-    team, line = get_display_spread(game, use_alt)
-    if team is None:
-        return ""
-    
-    pick_str = f"{team} {line:+.1f}"
-    
-    if include_odds:
-        odds = game.alt_spread_odds if use_alt and game.alt_spread_odds else game.bovada_spread_odds
-        if odds:
-            pick_str += f" ({odds:+.0f})"
-    
-    return pick_str
-
-
 class TTLCache:
     """Time-based cache with max size to prevent memory leaks."""
     def __init__(self, maxsize=1000, ttl=3600):
@@ -263,300 +216,6 @@ class RateLimiter:
 
 espn_limiter = RateLimiter(requests_per_second=5)
 odds_api_limiter = RateLimiter(requests_per_second=2)
-espn_rate_limiter = espn_limiter
-odds_api_rate_limiter = odds_api_limiter
-
-def api_retry(max_attempts=3, base_delay=0.3, backoff_multiplier=2):
-    """
-    Retry decorator with exponential backoff for API calls.
-    """
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            last_exception = None
-            for attempt in range(max_attempts):
-                try:
-                    return func(*args, **kwargs)
-                except (requests.RequestException, requests.Timeout, requests.HTTPError) as e:
-                    last_exception = e
-                    if attempt < max_attempts - 1:
-                        delay = base_delay * (backoff_multiplier ** attempt)
-                        logger.warning(f"{func.__name__} attempt {attempt + 1} failed: {str(e)}. Retrying in {delay}s...")
-                        time.sleep(delay)
-                    else:
-                        logger.error(f"{func.__name__} failed after {max_attempts} attempts: {str(e)}")
-                except Exception as e:
-                    logger.error(f"{func.__name__} unexpected error: {str(e)}")
-                    raise
-            
-            if last_exception:
-                raise last_exception
-            return None
-        return wrapper
-    return decorator
-
-@dataclass
-class GameOdds:
-    """Structured container for game odds data."""
-    game_id: str
-    away_team: str
-    home_team: str
-    league: str
-    spread_home: Optional[float] = None
-    spread_away: Optional[float] = None
-    total: Optional[float] = None
-    moneyline_home: Optional[int] = None
-    moneyline_away: Optional[int] = None
-    first_half_spread_home: Optional[float] = None
-    first_half_spread_away: Optional[float] = None
-    first_half_total: Optional[float] = None
-
-def get_headers():
-    """Standard headers for ESPN API requests."""
-    return {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'application/json'
-    }
-
-def calculate_trend_metrics(game_list: List[dict], team_name: str, metric_key: str) -> dict:
-    """
-    Calculate trend metrics with validation.
-    
-    FIXED: Added validation to prevent division by zero and handle edge cases.
-    """
-    if not game_list:
-        return {
-            'total_games': 0,
-            'hit_count': 0,
-            'hit_rate': 0.0,
-            'avg_value': 0.0
-        }
-    
-    hit_count = sum(1 for g in game_list if g.get(metric_key, False))
-    total_games = len(game_list)
-    hit_rate = (hit_count / total_games * 100) if total_games > 0 else 0.0
-    
-    values = [g.get('value', 0) for g in game_list if 'value' in g]
-    avg_value = (sum(values) / len(values)) if values else 0.0
-    
-    return {
-        'total_games': total_games,
-        'hit_count': hit_count,
-        'hit_rate': round(hit_rate, 1),
-        'avg_value': round(avg_value, 2)
-    }
-
-def calculate_over_under_edge(game: dict, odds: GameOdds) -> dict:
-    """
-    Calculate O/U edge with proper away favorite logic.
-    
-    Critical Features:
-    1. Away favorite O/U model: Requires BOTH away as favorite AND O/U threshold met
-    2. Normal O/U model: Separate validation
-    3. Proper favorite detection using moneyline
-    4. Enhanced logging for debugging
-    """
-    away_team = game.get('away_team', '')
-    home_team = game.get('home_team', '')
-    league = game.get('league', 'UNKNOWN')
-    
-    result = {
-        'total_edge': 0,
-        'total_direction': None,
-        'total_is_qualified': False,
-        'total_history_qualified': False,
-        'total_ev': 0,
-        'away_favorite_ou_qualified': False,
-        'away_is_favorite': False
-    }
-    
-    if not odds or odds.total is None:
-        logger.warning(f"No O/U odds for {away_team} @ {home_team}")
-        return result
-    
-    total_line = odds.total
-    
-    if odds.moneyline_away is not None and odds.moneyline_home is not None:
-        result['away_is_favorite'] = odds.moneyline_away < odds.moneyline_home
-        logger.info(f"Favorite check: {away_team} ({odds.moneyline_away}) vs {home_team} ({odds.moneyline_home}) - Away is favorite: {result['away_is_favorite']}")
-    
-    away_stats = game.get('away_stats', {})
-    home_stats = game.get('home_stats', {})
-    
-    away_ppg = away_stats.get('points_per_game', 0)
-    home_ppg = home_stats.get('points_per_game', 0)
-    projected_total = away_ppg + home_ppg
-    
-    if projected_total == 0:
-        logger.warning(f"No stats available for {away_team} @ {home_team}")
-        return result
-    
-    edge = abs(projected_total - total_line)
-    result['total_edge'] = round(edge, 1)
-    
-    if projected_total > total_line + 0.5:
-        result['total_direction'] = 'OVER'
-    elif projected_total < total_line - 0.5:
-        result['total_direction'] = 'UNDER'
-    else:
-        result['total_direction'] = None
-        logger.info(f"O/U edge too small for {away_team} @ {home_team}: {edge:.1f}")
-        return result
-    
-    threshold = GameConstants.EDGE_THRESHOLDS.get(league, 8.0)
-    edge_met = edge >= threshold
-    
-    if edge_met:
-        result['total_is_qualified'] = True
-        result['total_history_qualified'] = True
-        result['total_ev'] = round(edge * 0.5, 2)
-        logger.info(f"Normal O/U qualified: {away_team} @ {home_team} - Edge: {edge:.1f}, Direction: {result['total_direction']}")
-    
-    if result['away_is_favorite'] and edge_met:
-        result['away_favorite_ou_qualified'] = True
-        logger.info(f"AWAY FAVORITE O/U qualified: {away_team} @ {home_team} - Edge: {edge:.1f}, Direction: {result['total_direction']}")
-    elif result['away_is_favorite'] and not edge_met:
-        logger.info(f"Away team is favorite but O/U edge insufficient: {away_team} @ {home_team} - Edge: {edge:.1f} < {threshold}")
-    
-    return result
-
-def calculate_spread_edge(game: dict, odds: GameOdds) -> dict:
-    """
-    Calculate spread edge with proper model validation.
-    
-    Critical Features:
-    1. Proper spread calculation using team stats
-    2. Home/away percentage validation
-    3. Correct spread direction (home team perspective)
-    4. Enhanced logging
-    """
-    away_team = game.get('away_team', '')
-    home_team = game.get('home_team', '')
-    league = game.get('league', 'UNKNOWN')
-    
-    result = {
-        'spread_edge': 0,
-        'spread_direction': None,
-        'spread_is_qualified': False,
-        'spread_history_qualified': False,
-        'spread_ev': 0,
-        'away_spread_pct': 0,
-        'home_spread_pct': 0
-    }
-    
-    if not odds or odds.spread_home is None:
-        logger.warning(f"No spread odds for {away_team} @ {home_team}")
-        return result
-    
-    spread_line = odds.spread_home
-    
-    away_stats = game.get('away_stats', {})
-    home_stats = game.get('home_stats', {})
-    
-    away_ppg = away_stats.get('points_per_game', 0)
-    home_ppg = home_stats.get('points_per_game', 0)
-    away_opp = away_stats.get('opponent_ppg', 0)
-    home_opp = home_stats.get('opponent_ppg', 0)
-    
-    if away_ppg == 0 or home_ppg == 0:
-        logger.warning(f"No stats available for spread calculation: {away_team} @ {home_team}")
-        return result
-    
-    projected_margin = (home_ppg - away_opp) - (away_ppg - home_opp)
-    
-    edge = abs(projected_margin - spread_line)
-    result['spread_edge'] = round(edge, 1)
-    
-    if projected_margin > spread_line + 0.5:
-        result['spread_direction'] = 'HOME'
-    elif projected_margin < spread_line - 0.5:
-        result['spread_direction'] = 'AWAY'
-    else:
-        result['spread_direction'] = None
-        logger.info(f"Spread edge too small for {away_team} @ {home_team}: {edge:.1f}")
-        return result
-    
-    threshold = GameConstants.EDGE_THRESHOLDS.get(league, 8.0)
-    
-    if edge >= threshold:
-        result['spread_is_qualified'] = True
-        result['spread_history_qualified'] = True
-        result['spread_ev'] = round(edge * 0.4, 2)
-        result['away_spread_pct'] = round(50 + (edge / 2), 1)
-        result['home_spread_pct'] = round(50 + (edge / 2), 1)
-        logger.info(f"Spread qualified: {away_team} @ {home_team} - Edge: {edge:.1f}, Direction: {result['spread_direction']}")
-    
-    return result
-
-def calculate_first_half_edge(game: dict, odds: GameOdds) -> dict:
-    """
-    Calculate 1H edge with away favorite logic for 1H picks.
-    
-    Critical Features:
-    1. Away favorite 1H model: Requires away as favorite AND 1H threshold met
-    2. Proper 1H odds validation
-    3. Enhanced logging
-    """
-    away_team = game.get('away_team', '')
-    home_team = game.get('home_team', '')
-    league = game.get('league', 'UNKNOWN')
-    
-    result = {
-        'first_half_edge': 0,
-        'first_half_direction': None,
-        'first_half_is_qualified': False,
-        'first_half_history_qualified': False,
-        'first_half_ev': 0,
-        'away_favorite_1h_qualified': False,
-        'away_is_favorite_1h': False
-    }
-    
-    if not odds or odds.first_half_total is None:
-        logger.debug(f"No 1H total odds for {away_team} @ {home_team}")
-        return result
-    
-    fh_total_line = odds.first_half_total
-    
-    if odds.moneyline_away is not None and odds.moneyline_home is not None:
-        result['away_is_favorite_1h'] = odds.moneyline_away < odds.moneyline_home
-        logger.info(f"1H Favorite check: {away_team} - Away is favorite: {result['away_is_favorite_1h']}")
-    
-    away_stats = game.get('away_stats', {})
-    home_stats = game.get('home_stats', {})
-    
-    away_ppg = away_stats.get('points_per_game', 0)
-    home_ppg = home_stats.get('points_per_game', 0)
-    projected_1h_total = (away_ppg + home_ppg) * 0.47
-    
-    if projected_1h_total == 0:
-        return result
-    
-    edge = abs(projected_1h_total - fh_total_line)
-    result['first_half_edge'] = round(edge, 1)
-    
-    if projected_1h_total > fh_total_line + 0.5:
-        result['first_half_direction'] = '1H_OVER'
-    elif projected_1h_total < fh_total_line - 0.5:
-        result['first_half_direction'] = '1H_UNDER'
-    else:
-        return result
-    
-    threshold = GameConstants.EDGE_THRESHOLDS.get(league, 8.0)
-    edge_met = edge >= threshold
-    
-    if edge_met:
-        result['first_half_is_qualified'] = True
-        result['first_half_history_qualified'] = True
-        result['first_half_ev'] = round(edge * 0.45, 2)
-        logger.info(f"1H qualified: {away_team} @ {home_team} - Edge: {edge:.1f}, Direction: {result['first_half_direction']}")
-    
-    if result['away_is_favorite_1h'] and edge_met:
-        result['away_favorite_1h_qualified'] = True
-        logger.info(f"AWAY FAVORITE 1H qualified: {away_team} @ {home_team} - Edge: {edge:.1f}")
-    elif result['away_is_favorite_1h'] and not edge_met:
-        logger.info(f"Away team is favorite but 1H edge insufficient: {away_team} @ {home_team} - Edge: {edge:.1f} < {threshold}")
-    
-    return result
 
 class DataFetchError(Exception):
     """Custom exception for data fetch failures with context."""
@@ -5525,9 +5184,19 @@ def dashboard():
             history_pct = g.away_spread_pct or 0
         edge = g.spread_edge or 0
         weighted_score = edge + (history_pct * 0.15)
-        # Use foolproof helper for spread display
-        team, display_line = get_display_spread(g, use_alt=True)
-        _, vegas_line = get_display_spread(g, use_alt=False)
+        # For spread picks, calculate the correct line value for display
+        # spread_line and alt_spread_line are stored as AWAY team's spread
+        # For HOME picks, we need to negate to show home team's spread
+        # For AWAY picks, use as-is
+        if g.alt_spread_line:
+            display_line = -g.alt_spread_line if g.spread_direction == 'HOME' else g.alt_spread_line
+            vegas_line = -g.spread_line if g.spread_direction == 'HOME' else g.spread_line
+        elif g.spread_line:
+            display_line = -g.spread_line if g.spread_direction == 'HOME' else g.spread_line
+            vegas_line = display_line
+        else:
+            display_line = None
+            vegas_line = None
         combined_picks.append({
             'game': g,
             'edge': edge,
@@ -5536,7 +5205,6 @@ def dashboard():
             'pick_type': 'spread',
             'model_type': 'spread',
             'direction': g.spread_direction,
-            'team': team,
             'line': display_line,
             'vegas_line': vegas_line,
             'alt_line': g.alt_spread_line,
@@ -6999,8 +6667,14 @@ def post_discord():
             line_val = g.alt_total_line if g.alt_total_line else g.line
             pick_str = f"{g.direction}{line_val}"
         else:
-            team, line_val = get_display_spread(g, use_alt=True)
-            pick_str = f"{team} {line_val:+.1f}" if line_val else (team or "")
+            if g.spread_direction == 'HOME':
+                spread_val = g.alt_spread_line if g.alt_spread_line else g.spread_line
+                pick_str = f"{g.home_team} {spread_val:+.1f}" if spread_val else g.home_team
+                line_val = spread_val
+            else:
+                spread_val = abs(g.alt_spread_line) if g.alt_spread_line else abs(g.spread_line) if g.spread_line else 0
+                pick_str = f"{g.away_team} +{spread_val:.1f}" if spread_val else g.away_team
+                line_val = spread_val
         
         away_favorite = (g.spread_line or 0) > 0
         combined.append({
@@ -7033,10 +6707,15 @@ def post_discord():
             line = g.alt_total_line if g.alt_total_line else g.line
             odds = g.alt_total_odds if g.alt_total_odds else None
             pick_str = f"{g.direction}{line:.0f}" if line else p['pick_str']
-            if odds:
-                pick_str += f" ({odds:+.0f})"
         else:
-            pick_str = format_spread_pick(g, use_alt=True, include_odds=True)
+            line = g.alt_spread_line if g.alt_spread_line else abs(g.spread_line) if g.spread_line else None
+            odds = g.alt_spread_odds if g.alt_spread_odds else None
+            if g.spread_direction == 'HOME':
+                pick_str = f"{g.home_team} {line:+.0f}" if line else g.home_team
+            else:
+                pick_str = f"{g.away_team} +{line:.0f}" if line else g.away_team
+        if odds:
+            pick_str += f" ({odds:+.0f})"
         return pick_str
     
     # Helper to extract short time (e.g., "8:30 PM EST" -> "8:30")
@@ -7178,15 +6857,21 @@ def post_discord_window(window: str):
     emoji_map = {"NBA": "🏀", "CBB": "🏀", "NFL": "🏈", "CFB": "🏈", "NHL": "🏒"}
     window_labels = {"EARLY": "🌅 EARLY LOCK", "MID": "☀️ MIDDAY LOCK", "LATE": "🌙 LATE LOCK"}
     
-    # Format pick using foolproof helper
+    # Format pick
     if supermax['pick_type'] == 'total':
         line = sm_game.alt_total_line if sm_game.alt_total_line else sm_game.line
         odds = sm_game.alt_total_odds if sm_game.alt_total_odds else None
         pick_str = f"{sm_game.direction}{line:.0f}" if line else f"{sm_game.direction}"
-        if odds:
-            pick_str += f" ({odds:+.0f})"
     else:
-        pick_str = format_spread_pick(sm_game, use_alt=True, include_odds=True)
+        line = sm_game.alt_spread_line if sm_game.alt_spread_line else abs(sm_game.spread_line) if sm_game.spread_line else None
+        odds = sm_game.alt_spread_odds if sm_game.alt_spread_odds else None
+        if sm_game.spread_direction == 'HOME':
+            pick_str = f"{sm_game.home_team} {line:+.0f}" if line else sm_game.home_team
+        else:
+            pick_str = f"{sm_game.away_team} +{line:.0f}" if line else sm_game.away_team
+    
+    if odds:
+        pick_str += f" ({odds:+.0f})"
     
     # Build message
     msg = f"🔒 730's LOCKS\n{today_str}\n\n"
@@ -7200,15 +6885,19 @@ def post_discord_window(window: str):
         if not success:
             return jsonify({"success": False, "message": f"Discord post failed: {error}", "status": status_code})
         
-        # Save to history using foolproof helper
+        # Save to history
         matchup = f"{sm_game.away_team} @ {sm_game.home_team}"
         if supermax['pick_type'] == 'total':
             line_val = sm_game.alt_total_line if sm_game.alt_total_line else sm_game.line
             pick_save = f"{sm_game.direction}{line_val}"
             edge_val = sm_game.edge
         else:
-            team, line_val = get_display_spread(sm_game, use_alt=True)
-            pick_save = f"{team} {line_val:+.1f}" if line_val else (team or "")
+            if sm_game.spread_direction == 'HOME':
+                line_val = sm_game.alt_spread_line if sm_game.alt_spread_line else sm_game.spread_line
+                pick_save = f"{sm_game.home_team} {line_val:+.1f}" if line_val else sm_game.home_team
+            else:
+                line_val = sm_game.alt_spread_line if sm_game.alt_spread_line else -sm_game.spread_line if sm_game.spread_line else None
+                pick_save = f"{sm_game.away_team} {line_val:+.1f}" if line_val else sm_game.away_team
             edge_val = sm_game.spread_edge
         
         game_start_dt = parse_game_time_to_datetime(sm_game.game_time, today)
