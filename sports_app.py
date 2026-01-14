@@ -6054,23 +6054,11 @@ def dashboard():
     for g in all_games:
         g.time_window = get_game_window(g.game_time)
     
-    # Games qualified by edge threshold
-    edge_qualified = [g for g in all_games if g.is_qualified]
-    edge_spread_qualified = [g for g in all_games if g.spread_is_qualified]
-    
-    # TOTALS: Must pass historical threshold AND positive EV (6-filter system: EV >= 1.0%)
-    # If history_qualified is None (not checked), do NOT show the game
-    # If history_qualified is True, show the game
-    # If history_qualified is False, hide the game
-    # EV filter: NULL EV = no Pinnacle data = allowed, negative/low EV = excluded
-    MIN_EV_THRESHOLD = 1.0  # 6-filter system requires EV >= 1.0%
-    qualified = [g for g in edge_qualified if g.history_qualified == True 
-                 and (g.total_ev is None or g.total_ev >= MIN_EV_THRESHOLD)]
-    
-    # SPREADS: Use spread_history_qualified (separate from totals qualification)
-    # Must have spread_history_qualified = True AND positive EV (EV >= 1.0%)
-    spread_qualified = [g for g in edge_spread_qualified if g.spread_history_qualified == True 
-                        and (g.spread_ev is None or g.spread_ev >= MIN_EV_THRESHOLD)]
+    # PURE MODEL: Games qualified ONLY by edge threshold (no additional filters)
+    # Rule: Difference = Projected_Total - Bovada_Line must meet threshold
+    # NBA/CBB: ±8.0, NFL/CFB: ±3.5, NHL: ±0.5
+    qualified = [g for g in all_games if g.is_qualified]
+    spread_qualified = [g for g in all_games if g.spread_is_qualified]
     spread_qualified.sort(key=lambda x: x.alt_spread_edge or x.spread_edge or 0, reverse=True)
     
     # Sort qualified totals by effective edge (alt if available, else main)
@@ -6099,11 +6087,9 @@ def dashboard():
             supermax_type = 'spread'
             supermax_edge = effective_spread_edge
     
-    # Combined qualified: games that qualify for totals (with history + EV) OR spreads (with spread_history + EV)
-    # Uses same MIN_EV_THRESHOLD (1.0%) for professional 6-filter qualification
-    all_qualified_games = [g for g in all_games if 
-        (g.is_qualified and g.history_qualified == True and (g.total_ev is None or g.total_ev >= MIN_EV_THRESHOLD)) or 
-        (g.spread_is_qualified and g.spread_history_qualified == True and (g.spread_ev is None or g.spread_ev >= MIN_EV_THRESHOLD))]
+    # PURE MODEL: Combined qualified = games that meet edge threshold for totals OR spreads
+    # No additional filters - just the core formula
+    all_qualified_games = [g for g in all_games if g.is_qualified or g.spread_is_qualified]
     
     if show_only_qualified:
         games = all_qualified_games
@@ -6130,13 +6116,12 @@ def dashboard():
         'history_qualified': len(history_qualified)
     }
     
+    # PURE MODEL: League breakdown uses only edge threshold qualification
     for league in ['NBA', 'CBB', 'NFL', 'CFB', 'NHL']:
         league_games = [g for g in all_games if g.league == league]
-        league_totals_qualified = [g for g in league_games if g.is_qualified and g.history_qualified == True and (g.total_ev is None or g.total_ev >= MIN_EV_THRESHOLD)]
-        league_spread_qualified = [g for g in league_games if g.spread_is_qualified and g.spread_history_qualified == True and (g.spread_ev is None or g.spread_ev >= MIN_EV_THRESHOLD)]
-        league_any_qualified = [g for g in league_games if 
-            (g.is_qualified and g.history_qualified == True and (g.total_ev is None or g.total_ev >= MIN_EV_THRESHOLD)) or 
-            (g.spread_is_qualified and g.spread_history_qualified == True and (g.spread_ev is None or g.spread_ev >= MIN_EV_THRESHOLD))]
+        league_totals_qualified = [g for g in league_games if g.is_qualified]
+        league_spread_qualified = [g for g in league_games if g.spread_is_qualified]
+        league_any_qualified = [g for g in league_games if g.is_qualified or g.spread_is_qualified]
         analytics['league_breakdown'][league] = {
             'total': len(league_games),
             'qualified': len(league_any_qualified),
@@ -6175,183 +6160,53 @@ def dashboard():
     if total_qualified > 0:
         analytics['avg_edge'] = edge_sum / total_qualified
     
-    # Combined Top 5 Picks (totals + spreads merged by weighted score: edge + history)
-    # Weighted score formula: edge + (history_pct * 0.15)
-    # This allows high history % to outweigh lower edges (85%+9 > 67%+11)
-    # Model 3: Away Favorite + O/U gets +2 bonus when away team is favorite AND O/U qualifies with 70%+ history
-    
-    # Confidence tier thresholds (BALANCED - allows slight negative EV with strong edge/history)
-    # SUPERMAX: Edge 12+, EV 3%+, History 70%+ (unchanged - elite picks)
-    # HIGH: Edge 10+, EV 1%+, History 65%+ (relaxed from 1.5%)
-    # MEDIUM: Edge 8+, EV -1%+, History 60%+ (KEY CHANGE: allows -1% EV)
-    # LOW: Edge 6+, EV -2%+, History 55%+ (NEW: adds EV floor)
-    def calculate_confidence_tier(edge: float, ev: float, history_pct: float) -> str:
-        """Calculate confidence tier based on edge, EV, and history.
-        
-        Balanced approach: Strong edge + history can overcome slight negative EV.
-        Pinnacle odds aren't perfect - our model might still be right.
-        """
-        ev = ev if ev is not None else 0
-        # Normalize history to percentage (0-100 scale)
-        if history_pct is not None and history_pct < 1:
-            history_pct = history_pct * 100
-        history_pct = history_pct or 0
-        
-        if edge >= 12.0 and ev >= 3.0 and history_pct >= 70:
-            return 'SUPERMAX'
-        elif edge >= 10.0 and ev >= 1.0 and history_pct >= 65:
-            return 'HIGH'
-        elif edge >= 8.0 and ev >= -1.0 and history_pct >= 60:
-            return 'MEDIUM'
-        elif edge >= 6.0 and ev >= -2.0 and history_pct >= 55:
-            return 'LOW'
-        return 'NONE'
+    # PURE MODEL: Combined Top 5 Picks ranked by EDGE ONLY
+    # No weighted scores, no model bonuses, no confidence tiers
+    # Pure formula: Difference = Projected_Total - Bovada_Line
     
     combined_picks = []
     for g in qualified:
-        history_pct = max(g.away_ou_pct or 0, g.home_ou_pct or 0)
-        away_history_pct = g.away_ou_pct or 0
         edge = g.edge or 0
-        
-        # Check if this is an "Away Favorite + O/U" pick (Model 3)
-        # Away is favorite when spread_line > 0 (home is getting points)
-        is_away_fav = (g.spread_line or 0) > 0
-        is_away_fav_ou = is_away_fav and g.is_qualified and away_history_pct >= 70
-        
-        # Model bonus: +2 for Away Fav + O/U picks (user is 51-14 with this model)
-        model_bonus = 2 if is_away_fav_ou else 0
-        model_type = 'away_fav_ou' if is_away_fav_ou else 'totals'
-        
-        weighted_score = edge + (history_pct * 0.15) + model_bonus
-        ev_val = g.total_ev if g.total_ev is not None else 0
-        confidence_tier = calculate_confidence_tier(edge, ev_val, history_pct)
         combined_picks.append({
             'game': g,
             'edge': edge,
-            'history_pct': history_pct,
-            'weighted_score': weighted_score,
             'pick_type': 'totals',
-            'model_type': model_type,
             'direction': g.direction,
-            'line': g.alt_total_line if g.alt_total_line else g.line,
-            'vegas_line': g.line,
-            'alt_line': g.alt_total_line,
-            'odds': g.alt_total_odds,
-            'bovada_odds': g.bovada_total_odds,
-            'pinnacle_odds': g.pinnacle_total_odds,
-            'ev': g.total_ev,
-            'confidence_tier': confidence_tier
+            'line': g.line,
+            'projected_total': g.projected_total,
+            'confidence_tier': 'QUALIFIED'  # Pure model: all qualified picks are valid
         })
     for g in spread_qualified:
-        # For spread picks, use the relevant spread cover rate
-        if g.spread_direction == 'HOME':
-            history_pct = g.home_spread_pct or 0
-        else:
-            history_pct = g.away_spread_pct or 0
         edge = g.spread_edge or 0
-        weighted_score = edge + (history_pct * 0.15)
-        ev_val = g.spread_ev if g.spread_ev is not None else 0
-        confidence_tier = calculate_confidence_tier(edge, ev_val, history_pct)
-        # Use foolproof helper for spread display
-        team, display_line = get_display_spread(g, use_alt=True)
-        _, vegas_line = get_display_spread(g, use_alt=False)
+        team, display_line = get_display_spread(g, use_alt=False)
         combined_picks.append({
             'game': g,
             'edge': edge,
-            'history_pct': history_pct,
-            'weighted_score': weighted_score,
             'pick_type': 'spread',
-            'model_type': 'spread',
             'direction': g.spread_direction,
             'team': team,
             'line': display_line,
-            'vegas_line': vegas_line,
-            'alt_line': g.alt_spread_line,
-            'odds': g.alt_spread_odds,
-            'bovada_odds': g.bovada_spread_odds,
-            'pinnacle_odds': g.pinnacle_spread_odds,
-            'ev': g.spread_ev,
-            'confidence_tier': confidence_tier
+            'confidence_tier': 'QUALIFIED'  # Pure model: all qualified picks are valid
         })
     
-    # Model 4: NBA 1H ML for away favorites
-    # Re-verify away-favorite condition and history qualification
-    model4_games = Game.query.filter(
-        Game.date == today,
-        Game.league == 'NBA',
-        Game.nba_1h_ml_qualified == True,
-        Game.nba_1h_history_qualified == True,
-        Game.spread_line > 0  # Must still be away favorite
-    ).all()
-    for g in model4_games:
-        # Use spread_edge as the edge metric for consistency
-        edge = g.spread_edge or g.spread_line or 0
-        # Use the higher of away 1H win% or H2H 1H win%
-        history_pct = max(g.nba_1h_away_win_pct or 0, g.nba_1h_h2h_win_pct or 0)
-        model_bonus = 0  # No bonus for Model 4
-        weighted_score = edge + (history_pct * 0.15) + model_bonus
-        # Model 4 has no EV data, use 0 for tier calculation
-        confidence_tier = calculate_confidence_tier(edge, 0, history_pct)
-        combined_picks.append({
-            'game': g,
-            'edge': edge,
-            'history_pct': history_pct,
-            'weighted_score': weighted_score,
-            'pick_type': '1h_ml',
-            'model_type': '1h_ml',
-            'direction': g.away_team,
-            'line': None,
-            'vegas_line': None,
-            'alt_line': None,
-            'odds': g.nba_1h_ml_odds,
-            'bovada_odds': None,
-            'pinnacle_odds': None,
-            'ev': None,
-            'confidence_tier': confidence_tier
-        })
+    # PURE MODEL: Sort by EDGE only (highest edge = best pick)
+    combined_picks.sort(key=lambda x: x['edge'], reverse=True)
     
-    # Sort by weighted score (edge + history) instead of just edge
-    combined_picks.sort(key=lambda x: x['weighted_score'], reverse=True)
-    
-    # Filter out NONE tier picks (negative EV or don't meet minimum thresholds)
-    # Only qualified picks with valid confidence tiers should appear in TOP 5
-    qualified_combined = [p for p in combined_picks if p['confidence_tier'] != 'NONE']
+    # PURE MODEL: All qualified picks are valid (no tier filtering)
+    qualified_combined = combined_picks
     analytics['top_picks'] = qualified_combined[:5]
     
-    # Log any rejected picks with detailed reasons
-    rejected = [p for p in combined_picks[:10] if p['confidence_tier'] == 'NONE']
-    if rejected:
-        logger.warning(f"Filtered {len(rejected)} picks from TOP 5 due to NONE tier")
-        for r in rejected:
-            g = r['game']
-            edge = r['edge']
-            ev = r['ev'] or 0
-            history = r['history_pct']
-            reasons = []
-            if edge < 6.0:
-                reasons.append(f"edge too low ({edge:.1f} < 6.0)")
-            if ev < -2.0:
-                reasons.append(f"EV too negative ({ev:.1f}% < -2.0%)")
-            if history < 55:
-                reasons.append(f"history too weak ({history:.0f}% < 55%)")
-            reason_str = ", ".join(reasons) if reasons else "unknown"
-            logger.warning(f"  Rejected {g.away_team} @ {g.home_team}: {reason_str} | Edge: {edge:.1f}, EV: {ev:.1f}%, History: {history:.0f}%")
-    
-    # Auto-save ONLY the supermax (Lock of the Day) to history
-    # Only save if it's a properly qualified pick (not NONE tier)
+    # Auto-save the top pick to history
     if qualified_combined:
         auto_save_qualified_picks([qualified_combined[0]], today)
     
-    # Get the confidence tier for the Lock of the Day
-    supermax_tier = 'NONE'
+    # Lock of the Day = highest edge pick
+    supermax_tier = 'QUALIFIED' if qualified_combined else 'NONE'
     if qualified_combined:
-        supermax_tier = qualified_combined[0].get('confidence_tier', 'NONE')
-        # Update supermax_lock from the filtered combined picks to ensure consistency
         top_pick = qualified_combined[0]
         supermax_lock = top_pick['game']
         supermax_type = top_pick['pick_type']
     else:
-        # No picks passed the confidence tier check - clear the lock
         supermax_lock = None
         supermax_type = None
     
@@ -7168,63 +7023,20 @@ def fetch_odds_internal() -> dict:
                                         history_rate = max(game.away_ou_pct or 0, game.home_ou_pct or 0) / 100
                                         sample = 10 if game.history_qualified is not None else 0
                                         
-                                        # PRE-FLIGHT INJURY CHECK (RotoWire)
-                                        try:
-                                            injury_result = quick_injury_check(
-                                                game.away_team,
-                                                game.home_team,
-                                                league
-                                            )
-                                            
-                                            if injury_result['away_impact'] > 0 or injury_result['home_impact'] > 0:
-                                                logger.info(
-                                                    f"{game.away_team} @ {game.home_team}: "
-                                                    f"Injury check [{injury_result['source']}] - "
-                                                    f"Away impact: {injury_result['away_impact']:.1f}, "
-                                                    f"Home impact: {injury_result['home_impact']:.1f}"
-                                                )
-                                            
-                                            if not injury_result['should_play']:
-                                                logger.warning(
-                                                    f"{game.away_team} @ {game.home_team}: "
-                                                    f"DISQUALIFIED - {injury_result['recommendation']}"
-                                                )
-                                                game.is_qualified = False
-                                                game.direction = None
-                                                lines_updated += 1
-                                                continue
+                                        # PURE MODEL: Injury checks DISABLED - qualification based on edge only
+                                        # (Injury data is still fetched for informational display but does not affect qualification)
                                         
-                                        except Exception as e:
-                                            logger.error(f"Injury check error for {game.away_team} @ {game.home_team}: {e}")
-                                        
-                                        # SITUATIONAL FACTORS: Rest Days & Travel
+                                        # PURE MODEL: Situational factor adjustments DISABLED
+                                        # (Rest days, travel distance stored for display but do not affect projections)
                                         try:
                                             away_rest = get_rest_days_impact(game.away_team, league, today)
                                             home_rest = get_rest_days_impact(game.home_team, league, today)
-                                            travel_penalty = get_travel_impact(game.away_team, game.home_team, league)
-                                            
-                                            situational_adj = 0.0
-                                            
-                                            if away_rest['is_back_to_back'] or home_rest['is_back_to_back']:
-                                                situational_adj += min(away_rest['fatigue_factor'], home_rest['fatigue_factor'])
-                                                logger.info(f"{game.away_team} @ {game.home_team}: B2B detected, adj: {situational_adj:+.1f}pts")
-                                            
-                                            if abs(travel_penalty) >= 1.0:
-                                                situational_adj += travel_penalty
-                                                distance = calculate_travel_distance(game.away_team, game.home_team)
-                                                logger.info(f"{game.away_team} @ {game.home_team}: Long travel ({distance}mi), penalty: {travel_penalty:+.1f}pts")
-                                            
-                                            if abs(situational_adj) >= 1.0:
-                                                original_proj = proj_total
-                                                proj_total += situational_adj
-                                                logger.info(f"{game.away_team} @ {game.home_team}: Adjusted {original_proj:.1f} -> {proj_total:.1f} (situational: {situational_adj:+.1f})")
-                                            
                                             game.days_rest_away = away_rest.get('days_rest')
                                             game.days_rest_home = home_rest.get('days_rest')
                                             game.is_back_to_back_away = away_rest.get('is_back_to_back', False)
                                             game.is_back_to_back_home = home_rest.get('is_back_to_back', False)
                                             game.travel_distance = calculate_travel_distance(game.away_team, game.home_team)
-                                            game.situational_adjustment = situational_adj
+                                            game.situational_adjustment = 0.0  # No adjustment in pure model
                                         except Exception as e:
                                             logger.error(f"Situational factors error: {e}")
                                         
@@ -7245,23 +7057,32 @@ def fetch_odds_internal() -> dict:
                                         fair_line = VigRemover.calculate_fair_line_totals(line, over_odds, under_odds)
                                         vig_data = VigRemover.remove_two_way_vig(over_odds, under_odds)
                                         
-                                        # Store sharp metrics
-                                        game.direction = 'O' if proj_total > fair_line else 'U'
-                                        game.edge = abs(proj_total - line)  # Raw edge
-                                        game.true_edge = qual_result.true_edge
-                                        game.fair_line = fair_line
+                                        # PURE MODEL: Edge-only qualification
+                                        edge_thresholds = {'NBA': 8.0, 'CBB': 8.0, 'NFL': 3.5, 'CFB': 3.5, 'NHL': 0.5}
+                                        threshold = edge_thresholds.get(league, 8.0)
+                                        edge = abs(proj_total - line)
+                                        
+                                        # PURE MODEL: Direction based on strict threshold
+                                        # OVER: if proj_total >= line + threshold
+                                        # UNDER: if line >= proj_total + threshold
+                                        if proj_total >= line + threshold:
+                                            game.direction = 'O'
+                                        elif line >= proj_total + threshold:
+                                            game.direction = 'U'
+                                        else:
+                                            game.direction = None  # No qualified direction
+                                        
+                                        game.edge = edge
+                                        
+                                        # Store metrics for display
+                                        game.fair_line = VigRemover.calculate_fair_line_totals(line, over_odds, under_odds)
                                         game.vig_percentage = round(vig_data['vig_pct'], 2)
                                         game.market_balance = 'OVER_SHADED' if vig_data['prob_a'] > 0.54 else ('UNDER_SHADED' if vig_data['prob_a'] < 0.46 else 'BALANCED')
                                         game.total_ev = qual_result.ev_pct
+                                        game.true_edge = qual_result.true_edge
                                         
-                                        # Kelly sizing if qualified
-                                        if qual_result.qualified:
-                                            game.kelly_fraction = qual_result.bet_size_pct / 100 * 4  # Full Kelly
-                                            game.recommended_bet_size = qual_result.bet_size_pct / 100  # 1/4 Kelly
-                                            game.fair_probability = vig_data['prob_a'] if game.direction == 'O' else vig_data['prob_b']
-                                        
-                                        # Sharp qualification (ALL filters must pass)
-                                        game.is_qualified = qual_result.qualified
+                                        # PURE MODEL: Qualify if edge meets threshold (simple binary check)
+                                        game.is_qualified = edge >= threshold and game.direction is not None
                                         
                                     lines_updated += 1
                         

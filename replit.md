@@ -27,34 +27,26 @@ This project develops and manages three independent trading systems: a Sports Be
 -   **Injury Indicator Styles**: CSS ready for major (red), minor (yellow), clean (green) injury status badges.
 
 ### Technical Implementation
--   **Sports Model**:
-    -   **Data Sources**: Exclusively uses ESPN Official Season Stats and Bovada for lines.
-    -   **Formulas**: Strict, unmodifiable formulas for `Expected Team Score`, `Projected Total`, and `Difference`.
-    -   **Thresholds**: League-specific thresholds for pick validation (e.g., NBA/CBB: ±8.0 points).
-    -   **Bet Direction**: Binary rules for OVER/UNDER based on `Projected_Total` vs. `Bovada_Line` plus threshold.
-    -   **Historical Qualification**: Totals picks require 60%+ historical O/U hit rate from last 30 games (NBA/CBB/NHL) or 16 games (NFL/CFB). Spreads use margin-based validation.
-    -   **Alt Lines**: Fetched from Bovada, selecting best value with odds -180 or better.
-    -   **Pinnacle EV Comparison**: Fetches Pinnacle odds to calculate Expected Value (EV), with a minimum EV threshold of 1.0%.
-    -   **Result Checking**: Automatic result checking refreshes 2.5-3.5 hours after game start.
-    -   **Automation**: Daily scheduled tasks for fetching data, posting picks, and checking results.
-    -   **Advanced Qualification Factors**:
-        -   **Recent Form Weighting**: Tracks team form (UP, DOWN, STABLE) and disqualifies spread picks if form is declining.
-        -   **Injury Data Integration**: Utilizes RotoWire.com (primary) and ESPN API (fallback) for injury reports and starting lineups. Implements circuit breaker, rate limiting, and caching. Calculates status-weighted impact scores and disqualifies picks based on injury severity.
-        -   **Sharp Money Detection (Line Movement)**: Stores opening lines and disqualifies picks if sharp money moves against the model's direction by 1.5+ points.
-        -   **Spread Sign Validation**: Cross-references spread signs against moneyline odds, auto-correcting mismatches.
-        -   **Strength of Schedule Factor**: Calculates a multiplier based on opponent's PPG allowed for future projection adjustments.
-        -   **Vig-Adjusted Edge Calculation**: Removes bookmaker vig from raw edge calculations for accurate assessment.
-        -   **Bulletproof Pre-Send Validation**: A final validation layer with 7 checks (Edge threshold, Model qualification, Historical qualification, EV non-negative, Injury validation, Game status, Spread validation). Defines confidence tiers (SUPERMAX, HIGH, MEDIUM, LOW) for picks.
-        -   **Timezone Validation**: Correctly converts UTC game times to Eastern Time.
-        -   **Historical Betting Lines Service**: Fetches actual Vegas closing lines from The Odds API for true ATS and O/U hit rates.
-        -   **Bulletproof Current Line System**: Calculates current line hit rates using free ESPN data + current Vegas lines, defining confidence tiers.
--   **Betting Models (4 Total)**:
-    1.  **Standard Totals (O/U)**: Core O/U picks based on ESPN stats vs Bovada lines, with specific edge and historical qualification thresholds.
-    2.  **Standard Spreads**: Spread picks using expected margin vs Bovada spread lines, with separate historical qualification.
-    3.  **Away Favorite + O/U**: Premium model for games where away team is favorite and O/U meets edge, with stricter historical requirements.
-    4.  **NBA Away Favorite 1H Money Line**: For NBA games where away team is favorite, takes 1st Half money line.
--   **TOP 5 Ranking Algorithm**: Uses a weighted score combining edge, historical percentage, and model bonuses.
--   **Data Management**: Date-keyed caching for ESPN lookups, SQLite database with indexes, and data validation.
+-   **Sports Model (PURE FORMULA-BASED)**:
+    -   **Data Sources**: ONLY ESPN Official Season Stats (PPG, Opp PPG) and Bovada lines.
+    -   **Formulas (STRICT - NO MODIFICATIONS)**:
+        -   `Expected_A = (Team A PPG + Team B Opp PPG) / 2`
+        -   `Expected_B = (Team B PPG + Team A Opp PPG) / 2`
+        -   `Projected_Total = Expected_A + Expected_B`
+        -   `Difference = Projected_Total - Bovada_Line`
+    -   **Thresholds (ABSOLUTE RULE)**: A bet is ONLY valid if absolute Difference meets:
+        -   NBA: ±8.0 points
+        -   CBB: ±8.0 points
+        -   NFL: ±3.5 points
+        -   CFB: ±3.5 points
+        -   NHL: ±0.5 points
+    -   **Bet Direction (BINARY)**:
+        -   OVER: If `Projected_Total >= Bovada_Line + Threshold`
+        -   UNDER: If `Bovada_Line >= Projected_Total + Threshold`
+    -   **Lock of the Day**: Highest absolute edge across all qualified picks.
+    -   **TOP 5 Ranking**: Sorted by EDGE only (highest edge = best pick).
+    -   **Star Ratings**: Based on edge only (5★ for 12+, 4★ for 10+, 3★ for 8+, 2★ otherwise).
+-   **Data Management**: Date-keyed caching for ESPN lookups, PostgreSQL database with indexes, and data validation.
 -   **System Stability**: Gunicorn timeout increased to 120s, robust logging, team alias expansion and name matching.
 -   **Discord Integration**: Automated posting of picks to Discord with history tracking and staggered weekend scheduling.
 -   **Performance Optimizations**:

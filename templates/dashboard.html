@@ -756,7 +756,7 @@
                         EDGE {{ "%.1f"|format(supermax_lock.spread_edge) }} PTS
                         {% endif %}
                     </div>
-                    <span class="lock-badge{% if supermax_type == 'spread' %}" style="background: linear-gradient(135deg, var(--accent) 0%, #6B9FFF 100%);{% else %}">{% endif %}<i class="bi bi-lightning-charge-fill"></i> SUPERMAX</span>
+                    <span class="lock-badge{% if supermax_type == 'spread' %}" style="background: linear-gradient(135deg, var(--accent) 0%, #6B9FFF 100%);{% else %}">{% endif %}<i class="bi bi-lightning-charge-fill"></i> LOCK OF THE DAY</span>
                     <span class="badge mt-1" style="background: var(--bg-card); color: var(--text-muted); font-size: 0.7rem; padding: 0.25rem 0.5rem;">{{ supermax_lock.league }} {{ 'TOTALS' if supermax_type == 'totals' else 'SPREAD' }}</span>
                 </div>
                 <div class="text-center flex-grow-1">
@@ -856,8 +856,8 @@
                             {% set edge_class = 'elite' if pick.edge >= 12 else ('high' if pick.edge >= 10 else ('medium' if pick.edge >= 8 else 'low')) %}
                             <div class="edge-bar-fill {{ edge_class }}" style="width: {{ edge_pct }}%"></div>
                         </div>
-                        <span class="confidence-stars" title="{{ pick.confidence_tier if pick.confidence_tier else 'STANDARD' }}">
-                            {% set stars = 5 if pick.confidence_tier == 'SUPERMAX' else (4 if pick.confidence_tier == 'HIGH' else (3 if pick.confidence_tier == 'MEDIUM' else 2)) %}
+                        <span class="confidence-stars" title="Edge: {{ '%.1f'|format(pick.edge) }} pts">
+                            {% set stars = 5 if pick.edge >= 12 else (4 if pick.edge >= 10 else (3 if pick.edge >= 8 else 2)) %}
                             {% for i in range(5) %}<span class="star {% if i < stars %}filled{% else %}empty{% endif %}">★</span>{% endfor %}
                         </span>
                     </div>
