@@ -260,6 +260,53 @@ class RateLimiter:
 
 espn_limiter = RateLimiter(requests_per_second=5)
 odds_api_limiter = RateLimiter(requests_per_second=2)
+espn_rate_limiter = espn_limiter
+odds_api_rate_limiter = odds_api_limiter
+
+def api_retry(max_attempts=3, base_delay=0.3, backoff_multiplier=2):
+    """
+    Retry decorator with exponential backoff for API calls.
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            last_exception = None
+            for attempt in range(max_attempts):
+                try:
+                    return func(*args, **kwargs)
+                except (requests.RequestException, requests.Timeout, requests.HTTPError) as e:
+                    last_exception = e
+                    if attempt < max_attempts - 1:
+                        delay = base_delay * (backoff_multiplier ** attempt)
+                        logger.warning(f"{func.__name__} attempt {attempt + 1} failed: {str(e)}. Retrying in {delay}s...")
+                        time.sleep(delay)
+                    else:
+                        logger.error(f"{func.__name__} failed after {max_attempts} attempts: {str(e)}")
+                except Exception as e:
+                    logger.error(f"{func.__name__} unexpected error: {str(e)}")
+                    raise
+            
+            if last_exception:
+                raise last_exception
+            return None
+        return wrapper
+    return decorator
+
+@dataclass
+class GameOdds:
+    """Structured container for game odds data."""
+    game_id: str
+    away_team: str
+    home_team: str
+    league: str
+    spread_home: Optional[float] = None
+    spread_away: Optional[float] = None
+    total: Optional[float] = None
+    moneyline_home: Optional[int] = None
+    moneyline_away: Optional[int] = None
+    first_half_spread_home: Optional[float] = None
+    first_half_spread_away: Optional[float] = None
+    first_half_total: Optional[float] = None
 
 class DataFetchError(Exception):
     """Custom exception for data fetch failures with context."""
