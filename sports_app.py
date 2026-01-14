@@ -7063,6 +7063,34 @@ def fetch_odds_internal() -> dict:
                                         except Exception as e:
                                             logger.error(f"Injury check error for {game.away_team} @ {game.home_team}: {e}")
                                         
+                                        # SITUATIONAL FACTORS: Rest Days & Travel
+                                        try:
+                                            away_rest = get_rest_days_impact(game.away_team, league, today)
+                                            home_rest = get_rest_days_impact(game.home_team, league, today)
+                                            travel_penalty = get_travel_impact(game.away_team, game.home_team, league)
+                                            
+                                            situational_adj = 0.0
+                                            
+                                            if away_rest['is_back_to_back']:
+                                                situational_adj += away_rest['fatigue_factor']
+                                            if home_rest['is_back_to_back']:
+                                                situational_adj += home_rest['fatigue_factor']
+                                            if abs(travel_penalty) >= 1.0:
+                                                situational_adj += travel_penalty
+                                            
+                                            if abs(situational_adj) >= 1.0:
+                                                proj_total += situational_adj
+                                                logger.info(f"{game.away_team} @ {game.home_team}: Situational adj {situational_adj:+.1f}pts")
+                                            
+                                            game.days_rest_away = away_rest.get('days_rest')
+                                            game.days_rest_home = home_rest.get('days_rest')
+                                            game.is_back_to_back_away = away_rest.get('is_back_to_back', False)
+                                            game.is_back_to_back_home = home_rest.get('is_back_to_back', False)
+                                            game.travel_distance = calculate_travel_distance(game.away_team, game.home_team)
+                                            game.situational_adjustment = situational_adj
+                                        except Exception as e:
+                                            logger.error(f"Situational factors error: {e}")
+                                        
                                         # SHARP QUALIFICATION
                                         qual_result = check_qualification_professional(
                                             projected_total=proj_total,
@@ -7167,6 +7195,9 @@ def fetch_odds_internal() -> dict:
     
     # Fetch Model 4: NBA 1H ML for away favorites
     model4_result = fetch_nba_1h_ml_internal()
+    
+    # Clear dashboard cache since we have fresh data
+    clear_dashboard_cache()
     
     return {
         "success": True, 
@@ -7481,6 +7512,36 @@ def dashboard_data_api():
     logger.info(f"Dashboard API: {len(games_data)} games in {elapsed*1000:.0f}ms")
     
     return jsonify(response_data)
+
+@app.route('/api/situational_stats')
+def situational_stats_api():
+    """API endpoint showing situational factor statistics."""
+    et = pytz.timezone('America/New_York')
+    today = datetime.now(et).date()
+    week_ago = today - timedelta(days=7)
+    
+    recent_games = Game.query.filter(Game.date >= week_ago).all()
+    
+    b2b_away = sum(1 for g in recent_games if g.is_back_to_back_away)
+    b2b_home = sum(1 for g in recent_games if g.is_back_to_back_home)
+    
+    games_with_travel = [g for g in recent_games if g.travel_distance and g.travel_distance > 1000]
+    avg_travel = sum(g.travel_distance for g in games_with_travel) / len(games_with_travel) if games_with_travel else 0
+    
+    adjusted_games = [g for g in recent_games if g.situational_adjustment and abs(g.situational_adjustment) >= 1.0]
+    
+    return jsonify({
+        'success': True,
+        'period': '7 days',
+        'total_games': len(recent_games),
+        'back_to_backs': {'away': b2b_away, 'home': b2b_home},
+        'travel_stats': {
+            'games_over_1000mi': len(games_with_travel),
+            'avg_distance': round(avg_travel, 0)
+        },
+        'adjustments_applied': len(adjusted_games),
+        'adjustment_rate': f"{len(adjusted_games)/len(recent_games)*100:.1f}%" if recent_games else "0%"
+    })
 
 def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_spread: bool = False, home_team: str = "", debug_game: str = "") -> tuple:
     """
