@@ -1478,7 +1478,10 @@ def detect_sharp_money(opening_line: float, current_line: float, direction: str 
     return {"sharp_aligned": False, "sharp_against": False, "movement": movement, "signal": "NEUTRAL"}
 
 class SpreadValidator:
-    """Validates spread signs using moneyline cross-reference"""
+    """Enhanced spread validation with edge case handling."""
+    
+    TOLERANCE = 0.5
+    MAX_SPREADS = {'NBA': 30.0, 'CBB': 35.0, 'NFL': 28.0, 'CFB': 50.0, 'NHL': 3.5}
     
     @staticmethod
     def validate_spread_vs_moneyline(
@@ -1486,33 +1489,55 @@ class SpreadValidator:
         away_ml: Optional[float],
         home_ml: Optional[float],
         away_team: str,
-        home_team: str
+        home_team: str,
+        tolerance: float = 0.5
     ) -> Tuple[bool, Optional[str], Optional[float]]:
         """
-        Validates spread sign against moneyline odds.
+        Validates spread sign against moneyline odds with edge case handling.
         Returns: (is_valid, error_message, corrected_spread)
-        
-        LOGIC:
-        - Negative spread (from away perspective) = away team is FAVORITE
-        - Positive spread = away team is UNDERDOG
-        - Lower moneyline = FAVORITE
         """
         if not away_ml or not home_ml:
+            if abs(spread) <= tolerance:
+                return True, None, None
+            warning = f"Cannot validate spread without moneyline: {away_team} @ {home_team}"
+            logger.warning(warning)
+            return True, warning, None
+        
+        ml_diff = abs(away_ml - home_ml)
+        if ml_diff <= 20 and abs(spread) <= tolerance:
             return True, None, None
         
         away_is_favorite_by_ml = away_ml < home_ml
-        away_is_favorite_by_spread = spread < 0
+        away_is_favorite_by_spread = spread < -tolerance
+        away_is_underdog_by_spread = spread > tolerance
         
-        if away_is_favorite_by_ml != away_is_favorite_by_spread:
+        if away_is_favorite_by_ml and away_is_underdog_by_spread:
             error_msg = (
-                f"SPREAD SIGN MISMATCH: {away_team} @ {home_team} | "
-                f"Spread: {spread} (says {'FAV' if spread < 0 else 'DOG'}) vs "
-                f"ML: {away_ml}/{home_ml} (says {'FAV' if away_is_favorite_by_ml else 'DOG'})"
+                f"SPREAD MISMATCH: {away_team} @ {home_team} | "
+                f"ML says {away_team} favorite ({away_ml} vs {home_ml}) but spread says underdog (+{spread})"
             )
-            corrected_spread = -spread
-            return False, error_msg, corrected_spread
+            return False, error_msg, -abs(spread)
+        elif not away_is_favorite_by_ml and away_is_favorite_by_spread:
+            error_msg = (
+                f"SPREAD MISMATCH: {away_team} @ {home_team} | "
+                f"ML says {home_team} favorite ({home_ml} vs {away_ml}) but spread says {away_team} favorite ({spread})"
+            )
+            return False, error_msg, abs(spread)
+        
+        if ml_diff > 200 and abs(spread) < 7.0:
+            warning = f"UNUSUAL SPREAD: {away_team} @ {home_team} | Large ML gap ({ml_diff}) but small spread ({spread})"
+            logger.warning(warning)
+            return True, warning, None
         
         return True, None, None
+    
+    @staticmethod
+    def validate_spread_magnitude(spread: float, league: str) -> Tuple[bool, Optional[str]]:
+        """Validate spread is within reasonable range for league."""
+        max_spread = SpreadValidator.MAX_SPREADS.get(league, 50.0)
+        if abs(spread) > max_spread:
+            return False, f"Spread {spread} exceeds max for {league} ({max_spread})"
+        return True, None
     
     @staticmethod
     def validate_and_correct_spread(
@@ -4512,7 +4537,46 @@ def dashboard():
 
 @app.route('/health')
 def health():
-    return jsonify({"status": "ok"})
+    """Comprehensive health check for monitoring."""
+    health_status = {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+        "checks": {}
+    }
+    
+    try:
+        db.session.execute(db.text('SELECT 1'))
+        health_status["checks"]["database"] = "ok"
+    except Exception as e:
+        health_status["checks"]["database"] = f"error: {str(e)}"
+        health_status["status"] = "unhealthy"
+    
+    try:
+        test_key = "_health_check_"
+        espn_schedule_cache.set(test_key, "test")
+        if espn_schedule_cache.get(test_key) == "test":
+            health_status["checks"]["cache"] = "ok"
+        else:
+            health_status["checks"]["cache"] = "error: cache not working"
+            health_status["status"] = "degraded"
+    except Exception as e:
+        health_status["checks"]["cache"] = f"error: {str(e)}"
+        health_status["status"] = "degraded"
+    
+    try:
+        et = pytz.timezone('America/New_York')
+        today = datetime.now(et).date()
+        game_count = Game.query.filter_by(date=today).count()
+        qualified_count = Game.query.filter_by(date=today, is_qualified=True).count()
+        health_status["checks"]["games"] = {
+            "total": game_count,
+            "qualified": qualified_count
+        }
+    except Exception as e:
+        health_status["checks"]["games"] = f"error: {str(e)}"
+    
+    status_code = 200 if health_status["status"] == "healthy" else 503
+    return jsonify(health_status), status_code
 
 @app.route('/sw.js')
 def service_worker():
