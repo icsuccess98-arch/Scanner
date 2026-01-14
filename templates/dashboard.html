@@ -839,13 +839,6 @@
                                     {% for i in range(5) %}<span class="star {% if i < stars %}filled{% else %}empty{% endif %}">★</span>{% endfor %}
                                 </span>
                             </div>
-                            {% if pick.kelly_pct and pick.kelly_pct > 0 %}
-                            <div style="display: flex; gap: 0.75rem; font-size: 0.65rem; color: var(--text-muted);">
-                                <span title="Kelly Criterion bet size">Kelly: <strong style="color: var(--accent);">{{ "%.1f"|format(pick.kelly_pct) }}%</strong></span>
-                                {% if pick.vig_pct %}<span title="Market vig percentage">Vig: {{ "%.1f"|format(pick.vig_pct) }}%</span>{% endif %}
-                                {% if pick.rest_impact and pick.rest_impact != 0 %}<span title="Rest day impact">Rest: <strong style="color: {% if pick.rest_impact > 0 %}var(--green){% else %}var(--red){% endif %};">{{ "%+.1f"|format(pick.rest_impact) }}</strong></span>{% endif %}
-                            </div>
-                            {% endif %}
                         </div>
                     </div>
                     {% endfor %}
@@ -859,11 +852,7 @@
 
         <div class="section-header">
             <div class="d-flex align-items-center gap-3">
-                <h5 class="mb-0"><i class="bi bi-list-ul"></i> Games</h5>
-            </div>
-            <div class="filter-toggle">
-                <a href="/" class="{% if not show_only_qualified %}active{% endif %}">All Games</a>
-                <a href="/?qualified=1" class="{% if show_only_qualified %}active{% endif %}">Qualified Only</a>
+                <h5 class="mb-0"><i class="bi bi-list-ul"></i> Qualified Picks</h5>
             </div>
         </div>
 
@@ -871,7 +860,7 @@
         {% set time_windows = {'EARLY': '🌅 Early Games (before 1pm)', 'MID': '☀️ Afternoon Games (1-6pm)', 'LATE': '🌙 Evening Games (after 6pm)'} %}
         {% for league in leagues %}
             {% set all_league_games = games|selectattr('league', 'equalto', league)|list %}
-            {% set league_games = all_league_games|selectattr('line')|list %}
+            {% set league_games = all_league_games|selectattr('is_qualified')|list %}
             {% if league_games|length > 0 %}
             <div class="league-section league-{{ league|lower }}">
                 <div class="league-header">
@@ -879,7 +868,7 @@
                     <img src="https://a.espncdn.com/combiner/i?img={{ logo_paths[league] }}&w=100" class="league-logo" alt="{{ league }}">
                     <div>
                         <div class="league-title">{{ {'NBA': 'NBA Basketball', 'CBB': 'College Basketball', 'NFL': 'NFL Football', 'CFB': 'College Football', 'NHL': 'NHL Hockey'}[league] }}</div>
-                        <div class="league-count">{{ league_games|length }} game{% if league_games|length != 1 %}s{% endif %} | {{ league_games|selectattr('is_qualified')|list|length }} qualified</div>
+                        <div class="league-count">{{ league_games|length }} qualified pick{% if league_games|length != 1 %}s{% endif %}</div>
                     </div>
                 </div>
                 
