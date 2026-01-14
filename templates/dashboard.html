@@ -819,7 +819,7 @@
                         </span>
                         {% else %}
                         <span class="direction-chip spread-chip" style="background: rgba(76, 130, 255, 0.15); color: var(--accent);">
-                            {% if pick.direction == 'HOME' %}{{ pick.game.home_team }}{% else %}{{ pick.game.away_team }}{% endif %} {{ "%+.1f"|format(pick.line) if pick.line else '' }}{% if pick.odds %} <span style="font-size: 0.7rem; opacity: 0.85;">({{ pick.odds }})</span>{% endif %}
+                            {{ pick.team }} {{ "%+.1f"|format(pick.line) if pick.line else '' }}{% if pick.odds %} <span style="font-size: 0.7rem; opacity: 0.85;">({{ pick.odds }})</span>{% endif %}
                         </span>
                         {% endif %}
                         <span class="top-pick-edge">+{{ "%.1f"|format(pick.edge) }}</span>

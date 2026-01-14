@@ -129,6 +129,54 @@ class GameConstants:
 
 THRESHOLDS = GameConstants.EDGE_THRESHOLDS
 
+
+def get_display_spread(game, use_alt=True) -> tuple:
+    """
+    FOOLPROOF SPREAD DISPLAY HELPER
+    
+    Returns: (team_name, display_line) with correct sign
+    
+    Database storage: spread_line is ALWAYS stored as the AWAY team's spread
+    - spread_line > 0 = away is underdog (e.g., +5.5)
+    - spread_line < 0 = away is favorite (e.g., -5.5)
+    
+    For HOME picks: negate the stored line to get home team's spread
+    For AWAY picks: use stored line as-is
+    """
+    if not game.spread_direction or not game.spread_line:
+        return (None, None)
+    
+    if use_alt and game.alt_spread_line:
+        raw_line = game.alt_spread_line
+    else:
+        raw_line = game.spread_line
+    
+    if game.spread_direction == 'HOME':
+        return (game.home_team, -raw_line)
+    else:
+        return (game.away_team, raw_line)
+
+
+def format_spread_pick(game, use_alt=True, include_odds=False) -> str:
+    """
+    FOOLPROOF SPREAD FORMAT HELPER
+    
+    Returns formatted string like "Lakers -5.5" or "Celtics +3.5 (-110)"
+    """
+    team, line = get_display_spread(game, use_alt)
+    if team is None:
+        return ""
+    
+    pick_str = f"{team} {line:+.1f}"
+    
+    if include_odds:
+        odds = game.alt_spread_odds if use_alt and game.alt_spread_odds else game.bovada_spread_odds
+        if odds:
+            pick_str += f" ({odds:+.0f})"
+    
+    return pick_str
+
+
 class TTLCache:
     """Time-based cache with max size to prevent memory leaks."""
     def __init__(self, maxsize=1000, ttl=3600):
@@ -5180,19 +5228,9 @@ def dashboard():
             history_pct = g.away_spread_pct or 0
         edge = g.spread_edge or 0
         weighted_score = edge + (history_pct * 0.15)
-        # For spread picks, calculate the correct line value for display
-        # spread_line and alt_spread_line are stored as AWAY team's spread
-        # For HOME picks, we need to negate to show home team's spread
-        # For AWAY picks, use as-is
-        if g.alt_spread_line:
-            display_line = -g.alt_spread_line if g.spread_direction == 'HOME' else g.alt_spread_line
-            vegas_line = -g.spread_line if g.spread_direction == 'HOME' else g.spread_line
-        elif g.spread_line:
-            display_line = -g.spread_line if g.spread_direction == 'HOME' else g.spread_line
-            vegas_line = display_line
-        else:
-            display_line = None
-            vegas_line = None
+        # Use foolproof helper for spread display
+        team, display_line = get_display_spread(g, use_alt=True)
+        _, vegas_line = get_display_spread(g, use_alt=False)
         combined_picks.append({
             'game': g,
             'edge': edge,
@@ -5201,6 +5239,7 @@ def dashboard():
             'pick_type': 'spread',
             'model_type': 'spread',
             'direction': g.spread_direction,
+            'team': team,
             'line': display_line,
             'vegas_line': vegas_line,
             'alt_line': g.alt_spread_line,
@@ -6663,14 +6702,8 @@ def post_discord():
             line_val = g.alt_total_line if g.alt_total_line else g.line
             pick_str = f"{g.direction}{line_val}"
         else:
-            if g.spread_direction == 'HOME':
-                spread_val = g.alt_spread_line if g.alt_spread_line else g.spread_line
-                pick_str = f"{g.home_team} {spread_val:+.1f}" if spread_val else g.home_team
-                line_val = spread_val
-            else:
-                spread_val = abs(g.alt_spread_line) if g.alt_spread_line else abs(g.spread_line) if g.spread_line else 0
-                pick_str = f"{g.away_team} +{spread_val:.1f}" if spread_val else g.away_team
-                line_val = spread_val
+            team, line_val = get_display_spread(g, use_alt=True)
+            pick_str = f"{team} {line_val:+.1f}" if line_val else (team or "")
         
         away_favorite = (g.spread_line or 0) > 0
         combined.append({
@@ -6703,15 +6736,10 @@ def post_discord():
             line = g.alt_total_line if g.alt_total_line else g.line
             odds = g.alt_total_odds if g.alt_total_odds else None
             pick_str = f"{g.direction}{line:.0f}" if line else p['pick_str']
+            if odds:
+                pick_str += f" ({odds:+.0f})"
         else:
-            line = g.alt_spread_line if g.alt_spread_line else abs(g.spread_line) if g.spread_line else None
-            odds = g.alt_spread_odds if g.alt_spread_odds else None
-            if g.spread_direction == 'HOME':
-                pick_str = f"{g.home_team} {line:+.0f}" if line else g.home_team
-            else:
-                pick_str = f"{g.away_team} +{line:.0f}" if line else g.away_team
-        if odds:
-            pick_str += f" ({odds:+.0f})"
+            pick_str = format_spread_pick(g, use_alt=True, include_odds=True)
         return pick_str
     
     # Helper to extract short time (e.g., "8:30 PM EST" -> "8:30")
@@ -6853,21 +6881,15 @@ def post_discord_window(window: str):
     emoji_map = {"NBA": "🏀", "CBB": "🏀", "NFL": "🏈", "CFB": "🏈", "NHL": "🏒"}
     window_labels = {"EARLY": "🌅 EARLY LOCK", "MID": "☀️ MIDDAY LOCK", "LATE": "🌙 LATE LOCK"}
     
-    # Format pick
+    # Format pick using foolproof helper
     if supermax['pick_type'] == 'total':
         line = sm_game.alt_total_line if sm_game.alt_total_line else sm_game.line
         odds = sm_game.alt_total_odds if sm_game.alt_total_odds else None
         pick_str = f"{sm_game.direction}{line:.0f}" if line else f"{sm_game.direction}"
+        if odds:
+            pick_str += f" ({odds:+.0f})"
     else:
-        line = sm_game.alt_spread_line if sm_game.alt_spread_line else abs(sm_game.spread_line) if sm_game.spread_line else None
-        odds = sm_game.alt_spread_odds if sm_game.alt_spread_odds else None
-        if sm_game.spread_direction == 'HOME':
-            pick_str = f"{sm_game.home_team} {line:+.0f}" if line else sm_game.home_team
-        else:
-            pick_str = f"{sm_game.away_team} +{line:.0f}" if line else sm_game.away_team
-    
-    if odds:
-        pick_str += f" ({odds:+.0f})"
+        pick_str = format_spread_pick(sm_game, use_alt=True, include_odds=True)
     
     # Build message
     msg = f"🔒 730's LOCKS\n{today_str}\n\n"
@@ -6881,19 +6903,15 @@ def post_discord_window(window: str):
         if not success:
             return jsonify({"success": False, "message": f"Discord post failed: {error}", "status": status_code})
         
-        # Save to history
+        # Save to history using foolproof helper
         matchup = f"{sm_game.away_team} @ {sm_game.home_team}"
         if supermax['pick_type'] == 'total':
             line_val = sm_game.alt_total_line if sm_game.alt_total_line else sm_game.line
             pick_save = f"{sm_game.direction}{line_val}"
             edge_val = sm_game.edge
         else:
-            if sm_game.spread_direction == 'HOME':
-                line_val = sm_game.alt_spread_line if sm_game.alt_spread_line else sm_game.spread_line
-                pick_save = f"{sm_game.home_team} {line_val:+.1f}" if line_val else sm_game.home_team
-            else:
-                line_val = sm_game.alt_spread_line if sm_game.alt_spread_line else -sm_game.spread_line if sm_game.spread_line else None
-                pick_save = f"{sm_game.away_team} {line_val:+.1f}" if line_val else sm_game.away_team
+            team, line_val = get_display_spread(sm_game, use_alt=True)
+            pick_save = f"{team} {line_val:+.1f}" if line_val else (team or "")
             edge_val = sm_game.spread_edge
         
         game_start_dt = parse_game_time_to_datetime(sm_game.game_time, today)
