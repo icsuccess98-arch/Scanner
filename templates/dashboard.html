@@ -466,6 +466,34 @@
         .tier-badge.elite { background: rgba(255, 215, 0, 0.25); color: #FFD700; box-shadow: 0 0 10px rgba(255, 215, 0, 0.3); }
         .tier-badge.strong { background: rgba(157, 78, 221, 0.25); color: #E0B0FF; }
         .tier-badge.standard { background: rgba(123, 44, 191, 0.2); color: var(--accent); }
+        
+        /* Injury Indicators */
+        .injury-indicator { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.7rem; padding: 0.15rem 0.4rem; border-radius: 4px; margin-left: 0.5rem; }
+        .injury-indicator.major { background: rgba(220, 20, 60, 0.2); color: #FF6B6B; }
+        .injury-indicator.minor { background: rgba(255, 193, 7, 0.2); color: #FFD93D; }
+        .injury-indicator.clean { background: rgba(80, 200, 120, 0.15); color: #50C878; }
+        .injury-indicator.rotowire { border: 1px solid rgba(123, 44, 191, 0.3); }
+        .injury-indicator.espn { border: 1px solid rgba(220, 20, 60, 0.3); }
+        .lineup-status { font-size: 0.65rem; color: var(--text-muted); margin-top: 0.25rem; }
+        .lineup-status.confirmed { color: #50C878; }
+        
+        /* Edge Visualization Bar */
+        .edge-bar-container { margin-top: 0.25rem; }
+        .edge-bar { height: 6px; background: var(--bg-dark); border-radius: 3px; overflow: hidden; width: 100%; max-width: 80px; }
+        .edge-bar-fill { height: 100%; border-radius: 3px; transition: width 0.3s ease; }
+        .edge-bar-fill.low { background: linear-gradient(90deg, #6B7280, #9CA3AF); }
+        .edge-bar-fill.medium { background: linear-gradient(90deg, #9333EA, #A855F7); }
+        .edge-bar-fill.high { background: linear-gradient(90deg, #22C55E, #4ADE80); }
+        .edge-bar-fill.elite { background: linear-gradient(90deg, #FFD700, #FFEC8B); box-shadow: 0 0 8px rgba(255, 215, 0, 0.5); }
+        
+        /* Confidence Stars */
+        .confidence-stars { display: inline-flex; gap: 1px; margin-left: 0.5rem; }
+        .confidence-stars .star { font-size: 0.65rem; }
+        .confidence-stars .star.filled { color: #FFD700; }
+        .confidence-stars .star.empty { color: #3D3D5C; }
+        
+        /* B2B Badge */
+        .b2b-badge { font-size: 0.6rem; padding: 0.1rem 0.3rem; background: rgba(255, 107, 107, 0.2); color: #FF6B6B; border-radius: 3px; margin-left: 0.25rem; }
         .tier-count { font-weight: 800; font-size: 1rem; }
         .direction-chip { padding: 0.25rem 0.5rem; border-radius: 4px; font-weight: 700; font-size: 0.75rem; white-space: nowrap; flex-shrink: 0; }
         .direction-chip.over { background: rgba(0, 230, 118, 0.2); color: #00E676; }
@@ -823,6 +851,15 @@
                         </span>
                         {% endif %}
                         <span class="top-pick-edge">+{{ "%.1f"|format(pick.edge) }}</span>
+                        <div class="edge-bar" title="Edge: {{ '%.1f'|format(pick.edge) }}">
+                            {% set edge_pct = [[(pick.edge / 15 * 100), 100]|min, 0]|max %}
+                            {% set edge_class = 'elite' if pick.edge >= 12 else ('high' if pick.edge >= 10 else ('medium' if pick.edge >= 8 else 'low')) %}
+                            <div class="edge-bar-fill {{ edge_class }}" style="width: {{ edge_pct }}%"></div>
+                        </div>
+                        <span class="confidence-stars" title="{{ pick.confidence_tier if pick.confidence_tier else 'STANDARD' }}">
+                            {% set stars = 5 if pick.confidence_tier == 'SUPERMAX' else (4 if pick.confidence_tier == 'HIGH' else (3 if pick.confidence_tier == 'MEDIUM' else 2)) %}
+                            {% for i in range(5) %}<span class="star {% if i < stars %}filled{% else %}empty{% endif %}">★</span>{% endfor %}
+                        </span>
                     </div>
                     {% endfor %}
                     {% if not analytics.top_picks %}
@@ -870,7 +907,10 @@
                 <div class="game-card game-row {% if game.is_qualified %}qualified{% endif %} {% if supermax_lock and game.id == supermax_lock.id %}lock-card{% endif %}" data-away="{{ game.away_team }}" data-home="{{ game.home_team }}">
                     <div class="row align-items-center">
                         <div class="col-md-3">
-                            <div class="matchup">{{ game.away_team }} @ {{ game.home_team }}</div>
+                            <div class="matchup">
+                                {{ game.away_team }} @ {{ game.home_team }}
+                                {% if game.is_back_to_back_away or game.is_back_to_back_home %}<span class="b2b-badge" title="Back-to-back game">B2B</span>{% endif %}
+                            </div>
                             <div class="game-time">{{ game.game_time }}</div>
                             <div class="live-score" style="display:none; margin-top:0.5rem; font-size:0.875rem; color:#21C55D;"></div>
                         </div>
@@ -968,7 +1008,10 @@
                 <div class="game-card game-row {% if game.is_qualified %}qualified{% endif %} {% if lock and game.id == lock.id %}lock-card{% endif %}" data-away="{{ game.away_team }}" data-home="{{ game.home_team }}">
                     <div class="row align-items-center">
                         <div class="col-md-3">
-                            <div class="matchup">{{ game.away_team }} @ {{ game.home_team }}</div>
+                            <div class="matchup">
+                                {{ game.away_team }} @ {{ game.home_team }}
+                                {% if game.is_back_to_back_away or game.is_back_to_back_home %}<span class="b2b-badge" title="Back-to-back game">B2B</span>{% endif %}
+                            </div>
                             <div class="game-time">{{ game.game_time }}</div>
                             <div class="live-score" style="display:none; margin-top:0.5rem; font-size:0.875rem; color:#21C55D;"></div>
                         </div>
