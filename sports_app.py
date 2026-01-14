@@ -3850,6 +3850,13 @@ class Game(db.Model):
     sharp_money_side = db.Column(db.String(10))  # Where sharp money is
     fair_probability = db.Column(db.Float)  # True win probability
     probability_edge = db.Column(db.Float)  # Edge in probability space
+    # Situational factors
+    days_rest_away = db.Column(db.Integer)
+    days_rest_home = db.Column(db.Integer)
+    is_back_to_back_away = db.Column(db.Boolean, default=False)
+    is_back_to_back_home = db.Column(db.Boolean, default=False)
+    travel_distance = db.Column(db.Float)
+    situational_adjustment = db.Column(db.Float, default=0.0)
     
     __table_args__ = (
         db.Index('idx_date_league', 'date', 'league'),
