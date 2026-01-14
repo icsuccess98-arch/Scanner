@@ -2,7 +2,8 @@ import os
 import logging
 import time
 from datetime import datetime, date, timedelta
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
+from dataclasses import dataclass
 from functools import wraps
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from enum import Enum
@@ -1552,6 +1553,243 @@ def detect_sharp_money(opening_line: float, current_line: float, direction: str 
     
     return {"sharp_aligned": False, "sharp_against": False, "movement": movement, "signal": "NEUTRAL"}
 
+# ============================================================================
+# PROFESSIONAL BETTING MATH
+# ============================================================================
+
+class ProbabilityConverter:
+    """Convert between odds formats and probabilities."""
+    
+    @staticmethod
+    def american_to_decimal(american: int) -> float:
+        """Convert American odds to decimal odds."""
+        if american > 0:
+            return (american / 100) + 1
+        else:
+            return (100 / abs(american)) + 1
+    
+    @staticmethod
+    def american_to_implied(american: int) -> float:
+        """Convert American odds to implied probability (WITH vig)."""
+        if american > 0:
+            return 100 / (american + 100)
+        else:
+            return abs(american) / (abs(american) + 100)
+    
+    @staticmethod
+    def decimal_to_american(decimal: float) -> int:
+        """Convert decimal odds to American odds."""
+        if decimal >= 2.0:
+            return int((decimal - 1) * 100)
+        else:
+            return int(-100 / (decimal - 1))
+    
+    @staticmethod
+    def probability_to_american(prob: float) -> int:
+        """Convert probability to American odds."""
+        if prob >= 0.5:
+            return int(-100 * prob / (1 - prob))
+        else:
+            return int(100 * (1 - prob) / prob)
+
+
+class VigRemover:
+    """Remove vig from betting markets to get true probabilities."""
+    
+    @staticmethod
+    def remove_two_way_vig(odds_a: int, odds_b: int) -> dict:
+        """
+        Remove vig from a two-way market (totals, spreads).
+        Returns true probabilities after vig removal.
+        """
+        prob_a_vig = ProbabilityConverter.american_to_implied(odds_a)
+        prob_b_vig = ProbabilityConverter.american_to_implied(odds_b)
+        
+        overround = prob_a_vig + prob_b_vig
+        prob_a_true = prob_a_vig / overround
+        prob_b_true = prob_b_vig / overround
+        vig_pct = (overround - 1.0) * 100
+        
+        return {
+            'prob_a': prob_a_true,
+            'prob_b': prob_b_true,
+            'vig_pct': vig_pct,
+            'overround': overround,
+            'prob_a_implied': prob_a_vig,
+            'prob_b_implied': prob_b_vig
+        }
+    
+    @staticmethod
+    def calculate_fair_line_totals(line: float, over_odds: int, under_odds: int) -> float:
+        """Calculate the FAIR line after removing vig."""
+        vig_data = VigRemover.remove_two_way_vig(over_odds, under_odds)
+        prob_over = vig_data['prob_a']
+        
+        if abs(prob_over - 0.5) < 0.04:
+            return line
+        
+        shade_pct = (prob_over - 0.5) * 100
+        adjustment = shade_pct * 0.5
+        fair_line = line - adjustment
+        
+        return round(fair_line, 1)
+
+
+class EVCalculator:
+    """Calculate expected value using Pinnacle as sharp benchmark."""
+    
+    @staticmethod
+    def calculate_ev_vs_pinnacle(bovada_odds: int, pinnacle_odds: int, 
+                                 pinnacle_hold: float = 2.5) -> Optional[dict]:
+        """
+        Calculate EV using Pinnacle as true probability.
+        Formula: EV = (true_prob * bovada_decimal_payout) - 1
+        """
+        if not bovada_odds or not pinnacle_odds:
+            return None
+        
+        pinn_implied = ProbabilityConverter.american_to_implied(pinnacle_odds)
+        true_prob = pinn_implied / (1 + pinnacle_hold / 100)
+        bovada_decimal = ProbabilityConverter.american_to_decimal(bovada_odds)
+        
+        ev = (true_prob * bovada_decimal) - 1
+        fair_odds = ProbabilityConverter.probability_to_american(true_prob)
+        
+        b = bovada_decimal - 1
+        q = 1 - true_prob
+        kelly = (b * true_prob - q) / b if b > 0 else 0
+        should_bet = kelly >= 0.02
+        
+        return {
+            'ev_pct': round(ev * 100, 2),
+            'true_prob': round(true_prob, 4),
+            'fair_odds': fair_odds,
+            'kelly': round(kelly, 4),
+            'kelly_pct': round(kelly * 100, 2),
+            'should_bet': should_bet,
+            'edge_in_prob': round((true_prob - ProbabilityConverter.american_to_implied(bovada_odds)) * 100, 2)
+        }
+
+
+@dataclass
+class EdgeResult:
+    """Results from edge calculation."""
+    qualified: bool
+    direction: Optional[str]
+    true_edge: float
+    raw_edge: float
+    fair_line: float
+    posted_line: float
+    vig_pct: float
+    market_balance: str
+    confidence: str
+
+
+@dataclass
+class QualificationResult:
+    """Complete qualification result with all metrics."""
+    qualified: bool
+    confidence: str
+    bet_size_pct: float
+    true_edge: float
+    ev_pct: Optional[float]
+    reasons_pass: List[str]
+    reasons_fail: List[str]
+    recommendation: str
+
+
+class ProfessionalQualifier:
+    """Multi-filter qualification system. ALL filters must pass."""
+    
+    MIN_EV = 1.0
+    MIN_KELLY = 0.02
+    MIN_WIN_RATE = 0.58
+    MIN_SAMPLE_SIZE = 10
+    MAX_VIG = 8.0
+    FRACTIONAL_KELLY = 0.25
+    MAX_BET_SIZE = 0.10
+    
+    @classmethod
+    def qualify_pick(cls, edge_result: EdgeResult, ev_data: Optional[dict],
+                    historical_win_rate: float, sample_size: int,
+                    vig_pct: float, league: str) -> QualificationResult:
+        """Professional multi-filter qualification."""
+        reasons_pass = []
+        reasons_fail = []
+        
+        min_edge = SharpThresholds.MIN_TRUE_EDGE.get(league, 3.5)
+        
+        if edge_result.qualified:
+            reasons_pass.append(f"True Edge: {edge_result.true_edge:.1f} >= {min_edge:.1f}")
+        else:
+            reasons_fail.append(f"True Edge: {edge_result.true_edge:.1f} < {min_edge:.1f}")
+        
+        if ev_data is None:
+            reasons_pass.append("EV: No Pinnacle data (allowed)")
+            ev_pct = None
+        elif ev_data['ev_pct'] >= cls.MIN_EV:
+            reasons_pass.append(f"EV: +{ev_data['ev_pct']:.2f}% >= +{cls.MIN_EV:.1f}%")
+            ev_pct = ev_data['ev_pct']
+        else:
+            reasons_fail.append(f"EV: {ev_data['ev_pct']:+.2f}% < +{cls.MIN_EV:.1f}%")
+            ev_pct = ev_data['ev_pct']
+        
+        kelly = ev_data['kelly'] if ev_data else 0
+        if kelly >= cls.MIN_KELLY:
+            reasons_pass.append(f"Kelly: {kelly*100:.2f}% >= {cls.MIN_KELLY*100:.1f}%")
+        else:
+            reasons_fail.append(f"Kelly: {kelly*100:.2f}% < {cls.MIN_KELLY*100:.1f}%")
+        
+        if historical_win_rate >= cls.MIN_WIN_RATE:
+            reasons_pass.append(f"History: {historical_win_rate:.1%} >= {cls.MIN_WIN_RATE:.1%}")
+        else:
+            reasons_fail.append(f"History: {historical_win_rate:.1%} < {cls.MIN_WIN_RATE:.1%}")
+        
+        if sample_size >= cls.MIN_SAMPLE_SIZE:
+            reasons_pass.append(f"Sample: {sample_size} games >= {cls.MIN_SAMPLE_SIZE}")
+        else:
+            reasons_fail.append(f"Sample: {sample_size} games < {cls.MIN_SAMPLE_SIZE}")
+        
+        if vig_pct <= cls.MAX_VIG:
+            reasons_pass.append(f"Vig: {vig_pct:.1f}% <= {cls.MAX_VIG:.1f}%")
+        else:
+            reasons_fail.append(f"Vig: {vig_pct:.1f}% > {cls.MAX_VIG:.1f}%")
+        
+        qualified = len(reasons_fail) == 0
+        
+        if qualified and kelly > 0:
+            bet_size = min(kelly * cls.FRACTIONAL_KELLY, cls.MAX_BET_SIZE)
+        else:
+            bet_size = 0.0
+        
+        if not qualified:
+            confidence = 'NONE'
+            recommendation = 'PASS'
+        elif (edge_result.confidence == 'ELITE' and ev_pct and ev_pct >= 5.0 and historical_win_rate >= 0.70):
+            confidence = 'ELITE'
+            recommendation = 'MAX_BET'
+        elif (edge_result.confidence in ['ELITE', 'HIGH'] and ev_pct and ev_pct >= 3.0 and historical_win_rate >= 0.65):
+            confidence = 'HIGH'
+            recommendation = 'STANDARD_BET'
+        elif historical_win_rate >= 0.60:
+            confidence = 'STANDARD'
+            recommendation = 'STANDARD_BET'
+        else:
+            confidence = 'LOW'
+            recommendation = 'SMALL_BET'
+        
+        return QualificationResult(
+            qualified=qualified,
+            confidence=confidence,
+            bet_size_pct=round(bet_size * 100, 2),
+            true_edge=edge_result.true_edge,
+            ev_pct=ev_pct,
+            reasons_pass=reasons_pass,
+            reasons_fail=reasons_fail,
+            recommendation=recommendation
+        )
+
+
 class SharpThresholds:
     """Centralized thresholds for sharp betting qualification."""
     MIN_TRUE_EDGE = {'NBA': 8.0, 'CBB': 8.0, 'NFL': 3.5, 'CFB': 3.5, 'NHL': 0.5}
@@ -1637,6 +1875,103 @@ def check_qualification_sharp(projected: float, line: float, league: str,
         }
     
     return {'qualified': False, **edge_data}
+
+
+def check_qualification_professional(
+    projected_total: float,
+    line: float,
+    over_odds: int,
+    under_odds: int,
+    league: str,
+    pinnacle_over_odds: Optional[int] = None,
+    pinnacle_under_odds: Optional[int] = None,
+    historical_win_rate: float = 0.0,
+    sample_size: int = 0
+) -> QualificationResult:
+    """
+    MASTER QUALIFICATION FUNCTION - Uses professional betting math.
+    
+    Process:
+    1. Calculate true edge with vig removal
+    2. Calculate EV vs Pinnacle (if available)
+    3. Run multi-filter qualification
+    
+    Returns QualificationResult with complete analysis.
+    """
+    fair_line = VigRemover.calculate_fair_line_totals(line, over_odds, under_odds)
+    vig_data = VigRemover.remove_two_way_vig(over_odds, under_odds)
+    
+    raw_edge = abs(projected_total - line)
+    true_edge = abs(projected_total - fair_line)
+    
+    if projected_total > fair_line:
+        direction = 'OVER'
+    elif projected_total < fair_line:
+        direction = 'UNDER'
+    else:
+        direction = None
+    
+    threshold = SharpThresholds.MIN_TRUE_EDGE.get(league, 8.0)
+    qualified_edge = true_edge >= threshold
+    
+    prob_over = vig_data['prob_a']
+    if prob_over > 0.54:
+        balance = 'OVER_SHADED'
+    elif prob_over < 0.46:
+        balance = 'UNDER_SHADED'
+    else:
+        balance = 'BALANCED'
+    
+    if true_edge >= threshold * 2.0:
+        conf = 'ELITE'
+    elif true_edge >= threshold * 1.5:
+        conf = 'HIGH'
+    elif true_edge >= threshold * 1.2:
+        conf = 'STANDARD'
+    else:
+        conf = 'LOW'
+    
+    edge_result = EdgeResult(
+        qualified=qualified_edge,
+        direction=direction,
+        true_edge=round(true_edge, 2),
+        raw_edge=round(raw_edge, 2),
+        fair_line=round(fair_line, 1),
+        posted_line=line,
+        vig_pct=round(vig_data['vig_pct'], 2),
+        market_balance=balance,
+        confidence=conf if qualified_edge else 'NONE'
+    )
+    
+    ev_data = None
+    if pinnacle_over_odds and pinnacle_under_odds:
+        pinnacle_odds = pinnacle_over_odds if direction == 'OVER' else pinnacle_under_odds
+        bovada_odds = over_odds if direction == 'OVER' else under_odds
+        ev_data = EVCalculator.calculate_ev_vs_pinnacle(bovada_odds, pinnacle_odds)
+    
+    qual_result = ProfessionalQualifier.qualify_pick(
+        edge_result=edge_result,
+        ev_data=ev_data,
+        historical_win_rate=historical_win_rate,
+        sample_size=sample_size,
+        vig_pct=edge_result.vig_pct,
+        league=league
+    )
+    
+    if qual_result.qualified:
+        logger.info(
+            f"QUALIFIED: {league} {edge_result.direction}{edge_result.fair_line} "
+            f"(True Edge: {edge_result.true_edge:.1f}, EV: {qual_result.ev_pct or 0:+.2f}%, "
+            f"Kelly: {qual_result.bet_size_pct:.2f}%) - {qual_result.confidence}"
+        )
+    else:
+        logger.debug(
+            f"REJECTED: {league} projection {projected_total:.1f} vs line {line} - "
+            f"{', '.join(qual_result.reasons_fail[:2])}"
+        )
+    
+    return qual_result
+
 
 class SharpPickQualifier:
     """Advanced pick qualification using sharp betting metrics."""
