@@ -1,13 +1,14 @@
 # Trading Systems Project
 
 ## Overview
-This project develops and manages three independent trading systems: a Sports Betting Calculator, a Forex/Metals/Indices Trading Bot, and a Crypto Perpetuals Trading System. The Sports Betting Calculator analyzes sports data to identify profitable betting opportunities for Over/Under totals and spreads. The Forex/Metals/Indices Trading Bot is an automated system integrated with Discord for notifications and interactions. The Crypto Perpetuals Trading System is designed for trading cryptocurrency perpetuals, leveraging the Coinbase Advanced Trade API. The overarching vision is to provide robust, automated, and data-backed trading and betting solutions across different financial and sports markets.
+This project develops and manages trading systems including a Sports Betting Calculator focused on TOTALS (Over/Under) betting. The Sports Betting Calculator analyzes sports data using ESPN stats and Bovada lines to identify profitable Over/Under betting opportunities with strict edge thresholds.
 
 ## User Preferences
 - Keep Discord message format consistent - never change formats
-- No Telegram for Forex workflows
 - Bovada-style team names (short nicknames, no mascots)
-- Lock of the Day = highest absolute edge across all qualified picks
+- SUPERMAX = highest absolute edge across all qualified picks
+- TOTALS ONLY - no spreads, no moneylines
+- Alt lines max -180 odds floor
 - Only make changes to the `replit.nix` and `.replit` files if it is absolutely necessary.
 - Do not make changes to files in the `archive` folder.
 
@@ -15,19 +16,18 @@ This project develops and manages three independent trading systems: a Sports Be
 
 ### UI/UX
 -   **Color Palette**: Jewel-tone color scheme (emerald, sapphire, amber, crimson, ice).
--   **Mobile Optimization**: Sticky mobile action bar, header buttons hidden on mobile.
--   **Interactive Elements**: Game cards with hover effects and shadows, lock cards with a golden glow, qualified cards with a green gradient background.
--   **Branding**: "730's Locks" branding for the sports model web app.
--   **Dashboard**: Features Edge Analysis (Average, Best, Direction Split) and a 52-week bankroll builder with savings tracker.
--   **League Logos**: Official ESPN CDN logos for NBA, NFL, NHL, NCAA, with league-specific gradient colors for game card borders.
--   **Data Display**: Game cards show side-by-side TOTALS and SPREAD sections with lines, projections, edge, and pick.
+-   **Mobile Optimization**: Sticky mobile action bar, header buttons hidden on mobile, card-style TOP 5 picks with full team names.
+-   **Interactive Elements**: Game cards with hover effects and shadows, SUPERMAX card with golden glow.
+-   **Branding**: "730's Locks" branding, SUPERMAX for top pick.
+-   **Dashboard**: Features Edge Analysis (Average, Best) and a 52-week bankroll builder with savings tracker.
+-   **League Logos**: Official ESPN CDN logos for NBA, NFL, NHL, NCAA, with league-specific gradient colors.
+-   **Data Display**: Game cards show TOTALS section only with line, projection, edge, and pick.
 -   **Edge Visualization**: Top 5 picks display color-coded edge bars proportional to edge strength.
--   **Confidence Stars**: 5-star rating system (★★★★★) based on confidence tier.
--   **B2B Badges**: Red "B2B" badges on game cards for back-to-back games.
--   **Injury Indicator Styles**: CSS ready for major (red), minor (yellow), clean (green) injury status badges.
+-   **Confidence Stars**: 5-star rating system (★★★★★) based on edge only.
+-   **Away Favorite Badge**: Golden badge for away favorite games (confidence boost).
 
-### Technical Implementation
--   **Sports Model (PURE FORMULA-BASED - TOTALS ONLY)**:
+### Technical Implementation (TOTALS-ONLY)
+-   **Sports Model (PURE FORMULA-BASED)**:
     -   **Data Sources**: ONLY ESPN Official Season Stats (PPG, Opp PPG) and Bovada lines.
     -   **Formulas (STRICT - NO MODIFICATIONS)**:
         -   `Expected_A = (Team A PPG + Team B Opp PPG) / 2`
@@ -45,38 +45,35 @@ This project develops and manages three independent trading systems: a Sports Be
         -   UNDER: If `Bovada_Line >= Projected_Total + Threshold`
     -   **Qualification Requirements**: Edge threshold + Direction set + No star player injuries
     -   **Historical O/U Performance**: Uses last 15 games O/U hit rate to strengthen picks
-    -   **Injury Disqualification**: Uses RotoWire to check star player injuries; games with significant star player injuries are disqualified.
-    -   **Vig Removal**: Uses VigRemover to calculate true edge from fair line.
-    -   **Lock of the Day**: Highest absolute edge across all qualified picks.
-    -   **TOP 5 Ranking**: Sorted by EDGE only (highest edge = best pick).
-    -   **Star Ratings**: Based on edge only (5★ for 12+, 4★ for 10+, 3★ for 8+, 2★ otherwise).
-    -   **SPREADS REMOVED**: Model now focuses exclusively on TOTALS (Over/Under).
-    -   **Away Favorite Model**: Games where away team is favorite AND meets totals threshold get bonus flag (strongest picks).
-    -   **Alt Lines for Best Edge**: Uses alternate totals lines from The Odds API when they provide better edge.
+    -   **Injury Disqualification**: Uses RotoWire to check star player injuries
+    -   **SUPERMAX**: Highest absolute edge across all qualified TOTALS picks
+    -   **TOP 5 Ranking**: Sorted by EDGE only (highest edge = best pick)
+    -   **Star Ratings**: Based on edge only (5★ for 12+, 4★ for 10+, 3★ for 8+, 2★ otherwise)
+    -   **Alt Lines**: Uses alternate totals lines from The Odds API (Bovada) when they provide better edge, max -180 odds
+    -   **Away Favorite Model**: Confidence boost when away team is favorite AND meets totals threshold
 -   **Data Management**: Date-keyed caching for ESPN lookups, PostgreSQL database with indexes, and data validation.
--   **System Stability**: Gunicorn timeout increased to 120s, robust logging, team alias expansion and name matching.
--   **Discord Integration**: Automated posting of picks to Discord with history tracking and staggered weekend scheduling.
+-   **System Stability**: Gunicorn timeout increased to 120s, robust logging, team alias expansion.
+-   **Discord Integration**: Automated posting of picks to Discord.
 -   **Performance Optimizations**:
-    -   **Database Indexes**: Composite indexes on Game model (idx_date_league, idx_qualified, idx_spread_qualified, idx_event_id, idx_composite_search) for fast queries.
-    -   **Dashboard Caching**: 30-second TTL cache with thread-safe locking for dashboard data.
-    -   **Parallel Processing**: ThreadPoolExecutor with 10 workers for batch injury checks.
-    -   **Response Compression**: Flask-Compress for gzip/deflate compression on all responses.
-    -   **Weather Integration**: OpenWeatherMap API for NFL/CFB games with indoor stadium detection (DOME_STADIUMS list), impact scoring for wind/temperature/precipitation, and auto-disqualification for extreme weather (≥5 point impact).
-    -   **Win Rate Analytics**: Comprehensive `/api/win_rate_analytics` endpoint tracking performance by league, confidence tier, day of week, time window, injury source, and pick type.
+    -   **Database Indexes**: Composite indexes on Game model for fast queries.
+    -   **Dashboard Caching**: 30-second TTL cache with thread-safe locking.
+    -   **Parallel Processing**: ThreadPoolExecutor for batch injury checks.
+    -   **Response Compression**: Flask-Compress for gzip/deflate compression.
+
+### Code Optimization (Jan 2026)
+-   **Spread Code Removed**: All spread-related processing logic removed (334 lines)
+-   **1H ML Model Removed**: Model 4 (NBA 1st half moneyline) completely removed
+-   **File Size**: Reduced from 9066 to 8732 lines
+-   **Focus**: Pure TOTALS (Over/Under) functionality only
 
 ### Feature Specifications
--   **Sports Scanner**: Fetches NBA, CBB, NFL, CFB, NHL games, stats, and odds to identify and post qualified picks.
--   **Forex Bot**: Executes daily, weekly, and monthly trading workflows and posts updates to Discord.
--   **Crypto Bot**: Manages crypto perpetuals trading for 35 high-volume tickers via Coinbase Advanced Trade API, with Discord notifications.
+-   **Sports Scanner**: Fetches NBA, CBB, NFL, CFB, NHL games, stats, and odds to identify qualified TOTALS picks.
 
 ## External Dependencies
 -   **Sports Data**:
-    -   ESPN API (team statistics, schedules, historical data)
-    -   Bovada (betting lines and alternate lines)
-    -   The Odds API (betting odds, historical data)
-    -   RotoWire.com (injury reports, starting lineups)
--   **Trading Platforms**:
-    -   OANDA API (Forex/metals/indices trading)
-    -   Coinbase Advanced Trade API (crypto perpetuals trading)
+    -   ESPN API (team statistics, schedules)
+    -   Bovada (betting lines via The Odds API)
+    -   The Odds API (alternate lines)
+    -   RotoWire.com (injury reports)
 -   **Communication**:
-    -   Discord Webhooks (automated notifications and pick postings)
+    -   Discord Webhooks (automated notifications)

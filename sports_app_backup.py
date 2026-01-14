@@ -6798,6 +6798,7 @@ def fetch_games():
         "games_added": games_added, 
         "leagues_cleared": leagues_cleared,
         "lines_updated": odds_result.get("lines_updated", 0),
+        "spreads_updated": odds_result.get("spreads_updated", 0),
         "alt_lines_found": odds_result.get("alt_lines_found", 0),
         "history_checked": history_result.get("games_checked", 0),
         "fetch_time_seconds": round(total_time, 2)
@@ -6829,11 +6830,11 @@ def fetch_odds_for_league(league: str, sport_key: str, api_key: str) -> tuple:
         return (league, sport_key, [])
 
 def fetch_odds_internal() -> dict:
-    """Internal function to fetch odds from Bovada via The Odds API - PARALLEL + ATOMIC (TOTALS ONLY)."""
+    """Internal function to fetch odds from Bovada via The Odds API - PARALLEL + ATOMIC."""
     start_time = time.time()
     api_key = os.environ.get("ODDS_API_KEY")
     if not api_key:
-        return {"success": False, "lines_updated": 0, "alt_lines_found": 0}
+        return {"success": False, "lines_updated": 0, "spreads_updated": 0, "alt_lines_found": 0}
     
     et = pytz.timezone('America/New_York')
     today = datetime.now(et).date()
@@ -6847,6 +6848,7 @@ def fetch_odds_internal() -> dict:
     }
     
     lines_updated = 0
+    spreads_updated = 0
     
     # STEP 1: Fetch ALL odds in parallel FIRST (no DB changes yet)
     all_odds = {}
@@ -6864,7 +6866,7 @@ def fetch_odds_internal() -> dict:
     total_events = sum(len(d.get("events", [])) for d in all_odds.values())
     if total_events == 0:
         logger.warning("No odds fetched from API - keeping existing lines")
-        return {"success": False, "lines_updated": 0, "alt_lines_found": 0, "reason": "no_odds_fetched"}
+        return {"success": False, "lines_updated": 0, "spreads_updated": 0, "alt_lines_found": 0, "reason": "no_odds_fetched"}
     
     # STEP 3: ATOMIC UPDATE - Clear and update within single transaction
     try:
@@ -7066,18 +7068,74 @@ def fetch_odds_internal() -> dict:
                                                             not injury_disqualified)
                                         
                                     lines_updated += 1
+                        
+                        # Process SPREADS using UniversalSpreadHandler for bulletproof extraction
+                        spread_data = UniversalSpreadHandler.extract_spread_data(
+                            game.away_team, game.home_team, bookmakers
+                        )
+                        
+                        if spread_data:
+                            spread_line = spread_data['away_spread']
+                            game.spread_line = spread_line
+                            
+                            spread_cache_key = f"spread_opening:{event.get('id')}"
+                            if spread_cache_key not in opening_lines_store:
+                                opening_lines_store[spread_cache_key] = {
+                                    "line": spread_line,
+                                    "timestamp": datetime.now(pytz.timezone('America/New_York')).isoformat()
+                                }
+                            
+                            if all([game.away_ppg, game.away_opp_ppg, game.home_ppg, game.home_opp_ppg]):
+                                exp_away, exp_home, _ = calculate_expected_scores(
+                                    game.away_ppg, game.away_opp_ppg, 
+                                    game.home_ppg, game.home_opp_ppg
+                                )
+                                game.expected_away = exp_away
+                                game.expected_home = exp_home
+                                game.projected_margin = exp_home - exp_away
+                                spread_qual, spread_dir, spread_edge = check_spread_qualification(
+                                    exp_away, exp_home, spread_line, game.league
+                                )
+                                game.spread_direction = spread_dir
+                                game.spread_edge = spread_edge
+                                
+                                bovada_spread_odds = None
+                                pinnacle_spread_odds = None
+                                if spread_dir == "HOME":
+                                    bovada_spread_odds = spread_data['home_odds']
+                                elif spread_dir == "AWAY":
+                                    bovada_spread_odds = spread_data['away_odds']
+                                
+                                if pinnacle_markets.get("spreads") and spread_dir:
+                                    pinn_outcomes = pinnacle_markets["spreads"].get("outcomes", [])
+                                    pick_team = home_team if spread_dir == "HOME" else away_team
+                                    pinn_outcome = next((o for o in pinn_outcomes if teams_match(o.get("name", ""), pick_team)), None)
+                                    if pinn_outcome:
+                                        pinnacle_spread_odds = pinn_outcome.get("price")
+                                
+                                game.bovada_spread_odds = bovada_spread_odds
+                                game.pinnacle_spread_odds = pinnacle_spread_odds
+                                if bovada_spread_odds and pinnacle_spread_odds:
+                                    game.spread_ev = calculate_ev(bovada_spread_odds, pinnacle_spread_odds)
+                                
+                                game.spread_is_qualified = spread_qual
+                                
+                            spreads_updated += 1
         
         # STEP 4: Commit the atomic transaction
         db.session.commit()
-        logger.info(f"Odds update successful: {lines_updated} totals")
+        logger.info(f"Odds update successful: {lines_updated} totals, {spreads_updated} spreads")
         
     except Exception as e:
         # ROLLBACK on any failure - preserves existing lines
         db.session.rollback()
         logger.error(f"Odds update FAILED, rolled back: {e}")
-        return {"success": False, "lines_updated": 0, "alt_lines_found": 0, "reason": str(e)}
+        return {"success": False, "lines_updated": 0, "spreads_updated": 0, "alt_lines_found": 0, "reason": str(e)}
     
     alt_lines_result = fetch_alt_lines_internal()
+    
+    # Fetch Model 4: NBA 1H ML for away favorites
+    model4_result = fetch_nba_1h_ml_internal()
     
     # Clear dashboard cache since we have new data
     clear_dashboard_cache()
@@ -7086,7 +7144,9 @@ def fetch_odds_internal() -> dict:
     return {
         "success": True, 
         "lines_updated": lines_updated, 
-        "alt_lines_found": alt_lines_result.get("alt_lines_found", 0)
+        "spreads_updated": spreads_updated,
+        "alt_lines_found": alt_lines_result.get("alt_lines_found", 0),
+        "model4_1h_ml_found": model4_result.get("1h_ml_found", 0)
     }
 
 @app.route('/fetch_odds', methods=['POST'])
@@ -7534,19 +7594,19 @@ def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_s
     return best_line, best_odds
 
 def fetch_single_alt_line(game_info: dict, api_key: str) -> dict:
-    """Fetch alt lines for a single game (used in parallel) - TOTALS ONLY."""
+    """Fetch alt lines for a single game (used in parallel)."""
     game_id = game_info['id']
     event_id = game_info['event_id']
     sport_key = game_info['sport_key']
     
-    result = {'game_id': game_id, 'alt_total': None}
+    result = {'game_id': game_id, 'alt_total': None, 'alt_spread': None}
     
     try:
         url = f"https://api.the-odds-api.com/v4/sports/{sport_key}/events/{event_id}/odds"
         params = {
             "apiKey": api_key,
             "regions": "us",
-            "markets": "alternate_totals",
+            "markets": "alternate_totals,alternate_spreads",
             "oddsFormat": "american",
             "bookmakers": "bovada"
         }
@@ -7561,6 +7621,7 @@ def fetch_single_alt_line(game_info: dict, api_key: str) -> dict:
             return result
         
         markets = book.get("markets", [])
+        home_team = data.get("home_team", game_info['home_team'])
         game_name = f"{game_info['away_team']}@{game_info['home_team']}"
         
         for market in markets:
@@ -7574,13 +7635,22 @@ def fetch_single_alt_line(game_info: dict, api_key: str) -> dict:
                 if alt_line is not None:
                     result['alt_total'] = (alt_line, alt_odds)
                     logger.info(f"Alt total found: {game_name} {game_info['direction']}{alt_line} ({alt_odds})")
+            
+            elif market_key == "alternate_spreads" and game_info['spread_is_qualified'] and game_info['spread_direction']:
+                alt_line, alt_odds = find_best_alt_line(
+                    outcomes, game_info['spread_direction'], game_info['spread_line'],
+                    is_spread=True, home_team=home_team, debug_game=game_name
+                )
+                if alt_line is not None:
+                    result['alt_spread'] = (alt_line, alt_odds)
+                    logger.info(f"Alt spread found: {game_name} {game_info['spread_direction']} {alt_line} ({alt_odds})")
     except Exception as e:
         logger.error(f"Alt lines error for game {game_id}: {e}")
     
     return result
 
 def fetch_alt_lines_internal() -> dict:
-    """Internal function to fetch alternate lines for qualified TOTALS games (parallel)."""
+    """Internal function to fetch alternate lines for qualified games (parallel)."""
     api_key = os.environ.get("ODDS_API_KEY")
     if not api_key:
         logger.warning("No ODDS_API_KEY for alt lines fetch")
@@ -7595,13 +7665,21 @@ def fetch_alt_lines_internal() -> dict:
         Game.event_id.isnot(None)
     ).all()
     
-    logger.info(f"Alt lines: checking {len(qualified_totals)} qualified totals games (parallel)")
+    qualified_spreads = Game.query.filter(
+        Game.date == today,
+        Game.spread_is_qualified == True,
+        Game.event_id.isnot(None)
+    ).all()
+    
+    all_qualified = list({g.id: g for g in (qualified_totals + qualified_spreads)}.values())
+    logger.info(f"Alt lines: checking {len(all_qualified)} qualified games (parallel)")
     
     game_infos = [{
         'id': g.id, 'event_id': g.event_id, 'sport_key': g.sport_key,
         'away_team': g.away_team, 'home_team': g.home_team,
-        'is_qualified': g.is_qualified, 'direction': g.direction, 'line': g.line
-    } for g in qualified_totals if g.event_id and g.sport_key]
+        'is_qualified': g.is_qualified, 'direction': g.direction, 'line': g.line,
+        'spread_is_qualified': g.spread_is_qualified, 'spread_direction': g.spread_direction, 'spread_line': g.spread_line
+    } for g in all_qualified if g.event_id and g.sport_key]
     
     alt_lines_found = 0
     results = {}
@@ -7612,7 +7690,7 @@ def fetch_alt_lines_internal() -> dict:
             result = future.result()
             results[result['game_id']] = result
     
-    for game in qualified_totals:
+    for game in all_qualified:
         if game.id in results:
             r = results[game.id]
             if r['alt_total']:
@@ -7621,9 +7699,114 @@ def fetch_alt_lines_internal() -> dict:
                 if game.projected_total is not None:
                     game.alt_edge = abs(game.projected_total - game.alt_total_line)
                     logger.info(f"Alt edge recalc: {game.away_team}@{game.home_team} main={game.edge:.1f} -> alt={game.alt_edge:.1f}")
+            if r['alt_spread']:
+                raw_alt_line, alt_odds = r['alt_spread']
+                if game.spread_direction == 'HOME':
+                    game.alt_spread_line = -raw_alt_line
+                else:
+                    game.alt_spread_line = raw_alt_line
+                game.alt_spread_odds = alt_odds
+                alt_lines_found += 1
+                if game.projected_margin is not None:
+                    game.alt_spread_edge = abs(game.projected_margin - game.alt_spread_line)
+                    logger.info(f"Alt spread edge recalc: {game.away_team}@{game.home_team} main={game.spread_edge:.1f} -> alt={game.alt_spread_edge:.1f}")
     
     db.session.commit()
-    return {"alt_lines_found": alt_lines_found, "games_checked": len(qualified_totals)}
+    return {"alt_lines_found": alt_lines_found, "games_checked": len(all_qualified)}
+
+def fetch_nba_1h_ml_internal() -> dict:
+    """Fetch 1st half money lines for NBA away favorites (Model 4)."""
+    api_key = os.environ.get("ODDS_API_KEY")
+    if not api_key:
+        return {"1h_ml_found": 0, "games_checked": 0}
+    
+    et = pytz.timezone('America/New_York')
+    today = datetime.now(et).date()
+    
+    # Reset all NBA 1H ML qualifications first (handles line changes)
+    Game.query.filter(
+        Game.date == today,
+        Game.league == 'NBA'
+    ).update({
+        'nba_1h_ml_qualified': False,
+        'nba_1h_ml_odds': None
+    }, synchronize_session=False)
+    db.session.commit()
+    
+    # Find NBA games where away team is favorite (spread_line > 0)
+    nba_away_favs = Game.query.filter(
+        Game.date == today,
+        Game.league == 'NBA',
+        Game.spread_line > 0,  # Away is favorite
+        Game.event_id.isnot(None)
+    ).all()
+    
+    if not nba_away_favs:
+        return {"1h_ml_found": 0, "games_checked": 0}
+    
+    logger.info(f"Model 4: Checking {len(nba_away_favs)} NBA away favorites for 1H ML")
+    ml_found = 0
+    
+    for game in nba_away_favs:
+        try:
+            url = f"https://api.the-odds-api.com/v4/sports/{game.sport_key}/events/{game.event_id}/odds"
+            params = {
+                "apiKey": api_key,
+                "regions": "us",
+                "markets": "h2h_h1",
+                "oddsFormat": "american",
+                "bookmakers": "draftkings,fanduel,bovada"
+            }
+            resp = requests.get(url, params=params, timeout=15)
+            if resp.status_code != 200:
+                continue
+            
+            data = resp.json()
+            bookmakers = data.get("bookmakers", [])
+            
+            # Try to find 1H ML from any bookmaker
+            for book in bookmakers:
+                markets = book.get("markets", [])
+                for market in markets:
+                    if market.get("key") == "h2h_h1":
+                        outcomes = market.get("outcomes", [])
+                        # Find the away team's 1H ML odds
+                        for outcome in outcomes:
+                            if teams_match(outcome.get("name", ""), game.away_team):
+                                odds = outcome.get("price")
+                                if odds:
+                                    game.nba_1h_ml_odds = int(odds)
+                                    ml_found += 1
+                                    logger.info(f"Model 4: {game.away_team} @ {game.home_team} 1H ML: {odds}")
+                                    
+                                    # Fetch 1H historical data for qualification
+                                    away_1h_hist = fetch_first_half_history(game.away_team, game.league, limit=20)
+                                    h2h_1h_hist = fetch_first_half_h2h(game.away_team, game.home_team, game.league)
+                                    
+                                    game.nba_1h_away_win_pct = away_1h_hist.get("away_win_pct", 0)
+                                    game.nba_1h_h2h_win_pct = h2h_1h_hist.get("away_win_pct", 0)
+                                    
+                                    # Qualification: 65%+ away 1H win rate (last 15-20 games)
+                                    # H2H requires 60%+ if 5+ games exist
+                                    away_qualifies = (game.nba_1h_away_win_pct or 0) >= 65
+                                    h2h_games = h2h_1h_hist.get("games_found", 0)
+                                    h2h_qualifies = h2h_games < 5 or (game.nba_1h_h2h_win_pct or 0) >= 60
+                                    
+                                    game.nba_1h_history_qualified = away_qualifies and h2h_qualifies
+                                    game.nba_1h_ml_qualified = game.nba_1h_history_qualified
+                                    
+                                    logger.info(f"Model 4 History: {game.away_team} - Away 1H: {game.nba_1h_away_win_pct:.1f}%, H2H: {game.nba_1h_h2h_win_pct:.1f}% ({h2h_games} games), Qualified: {game.nba_1h_ml_qualified}")
+                                    break
+                        if game.nba_1h_ml_odds:
+                            break
+                if game.nba_1h_ml_odds:
+                    break
+        except Exception as e:
+            logger.error(f"Model 4 error for {game.away_team} @ {game.home_team}: {e}")
+    
+    db.session.commit()
+    history_qualified = sum(1 for g in nba_away_favs if g.nba_1h_ml_qualified)
+    return {"1h_ml_found": ml_found, "history_qualified": history_qualified, "games_checked": len(nba_away_favs)}
 
 @app.route('/post_discord', methods=['POST'])
 def post_discord():
@@ -8342,8 +8525,8 @@ def deep_test():
     })
     
     # ============================================================
-    # LAYER 2: MODEL QUALIFICATION FLAGS (TOTALS ONLY)
-    # Tests is_qualified flags
+    # LAYER 2: MODEL QUALIFICATION FLAGS
+    # Tests is_qualified and spread_is_qualified flags
     # ============================================================
     layer2_tests = []
     
@@ -8365,6 +8548,24 @@ def deep_test():
         "details": r2['checks_failed']
     })
     
+    # Spreads: spread_is_qualified flags
+    spread_pass = MockGame(spread_is_qualified=True, spread_history_qualified=True)
+    spread_fail = MockGame(spread_is_qualified=False, spread_history_qualified=True)
+    r3 = BulletproofPickValidator.validate_pick(spread_pass, 'spread')
+    r4 = BulletproofPickValidator.validate_pick(spread_fail, 'spread')
+    layer2_tests.append({
+        "test": "Spreads: spread_is_qualified=True passes",
+        "passed": r3['validated'],
+        "expected": True,
+        "details": r3['checks_passed']
+    })
+    layer2_tests.append({
+        "test": "Spreads: spread_is_qualified=False rejected",
+        "passed": not r4['validated'],
+        "expected": True,
+        "details": r4['checks_failed']
+    })
+    
     layer2_passed = all(t['passed'] == t['expected'] for t in layer2_tests)
     results.append({
         "layer": 2,
@@ -8374,8 +8575,8 @@ def deep_test():
     })
     
     # ============================================================
-    # LAYER 3: HISTORICAL QUALIFICATION (TOTALS ONLY)
-    # Tests history_qualified
+    # LAYER 3: HISTORICAL QUALIFICATION
+    # Tests history_qualified and spread_history_qualified
     # ============================================================
     layer3_tests = []
     
@@ -8394,6 +8595,23 @@ def deep_test():
         "passed": not r2['validated'],
         "expected": True,
         "details": r2['checks_failed']
+    })
+    
+    spread_hist_pass = MockGame(spread_is_qualified=True, spread_history_qualified=True)
+    spread_hist_fail = MockGame(spread_is_qualified=True, spread_history_qualified=False)
+    r3 = BulletproofPickValidator.validate_pick(spread_hist_pass, 'spread')
+    r4 = BulletproofPickValidator.validate_pick(spread_hist_fail, 'spread')
+    layer3_tests.append({
+        "test": "Spreads: spread_history_qualified=True passes",
+        "passed": r3['validated'],
+        "expected": True,
+        "details": r3['checks_passed']
+    })
+    layer3_tests.append({
+        "test": "Spreads: spread_history_qualified=False rejected",
+        "passed": not r4['validated'],
+        "expected": True,
+        "details": r4['checks_failed']
     })
     
     layer3_passed = all(t['passed'] == t['expected'] for t in layer3_tests)
@@ -8495,10 +8713,74 @@ def deep_test():
     })
     
     # ============================================================
-    # LAYER 6: FULL INTEGRATION TEST (TOTALS ONLY)
-    # Tests complete workflow from validation to Discord payload
+    # LAYER 6: SPREAD VALIDATION
+    # Tests SpreadValidator mirror image and ML cross-check
+    # Spread convention: negative = AWAY is favorite, positive = HOME is favorite
+    # ML convention: lower value = favorite
     # ============================================================
     layer6_tests = []
+    
+    # Test 1: Away favorite (away_ml=-200) with -5.5 spread (away favorite) is VALID
+    valid, msg, corrected = SpreadValidator.validate_spread_vs_moneyline(
+        spread=-5.5, away_ml=-200, home_ml=180,
+        away_team="Away Team", home_team="Home Team"
+    )
+    layer6_tests.append({
+        "test": "Away favorite (ML -200) with -5.5 spread is valid",
+        "passed": valid,
+        "expected": True,
+        "details": msg if msg else "Spread matches ML direction"
+    })
+    
+    # Test 2: Home favorite (home_ml=-200) with +5.5 spread (away underdog) is VALID
+    valid2, msg2, corrected2 = SpreadValidator.validate_spread_vs_moneyline(
+        spread=5.5, away_ml=180, home_ml=-200,
+        away_team="Away Team", home_team="Home Team"
+    )
+    layer6_tests.append({
+        "test": "Home favorite (ML -200) with +5.5 spread is valid",
+        "passed": valid2,
+        "expected": True,
+        "details": msg2 if msg2 else "Spread matches ML direction"
+    })
+    
+    # Test 3: MISMATCH - Away favorite (ML -200) but +5.5 spread (says away underdog)
+    valid3, msg3, corrected3 = SpreadValidator.validate_spread_vs_moneyline(
+        spread=5.5, away_ml=-200, home_ml=180,
+        away_team="Away Team", home_team="Home Team"
+    )
+    layer6_tests.append({
+        "test": "Away favorite with +5.5 spread is INVALID (mismatch)",
+        "passed": not valid3 and corrected3 == -5.5,
+        "expected": True,
+        "details": f"Detected mismatch, corrected to {corrected3}"
+    })
+    
+    # Test 4: validate_and_correct_spread helper auto-corrects mismatch
+    final_spread, was_corrected = SpreadValidator.validate_and_correct_spread(
+        spread=5.5, away_ml=-200, home_ml=180,
+        away_team="Away Team", home_team="Home Team"
+    )
+    layer6_tests.append({
+        "test": "Auto-correction flips +5.5 to -5.5 (away fav mismatch)",
+        "passed": final_spread == -5.5 and was_corrected,
+        "expected": True,
+        "details": f"Returned {final_spread}, was_corrected={was_corrected}"
+    })
+    
+    layer6_passed = all(t['passed'] for t in layer6_tests)
+    results.append({
+        "layer": 6,
+        "name": "SPREAD VALIDATION",
+        "status": "PASS" if layer6_passed else "FAIL",
+        "tests": layer6_tests
+    })
+    
+    # ============================================================
+    # LAYER 7: FULL INTEGRATION TEST
+    # Tests complete workflow from validation to Discord payload
+    # ============================================================
+    layer7_tests = []
     
     # Create a set of mock games with varying qualifications
     mock_games = [
@@ -8518,7 +8800,7 @@ def deep_test():
     
     validation_results = BulletproofPickValidator.validate_all_picks(mock_games, pick_type='total')
     
-    layer6_tests.append({
+    layer7_tests.append({
         "test": "Lakers @ Celtics (edge 12.5, EV 3.5%) -> SUPERMAX tier",
         "passed": any(p['game'] == "Lakers @ Celtics" and p['confidence_tier'] == "SUPERMAX" 
                       for p in validation_results['validated_picks']),
@@ -8526,28 +8808,28 @@ def deep_test():
         "details": f"Found in tier: {[p['confidence_tier'] for p in validation_results['validated_picks'] if 'Lakers' in p['game']]}"
     })
     
-    layer6_tests.append({
+    layer7_tests.append({
         "test": "Chiefs @ Bills (NFL edge 4.5) -> validated",
         "passed": any(p['game'] == "Chiefs @ Bills" for p in validation_results['validated_picks']),
         "expected": True,
         "details": "NFL pick with sufficient edge passes"
     })
     
-    layer6_tests.append({
+    layer7_tests.append({
         "test": "Bruins @ Rangers (NHL edge 0.3 < 0.5) -> rejected",
         "passed": any(p['game'] == "Bruins @ Rangers" for p in validation_results['rejected_picks']),
         "expected": True,
         "details": "NHL edge below threshold rejected"
     })
     
-    layer6_tests.append({
+    layer7_tests.append({
         "test": "Duke @ UNC (negative EV -1.5%) -> rejected",
         "passed": any(p['game'] == "Duke @ UNC" for p in validation_results['rejected_picks']),
         "expected": True,
         "details": "Negative EV pick rejected"
     })
     
-    layer6_tests.append({
+    layer7_tests.append({
         "test": "Tier counts: SUPERMAX=1, validated=2, rejected=2",
         "passed": (len(validation_results['by_tier']['SUPERMAX']) == 1 and
                    len(validation_results['validated_picks']) == 2 and
@@ -8558,19 +8840,71 @@ def deep_test():
                    f"rejected: {len(validation_results['rejected_picks'])}"
     })
     
-    layer6_passed = all(t['passed'] for t in layer6_tests)
+    # SPREAD PICKS INTEGRATION TEST
+    # Note: Spread tier requires away_spread_pct/home_spread_pct for tier calculation
+    spread_games = [
+        MockGame(away_team="Cowboys", home_team="Eagles", league="NFL",
+                 spread_edge=5.0, spread_ev=2.5, spread_is_qualified=True, 
+                 spread_history_qualified=True, spread_direction="HOME",
+                 away_spread_pct=60, home_spread_pct=65),
+        MockGame(away_team="Suns", home_team="Nuggets", league="NBA",
+                 spread_edge=11.5, spread_ev=4.0, spread_is_qualified=True,
+                 spread_history_qualified=True, spread_direction="AWAY",
+                 away_spread_pct=70, home_spread_pct=65),
+        MockGame(away_team="Flames", home_team="Oilers", league="NHL",
+                 spread_edge=0.2, spread_ev=1.0, spread_is_qualified=True,
+                 spread_history_qualified=True, spread_direction="HOME",
+                 away_spread_pct=55, home_spread_pct=60),
+        MockGame(away_team="Kentucky", home_team="Tennessee", league="CBB",
+                 spread_edge=9.5, spread_ev=-0.5, spread_is_qualified=True,
+                 spread_history_qualified=True, spread_direction="HOME",
+                 away_spread_pct=60, home_spread_pct=62),
+    ]
+    
+    spread_results = BulletproofPickValidator.validate_all_picks(spread_games, pick_type='spread')
+    
+    layer7_tests.append({
+        "test": "SPREAD: Cowboys @ Eagles (NFL edge 5.0) -> validated",
+        "passed": any(p['game'] == "Cowboys @ Eagles" for p in spread_results['validated_picks']),
+        "expected": True,
+        "details": "NFL spread pick with sufficient edge passes"
+    })
+    
+    layer7_tests.append({
+        "test": "SPREAD: Suns @ Nuggets (edge 11.5, EV 4.0%) -> HIGH tier",
+        "passed": any(p['game'] == "Suns @ Nuggets" and p['confidence_tier'] in ['SUPERMAX', 'HIGH']
+                      for p in spread_results['validated_picks']),
+        "expected": True,
+        "details": f"Spread tier: {[p['confidence_tier'] for p in spread_results['validated_picks'] if 'Suns' in p['game']]}"
+    })
+    
+    layer7_tests.append({
+        "test": "SPREAD: Flames @ Oilers (NHL edge 0.2 < 0.5) -> rejected",
+        "passed": any(p['game'] == "Flames @ Oilers" for p in spread_results['rejected_picks']),
+        "expected": True,
+        "details": "NHL spread edge below threshold rejected"
+    })
+    
+    layer7_tests.append({
+        "test": "SPREAD: Kentucky @ Tennessee (negative EV) -> rejected",
+        "passed": any(p['game'] == "Kentucky @ Tennessee" for p in spread_results['rejected_picks']),
+        "expected": True,
+        "details": "Spread with negative EV rejected"
+    })
+    
+    layer7_passed = all(t['passed'] for t in layer7_tests)
     results.append({
-        "layer": 6,
-        "name": "FULL INTEGRATION TEST (TOTALS)",
-        "status": "PASS" if layer6_passed else "FAIL",
-        "tests": layer6_tests
+        "layer": 7,
+        "name": "FULL INTEGRATION TEST",
+        "status": "PASS" if layer7_passed else "FAIL",
+        "tests": layer7_tests
     })
     
     # ============================================================
-    # LAYER 7: TIMEZONE VALIDATION
+    # LAYER 8: TIMEZONE VALIDATION
     # Tests UTC to ET conversion for game start times (history page)
     # ============================================================
-    layer7_tests = []
+    layer8_tests = []
     
     et = pytz.timezone('America/New_York')
     utc = pytz.UTC
@@ -8581,7 +8915,7 @@ def deep_test():
     past_game_utc_tz = utc.localize(past_game_utc)
     past_game_et = past_game_utc_tz.astimezone(et)
     is_past = past_game_et <= now_et
-    layer7_tests.append({
+    layer8_tests.append({
         "test": "UTC past game (2020-01-01 12:00 UTC) correctly identified as PAST",
         "passed": is_past,
         "expected": True,
@@ -8593,7 +8927,7 @@ def deep_test():
     future_game_utc_tz = utc.localize(future_game_utc)
     future_game_et = future_game_utc_tz.astimezone(et)
     is_future = future_game_et > now_et
-    layer7_tests.append({
+    layer8_tests.append({
         "test": "UTC future game (2030-12-31 23:59 UTC) correctly identified as UPCOMING",
         "passed": is_future,
         "expected": True,
@@ -8607,7 +8941,7 @@ def deep_test():
     hour_diff = test_utc.hour - test_et.hour
     # In winter (EST), UTC is 5 hours ahead; in summer (EDT), UTC is 4 hours ahead
     correct_offset = hour_diff in [4, 5] or hour_diff in [-20, -19]  # Handle day wrap
-    layer7_tests.append({
+    layer8_tests.append({
         "test": "UTC to ET offset is 4-5 hours (EST/EDT)",
         "passed": correct_offset,
         "expected": True,
@@ -8620,7 +8954,7 @@ def deep_test():
     naive_to_et = naive_as_utc.astimezone(et)
     # 18:00 UTC in summer (EDT) = 14:00 ET (2:00 PM)
     correct_conversion = naive_to_et.hour == 14  # 6 PM UTC = 2 PM EDT
-    layer7_tests.append({
+    layer8_tests.append({
         "test": "Naive datetime (18:00) treated as UTC, converts to 14:00 EDT",
         "passed": correct_conversion,
         "expected": True,
@@ -8632,7 +8966,7 @@ def deep_test():
     one_min_ago_utc = one_min_ago_et.astimezone(utc)
     reconverted_et = one_min_ago_utc.astimezone(et)
     is_started = reconverted_et <= now_et
-    layer7_tests.append({
+    layer8_tests.append({
         "test": "Game started 1 min ago is correctly NOT upcoming",
         "passed": is_started,
         "expected": True,
@@ -8644,19 +8978,19 @@ def deep_test():
     one_hour_later_utc = one_hour_later_et.astimezone(utc)
     reconverted_et2 = one_hour_later_utc.astimezone(et)
     is_upcoming = reconverted_et2 > now_et
-    layer7_tests.append({
+    layer8_tests.append({
         "test": "Game starting in 1 hour is correctly UPCOMING",
         "passed": is_upcoming,
         "expected": True,
         "details": f"Starts at {reconverted_et2.strftime('%H:%M:%S %Z')}, now {now_et.strftime('%H:%M:%S %Z')}"
     })
     
-    layer7_passed = all(t['passed'] for t in layer7_tests)
+    layer8_passed = all(t['passed'] for t in layer8_tests)
     results.append({
-        "layer": 7,
+        "layer": 8,
         "name": "TIMEZONE VALIDATION",
-        "status": "PASS" if layer7_passed else "FAIL",
-        "tests": layer7_tests
+        "status": "PASS" if layer8_passed else "FAIL",
+        "tests": layer8_tests
     })
     
     # ============================================================
