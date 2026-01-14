@@ -6059,6 +6059,22 @@ def dashboard():
     # NBA/CBB: ±8.0, NFL/CFB: ±3.5, NHL: ±0.5
     qualified = [g for g in all_games if g.is_qualified]
     
+    # AWAY FAVORITE MODEL: Away team is favorite AND meets totals threshold
+    # These are bonus picks that combine two strong signals
+    # Spread line convention: negative = away is favorite (e.g., -5.5 means away favored by 5.5)
+    away_favorite_qualified = []
+    for g in all_games:
+        # Check if away team is favorite using spread line
+        # Negative spread_line means away team is giving points (favorite)
+        away_is_fav = g.spread_line is not None and g.spread_line < -1.5  # At least 2 point favorite
+        
+        # If away is favorite AND meets totals threshold = bonus qualified
+        if away_is_fav and g.is_qualified:
+            g.is_away_favorite = True
+            away_favorite_qualified.append(g)
+        else:
+            g.is_away_favorite = False
+    
     # Sort qualified totals by effective edge (alt if available, else main)
     qualified.sort(key=lambda x: x.alt_edge or x.edge or 0, reverse=True)
     
@@ -6085,7 +6101,8 @@ def dashboard():
         'over_count': 0,
         'under_count': 0,
         'top_picks': [],
-        'history_qualified': len(history_qualified)
+        'history_qualified': len(history_qualified),
+        'away_favorite_count': len(away_favorite_qualified)
     }
     
     # League breakdown (TOTALS ONLY)
@@ -6125,17 +6142,21 @@ def dashboard():
     # No weighted scores, no model bonuses, no confidence tiers
     # Pure formula: Difference = Projected_Total - Bovada_Line
     
-    # TOTALS ONLY: Top picks by edge
+    # TOTALS ONLY: Top picks by BEST edge (alt line if available, else main line)
     top_picks = []
     for g in qualified[:5]:
-        edge = g.edge or 0
+        # Use alt edge if available (better line), else main edge
+        best_edge = g.alt_edge or g.edge or 0
+        best_line = g.alt_total_line or g.line
         top_picks.append({
             'game': g,
-            'edge': edge,
+            'edge': best_edge,
             'direction': g.direction,
-            'line': g.line,
+            'line': best_line,
+            'alt_line': g.alt_total_line,  # Track if using alt line
             'projected_total': g.projected_total,
-            'pick_type': 'total'  # Required for auto_save_qualified_picks
+            'pick_type': 'total',  # Required for auto_save_qualified_picks
+            'is_away_favorite': getattr(g, 'is_away_favorite', False)
         })
     analytics['top_picks'] = top_picks
     
@@ -8360,9 +8381,9 @@ def history():
         else:
             past_picks.append(p)
     
-    # SUPERLOCK FIX: Show ONLY the top pick (highest edge) - not multiple picks
+    # Show ALL today's qualified picks (sorted by edge, highest first)
     if upcoming_picks:
-        upcoming_picks = sorted(upcoming_picks, key=lambda p: p.edge or 0, reverse=True)[:1]
+        upcoming_picks = sorted(upcoming_picks, key=lambda p: p.edge or 0, reverse=True)
     
     wins = len([p for p in all_picks if p.result == 'W'])
     losses = len([p for p in all_picks if p.result == 'L'])

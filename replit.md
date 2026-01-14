@@ -51,6 +51,8 @@ This project develops and manages three independent trading systems: a Sports Be
     -   **TOP 5 Ranking**: Sorted by EDGE only (highest edge = best pick).
     -   **Star Ratings**: Based on edge only (5★ for 12+, 4★ for 10+, 3★ for 8+, 2★ otherwise).
     -   **SPREADS REMOVED**: Model now focuses exclusively on TOTALS (Over/Under).
+    -   **Away Favorite Model**: Games where away team is favorite AND meets totals threshold get bonus flag (strongest picks).
+    -   **Alt Lines for Best Edge**: Uses alternate totals lines from The Odds API when they provide better edge.
 -   **Data Management**: Date-keyed caching for ESPN lookups, PostgreSQL database with indexes, and data validation.
 -   **System Stability**: Gunicorn timeout increased to 120s, robust logging, team alias expansion and name matching.
 -   **Discord Integration**: Automated posting of picks to Discord with history tracking and staggered weekend scheduling.
