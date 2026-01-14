@@ -1,0 +1,99 @@
+# CURRENT ISSUE: No input validation
+@app.route('/add_game', methods=['POST'])
+def add_game():
+    game = Game(
+        league=request.form['league'],  # Could be anything!
+        away_team=request.form['away_team'],  # SQL injection risk
+        line=float(request.form['line'])  # Could crash on non-numeric
+    )
+
+# BULLETPROOF:
+from flask import abort
+import re
+
+VALID_LEAGUES = {'NBA', 'CBB', 'NFL', 'CFB', 'NHL'}
+TEAM_NAME_PATTERN = re.compile(r'^[A-Za-z0-9\s\-\'\.&]+$')
+MAX_TEAM_NAME_LENGTH = 100
+
+def validate_team_name(name):
+    """Validate team name to prevent injection."""
+    if not name or len(name) > MAX_TEAM_NAME_LENGTH:
+        return False
+    if not TEAM_NAME_PATTERN.match(name):
+        return False
+    return True
+
+def validate_numeric_positive(value, field_name):
+    """Validate numeric field is positive."""
+    try:
+        num = float(value)
+        if num <= 0:
+            raise ValueError(f"{field_name} must be positive")
+        return num
+    except (ValueError, TypeError):
+        raise ValueError(f"Invalid {field_name}")
+
+@app.route('/add_game', methods=['POST'])
+def add_game():
+    try:
+        # Validate league
+        league = request.form.get('league', '').upper()
+        if league not in VALID_LEAGUES:
+            return jsonify({'success': False, 'error': 'Invalid league'}), 400
+        
+        # Validate team names
+        away_team = request.form.get('away_team', '').strip()
+        home_team = request.form.get('home_team', '').strip()
+        
+        if not validate_team_name(away_team) or not validate_team_name(home_team):
+            return jsonify({'success': False, 'error': 'Invalid team name'}), 400
+        
+        # Validate numeric fields
+        line = validate_numeric_positive(request.form.get('line'), 'line')
+        away_ppg = validate_numeric_positive(request.form.get('away_ppg'), 'away_ppg')
+        away_opp_ppg = validate_numeric_positive(request.form.get('away_opp_ppg'), 'away_opp_ppg')
+        home_ppg = validate_numeric_positive(request.form.get('home_ppg'), 'home_ppg')
+        home_opp_ppg = validate_numeric_positive(request.form.get('home_opp_ppg'), 'home_opp_ppg')
+        
+        et = pytz.timezone('America/New_York')
+        today = datetime.now(et).date()
+        
+        game = Game(
+            date=today,
+            league=league,
+            away_team=away_team,
+            home_team=home_team,
+            game_time=request.form.get('game_time', '').strip()[:50],  # Limit length
+            line=line,
+            away_ppg=away_ppg,
+            away_opp_ppg=away_opp_ppg,
+            home_ppg=home_ppg,
+            home_opp_ppg=home_opp_ppg
+        )
+        
+        # Calculate projection with error handling
+        try:
+            game.projected_total = calculate_projection(
+                game.away_ppg, game.away_opp_ppg, 
+                game.home_ppg, game.home_opp_ppg
+            )
+            qualified, direction, edge = check_qualification(
+                game.projected_total, game.line, game.league
+            )
+            game.is_qualified = qualified
+            game.direction = direction
+            game.edge = edge
+        except ValueError as e:
+            return jsonify({'success': False, 'error': str(e)}), 400
+        
+        db.session.add(game)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'game_id': game.id})
+        
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Add game error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to add game'}), 500

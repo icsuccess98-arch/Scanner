@@ -142,10 +142,126 @@ class RateLimiter:
 espn_limiter = RateLimiter(requests_per_second=5)
 odds_api_limiter = RateLimiter(requests_per_second=2)
 
+class DataFetchError(Exception):
+    """Custom exception for data fetch failures with context."""
+    def __init__(self, message, source=None, retry_count=0):
+        self.source = source
+        self.retry_count = retry_count
+        super().__init__(message)
+
 def fetch_with_rate_limit(url, limiter, timeout=15):
     """Make HTTP request with rate limiting."""
     limiter.acquire()
     return requests.get(url, timeout=timeout)
+
+SCOREBOARD_URLS = {
+    'NBA': "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={}",
+    'CBB': "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates={}",
+    'NFL': "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates={}",
+    'CFB': "https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates={}",
+    'NHL': "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard?dates={}"
+}
+
+def fetch_espn_scoreboard_safe(league: str, date_str: str, timeout: int = 15) -> dict:
+    """
+    BULLETPROOF: Fetch ESPN scoreboard with validation and retry logic.
+    
+    Features:
+    - Exponential backoff on failures
+    - Rate limit detection and handling
+    - Response structure validation
+    - Custom exception with context
+    """
+    max_retries = 3
+    backoff = 1
+    
+    if league not in SCOREBOARD_URLS:
+        raise DataFetchError(f"Unknown league: {league}", source="espn", retry_count=0)
+    
+    for attempt in range(max_retries):
+        try:
+            url = SCOREBOARD_URLS[league].format(date_str)
+            resp = fetch_with_rate_limit(url, espn_limiter, timeout=timeout)
+            
+            if resp.status_code == 429:
+                retry_after = int(resp.headers.get('Retry-After', 60))
+                logger.warning(f"ESPN rate limited for {league}, waiting {retry_after}s")
+                time.sleep(retry_after)
+                continue
+            
+            resp.raise_for_status()
+            data = resp.json()
+            
+            if 'events' not in data:
+                raise DataFetchError(f"Invalid response structure for {league} - missing 'events'", 
+                                    source="espn", retry_count=attempt)
+            
+            return data
+            
+        except requests.Timeout:
+            if attempt < max_retries - 1:
+                wait = backoff * (2 ** attempt)
+                logger.warning(f"ESPN timeout for {league}, retry {attempt+1}/{max_retries} in {wait}s")
+                time.sleep(wait)
+            else:
+                raise DataFetchError(f"ESPN timeout after {max_retries} attempts for {league}", 
+                                    source="espn", retry_count=max_retries)
+        
+        except requests.RequestException as e:
+            if attempt < max_retries - 1:
+                wait = backoff * (2 ** attempt)
+                logger.warning(f"ESPN request error for {league}: {e}, retry in {wait}s")
+                time.sleep(wait)
+            else:
+                raise DataFetchError(f"ESPN request failed for {league}: {e}", 
+                                    source="espn", retry_count=max_retries)
+    
+    raise DataFetchError(f"Max retries exceeded for {league}", source="espn", retry_count=max_retries)
+
+def fetch_odds_api_safe(url: str, params: dict, timeout: int = 30) -> dict:
+    """
+    BULLETPROOF: Fetch Odds API with validation and retry logic.
+    """
+    max_retries = 3
+    backoff = 1
+    
+    for attempt in range(max_retries):
+        try:
+            odds_api_limiter.acquire()
+            resp = requests.get(url, params=params, timeout=timeout)
+            
+            if resp.status_code == 429:
+                retry_after = int(resp.headers.get('Retry-After', 60))
+                logger.warning(f"Odds API rate limited, waiting {retry_after}s")
+                time.sleep(retry_after)
+                continue
+            
+            if resp.status_code == 401:
+                raise DataFetchError("Odds API authentication failed - check API key", 
+                                    source="odds_api", retry_count=attempt)
+            
+            resp.raise_for_status()
+            return resp.json()
+            
+        except requests.Timeout:
+            if attempt < max_retries - 1:
+                wait = backoff * (2 ** attempt)
+                logger.warning(f"Odds API timeout, retry {attempt+1}/{max_retries} in {wait}s")
+                time.sleep(wait)
+            else:
+                raise DataFetchError(f"Odds API timeout after {max_retries} attempts", 
+                                    source="odds_api", retry_count=max_retries)
+        
+        except requests.RequestException as e:
+            if attempt < max_retries - 1:
+                wait = backoff * (2 ** attempt)
+                logger.warning(f"Odds API error: {e}, retry in {wait}s")
+                time.sleep(wait)
+            else:
+                raise DataFetchError(f"Odds API request failed: {e}", 
+                                    source="odds_api", retry_count=max_retries)
+    
+    raise DataFetchError("Max retries exceeded for Odds API", source="odds_api", retry_count=max_retries)
 
 class VigCalculator:
     """Handles all vig removal calculations for true edge computation"""
