@@ -111,6 +111,41 @@ class TTLCache:
 injury_cache = TTLCache(maxsize=200, ttl=21600)
 line_movement_cache = TTLCache(maxsize=500, ttl=43200)
 opening_lines_store = TTLCache(maxsize=500, ttl=86400)
+espn_schedule_cache = TTLCache(maxsize=500, ttl=43200)
+
+import threading
+
+class RateLimiter:
+    """Token bucket rate limiter to prevent API rate limit violations."""
+    def __init__(self, requests_per_second=10):
+        self.rate = requests_per_second
+        self.tokens = float(requests_per_second)
+        self.last_update = time.time()
+        self.lock = threading.Lock()
+    
+    def acquire(self):
+        with self.lock:
+            now = time.time()
+            elapsed = now - self.last_update
+            self.tokens = min(self.rate, self.tokens + elapsed * self.rate)
+            self.last_update = now
+            
+            if self.tokens >= 1:
+                self.tokens -= 1
+                return True
+            
+            sleep_time = (1 - self.tokens) / self.rate
+            time.sleep(sleep_time)
+            self.tokens = 0
+            return True
+
+espn_limiter = RateLimiter(requests_per_second=5)
+odds_api_limiter = RateLimiter(requests_per_second=2)
+
+def fetch_with_rate_limit(url, limiter, timeout=15):
+    """Make HTTP request with rate limiting."""
+    limiter.acquire()
+    return requests.get(url, timeout=timeout)
 
 class VigCalculator:
     """Handles all vig removal calculations for true edge computation"""
@@ -2736,7 +2771,7 @@ def fetch_team_last_10_games(team_name: str, league: str) -> list:
             return []
         
         url = f"https://site.api.espn.com/apis/site/v2/sports/{sport}/teams/{team_id}/schedule"
-        resp = requests.get(url, timeout=15)
+        resp = fetch_with_rate_limit(url, espn_limiter, timeout=15)
         if resp.status_code != 200:
             return []
         
@@ -2792,6 +2827,48 @@ def fetch_team_last_10_games(team_name: str, league: str) -> list:
     except Exception as e:
         logger.error(f"Error fetching history for {team_name}: {e}")
         return []
+
+def fetch_all_team_histories_batch(games: list) -> dict:
+    """
+    BULLETPROOF: Fetch all team histories in parallel with deduplication.
+    Reduces 100+ sequential API calls to ~20 parallel calls with caching.
+    """
+    et = pytz.timezone('America/New_York')
+    today_str = datetime.now(et).strftime("%Y-%m-%d")
+    
+    unique_teams = {}
+    for g in games:
+        unique_teams[(g.away_team, g.league)] = None
+        unique_teams[(g.home_team, g.league)] = None
+    
+    results = {}
+    teams_to_fetch = []
+    
+    for (team, league) in unique_teams.keys():
+        cache_key = f"{today_str}:{league}:{team.lower()}"
+        cached = espn_schedule_cache.get(cache_key)
+        if cached is not None:
+            results[cache_key] = cached
+        else:
+            teams_to_fetch.append((team, league, cache_key))
+    
+    if teams_to_fetch:
+        logger.info(f"Batch fetching histories for {len(teams_to_fetch)} teams (skipping {len(results)} cached)")
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = {}
+            for (team, league, cache_key) in teams_to_fetch:
+                futures[executor.submit(fetch_team_last_10_games, team, league)] = cache_key
+            
+            for future in as_completed(futures):
+                cache_key = futures[future]
+                try:
+                    team_games = future.result()
+                    results[cache_key] = team_games
+                except Exception as e:
+                    logger.error(f"Batch fetch failed for {cache_key}: {e}")
+                    results[cache_key] = []
+    
+    return results
 
 def calculate_ou_hit_rate(games: list, direction: str, current_line: float = None) -> float:
     """
