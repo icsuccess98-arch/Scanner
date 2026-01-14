@@ -4317,10 +4317,10 @@ def unified_spread_qualification(
         is_home_favorite = spread_line > 0
         
         if is_home_favorite:
-            # HOME FAVORITE: Must cover their spread (85% threshold)
-            margin_threshold = abs(spread_line) * 0.85
+            # HOME FAVORITE: Must cover their spread (70% threshold)
+            margin_threshold = abs(spread_line) * 0.70
             if home_avg_margin < margin_threshold:
-                result["reason"] = f"HOME_FAV_MARGIN_BELOW_85%: {home_avg_margin:.1f} < {margin_threshold:.1f}"
+                result["reason"] = f"HOME_FAV_MARGIN_BELOW_70%: {home_avg_margin:.1f} < {margin_threshold:.1f}"
                 return result
         else:
             # HOME UNDERDOG: Must have positive margin (not a losing team)
@@ -4350,10 +4350,10 @@ def unified_spread_qualification(
         is_away_favorite = spread_line < 0
         
         if is_away_favorite:
-            # AWAY FAVORITE: Must cover their spread (85% threshold)
-            margin_threshold = abs(spread_line) * 0.85
+            # AWAY FAVORITE: Must cover their spread (70% threshold)
+            margin_threshold = abs(spread_line) * 0.70
             if away_avg_margin < margin_threshold:
-                result["reason"] = f"AWAY_FAV_MARGIN_BELOW_85%: {away_avg_margin:.1f} < {margin_threshold:.1f}"
+                result["reason"] = f"AWAY_FAV_MARGIN_BELOW_70%: {away_avg_margin:.1f} < {margin_threshold:.1f}"
                 return result
         else:
             # AWAY UNDERDOG: Must have positive margin (not a losing team)
