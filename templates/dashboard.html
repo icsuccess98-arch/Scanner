@@ -932,9 +932,9 @@
                                     </div>
                                     {% if game.spread_is_qualified %}
                                     {% if game.spread_direction == 'HOME' %}
-                                    <span class="pick-chip spread-pick">{{ game.home_team }} {{ "%+.1f"|format(game.spread_line) }}</span>
+                                    <span class="pick-chip spread-pick">{{ game.home_team }} {{ "%+.1f"|format(-game.spread_line) }}</span>
                                     {% else %}
-                                    <span class="pick-chip spread-pick">{{ game.away_team }} {{ "%+.1f"|format(-game.spread_line) }}</span>
+                                    <span class="pick-chip spread-pick">{{ game.away_team }} {{ "%+.1f"|format(game.spread_line) }}</span>
                                     {% endif %}
                                     {% else %}
                                     <span class="pick-chip no-bet">NO BET</span>
@@ -1030,9 +1030,9 @@
                                     </div>
                                     {% if game.spread_is_qualified %}
                                     {% if game.spread_direction == 'HOME' %}
-                                    <span class="pick-chip spread-pick">{{ game.home_team }} {{ "%+.1f"|format(game.spread_line) }}</span>
+                                    <span class="pick-chip spread-pick">{{ game.home_team }} {{ "%+.1f"|format(-game.spread_line) }}</span>
                                     {% else %}
-                                    <span class="pick-chip spread-pick">{{ game.away_team }} {{ "%+.1f"|format(-game.spread_line) }}</span>
+                                    <span class="pick-chip spread-pick">{{ game.away_team }} {{ "%+.1f"|format(game.spread_line) }}</span>
                                     {% endif %}
                                     {% else %}
                                     <span class="pick-chip no-bet">NO BET</span>
