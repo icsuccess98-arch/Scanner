@@ -4162,13 +4162,15 @@ def auto_save_qualified_picks(top_picks: list, today: 'date') -> int:
                 continue
             
             if pick_type == 'total':
-                line_val = pick_info.get('alt_line') or pick_info.get('line') or game.line
+                line_val = game.alt_total_line if game.alt_total_line else game.line
                 if not line_val:
                     logger.warning(f"Auto-save skipped: No line value for {matchup} (total)")
                     skipped_count += 1
                     continue
                 pick_str = f"{'O' if direction == 'O' else 'U'}{line_val}"
-                edge = pick_info.get('edge') or game.alt_edge or game.edge
+                if game.alt_total_odds:
+                    pick_str += f" ({game.alt_total_odds:+.0f})"
+                edge = game.alt_edge if game.alt_edge else game.edge
             elif pick_type == 'spread':
                 line_val = pick_info.get('alt_line') or pick_info.get('line') or game.spread_line
                 if line_val is None:
