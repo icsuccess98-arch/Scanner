@@ -2345,6 +2345,17 @@ class Game(db.Model):
     nba_1h_away_win_pct = db.Column(db.Float)  # Away team 1H win rate (last 15-20 games)
     nba_1h_h2h_win_pct = db.Column(db.Float)  # H2H 1H win rate for away team
     nba_1h_history_qualified = db.Column(db.Boolean, default=None)  # History qualification for Model 4
+    # SHARP METRICS
+    true_edge = db.Column(db.Float)  # Edge after vig removal
+    true_line = db.Column(db.Float)  # Vig-adjusted line
+    vig_percentage = db.Column(db.Float)  # Market vig
+    market_shade = db.Column(db.String(10))  # OVER/UNDER/BALANCED
+    kelly_fraction = db.Column(db.Float)  # Kelly bet size
+    recommended_bet_size = db.Column(db.Float)  # Actual bet % (fractional Kelly)
+    clv_predicted = db.Column(db.Float)  # Expected CLV
+    sharp_money_side = db.Column(db.String(10))  # Where sharp money is
+    fair_probability = db.Column(db.Float)  # True win probability
+    probability_edge = db.Column(db.Float)  # Edge in probability space
     
     __table_args__ = (
         db.Index('idx_date_league', 'date', 'league'),
