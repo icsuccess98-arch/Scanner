@@ -920,7 +920,7 @@
                                     {% if game.line %}
                                     <div class="breakdown-row">
                                         <span class="breakdown-label">Line</span>
-                                        <span class="breakdown-value">{{ "%.1f"|format(game.line) }}</span>
+                                        <span class="breakdown-value">{{ "%.1f"|format(game.alt_total_line if game.alt_total_line else game.line) }}</span>
                                     </div>
                                     <div class="breakdown-row">
                                         <span class="breakdown-label">Proj</span>
@@ -928,10 +928,10 @@
                                     </div>
                                     <div class="breakdown-row">
                                         <span class="breakdown-label">Edge</span>
-                                        <span class="breakdown-value {% if game.is_qualified %}high{% endif %}">{{ "%.1f"|format(game.edge) if game.edge else '-' }}</span>
+                                        <span class="breakdown-value {% if game.is_qualified %}high{% endif %}">{{ "%.1f"|format(game.alt_edge if game.alt_edge else game.edge) if (game.alt_edge or game.edge) else '-' }}</span>
                                     </div>
                                     {% if game.is_qualified %}
-                                    <span class="pick-chip {% if game.direction == 'O' %}over{% else %}under{% endif %}">{{ game.direction }}{{ game.line }}</span>
+                                    <span class="pick-chip {% if game.direction == 'O' %}over{% else %}under{% endif %}">{{ game.direction }}{{ game.alt_total_line if game.alt_total_line else game.line }}{% if game.alt_total_odds %} ({{ game.alt_total_odds }}){% endif %}</span>
                                     {% else %}
                                     <span class="pick-chip no-bet">NO BET</span>
                                     {% endif %}
@@ -1004,7 +1004,7 @@
                                     {% if game.line %}
                                     <div class="breakdown-row">
                                         <span class="breakdown-label">Line</span>
-                                        <span class="breakdown-value">{{ "%.1f"|format(game.line) }}</span>
+                                        <span class="breakdown-value">{{ "%.1f"|format(game.alt_total_line if game.alt_total_line else game.line) }}</span>
                                     </div>
                                     <div class="breakdown-row">
                                         <span class="breakdown-label">Proj</span>
@@ -1012,10 +1012,10 @@
                                     </div>
                                     <div class="breakdown-row">
                                         <span class="breakdown-label">Edge</span>
-                                        <span class="breakdown-value {% if game.is_qualified %}high{% endif %}">{{ "%.1f"|format(game.edge) if game.edge else '-' }}</span>
+                                        <span class="breakdown-value {% if game.is_qualified %}high{% endif %}">{{ "%.1f"|format(game.alt_edge if game.alt_edge else game.edge) if (game.alt_edge or game.edge) else '-' }}</span>
                                     </div>
                                     {% if game.is_qualified %}
-                                    <span class="pick-chip {% if game.direction == 'O' %}over{% else %}under{% endif %}">{{ game.direction }}{{ game.line }}</span>
+                                    <span class="pick-chip {% if game.direction == 'O' %}over{% else %}under{% endif %}">{{ game.direction }}{{ game.alt_total_line if game.alt_total_line else game.line }}{% if game.alt_total_odds %} ({{ game.alt_total_odds }}){% endif %}</span>
                                     {% else %}
                                     <span class="pick-chip no-bet">NO BET</span>
                                     {% endif %}
