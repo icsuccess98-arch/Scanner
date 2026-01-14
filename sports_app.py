@@ -4653,10 +4653,9 @@ def fetch_odds_internal() -> dict:
         
         # Apply new odds data (still within same transaction)
         for league, data in all_odds.items():
-        sport_key = data["sport_key"]
-        events = data["events"]
-        
-        try:
+            sport_key = data["sport_key"]
+            events = data["events"]
+            
             for event in events:
                 commence_time = event.get("commence_time", "")
                 if commence_time:
@@ -4799,10 +4798,16 @@ def fetch_odds_internal() -> dict:
                                 game.spread_is_qualified = spread_qual
                                 
                             spreads_updated += 1
-        except Exception as e:
-            logger.error(f"Odds processing error for {league}: {e}")
-    
-    db.session.commit()
+        
+        # STEP 4: Commit the atomic transaction
+        db.session.commit()
+        logger.info(f"Odds update successful: {lines_updated} totals, {spreads_updated} spreads")
+        
+    except Exception as e:
+        # ROLLBACK on any failure - preserves existing lines
+        db.session.rollback()
+        logger.error(f"Odds update FAILED, rolled back: {e}")
+        return {"success": False, "lines_updated": 0, "spreads_updated": 0, "alt_lines_found": 0, "reason": str(e)}
     
     alt_lines_result = fetch_alt_lines_internal()
     
