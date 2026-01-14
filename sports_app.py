@@ -308,6 +308,41 @@ class GameOdds:
     first_half_spread_away: Optional[float] = None
     first_half_total: Optional[float] = None
 
+def get_headers():
+    """Standard headers for ESPN API requests."""
+    return {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'application/json'
+    }
+
+def calculate_trend_metrics(game_list: List[dict], team_name: str, metric_key: str) -> dict:
+    """
+    Calculate trend metrics with validation.
+    
+    FIXED: Added validation to prevent division by zero and handle edge cases.
+    """
+    if not game_list:
+        return {
+            'total_games': 0,
+            'hit_count': 0,
+            'hit_rate': 0.0,
+            'avg_value': 0.0
+        }
+    
+    hit_count = sum(1 for g in game_list if g.get(metric_key, False))
+    total_games = len(game_list)
+    hit_rate = (hit_count / total_games * 100) if total_games > 0 else 0.0
+    
+    values = [g.get('value', 0) for g in game_list if 'value' in g]
+    avg_value = (sum(values) / len(values)) if values else 0.0
+    
+    return {
+        'total_games': total_games,
+        'hit_count': hit_count,
+        'hit_rate': round(hit_rate, 1),
+        'avg_value': round(avg_value, 2)
+    }
+
 class DataFetchError(Exception):
     """Custom exception for data fetch failures with context."""
     def __init__(self, message, source=None, retry_count=0):
