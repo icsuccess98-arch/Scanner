@@ -6054,42 +6054,19 @@ def dashboard():
     for g in all_games:
         g.time_window = get_game_window(g.game_time)
     
-    # PURE MODEL: Games qualified ONLY by edge threshold (no additional filters)
+    # PURE MODEL: Games qualified ONLY by edge threshold (TOTALS ONLY)
     # Rule: Difference = Projected_Total - Bovada_Line must meet threshold
     # NBA/CBB: ±8.0, NFL/CFB: ±3.5, NHL: ±0.5
     qualified = [g for g in all_games if g.is_qualified]
-    spread_qualified = [g for g in all_games if g.spread_is_qualified]
-    spread_qualified.sort(key=lambda x: x.alt_spread_edge or x.spread_edge or 0, reverse=True)
     
     # Sort qualified totals by effective edge (alt if available, else main)
     qualified.sort(key=lambda x: x.alt_edge or x.edge or 0, reverse=True)
     
-    # SUPERMAX = single best edge across both totals and spreads (prefer alt edges when available)
-    supermax_lock = None
-    supermax_type = None  # 'totals' or 'spread'
-    supermax_edge = 0
+    # LOCK OF THE DAY = highest edge totals pick
+    supermax_lock = qualified[0] if qualified else None
     
-    # Check best totals pick (use alt_edge if available)
-    if qualified:
-        best_totals = qualified[0]
-        effective_edge = best_totals.alt_edge if best_totals.alt_edge else best_totals.edge
-        if effective_edge and effective_edge > supermax_edge:
-            supermax_lock = best_totals
-            supermax_type = 'totals'
-            supermax_edge = effective_edge
-    
-    # Check best spread pick (use alt_spread_edge if available)
-    if spread_qualified:
-        best_spread = spread_qualified[0]
-        effective_spread_edge = best_spread.alt_spread_edge if best_spread.alt_spread_edge else best_spread.spread_edge
-        if effective_spread_edge and effective_spread_edge > supermax_edge:
-            supermax_lock = best_spread
-            supermax_type = 'spread'
-            supermax_edge = effective_spread_edge
-    
-    # PURE MODEL: Combined qualified = games that meet edge threshold for totals OR spreads
-    # No additional filters - just the core formula
-    all_qualified_games = [g for g in all_games if g.is_qualified or g.spread_is_qualified]
+    # All qualified games (totals only)
+    all_qualified_games = qualified
     
     if show_only_qualified:
         games = all_qualified_games
@@ -6099,7 +6076,7 @@ def dashboard():
     # Games that meet 85% historical threshold
     history_qualified = [g for g in all_games if g.history_qualified]
     
-    # Edge Analytics
+    # Edge Analytics (TOTALS ONLY)
     analytics = {
         'league_breakdown': {},
         'edge_tiers': {'elite': 0, 'strong': 0, 'standard': 0},
@@ -6108,25 +6085,16 @@ def dashboard():
         'over_count': 0,
         'under_count': 0,
         'top_picks': [],
-        'spread_qualified': len(spread_qualified),
-        'spread_best_edge': spread_qualified[0].spread_edge if spread_qualified else 0,
-        'spread_home_count': len([g for g in spread_qualified if g.spread_direction == 'HOME']),
-        'spread_away_count': len([g for g in spread_qualified if g.spread_direction == 'AWAY']),
-        'spread_top_picks': spread_qualified[:5],
         'history_qualified': len(history_qualified)
     }
     
-    # PURE MODEL: League breakdown uses only edge threshold qualification
+    # League breakdown (TOTALS ONLY)
     for league in ['NBA', 'CBB', 'NFL', 'CFB', 'NHL']:
         league_games = [g for g in all_games if g.league == league]
-        league_totals_qualified = [g for g in league_games if g.is_qualified]
-        league_spread_qualified = [g for g in league_games if g.spread_is_qualified]
-        league_any_qualified = [g for g in league_games if g.is_qualified or g.spread_is_qualified]
+        league_qualified = [g for g in league_games if g.is_qualified]
         analytics['league_breakdown'][league] = {
             'total': len(league_games),
-            'qualified': len(league_any_qualified),
-            'totals_qualified': len(league_totals_qualified),
-            'spread_qualified': len(league_spread_qualified)
+            'qualified': len(league_qualified)
         }
     
     edge_sum = 0
@@ -6146,80 +6114,48 @@ def dashboard():
         else:
             analytics['under_count'] += 1
     
-    # Include spread edges in best_edge calculation
-    for g in spread_qualified:
-        if g.spread_edge:
-            all_edges.append(g.spread_edge)
-            edge_sum += g.spread_edge
-    
-    # Best edge is the max across ALL qualified picks (totals + spreads)
+    # Best edge (TOTALS ONLY)
     analytics['best_edge'] = max(all_edges) if all_edges else 0
     
-    # Avg edge across all qualified picks
-    total_qualified = len(qualified) + len(spread_qualified)
-    if total_qualified > 0:
-        analytics['avg_edge'] = edge_sum / total_qualified
+    # Avg edge (TOTALS ONLY)
+    if len(qualified) > 0:
+        analytics['avg_edge'] = edge_sum / len(qualified)
     
     # PURE MODEL: Combined Top 5 Picks ranked by EDGE ONLY
     # No weighted scores, no model bonuses, no confidence tiers
     # Pure formula: Difference = Projected_Total - Bovada_Line
     
-    combined_picks = []
-    for g in qualified:
+    # TOTALS ONLY: Top picks by edge
+    top_picks = []
+    for g in qualified[:5]:
         edge = g.edge or 0
-        combined_picks.append({
+        top_picks.append({
             'game': g,
             'edge': edge,
-            'pick_type': 'totals',
             'direction': g.direction,
             'line': g.line,
             'projected_total': g.projected_total,
-            'confidence_tier': 'QUALIFIED'  # Pure model: all qualified picks are valid
+            'pick_type': 'total'  # Required for auto_save_qualified_picks
         })
-    for g in spread_qualified:
-        edge = g.spread_edge or 0
-        team, display_line = get_display_spread(g, use_alt=False)
-        combined_picks.append({
-            'game': g,
-            'edge': edge,
-            'pick_type': 'spread',
-            'direction': g.spread_direction,
-            'team': team,
-            'line': display_line,
-            'confidence_tier': 'QUALIFIED'  # Pure model: all qualified picks are valid
-        })
-    
-    # PURE MODEL: Sort by EDGE only (highest edge = best pick)
-    combined_picks.sort(key=lambda x: x['edge'], reverse=True)
-    
-    # PURE MODEL: All qualified picks are valid (no tier filtering)
-    qualified_combined = combined_picks
-    analytics['top_picks'] = qualified_combined[:5]
+    analytics['top_picks'] = top_picks
     
     # Auto-save the top pick to history
-    if qualified_combined:
-        auto_save_qualified_picks([qualified_combined[0]], today)
+    if top_picks:
+        auto_save_qualified_picks([top_picks[0]], today)
     
-    # Lock of the Day = highest edge pick
-    supermax_tier = 'QUALIFIED' if qualified_combined else 'NONE'
-    if qualified_combined:
-        top_pick = qualified_combined[0]
-        supermax_lock = top_pick['game']
-        supermax_type = top_pick['pick_type']
-    else:
-        supermax_lock = None
-        supermax_type = None
+    # Lock of the Day = highest edge totals pick
+    supermax_tier = 'QUALIFIED' if qualified else 'NONE'
     
     global last_game_count
     last_game_count['count'] = len(all_games)
     last_game_count['qualified'] = len(qualified)
     
     return render_template('dashboard.html', games=games, qualified=qualified,
-                          supermax_lock=supermax_lock, supermax_type=supermax_type,
+                          supermax_lock=supermax_lock,
                           supermax_tier=supermax_tier,
                           today=today, thresholds=THRESHOLDS, total_games=len(all_games),
                           show_only_qualified=show_only_qualified, analytics=analytics,
-                          spread_qualified=spread_qualified, is_big_slate=is_big_slate_day())
+                          is_big_slate=is_big_slate_day())
 
 @app.route('/health')
 def health():
@@ -7212,7 +7148,7 @@ def fetch_history_internal() -> dict:
     today = datetime.now(et).date()
     
     games = Game.query.filter_by(date=today).filter(
-        db.or_(Game.is_qualified == True, Game.spread_is_qualified == True)
+        Game.is_qualified == True
     ).all()
     
     total_games = len(games)
@@ -7464,7 +7400,7 @@ def dashboard_data_api():
     today = datetime.now(et).date()
     
     games = Game.query.filter_by(date=today).filter(
-        db.or_(Game.is_qualified == True, Game.spread_is_qualified == True)
+        Game.is_qualified == True
     ).all()
     
     games_data = []

@@ -27,7 +27,7 @@ This project develops and manages three independent trading systems: a Sports Be
 -   **Injury Indicator Styles**: CSS ready for major (red), minor (yellow), clean (green) injury status badges.
 
 ### Technical Implementation
--   **Sports Model (PURE FORMULA-BASED)**:
+-   **Sports Model (PURE FORMULA-BASED - TOTALS ONLY)**:
     -   **Data Sources**: ONLY ESPN Official Season Stats (PPG, Opp PPG) and Bovada lines.
     -   **Formulas (STRICT - NO MODIFICATIONS)**:
         -   `Expected_A = (Team A PPG + Team B Opp PPG) / 2`
@@ -44,11 +44,13 @@ This project develops and manages three independent trading systems: a Sports Be
         -   OVER: If `Projected_Total >= Bovada_Line + Threshold`
         -   UNDER: If `Bovada_Line >= Projected_Total + Threshold`
     -   **Qualification Requirements**: Edge threshold + Direction set + No star player injuries
+    -   **Historical O/U Performance**: Uses last 15 games O/U hit rate to strengthen picks
     -   **Injury Disqualification**: Uses RotoWire to check star player injuries; games with significant star player injuries are disqualified.
     -   **Vig Removal**: Uses VigRemover to calculate true edge from fair line.
     -   **Lock of the Day**: Highest absolute edge across all qualified picks.
     -   **TOP 5 Ranking**: Sorted by EDGE only (highest edge = best pick).
     -   **Star Ratings**: Based on edge only (5★ for 12+, 4★ for 10+, 3★ for 8+, 2★ otherwise).
+    -   **SPREADS REMOVED**: Model now focuses exclusively on TOTALS (Over/Under).
 -   **Data Management**: Date-keyed caching for ESPN lookups, PostgreSQL database with indexes, and data validation.
 -   **System Stability**: Gunicorn timeout increased to 120s, robust logging, team alias expansion and name matching.
 -   **Discord Integration**: Automated posting of picks to Discord with history tracking and staggered weekend scheduling.

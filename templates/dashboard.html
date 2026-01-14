@@ -721,11 +721,7 @@
                 <div class="d-flex gap-3 align-items-center">
                     <div class="stat-pill qualified">
                         <span class="value">{{ qualified|length }}</span>
-                        <span class="label">Totals</span>
-                    </div>
-                    <div class="stat-pill" style="background: linear-gradient(135deg, rgba(74, 144, 226, 0.2) 0%, rgba(107, 159, 255, 0.1) 100%); border-color: var(--accent);">
-                        <span class="value" style="color: var(--accent);">{{ spread_qualified|length }}</span>
-                        <span class="label">Spreads</span>
+                        <span class="label">Qualified Picks</span>
                     </div>
                     <div class="stat-pill">
                         <span class="value">{{ total_games }}</span>
@@ -746,25 +742,20 @@
 
     <div class="container py-4">
         {% if supermax_lock %}
-        <div class="lock-hero" style="{% if supermax_type == 'spread' %}border-color: var(--accent); background: linear-gradient(135deg, rgba(76, 130, 255, 0.15) 0%, rgba(76, 130, 255, 0.05) 100%);{% endif %}">
+        <div class="lock-hero">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
                 <div class="d-flex flex-column align-items-start">
                     <div class="lock-edge-top mb-1">
-                        {% if supermax_type == 'totals' %}
                         EDGE {{ "%.1f"|format(supermax_lock.edge) }} PTS
-                        {% else %}
-                        EDGE {{ "%.1f"|format(supermax_lock.spread_edge) }} PTS
-                        {% endif %}
                     </div>
-                    <span class="lock-badge{% if supermax_type == 'spread' %}" style="background: linear-gradient(135deg, var(--accent) 0%, #6B9FFF 100%);{% else %}">{% endif %}<i class="bi bi-lightning-charge-fill"></i> LOCK OF THE DAY</span>
-                    <span class="badge mt-1" style="background: var(--bg-card); color: var(--text-muted); font-size: 0.7rem; padding: 0.25rem 0.5rem;">{{ supermax_lock.league }} {{ 'TOTALS' if supermax_type == 'totals' else 'SPREAD' }}</span>
+                    <span class="lock-badge"><i class="bi bi-lightning-charge-fill"></i> LOCK OF THE DAY</span>
+                    <span class="badge mt-1" style="background: var(--bg-card); color: var(--text-muted); font-size: 0.7rem; padding: 0.25rem 0.5rem;">{{ supermax_lock.league }}</span>
                 </div>
                 <div class="text-center flex-grow-1">
                     <div class="lock-matchup">{{ supermax_lock.away_team }} @ {{ supermax_lock.home_team }}</div>
                     <div class="game-time">{{ supermax_lock.game_time }}</div>
                 </div>
                 <div class="pick-container">
-                    {% if supermax_type == 'totals' %}
                     <div class="lock-pick {% if supermax_lock.direction == 'U' %}under{% endif %}">
                         {% if supermax_lock.alt_total_line %}
                         {{ supermax_lock.direction }}{{ supermax_lock.alt_total_line }}{% if supermax_lock.alt_total_odds %} <span class="pick-odds">{{ supermax_lock.alt_total_odds }}</span>{% endif %}
@@ -772,20 +763,6 @@
                         {{ supermax_lock.direction }}{{ supermax_lock.line }}
                         {% endif %}
                     </div>
-                    {% else %}
-                    <div class="lock-pick" style="background: linear-gradient(135deg, var(--accent) 0%, #6B9FFF 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-                        {% if supermax_lock.spread_direction == 'HOME' %}
-                        {% set home_spread = -supermax_lock.alt_spread_line if supermax_lock.alt_spread_line else -supermax_lock.spread_line %}
-                        {{ supermax_lock.home_team }} {{ "%+.1f"|format(home_spread) if home_spread else '' }}{% if supermax_lock.alt_spread_odds %} <span class="pick-odds">{{ supermax_lock.alt_spread_odds }}</span>{% endif %}
-                        {% else %}
-                        {% set away_spread = supermax_lock.alt_spread_line if supermax_lock.alt_spread_line else supermax_lock.spread_line %}
-                        {{ supermax_lock.away_team }} {{ "%+.1f"|format(away_spread) if away_spread else '' }}{% if supermax_lock.alt_spread_odds %} <span class="pick-odds">{{ supermax_lock.alt_spread_odds }}</span>{% endif %}
-                        {% endif %}
-                    </div>
-                    {% if supermax_lock.projected_margin is not none %}
-                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Model: {{ "%+.1f"|format(supermax_lock.projected_margin) }}</div>
-                    {% endif %}
-                    {% endif %}
                 </div>
             </div>
         </div>
@@ -890,7 +867,7 @@
                     <img src="https://a.espncdn.com/combiner/i?img={{ logo_paths[league] }}&w=100" class="league-logo" alt="{{ league }}">
                     <div>
                         <div class="league-title">{{ {'NBA': 'NBA Basketball', 'CBB': 'College Basketball', 'NFL': 'NFL Football', 'CFB': 'College Football', 'NHL': 'NHL Hockey'}[league] }}</div>
-                        <div class="league-count">{{ league_games|length }} game{% if league_games|length != 1 %}s{% endif %} | {{ league_games|selectattr('is_qualified')|list|length }}T / {{ league_games|selectattr('spread_is_qualified')|list|length }}S</div>
+                        <div class="league-count">{{ league_games|length }} game{% if league_games|length != 1 %}s{% endif %} | {{ league_games|selectattr('is_qualified')|list|length }} qualified</div>
                     </div>
                 </div>
                 
@@ -956,32 +933,8 @@
                                     <span class="pick-chip no-bet">NO BET</span>
                                     {% endif %}
                                 </div>
-                                <div class="breakdown-section spread">
-                                    <div class="breakdown-title">SPREAD</div>
-                                    <div class="breakdown-row">
-                                        <span class="breakdown-label">Line</span>
-                                        <span class="breakdown-value">{{ "%+.1f"|format(game.spread_line) if game.spread_line else '-' }}</span>
-                                    </div>
-                                    <div class="breakdown-row">
-                                        <span class="breakdown-label">Margin</span>
-                                        <span class="breakdown-value">{{ "%+.1f"|format(game.projected_margin) if game.projected_margin else '-' }}</span>
-                                    </div>
-                                    <div class="breakdown-row">
-                                        <span class="breakdown-label">Edge</span>
-                                        <span class="breakdown-value {% if game.spread_is_qualified %}high{% endif %}">{{ "%.1f"|format(game.spread_edge) if game.spread_edge else '-' }}</span>
-                                    </div>
-                                    {% if game.spread_is_qualified %}
-                                    {% if game.spread_direction == 'HOME' %}
-                                    <span class="pick-chip spread-pick">{{ game.home_team }} {{ "%+.1f"|format(-game.spread_line) }}</span>
-                                    {% else %}
-                                    <span class="pick-chip spread-pick">{{ game.away_team }} {{ "%+.1f"|format(game.spread_line) }}</span>
-                                    {% endif %}
-                                    {% else %}
-                                    <span class="pick-chip no-bet">NO BET</span>
-                                    {% endif %}
-                                </div>
                             </div>
-                            {% if game.is_qualified or game.spread_is_qualified %}
+                            {% if game.is_qualified %}
                             <div class="sharp-metrics">
                                 {% if game.true_edge %}<span class="sharp-metric"><strong>True:</strong> {{ "%.1f"|format(game.true_edge) }}</span>{% endif %}
                                 {% if game.total_ev %}<span class="sharp-metric"><strong>EV:</strong> <span class="{{ 'positive' if game.total_ev > 0 else 'negative' }}">{{ "%.2f"|format(game.total_ev) }}%</span></span>{% endif %}
@@ -1057,32 +1010,8 @@
                                     <span class="pick-chip no-bet">NO BET</span>
                                     {% endif %}
                                 </div>
-                                <div class="breakdown-section spread">
-                                    <div class="breakdown-title">SPREAD</div>
-                                    <div class="breakdown-row">
-                                        <span class="breakdown-label">Line</span>
-                                        <span class="breakdown-value">{{ "%+.1f"|format(game.spread_line) if game.spread_line else '-' }}</span>
-                                    </div>
-                                    <div class="breakdown-row">
-                                        <span class="breakdown-label">Margin</span>
-                                        <span class="breakdown-value">{{ "%+.1f"|format(game.projected_margin) if game.projected_margin else '-' }}</span>
-                                    </div>
-                                    <div class="breakdown-row">
-                                        <span class="breakdown-label">Edge</span>
-                                        <span class="breakdown-value {% if game.spread_is_qualified %}high{% endif %}">{{ "%.1f"|format(game.spread_edge) if game.spread_edge else '-' }}</span>
-                                    </div>
-                                    {% if game.spread_is_qualified %}
-                                    {% if game.spread_direction == 'HOME' %}
-                                    <span class="pick-chip spread-pick">{{ game.home_team }} {{ "%+.1f"|format(-game.spread_line) }}</span>
-                                    {% else %}
-                                    <span class="pick-chip spread-pick">{{ game.away_team }} {{ "%+.1f"|format(game.spread_line) }}</span>
-                                    {% endif %}
-                                    {% else %}
-                                    <span class="pick-chip no-bet">NO BET</span>
-                                    {% endif %}
-                                </div>
                             </div>
-                            {% if game.is_qualified or game.spread_is_qualified %}
+                            {% if game.is_qualified %}
                             <div class="sharp-metrics">
                                 {% if game.true_edge %}<span class="sharp-metric"><strong>True:</strong> {{ "%.1f"|format(game.true_edge) }}</span>{% endif %}
                                 {% if game.total_ev %}<span class="sharp-metric"><strong>EV:</strong> <span class="{{ 'positive' if game.total_ev > 0 else 'negative' }}">{{ "%.2f"|format(game.total_ev) }}%</span></span>{% endif %}
