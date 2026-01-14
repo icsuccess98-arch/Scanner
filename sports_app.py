@@ -5367,46 +5367,53 @@ def post_discord():
         if not success:
             return jsonify({"success": False, "message": f"Discord post failed: {error}", "status": status_code})
         
-        # Only save the Supermax/Lock of the Day to history (not all picks)
-        sm_game = supermax['game']
-        matchup = f"{sm_game.away_team} @ {sm_game.home_team}"
-        
-        # Check if this supermax already saved today
-        existing_pick = Pick.query.filter_by(date=today, matchup=matchup, pick_type=supermax['pick_type']).first()
-        if not existing_pick:
-            if supermax['pick_type'] == 'total':
-                line_val = sm_game.alt_total_line if sm_game.alt_total_line else sm_game.line
-                pick_str = f"{sm_game.direction}{line_val}"
-                edge_val = sm_game.edge
-            else:
-                if sm_game.spread_direction == 'HOME':
-                    line_val = sm_game.alt_spread_line if sm_game.alt_spread_line else sm_game.spread_line
-                    pick_str = f"{sm_game.home_team} {line_val:+.1f}" if line_val else sm_game.home_team
-                else:
-                    line_val = sm_game.alt_spread_line if sm_game.alt_spread_line else -sm_game.spread_line if sm_game.spread_line else None
-                    pick_str = f"{sm_game.away_team} {line_val:+.1f}" if line_val else sm_game.away_team
-                edge_val = sm_game.spread_edge
+        # Save ALL posted picks to history (Lock + Top Picks) to preserve line at time of posting
+        picks_saved = 0
+        for idx, p in enumerate(top_3):
+            p_game = p['game']
+            matchup = f"{p_game.away_team} @ {p_game.home_team}"
             
-            game_start_dt = parse_game_time_to_datetime(sm_game.game_time, today)
-            if game_start_dt and game_start_dt.tzinfo:
-                game_start_dt = game_start_dt.replace(tzinfo=None)
-            pick = Pick(
-                game_id=sm_game.id,
-                date=today,
-                league=sm_game.league,
-                matchup=matchup,
-                pick=pick_str,
-                edge=edge_val,
-                is_lock=True,
-                posted_to_discord=True,
-                pick_type=supermax['pick_type'],
-                line_value=line_val,
-                game_start=game_start_dt
-            )
-            db.session.add(pick)
-            db.session.commit()
+            # Check if this pick already saved today
+            existing_pick = Pick.query.filter_by(date=today, matchup=matchup, pick_type=p['pick_type']).first()
+            if not existing_pick:
+                if p['pick_type'] == 'total':
+                    line_val = p_game.alt_total_line if p_game.alt_total_line else p_game.line
+                    pick_str = f"{p_game.direction}{line_val}"
+                    edge_val = p_game.edge
+                else:
+                    if p_game.spread_direction == 'HOME':
+                        line_val = p_game.alt_spread_line if p_game.alt_spread_line else p_game.spread_line
+                        pick_str = f"{p_game.home_team} {line_val:+.1f}" if line_val else p_game.home_team
+                    else:
+                        line_val = p_game.alt_spread_line if p_game.alt_spread_line else -p_game.spread_line if p_game.spread_line else None
+                        pick_str = f"{p_game.away_team} {line_val:+.1f}" if line_val else p_game.away_team
+                    edge_val = p_game.spread_edge
+                
+                game_start_dt = parse_game_time_to_datetime(p_game.game_time, today)
+                if game_start_dt and game_start_dt.tzinfo:
+                    game_start_dt = game_start_dt.replace(tzinfo=None)
+                
+                # First pick (idx=0) is the Lock, others are Top Picks (is_lock=False)
+                pick = Pick(
+                    game_id=p_game.id,
+                    date=today,
+                    league=p_game.league,
+                    matchup=matchup,
+                    pick=pick_str,
+                    edge=edge_val,
+                    is_lock=(idx == 0),  # Only first pick is the Lock
+                    posted_to_discord=True,
+                    pick_type=p['pick_type'],
+                    line_value=line_val,
+                    game_start=game_start_dt
+                )
+                db.session.add(pick)
+                picks_saved += 1
         
-        return jsonify({"success": True, "status": status_code, "picks_count": 1})
+        db.session.commit()
+        logger.info(f"Saved {picks_saved} picks to history (line locked at time of posting)")
+        
+        return jsonify({"success": True, "status": status_code, "picks_count": picks_saved})
     
     return jsonify({"success": False, "message": "Discord webhook not configured"})
 

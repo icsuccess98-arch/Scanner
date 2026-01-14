@@ -1,0 +1,66 @@
+Fix line movement issues between Discord posting and app display:
+
+PROBLEM IDENTIFIED:
+1. Game scanned at 8:00 PM: Line 128, Edge 11.7 → QUALIFIED ✅
+2. Posted to Discord: "O128 (-165)"
+3. Line moved: 128 → 134 (sharps hammered OVER)
+4. App refreshes: Line 134, Edge 5.7 → NOT QUALIFIED ❌
+5. User sees: Discord says bet, app says NO BET (confusing!)
+
+ROOT CAUSE:
+- Discord posts use line at time of posting
+- App refreshes with CURRENT Bovada line
+- Lines move frequently (sharps, injuries, etc.)
+- No record of what line was when posted
+
+SOLUTION: Lock in the line at time of posting
+
+═══════════════════════════════════════════════════════════════════════
+
+IMPLEMENTATION:
+
+1. SAVE PICK AT TIME OF DISCORD POST:
+```python
+def post_to_discord(pick):
+    # Post to Discord
+    discord_message = f"{pick['away_team']}/{pick['home_team']} O{pick['line']} ({pick['odds']})"
+    post_message(discord_message)
+    
+    # CRITICAL: Save to database IMMEDIATELY with posted line
+    save_posted_pick_to_db({
+        'game_id': pick['game_id'],
+        'pick_type': 'TOTAL',
+        'pick': 'OVER',
+        'posted_line': pick['line'],  # Line when posted (128)
+        'posted_odds': pick['odds'],  # Odds when posted (-165)
+        'posted_edge': pick['edge'],  # Edge when posted (11.7)
+        'posted_at': datetime.now(),
+        'status': 'ACTIVE',
+        'confidence': pick['confidence']
+    })
+```
+
+2. APP DISPLAY LOGIC:
+```python
+def display_picks():
+    # Get ALL posted picks (not just qualified)
+    posted_picks = get_posted_picks_from_db()
+    
+    for pick in posted_picks:
+        # Get CURRENT line from Bovada
+        current_data = get_current_bovada_line(pick['game_id'])
+        
+        # Show BOTH lines to user
+        display = {
+            'game': pick['game'],
+            'pick': f"OVER {pick['posted_line']}",
+            'posted_line': pick['posted_line'],  # 128 (what was posted)
+            'current_line': current_data['line'],  # 134 (current)
+            'line_moved': current_data['line'] - pick['posted_line'],  # +6
+            'posted_edge': pick['posted_edge'],  # 11.7
+            'current_edge': calculate_current_edge(current_data),  # 5.7
+            'status': 'LINE_MOVED' if line_moved else 'ACTIVE'
+        }
+```
+
+3. USER INTERFACE:
