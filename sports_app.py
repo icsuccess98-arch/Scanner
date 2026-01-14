@@ -6350,6 +6350,10 @@ def dashboard():
         top_pick = qualified_combined[0]
         supermax_lock = top_pick['game']
         supermax_type = top_pick['pick_type']
+    else:
+        # No picks passed the confidence tier check - clear the lock
+        supermax_lock = None
+        supermax_type = None
     
     global last_game_count
     last_game_count['count'] = len(all_games)
