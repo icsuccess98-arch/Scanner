@@ -748,7 +748,7 @@
                     <div class="lock-edge-top mb-1">
                         EDGE {{ "%.1f"|format(supermax_lock.edge) }} PTS
                     </div>
-                    <span class="lock-badge"><i class="bi bi-lightning-charge-fill"></i> LOCK OF THE DAY</span>
+                    <span class="lock-badge"><i class="bi bi-lightning-charge-fill"></i> SUPERMAX</span>
                     <span class="badge mt-1" style="background: var(--bg-card); color: var(--text-muted); font-size: 0.7rem; padding: 0.25rem 0.5rem;">{{ supermax_lock.league }}</span>
                 </div>
                 <div class="text-center flex-grow-1">
@@ -813,30 +813,28 @@
                 <div class="col-md-6">
                     <div class="mb-2" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">TOP 5 PICKS</div>
                     {% for pick in analytics.top_picks %}
-                    <div class="top-pick-row">
-                        <span class="badge" style="width: 36px; height: 24px; font-size: 0.65rem; background: var(--bg-card); color: var(--text-muted);">{{ pick.game.league }}</span>
-                        <span class="top-pick-matchup ms-2">{{ pick.game.away_team }} @ {{ pick.game.home_team }}</span>
-                        {% if pick.pick_type == 'totals' %}
-                        <span class="direction-chip {% if pick.direction == 'O' %}over{% else %}under{% endif %}">{{ pick.direction }}{{ "%.1f"|format(pick.line) }}{% if pick.odds %} <span style="font-size: 0.7rem; opacity: 0.85;">({{ pick.odds }})</span>{% endif %}</span>
-                        {% elif pick.pick_type == '1h_ml' %}
-                        <span class="direction-chip" style="background: rgba(255, 165, 0, 0.15); color: #FFA500;">
-                            {{ pick.direction }} 1H ML{% if pick.odds %} <span style="font-size: 0.7rem; opacity: 0.85;">({{ pick.odds }})</span>{% endif %}
-                        </span>
-                        {% else %}
-                        <span class="direction-chip spread-chip" style="background: rgba(76, 130, 255, 0.15); color: var(--accent);">
-                            {{ pick.team }} {{ "%+.1f"|format(pick.line) if pick.line else '' }}{% if pick.odds %} <span style="font-size: 0.7rem; opacity: 0.85;">({{ pick.odds }})</span>{% endif %}
-                        </span>
-                        {% endif %}
-                        <span class="top-pick-edge">+{{ "%.1f"|format(pick.edge) }}</span>
-                        <div class="edge-bar" title="Edge: {{ '%.1f'|format(pick.edge) }}">
-                            {% set edge_pct = [[(pick.edge / 15 * 100), 100]|min, 0]|max %}
-                            {% set edge_class = 'elite' if pick.edge >= 12 else ('high' if pick.edge >= 10 else ('medium' if pick.edge >= 8 else 'low')) %}
-                            <div class="edge-bar-fill {{ edge_class }}" style="width: {{ edge_pct }}%"></div>
+                    <div class="top-pick-row" style="display: flex; flex-direction: column; gap: 0.4rem; padding: 0.75rem; border-bottom: 1px solid var(--border); background: var(--bg-card); border-radius: 8px; margin-bottom: 0.5rem;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span class="badge" style="font-size: 0.65rem; background: var(--bg-input); color: var(--text-muted); padding: 0.2rem 0.4rem;">{{ pick.game.league }}</span>
+                            <span style="font-size: 0.85rem; font-weight: 600; color: var(--text);">{{ pick.game.away_team }} @ {{ pick.game.home_team }}</span>
+                            {% if pick.is_away_favorite %}<span class="badge" style="background: rgba(255, 215, 0, 0.2); color: var(--gold); font-size: 0.55rem; padding: 0.15rem 0.35rem;">AWAY FAV</span>{% endif %}
                         </div>
-                        <span class="confidence-stars" title="Edge: {{ '%.1f'|format(pick.edge) }} pts">
-                            {% set stars = 5 if pick.edge >= 12 else (4 if pick.edge >= 10 else (3 if pick.edge >= 8 else 2)) %}
-                            {% for i in range(5) %}<span class="star {% if i < stars %}filled{% else %}empty{% endif %}">★</span>{% endfor %}
-                        </span>
+                        <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                            <span class="direction-chip {% if pick.direction == 'O' %}over{% else %}under{% endif %}" style="font-size: 0.8rem; padding: 0.3rem 0.6rem; font-weight: 600;">
+                                {{ pick.direction }}{{ "%.1f"|format(pick.alt_line if pick.alt_line else pick.line) }}
+                                {% if pick.game.alt_total_odds %}<span style="font-size: 0.7rem; opacity: 0.85; margin-left: 3px;">({{ pick.game.alt_total_odds }})</span>{% endif %}
+                            </span>
+                            <span style="color: var(--green); font-weight: 700; font-size: 0.9rem;">+{{ "%.1f"|format(pick.edge) }} edge</span>
+                            <div class="edge-bar" title="Edge: {{ '%.1f'|format(pick.edge) }}" style="width: 50px; height: 6px; background: var(--bg-input); border-radius: 3px; overflow: hidden;">
+                                {% set edge_pct = [[(pick.edge / 15 * 100), 100]|min, 0]|max %}
+                                {% set edge_class = 'elite' if pick.edge >= 12 else ('high' if pick.edge >= 10 else ('medium' if pick.edge >= 8 else 'low')) %}
+                                <div class="edge-bar-fill {{ edge_class }}" style="width: {{ edge_pct }}%; height: 100%;"></div>
+                            </div>
+                            <span class="confidence-stars" title="Edge: {{ '%.1f'|format(pick.edge) }} pts" style="font-size: 0.75rem;">
+                                {% set stars = 5 if pick.edge >= 12 else (4 if pick.edge >= 10 else (3 if pick.edge >= 8 else 2)) %}
+                                {% for i in range(5) %}<span class="star {% if i < stars %}filled{% else %}empty{% endif %}">★</span>{% endfor %}
+                            </span>
+                        </div>
                     </div>
                     {% endfor %}
                     {% if not analytics.top_picks %}
