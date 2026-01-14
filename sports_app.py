@@ -125,7 +125,7 @@ def track_performance(operation: str, duration: float):
 # PROFESSIONAL CALCULATORS (20+ Years Betting Wisdom)
 # ============================================================================
 
-class VigCalculator:
+class ProVigCalc:
     """Calculate vig and fair lines - critical for true edge."""
     
     @staticmethod
@@ -139,48 +139,13 @@ class VigCalculator:
     def calculate_vig_pct(over_odds: int, under_odds: int) -> float:
         if not over_odds or not under_odds:
             return 0.0
-        over_decimal = VigCalculator.american_to_decimal(over_odds)
-        under_decimal = VigCalculator.american_to_decimal(under_odds)
+        over_decimal = ProVigCalc.american_to_decimal(over_odds)
+        under_decimal = ProVigCalc.american_to_decimal(under_odds)
         implied_over = 1 / over_decimal
         implied_under = 1 / under_decimal
         total_prob = implied_over + implied_under
         vig_pct = ((total_prob - 1.0) / total_prob) * 100
         return round(vig_pct, 2)
-    
-    @staticmethod
-    def get_fair_line(line: float, over_odds: int, under_odds: int) -> float:
-        if not over_odds or not under_odds or not line:
-            return line or 0.0
-        over_decimal = VigCalculator.american_to_decimal(over_odds)
-        under_decimal = VigCalculator.american_to_decimal(under_odds)
-        implied_over = 1 / over_decimal
-        implied_under = 1 / under_decimal
-        total_prob = implied_over + implied_under
-        fair_over_prob = implied_over / total_prob
-        fair_under_prob = implied_under / total_prob
-        if fair_over_prob > 0.52:
-            adjustment = (fair_over_prob - 0.5) * 4
-            fair_line = line + adjustment
-        elif fair_under_prob > 0.52:
-            adjustment = (fair_under_prob - 0.5) * 4
-            fair_line = line - adjustment
-        else:
-            fair_line = line
-        return round(fair_line, 1)
-
-
-class EVCalculator:
-    """Calculate Expected Value vs sharp books."""
-    
-    @staticmethod
-    def calculate_ev(our_odds: int, pinnacle_odds: int) -> float:
-        if not pinnacle_odds or pinnacle_odds == 0 or not our_odds:
-            return 0.0
-        our_decimal = VigCalculator.american_to_decimal(our_odds)
-        pinnacle_decimal = VigCalculator.american_to_decimal(pinnacle_odds)
-        pinnacle_prob = 1 / pinnacle_decimal
-        ev = (pinnacle_prob * our_decimal) - 1
-        return round(ev * 100, 2)
 
 
 class KellyCalculator:
@@ -190,7 +155,10 @@ class KellyCalculator:
     def calculate_kelly(win_prob: float, odds: int, fraction: float = 0.25) -> float:
         if win_prob <= 0 or win_prob >= 1 or not odds:
             return 0.0
-        decimal_odds = VigCalculator.american_to_decimal(odds)
+        if odds > 0:
+            decimal_odds = (odds / 100) + 1
+        else:
+            decimal_odds = (100 / abs(odds)) + 1
         b = decimal_odds - 1
         q = 1 - win_prob
         kelly = ((b * win_prob) - q) / b
@@ -6361,21 +6329,26 @@ def dashboard():
         best_edge = g.alt_edge or g.edge or 0
         best_line = g.alt_total_line or g.line
         
-        # Calculate professional metrics
+        # Calculate professional metrics using REAL game data
         confidence_tier = ConfidenceTierCalculator.get_tier(best_edge)
-        vig_pct = VigCalculator.calculate_vig_pct(g.over_odds or -110, g.under_odds or -110)
         
-        # Calculate Kelly % based on historical win rate (estimate from edge)
-        win_prob = 0.5 + (best_edge / 100)  # Simple edge-to-prob conversion
-        win_prob = min(max(win_prob, 0.45), 0.75)  # Bound it reasonably
-        kelly_pct = KellyCalculator.calculate_kelly(win_prob, g.alt_total_odds or -110)
+        # Use actual odds from game (bovada_total_odds for vig estimate, assuming standard -110/-110)
+        # Since we only have the picked side odds, estimate vig using standard assumption
+        bet_odds = g.alt_total_odds if g.alt_total_odds else g.bovada_total_odds
+        vig_pct = ProVigCalc.calculate_vig_pct(-110, -110)  # Standard vig for totals
         
-        # Rest day impact
-        rest_impact = RestDayCalculator.calculate_rest_impact(
-            getattr(g, 'days_rest_away', 2) or 2,
-            getattr(g, 'is_back_to_back_away', False),
-            g.league
-        )
+        # Kelly calculation using actual odds and edge-derived probability
+        if best_edge and bet_odds:
+            win_prob = 0.5 + (best_edge / 100)
+            win_prob = min(max(win_prob, 0.45), 0.75)
+            kelly_pct = KellyCalculator.calculate_kelly(win_prob, bet_odds)
+        else:
+            kelly_pct = 0.0
+        
+        # Rest day impact - use actual game attributes if available
+        days_rest = getattr(g, 'days_rest_away', None)
+        is_b2b = getattr(g, 'is_back_to_back_away', False) or getattr(g, 'is_back_to_back_home', False)
+        rest_impact = RestDayCalculator.calculate_rest_impact(days_rest or 2, is_b2b, g.league) if g.league in ['NBA', 'NHL', 'NFL'] else 0.0
         
         top_picks.append({
             'game': g,

@@ -816,7 +816,7 @@
                     {% for pick in analytics.top_picks %}
                     {% set tier_colors = {'ELITE': '#00ff41', 'HIGH': '#4ade80', 'MEDIUM': '#fbbf24', 'LOW': '#f87171'} %}
                     {% set tier = pick.confidence_tier or 'MEDIUM' %}
-                    <div class="top-pick-row" style="display: grid; grid-template-columns: 36px 1fr; gap: 0.5rem; padding: 0.6rem 0.75rem; background: var(--bg-card); border-radius: 8px; border-left: 3px solid {{ tier_colors.get(tier, '#fbbf24') }}; border: 1px solid var(--border);">
+                    <div class="top-pick-row" style="display: grid; grid-template-columns: 36px 1fr; gap: 0.5rem; padding: 0.6rem 0.75rem; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border); border-left: 3px solid {{ tier_colors.get(tier, '#fbbf24') }};">
                         <span class="badge" style="font-size: 0.6rem; background: var(--bg-input); color: var(--text-muted); padding: 0.2rem 0.4rem; text-align: center; align-self: start; margin-top: 2px;">{{ pick.game.league }}</span>
                         <div style="display: flex; flex-direction: column; gap: 0.35rem;">
                             <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
