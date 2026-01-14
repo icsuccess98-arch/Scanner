@@ -3688,6 +3688,13 @@ class Pick(db.Model):
     kelly_fraction = db.Column(db.Float)  # Kelly bet size
     expected_ev = db.Column(db.Float)  # Expected value at time of bet
     
+    # RotoWire injury tracking
+    injury_source = db.Column(db.String(20))  # 'rotowire', 'espn', 'none'
+    away_injury_impact = db.Column(db.Float, default=0.0)
+    home_injury_impact = db.Column(db.Float, default=0.0)
+    lineup_confirmed = db.Column(db.Boolean, default=False)
+    injury_check_timestamp = db.Column(db.DateTime)
+    
     __table_args__ = (
         db.Index('idx_pick_result', 'result'),
         db.Index('idx_pick_date_league', 'date', 'league'),
@@ -3838,6 +3845,30 @@ def auto_save_qualified_picks(top_picks: list, today: 'date') -> int:
                 except Exception as e:
                     logger.debug(f"Could not parse game_time for {matchup}: {e}")
             
+            # Get injury data for tracking
+            injury_source = 'none'
+            away_impact = 0.0
+            home_impact = 0.0
+            lineup_confirmed = False
+            
+            try:
+                injury_result = quick_injury_check(game.away_team, game.home_team, game.league)
+                injury_source = injury_result.get('source', 'none')
+                away_impact = injury_result.get('away_impact', 0.0)
+                home_impact = injury_result.get('home_impact', 0.0)
+            except:
+                pass
+            
+            try:
+                away_lineup = rotowire_fetch_lineup(game.away_team, game.league)
+                home_lineup = rotowire_fetch_lineup(game.home_team, game.league)
+                lineup_confirmed = (
+                    away_lineup is not None and away_lineup.confirmed and
+                    home_lineup is not None and home_lineup.confirmed
+                )
+            except:
+                pass
+            
             new_pick = Pick(
                 game_id=game.id,
                 date=today,
@@ -3850,7 +3881,12 @@ def auto_save_qualified_picks(top_picks: list, today: 'date') -> int:
                 posted_to_discord=False,
                 pick_type=pick_type,
                 line_value=line_val,
-                game_start=game_start
+                game_start=game_start,
+                injury_source=injury_source,
+                away_injury_impact=away_impact,
+                home_injury_impact=home_impact,
+                lineup_confirmed=lineup_confirmed,
+                injury_check_timestamp=datetime.utcnow()
             )
             db.session.add(new_pick)
             saved_count += 1
@@ -6787,6 +6823,35 @@ def fetch_odds_internal() -> dict:
                                         history_rate = max(game.away_ou_pct or 0, game.home_ou_pct or 0) / 100
                                         sample = 10 if game.history_qualified is not None else 0
                                         
+                                        # PRE-FLIGHT INJURY CHECK (RotoWire)
+                                        try:
+                                            injury_result = quick_injury_check(
+                                                game.away_team,
+                                                game.home_team,
+                                                league
+                                            )
+                                            
+                                            if injury_result['away_impact'] > 0 or injury_result['home_impact'] > 0:
+                                                logger.info(
+                                                    f"{game.away_team} @ {game.home_team}: "
+                                                    f"Injury check [{injury_result['source']}] - "
+                                                    f"Away impact: {injury_result['away_impact']:.1f}, "
+                                                    f"Home impact: {injury_result['home_impact']:.1f}"
+                                                )
+                                            
+                                            if not injury_result['should_play']:
+                                                logger.warning(
+                                                    f"{game.away_team} @ {game.home_team}: "
+                                                    f"DISQUALIFIED - {injury_result['recommendation']}"
+                                                )
+                                                game.is_qualified = False
+                                                game.direction = None
+                                                lines_updated += 1
+                                                continue
+                                        
+                                        except Exception as e:
+                                            logger.error(f"Injury check error for {game.away_team} @ {game.home_team}: {e}")
+                                        
                                         # SHARP QUALIFICATION
                                         qual_result = check_qualification_professional(
                                             projected_total=proj_total,
@@ -7101,6 +7166,31 @@ def clear_rotowire_cache_api():
         'success': True,
         'message': 'RotoWire cache cleared'
     })
+
+@app.route('/api/rotowire_status', methods=['GET'])
+def rotowire_status():
+    """Get RotoWire integration status and health check."""
+    try:
+        cache_stats = get_rotowire_cache_stats()
+        
+        test_injuries, test_source = rotowire_fetch_injuries("Lakers", "NBA")
+        
+        return jsonify({
+            'success': True,
+            'rotowire_available': test_source == 'rotowire',
+            'espn_fallback': test_source == 'espn',
+            'test_result': {
+                'source': test_source,
+                'injuries_found': len(test_injuries)
+            },
+            'cache_stats': cache_stats,
+            'timestamp': datetime.now(pytz.timezone('America/New_York')).isoformat()
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
 
 def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_spread: bool = False, home_team: str = "", debug_game: str = "") -> tuple:
     """
