@@ -1552,6 +1552,92 @@ def detect_sharp_money(opening_line: float, current_line: float, direction: str 
     
     return {"sharp_aligned": False, "sharp_against": False, "movement": movement, "signal": "NEUTRAL"}
 
+class SharpThresholds:
+    """Centralized thresholds for sharp betting qualification."""
+    MIN_TRUE_EDGE = {'NBA': 8.0, 'CBB': 8.0, 'NFL': 3.5, 'CFB': 3.5, 'NHL': 0.5}
+    MIN_EV = 0.0
+    MAX_VIG = 6.0
+
+class SharpEdgeCalculator:
+    """Calculate true edge with vig removal."""
+    
+    @staticmethod
+    def calculate_vig(over_odds: int, under_odds: int) -> dict:
+        """Calculate market vig from both sides of a total."""
+        def implied_prob(odds: int) -> float:
+            if odds > 0:
+                return 100 / (odds + 100)
+            return abs(odds) / (abs(odds) + 100)
+        
+        over_prob = implied_prob(over_odds)
+        under_prob = implied_prob(under_odds)
+        total_prob = over_prob + under_prob
+        vig = (total_prob - 1) * 100
+        
+        over_fair = over_prob / total_prob
+        under_fair = under_prob / total_prob
+        
+        shade = 'BALANCED'
+        if over_fair > under_fair + 0.03:
+            shade = 'OVER'
+        elif under_fair > over_fair + 0.03:
+            shade = 'UNDER'
+        
+        return {
+            'vig_percentage': round(vig, 2),
+            'over_implied': round(over_prob * 100, 1),
+            'under_implied': round(under_prob * 100, 1),
+            'over_fair': round(over_fair * 100, 1),
+            'under_fair': round(under_fair * 100, 1),
+            'market_shade': shade
+        }
+    
+    @classmethod
+    def calculate_true_edge(cls, projected: float, line: float, 
+                           over_odds: int, under_odds: int, 
+                           direction: str = 'OVER') -> dict:
+        """Calculate edge with vig removed."""
+        vig_data = cls.calculate_vig(over_odds, under_odds)
+        
+        vig_adjustment = vig_data['vig_percentage'] / 2 / 100
+        true_line = line * (1 - vig_adjustment) if direction == 'OVER' else line * (1 + vig_adjustment)
+        
+        raw_edge = abs(projected - line)
+        true_edge = abs(projected - true_line)
+        
+        return {
+            'raw_edge': round(raw_edge, 2),
+            'true_edge': round(true_edge, 2),
+            'true_line': round(true_line, 2),
+            'vig_percentage': vig_data['vig_percentage'],
+            'market_shade': vig_data['market_shade'],
+            'over_fair_prob': vig_data['over_fair'],
+            'under_fair_prob': vig_data['under_fair']
+        }
+
+def check_qualification_sharp(projected: float, line: float, league: str,
+                              over_odds: int, under_odds: int) -> dict:
+    """Calculate TRUE edge with vig removal for qualification."""
+    edge_data = SharpEdgeCalculator.calculate_true_edge(
+        projected, line, over_odds, under_odds, 'OVER'
+    )
+    
+    threshold = SharpThresholds.MIN_TRUE_EDGE.get(league, 8.0)
+    
+    if edge_data['true_edge'] >= threshold:
+        direction = 'O' if projected >= edge_data['true_line'] else 'U'
+        return {
+            'qualified': True,
+            'direction': direction,
+            'true_edge': edge_data['true_edge'],
+            'raw_edge': edge_data['raw_edge'],
+            'true_line': edge_data['true_line'],
+            'vig_percentage': edge_data['vig_percentage'],
+            'market_shade': edge_data['market_shade']
+        }
+    
+    return {'qualified': False, **edge_data}
+
 class SharpPickQualifier:
     """Advanced pick qualification using sharp betting metrics."""
     
