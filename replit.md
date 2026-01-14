@@ -57,6 +57,13 @@ This project develops and manages three independent trading systems: a Sports Be
 -   **Data Management**: Date-keyed caching for ESPN lookups, SQLite database with indexes, and data validation.
 -   **System Stability**: Gunicorn timeout increased to 120s, robust logging, team alias expansion and name matching.
 -   **Discord Integration**: Automated posting of picks to Discord with history tracking and staggered weekend scheduling.
+-   **Performance Optimizations**:
+    -   **Database Indexes**: Composite indexes on Game model (idx_date_league, idx_qualified, idx_spread_qualified, idx_event_id, idx_composite_search) for fast queries.
+    -   **Dashboard Caching**: 30-second TTL cache with thread-safe locking for dashboard data.
+    -   **Parallel Processing**: ThreadPoolExecutor with 10 workers for batch injury checks.
+    -   **Response Compression**: Flask-Compress for gzip/deflate compression on all responses.
+    -   **Weather Integration**: OpenWeatherMap API for NFL/CFB games with indoor stadium detection (DOME_STADIUMS list), impact scoring for wind/temperature/precipitation, and auto-disqualification for extreme weather (≥5 point impact).
+    -   **Win Rate Analytics**: Comprehensive `/api/win_rate_analytics` endpoint tracking performance by league, confidence tier, day of week, time window, injury source, and pick type.
 
 ### Feature Specifications
 -   **Sports Scanner**: Fetches NBA, CBB, NFL, CFB, NHL games, stats, and odds to identify and post qualified picks.
