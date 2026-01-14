@@ -59,6 +59,18 @@ This project develops and manages trading systems including a Sports Betting Cal
     -   **Dashboard Caching**: 30-second TTL cache with thread-safe locking.
     -   **Parallel Processing**: ThreadPoolExecutor for batch injury checks.
     -   **Response Compression**: Flask-Compress for gzip/deflate compression.
+-   **Professional Betting Calculators (Jan 2026)**:
+    -   **ProVigCalc**: Standard vig percentage calculation (~4.76% for -110/-110)
+    -   **KellyCalculator**: Kelly Criterion for optimal bet sizing (0.25 fractional, 5% max)
+    -   **RestDayCalculator**: B2B fatigue modeling (NBA -4.0, NHL -2.5 for back-to-backs)
+    -   **ConfidenceTierCalculator**: ELITE (12+), HIGH (10+), MEDIUM (8+), LOW (3+) tiers
+    -   **WeatherCalculator**: NFL/CFB outdoor game weather impact on totals
+    -   **PaceCalculator**: Pace/tempo analysis for OVER/UNDER tendency
+-   **TOP 5 Picks Display Enhancements**:
+    -   **Confidence Tier Badges**: Color-coded (ELITE=green, HIGH=light green, MEDIUM=amber, LOW=red)
+    -   **Kelly %**: Recommended bet size based on edge probability
+    -   **Rest Impact**: Shows fatigue impact when applicable
+    -   **Stars/Bars/Away Fav**: Preserved existing functionality
 
 ### Code Optimization (Jan 2026)
 -   **Spread Code Removed**: All spread-related processing logic removed (334 lines)
