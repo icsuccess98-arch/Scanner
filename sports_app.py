@@ -1672,7 +1672,7 @@ class HistoricalBettingLinesService:
         ratio = SequenceMatcher(None, api_norm, db_norm).ratio()
         return ratio >= 0.75
     
-    def fetch_historical_games_with_lines(self, team_name: str, league: str, bet_type: str = 'total', num_games: int = 10) -> list:
+    def fetch_historical_games_with_lines(self, team_name: str, league: str, bet_type: str = 'total', num_games: int = 30) -> list:
         sport_key = LEAGUE_SPORT_KEYS.get(league)
         if not sport_key:
             logger.warning(f"Historical lines: Unknown league {league}")
@@ -3930,7 +3930,7 @@ class Game(db.Model):
     alt_spread_odds = db.Column(db.Integer)
     alt_edge = db.Column(db.Float)
     alt_spread_edge = db.Column(db.Float)
-    # Historical percentages (last 10 games)
+    # Historical percentages (last 30 games for NBA/CBB/NHL, 16 for NFL/CFB)
     away_ou_pct = db.Column(db.Float)  # Away team's O/U hit rate
     home_ou_pct = db.Column(db.Float)  # Home team's O/U hit rate
     away_spread_pct = db.Column(db.Float)  # Away team's spread cover rate
@@ -5266,7 +5266,7 @@ def fetch_h2h_history(team1: str, team2: str, league: str, direction: str = "O")
                 "date": event.get("date", "")
             })
         
-        h2h_games = h2h_games[-10:]
+        h2h_games = h2h_games[-30:]
         
         if len(h2h_games) < 3:
             result = {"ou_pct": 0, "games_found": len(h2h_games), "games": h2h_games}
@@ -5663,10 +5663,10 @@ def update_game_historical_data(game: Game) -> bool:
         max_ou_pct = max(game.away_ou_pct or 0, game.home_ou_pct or 0)
         sample_size = game.history_sample_size or 0
         
-        # Standard qualification: 58%+ AND 10+ non-push games
-        totals_qualified = max_ou_pct >= 58 and sample_size >= 10
-        # SUPERMAX qualification for history posting (70%+ AND 10+ games)
-        totals_supermax = max_ou_pct >= 70 and sample_size >= 10
+        # Standard qualification: 58%+ AND 15+ non-push games (30-game window)
+        totals_qualified = max_ou_pct >= 58 and sample_size >= 15
+        # SUPERMAX qualification for history posting (70%+ AND 15+ games)
+        totals_supermax = max_ou_pct >= 70 and sample_size >= 15
         
         if h2h_games >= 3:
             h2h_qualified = (game.h2h_ou_pct or 0) >= 60
