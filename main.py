@@ -92,29 +92,35 @@ def send_discord_csv(symbols, title, webhook_url):
     data = {"content": f"📋 **{title} TradingView Watchlist**"}
     requests.post(webhook_url, data=data, files=files)
 
-def send_discord_categorized_csv(categories, title, webhook_url):
-    """Send categorized TradingView watchlist with section headers"""
+def send_discord_tiered_csv(tier_data, title, webhook_url):
+    """Send TradingView watchlist organized by tiers with section headers"""
     if not webhook_url:
         return
     
-    # Build categorized content for TradingView
+    # Helper to extract clean symbol from formatted string
+    def clean_symbol(item):
+        sym = item.replace("• ", "").replace("**", "")
+        if " —" in sym:
+            sym = sym.split(" —")[0]
+        return sym.strip()
+    
+    # Build tiered content for TradingView
     lines = []
+    tier_names = {1: "TIER 1 ANCHOR", 2: "TIER 2 INDEX", 3: "TIER 3 SINGLE", 4: "TIER 4 OTHER"}
     
-    # Clean category names (replace underscores with spaces)
-    name_map = {
-        "U20": "U20",
-        "INSIDE_DAY": "INSIDE DAY",
-        "FAILED_2s": "FAILED 2s",
-        "3_BAR": "3-BAR",
-        "DOUBLE_INSIDE": "DOUBLE INSIDE"
-    }
-    
-    for cat_name, symbols in categories.items():
-        if symbols:
-            display_name = name_map.get(cat_name, cat_name)
-            # TradingView section format: ###SECTION_NAME
-            lines.append(f"###{display_name}")
-            for sym in symbols:
+    for tier in [1, 2, 3, 4]:
+        data = tier_data[tier]
+        # Collect all symbols for this tier
+        tier_symbols = []
+        for cat in ["u20", "f2u", "f2d", "ii", "inside", "outside"]:
+            for item in data[cat]:
+                sym = clean_symbol(item)
+                if sym not in tier_symbols:
+                    tier_symbols.append(sym)
+        
+        if tier_symbols:
+            lines.append(f"###{tier_names[tier]}")
+            for sym in tier_symbols:
                 lines.append(to_tv_symbol(sym))
     
     if not lines:
@@ -140,20 +146,21 @@ RUN_MODE = os.environ.get("RUN_MODE", "ALL")
 
 # TIER 1: Anchor Funds (Foundational Income Funds)
 TIER_1 = ["CLM", "CRF", "ECC", "EIC", "GUT", "GOF", "ASGI", "YYY", "HIPS", 
-          "PSEC", "BCAT", "ECAT", "BIZD", "USA", "ASG", "REM", "CCIF"]
+          "PSEC", "BCAT", "ECAT", "CCIF", "BIZD", "USA", "ASG", "REM"]
 
-# TIER 2: Leveraged Index Options Funds  
-TIER_2 = ["QQQY", "XDTE", "RDTE", "IWMY", "USOY", "GLDY", "YMAX", "YMAG",
-          "AIPI", "CEPI", "GIAX", "KLIP", "GDXY", "SPYI", "BITO"]
+# TIER 2: Leveraged Index Options Funds / Funds tracking 7 Asset Classes
+TIER_2 = ["YMAX", "YMAG", "RDTE", "QDTE", "XDTE", "IWMY", "QQQY", "USOY", "GLDY",
+          "AIPI", "FEPI", "CEPI", "BITO", "GIAX", "KLIP", "GDXY", "SPYI", "JEPI", "JEPQ",
+          "RYLD", "QYLD", "XYLD"]
 
 # TIER 3: Single-Stock or Select Portfolio ETFs
-TIER_3 = ["MST", "TSLY", "NVDY", "OARK", "XYZY", "TSMY", "MSTY", "SNOY", 
-          "CRSH", "BABO", "AMDY", "GPTY"]
+TIER_3 = ["MST", "TSLY", "NVDY", "OARK", "MSTY", "SNOY", "CONY", "AMDY", "GPTY",
+          "PLTY", "FBY", "AMZY", "APLY", "NFLY", "MSFO"]
 
-# Additional holdings not in tier system
-OTHER = ["TLT", "CVX", "AMGN", "UBER"]
+# Additional holdings not in tier system (Tier 4)
+TIER_4 = ["TLT", "CVX", "AMGN", "UBER"]
 
-ALL_STOCKS = TIER_1 + TIER_2 + TIER_3 + OTHER
+ALL_STOCKS = TIER_1 + TIER_2 + TIER_3 + TIER_4
 
 def get_tier(symbol):
     if symbol in TIER_1:
@@ -163,13 +170,13 @@ def get_tier(symbol):
     elif symbol in TIER_3:
         return 3
     else:
-        return 4  # Other
+        return 4  # Tier 4
 
 GROUP_ORDER = {
     "TIER_1": TIER_1,
     "TIER_2": TIER_2,
     "TIER_3": TIER_3,
-    "OTHER": OTHER
+    "TIER_4": TIER_4
 }
 
 # ---------------------------------------------------------
@@ -491,30 +498,14 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
             tier = get_tier(sym)
             tier_data[tier]["outside"].append(f"• {sym}")
     
-    # Combine all tickers by category (across all tiers)
-    all_u20 = []
-    all_f2d = []
-    all_ii = []
-    all_inside = []
-    all_outside = []
-    
     # Helper to extract clean symbol from formatted string
     def clean_symbol(item):
-        # Remove bullet, bold markers, and any text after the symbol
         sym = item.replace("• ", "").replace("**", "")
         if " —" in sym:
             sym = sym.split(" —")[0]
         return sym.strip()
     
-    for tier in [1, 2, 3, 4]:
-        data = tier_data[tier]
-        all_u20.extend([clean_symbol(item) for item in data["u20"]])
-        all_f2d.extend([clean_symbol(item) for item in data["f2d"]])
-        all_ii.extend([clean_symbol(item) for item in data["ii"]])
-        all_inside.extend([clean_symbol(item) for item in data["inside"]])
-        all_outside.extend([clean_symbol(item) for item in data["outside"]])
-    
-    # Build embed description
+    # Build embed description organized by tiers
     today = datetime.now()
     tomorrow = today + timedelta(days=1)
     
@@ -523,35 +514,51 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
     desc = f"**{title} Actionable Strat — for {tomorrow.strftime('%a %b %d')}**\n"
     desc += f"(From {today.strftime('%a %b %d')} close)\n\n"
     
-    if all_u20:
-        desc += f"**U20**\n{', '.join(all_u20)}\n\n"
+    tier_names = {1: "TIER 1: Anchor Funds", 2: "TIER 2: Index Options", 3: "TIER 3: Single-Stock", 4: "TIER 4: Other"}
     
-    if all_inside:
-        desc += f"**Inside Day (1)**\n{', '.join(all_inside)}\n\n"
-    
-    if all_f2d:
-        desc += f"**Failed 2s**\n{', '.join(all_f2d)}\n\n"
-    
-    if all_outside:
-        desc += f"**3-Bar (3)**\n{', '.join(all_outside)}\n\n"
-    
-    if all_ii:
-        desc += f"**Double Inside (II)**\n{', '.join(all_ii)}\n\n"
+    for tier in [1, 2, 3, 4]:
+        data = tier_data[tier]
+        # Collect all symbols for this tier with their patterns
+        tier_lines = []
+        
+        # U20 first (warning category)
+        for item in data["u20"]:
+            sym = clean_symbol(item)
+            tier_lines.append(f"⚠️ {sym} (U20)")
+        
+        # Failed 2s (with pattern details)
+        for item in data["f2d"]:
+            tier_lines.append(item.replace("• ", ""))
+        for item in data["f2u"]:
+            tier_lines.append(item.replace("• ", ""))
+        
+        # Double Inside
+        for item in data["ii"]:
+            sym = clean_symbol(item)
+            if sym not in [clean_symbol(x) for x in data["f2d"] + data["f2u"]]:
+                tier_lines.append(f"{sym} (II)")
+        
+        # Inside Day
+        for item in data["inside"]:
+            sym = clean_symbol(item)
+            tier_lines.append(f"{sym} (1)")
+        
+        # 3-Bar Outside
+        for item in data["outside"]:
+            sym = clean_symbol(item)
+            tier_lines.append(f"{sym} (3)")
+        
+        if tier_lines:
+            desc += f"**{tier_names[tier]}**\n"
+            desc += "\n".join(tier_lines) + "\n\n"
     
     desc = desc.strip()
     
     if desc:
         send_discord_embed(embed_title, desc, discord_webhook)
     
-    # Send categorized TradingView watchlist CSV to Discord
-    categories = {
-        "U20": all_u20,
-        "INSIDE_DAY": all_inside,
-        "FAILED_2s": all_f2d,
-        "3_BAR": all_outside,
-        "DOUBLE_INSIDE": all_ii
-    }
-    send_discord_categorized_csv(categories, title, discord_webhook)
+    # Send tiered TradingView watchlist CSV to Discord
+    send_discord_tiered_csv(tier_data, title, discord_webhook)
 
 # ---------------------------------------------------------
 # RUNTIME
