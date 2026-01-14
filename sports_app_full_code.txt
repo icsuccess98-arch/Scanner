@@ -2393,6 +2393,10 @@ class Pick(db.Model):
     closing_line = db.Column(db.Float)  # Final line before game
     clv = db.Column(db.Float)  # Closing Line Value
     line_moved_favor = db.Column(db.Boolean)  # Did line move in our favor?
+    bet_line = db.Column(db.Float)  # Actual line bet (alt or main)
+    true_edge = db.Column(db.Float)  # Edge after vig removal
+    kelly_fraction = db.Column(db.Float)  # Kelly bet size
+    expected_ev = db.Column(db.Float)  # Expected value at time of bet
     
     __table_args__ = (
         db.Index('idx_pick_result', 'result'),
@@ -6110,7 +6114,12 @@ def post_discord():
                     posted_to_discord=True,
                     pick_type=p['pick_type'],
                     line_value=line_val,
-                    game_start=game_start_dt
+                    game_start=game_start_dt,
+                    opening_line=p_game.line if p['pick_type'] == 'total' else p_game.spread_line,
+                    bet_line=line_val,
+                    true_edge=p_game.true_edge,
+                    kelly_fraction=p_game.kelly_fraction,
+                    expected_ev=p_game.total_ev if p['pick_type'] == 'total' else p_game.spread_ev
                 )
                 db.session.add(pick)
                 picks_saved += 1
