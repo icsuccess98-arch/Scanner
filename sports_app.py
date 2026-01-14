@@ -2799,14 +2799,20 @@ def calculate_projection(away_ppg: float, away_opp: float,
     exp_home = (home_ppg + away_opp) / 2
     return exp_away + exp_home
 
-def check_qualification(projected: float, line: float, league: str) -> Tuple[bool, Optional[str], float]:
+def check_qualification(projected: float, line: float, league: str, 
+                        over_odds: int = -110, under_odds: int = -110) -> Tuple[bool, Optional[str], float]:
     """
-    LOCKED THRESHOLDS - DO NOT MODIFY
+    UPGRADED: Now uses TRUE edge (vig-adjusted) for qualification.
+    Falls back to raw edge if odds not provided.
     
     Direction Rules:
-    - OVER ("O"): If Projected_Total >= Bovada_Line + Threshold
-    - UNDER ("U"): If Bovada_Line >= Projected_Total + Threshold
+    - OVER ("O"): If Projected_Total >= True_Line + Threshold
+    - UNDER ("U"): If True_Line >= Projected_Total + Threshold
     """
+    if over_odds != -110 or under_odds != -110:
+        result = check_qualification_sharp(projected, line, league, over_odds, under_odds)
+        return result['qualified'], result.get('direction'), result.get('true_edge', result.get('raw_edge', 0))
+    
     threshold = THRESHOLDS.get(league, 8.0)
     diff = projected - line
     edge = abs(diff)
