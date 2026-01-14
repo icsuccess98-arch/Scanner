@@ -7199,8 +7199,9 @@ def fetch_odds_internal() -> dict:
     # Fetch Model 4: NBA 1H ML for away favorites
     model4_result = fetch_nba_1h_ml_internal()
     
-    # Clear dashboard cache since we have fresh data
+    # Clear dashboard cache since we have new data
     clear_dashboard_cache()
+    logger.info("Dashboard cache cleared after odds update")
     
     return {
         "success": True, 
