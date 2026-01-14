@@ -1,0 +1,46 @@
+-- SYNC PICKS TO PRODUCTION
+-- Run these INSERT statements in your production database
+
+INSERT INTO pick (game_id, date, league, matchup, pick, edge, result, actual_total, is_lock, posted_to_discord, created_at, pick_type, line_value, game_start, game_window) 
+VALUES (7994, '2026-01-13', 'CBB', 'Air Force @ San José St', 'O130.5', 11.34375, NULL, NULL, TRUE, FALSE, '2026-01-13 16:55:20', 'total', 130.5, '2026-01-14 03:00:00', 'LATE')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO pick (game_id, date, league, matchup, pick, edge, result, actual_total, is_lock, posted_to_discord, created_at, pick_type, line_value, game_start, game_window) 
+VALUES (NULL, '2026-01-12', 'NBA', 'Jazz @ Cavaliers', 'U255.5', 9.05, 'W', NULL, TRUE, FALSE, '2026-01-12 07:25:09', 'total', 255.5, '2026-01-13 00:00:00', 'LATE')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO pick (game_id, date, league, matchup, pick, edge, result, actual_total, is_lock, posted_to_discord, created_at, pick_type, line_value, game_start, game_window) 
+VALUES (NULL, '2026-01-11', 'CBB', 'N Kentucky @ Green Bay', 'O141.5', 9.11, 'W', 158.0, TRUE, TRUE, '2026-01-11 17:10:54', 'total', 141.5, '2026-01-11 14:00:00', NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO pick (game_id, date, league, matchup, pick, edge, result, actual_total, is_lock, posted_to_discord, created_at, pick_type, line_value, game_start, game_window) 
+VALUES (NULL, '2026-01-10', 'CBB', 'SMU @ Duke', 'SMU +18.5', 12.13, 'W', 7.0, TRUE, TRUE, '2026-01-10 18:05:05', 'spread', 18.5, '2026-01-10 14:00:00', NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO pick (game_id, date, league, matchup, pick, edge, result, actual_total, is_lock, posted_to_discord, created_at, pick_type, line_value, game_start, game_window) 
+VALUES (NULL, '2026-01-10', 'CBB', 'LSU @ Vanderbilt', 'LSU +16.5', 10.57, 'W', NULL, TRUE, TRUE, '2026-01-10 17:51:48', 'spread', 16.5, '2026-01-10 13:00:00', NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO pick (game_id, date, league, matchup, pick, edge, result, actual_total, is_lock, posted_to_discord, created_at, pick_type, line_value, game_start, game_window) 
+VALUES (NULL, '2026-01-10', 'CBB', 'Boston College @ Louisville', 'Boston College +23.5', 12.0, 'W', NULL, TRUE, TRUE, '2026-01-10 16:08:03', 'spread', 23.5, '2026-01-10 12:00:00', NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO pick (game_id, date, league, matchup, pick, edge, result, actual_total, is_lock, posted_to_discord, created_at, pick_type, line_value, game_start, game_window) 
+VALUES (NULL, '2026-01-08', 'CBB', 'Little Rock @ SIUE', 'O128.5', 12.08, 'W', NULL, TRUE, TRUE, '2026-01-08 11:58:21', 'total', 128.5, NULL, NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO pick (game_id, date, league, matchup, pick, edge, result, actual_total, is_lock, posted_to_discord, created_at, pick_type, line_value, game_start, game_window) 
+VALUES (NULL, '2026-01-08', 'CBB', 'Rutgers @ Illinois', 'Rutgers +25.5', 11.4, 'L', NULL, TRUE, TRUE, '2026-01-08 11:58:21', 'spread', 25.5, NULL, NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO pick (game_id, date, league, matchup, pick, edge, result, actual_total, is_lock, posted_to_discord, created_at, pick_type, line_value, game_start, game_window) 
+VALUES (NULL, '2026-01-07', 'CBB', 'Grand Canyon @ Boise St', 'O137.0', 10.23, 'L', 133.0, TRUE, TRUE, '2026-01-07 14:56:46', 'total', NULL, NULL, NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO pick (game_id, date, league, matchup, pick, edge, result, actual_total, is_lock, posted_to_discord, created_at, pick_type, line_value, game_start, game_window) 
+VALUES (NULL, '2026-01-06', 'CBB', 'San Diego St @ Nevada', 'O142.0', 11.28, 'L', 141.0, TRUE, TRUE, '2026-01-06 13:03:46', 'total', NULL, NULL, NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO pick (game_id, date, league, matchup, pick, edge, result, actual_total, is_lock, posted_to_discord, created_at, pick_type, line_value, game_start, game_window) 
+VALUES (NULL, '2026-01-13', 'CBB', 'N Illinois @ E Michigan', 'O136.5', 11.5, 'PUSH', NULL, TRUE, TRUE, '2026-01-13 12:00:00', 'total', 136.5, NULL, NULL)
+ON CONFLICT DO NOTHING;
