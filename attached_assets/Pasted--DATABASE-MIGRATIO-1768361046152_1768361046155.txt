@@ -1,0 +1,134 @@
+-- ============================================================================
+-- DATABASE MIGRATION: Add Sharp Betting Columns
+-- Run this SQL on your PostgreSQL database before deploying updated app
+-- ============================================================================
+
+-- Add new columns to game table
+ALTER TABLE game ADD COLUMN IF NOT EXISTS true_edge FLOAT;
+ALTER TABLE game ADD COLUMN IF NOT EXISTS fair_line FLOAT;
+ALTER TABLE game ADD COLUMN IF NOT EXISTS vig_percentage FLOAT;
+ALTER TABLE game ADD COLUMN IF NOT EXISTS market_balance VARCHAR(20);
+ALTER TABLE game ADD COLUMN IF NOT EXISTS kelly_fraction FLOAT;
+ALTER TABLE game ADD COLUMN IF NOT EXISTS recommended_bet_size FLOAT;
+ALTER TABLE game ADD COLUMN IF NOT EXISTS fair_probability FLOAT;
+ALTER TABLE game ADD COLUMN IF NOT EXISTS probability_edge FLOAT;
+
+-- Add new columns to pick table
+ALTER TABLE pick ADD COLUMN IF NOT EXISTS true_edge FLOAT;
+ALTER TABLE pick ADD COLUMN IF NOT EXISTS expected_ev FLOAT;
+ALTER TABLE pick ADD COLUMN IF NOT EXISTS kelly_size FLOAT;
+
+-- Add indices for performance
+CREATE INDEX IF NOT EXISTS idx_true_edge ON game(true_edge);
+CREATE INDEX IF NOT EXISTS idx_kelly_fraction ON game(kelly_fraction);
+CREATE INDEX IF NOT EXISTS idx_fair_line ON game(fair_line);
+CREATE INDEX IF NOT EXISTS idx_market_balance ON game(market_balance);
+
+-- Add comments for documentation
+COMMENT ON COLUMN game.true_edge IS 'Edge after vig removal (this is the real edge)';
+COMMENT ON COLUMN game.fair_line IS 'Line after removing bookmaker vig';
+COMMENT ON COLUMN game.vig_percentage IS 'Bookmaker vig % in the market';
+COMMENT ON COLUMN game.market_balance IS 'OVER_SHADED, UNDER_SHADED, or BALANCED';
+COMMENT ON COLUMN game.kelly_fraction IS 'Kelly Criterion bet size (decimal, e.g., 0.05 = 5%)';
+COMMENT ON COLUMN game.recommended_bet_size IS 'Actual recommended bet size (1/4 Kelly)';
+COMMENT ON COLUMN game.fair_probability IS 'True win probability from Pinnacle';
+COMMENT ON COLUMN game.probability_edge IS 'Edge in probability space';
+
+-- Verify migration
+SELECT 
+    column_name, 
+    data_type, 
+    is_nullable
+FROM information_schema.columns 
+WHERE table_name = 'game' 
+  AND column_name IN (
+    'true_edge', 'fair_line', 'vig_percentage', 'market_balance',
+    'kelly_fraction', 'recommended_bet_size', 'fair_probability', 'probability_edge'
+)
+ORDER BY column_name;
+
+-- Check that indices were created
+SELECT indexname, indexdef 
+FROM pg_indexes 
+WHERE tablename = 'game' 
+  AND indexname IN ('idx_true_edge', 'idx_kelly_fraction', 'idx_fair_line', 'idx_market_balance');
+
+-- ============================================================================
+-- OPTIONAL: Data Analysis Queries
+-- ============================================================================
+
+-- Compare raw edge vs true edge for existing games (after running fetch_odds once)
+SELECT 
+    league,
+    COUNT(*) as total_games,
+    COUNT(*) FILTER (WHERE is_qualified = true) as qualified_games,
+    AVG(edge) as avg_raw_edge,
+    AVG(true_edge) as avg_true_edge,
+    AVG(vig_percentage) as avg_vig
+FROM game
+WHERE date >= CURRENT_DATE - INTERVAL '7 days'
+GROUP BY league
+ORDER BY league;
+
+-- Show impact of vig removal
+SELECT 
+    away_team,
+    home_team,
+    league,
+    line as bovada_line,
+    fair_line,
+    line - fair_line as line_adjustment,
+    edge as raw_edge,
+    true_edge,
+    edge - true_edge as edge_difference,
+    vig_percentage,
+    market_balance
+FROM game
+WHERE date = CURRENT_DATE
+  AND true_edge IS NOT NULL
+ORDER BY true_edge DESC
+LIMIT 10;
+
+-- Show Kelly bet sizing distribution
+SELECT 
+    CASE 
+        WHEN recommended_bet_size >= 0.05 THEN 'Large (5%+)'
+        WHEN recommended_bet_size >= 0.03 THEN 'Medium (3-5%)'
+        WHEN recommended_bet_size >= 0.01 THEN 'Small (1-3%)'
+        ELSE 'Micro (<1%)'
+    END as bet_size_category,
+    COUNT(*) as count,
+    AVG(true_edge) as avg_edge,
+    AVG(total_ev) as avg_ev
+FROM game
+WHERE is_qualified = true
+  AND recommended_bet_size IS NOT NULL
+  AND date >= CURRENT_DATE - INTERVAL '30 days'
+GROUP BY bet_size_category
+ORDER BY AVG(recommended_bet_size) DESC;
+
+-- ============================================================================
+-- ROLLBACK (if needed)
+-- ============================================================================
+
+/*
+-- Uncomment and run this if you need to undo the migration:
+
+DROP INDEX IF EXISTS idx_true_edge;
+DROP INDEX IF EXISTS idx_kelly_fraction;
+DROP INDEX IF EXISTS idx_fair_line;
+DROP INDEX IF EXISTS idx_market_balance;
+
+ALTER TABLE game DROP COLUMN IF EXISTS true_edge;
+ALTER TABLE game DROP COLUMN IF EXISTS fair_line;
+ALTER TABLE game DROP COLUMN IF EXISTS vig_percentage;
+ALTER TABLE game DROP COLUMN IF EXISTS market_balance;
+ALTER TABLE game DROP COLUMN IF EXISTS kelly_fraction;
+ALTER TABLE game DROP COLUMN IF EXISTS recommended_bet_size;
+ALTER TABLE game DROP COLUMN IF EXISTS fair_probability;
+ALTER TABLE game DROP COLUMN IF EXISTS probability_edge;
+
+ALTER TABLE pick DROP COLUMN IF EXISTS true_edge;
+ALTER TABLE pick DROP COLUMN IF EXISTS expected_ev;
+ALTER TABLE pick DROP COLUMN IF EXISTS kelly_size;
+*/

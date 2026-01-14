@@ -5838,8 +5838,8 @@ def fetch_odds_internal() -> dict:
     
     # STEP 3: ATOMIC UPDATE - Clear and update within single transaction
     try:
-        # Lock games for update to prevent concurrent modifications
-        games_to_update = Game.query.filter_by(date=today).with_for_update().all()
+        # Get games to update
+        games_to_update = Game.query.filter_by(date=today).all()
         
         # Clear all lines first (within same transaction)
         for g in games_to_update:
@@ -5855,6 +5855,15 @@ def fetch_odds_internal() -> dict:
             g.pinnacle_spread_odds = None
             g.total_ev = None
             g.spread_ev = None
+            # Clear sharp metrics
+            g.true_edge = None
+            g.fair_line = None
+            g.vig_percentage = None
+            g.market_balance = None
+            g.kelly_fraction = None
+            g.recommended_bet_size = None
+            g.fair_probability = None
+            g.probability_edge = None
         
         # Apply new odds data (still within same transaction)
         for league, data in all_odds.items():
@@ -5895,61 +5904,86 @@ def fetch_odds_internal() -> dict:
                         bovada_markets = {m.get("key"): m for m in bovada_book.get("markets", [])}
                         pinnacle_markets = {m.get("key"): m for m in pinnacle_book.get("markets", [])} if pinnacle_book else {}
                         
-                        # Process TOTALS
+                        # Process TOTALS with SHARP qualification
                         if "totals" in bovada_markets:
                             totals_market = bovada_markets["totals"]
                             outcomes = totals_market.get("outcomes", [])
-                            for outcome in outcomes:
-                                if outcome.get("name") == "Over":
-                                    line = outcome.get("point")
-                                    bovada_over_odds = outcome.get("price")
-                                    if line is not None:
-                                        game.line = line
-                                        store_opening_line(event.get("id"), line)
-                                        if all([game.away_ppg, game.away_opp_ppg, game.home_ppg, game.home_opp_ppg]):
-                                            exp_away, exp_home, proj_total = calculate_expected_scores(
-                                                game.away_ppg, game.away_opp_ppg, 
-                                                game.home_ppg, game.home_opp_ppg
-                                            )
-                                            game.expected_away = exp_away
-                                            game.expected_home = exp_home
-                                            game.projected_total = proj_total
-                                            game.projected_margin = exp_home - exp_away
-                                            qualified, direction, edge = check_qualification(
-                                                game.projected_total, game.line, game.league
-                                            )
-                                            game.direction = direction
-                                            game.edge = edge
-                                            
-                                            # Get matching outcome from Bovada based on direction
-                                            bovada_odds = None
-                                            pinnacle_odds = None
-                                            if direction == "OVER":
-                                                bovada_odds = bovada_over_odds
-                                            elif direction == "UNDER":
-                                                under_outcome = next((o for o in outcomes if o.get("name") == "Under"), None)
-                                                bovada_odds = under_outcome.get("price") if under_outcome else None
-                                            
-                                            # Get Pinnacle odds for same direction
-                                            if pinnacle_markets.get("totals") and direction:
-                                                pinn_outcomes = pinnacle_markets["totals"].get("outcomes", [])
-                                                pinn_name = "Over" if direction == "OVER" else "Under"
-                                                pinn_outcome = next((o for o in pinn_outcomes if o.get("name") == pinn_name), None)
-                                                if pinn_outcome:
-                                                    pinnacle_odds = pinn_outcome.get("price")
-                                            
-                                            # Store and calculate EV
-                                            game.bovada_total_odds = bovada_odds
-                                            game.pinnacle_total_odds = pinnacle_odds
-                                            if bovada_odds and pinnacle_odds:
-                                                game.total_ev = calculate_ev(bovada_odds, pinnacle_odds)
-                                            
-                                            # EV is informational only - Bovada is primary
-                                            # Qualification based on edge threshold only
-                                            game.is_qualified = qualified
-                                                
-                                        lines_updated += 1
-                                    break
+                            over_outcome = next((o for o in outcomes if o.get("name") == "Over"), None)
+                            under_outcome = next((o for o in outcomes if o.get("name") == "Under"), None)
+                            
+                            if over_outcome and under_outcome:
+                                line = over_outcome.get("point")
+                                over_odds = over_outcome.get("price", -110)
+                                under_odds = under_outcome.get("price", -110)
+                                
+                                if line is not None:
+                                    game.line = line
+                                    game.bovada_total_odds = over_odds
+                                    store_opening_line(event.get("id"), line)
+                                    
+                                    if all([game.away_ppg, game.away_opp_ppg, game.home_ppg, game.home_opp_ppg]):
+                                        exp_away, exp_home, proj_total = calculate_expected_scores(
+                                            game.away_ppg, game.away_opp_ppg, 
+                                            game.home_ppg, game.home_opp_ppg
+                                        )
+                                        game.expected_away = exp_away
+                                        game.expected_home = exp_home
+                                        game.projected_total = proj_total
+                                        game.projected_margin = exp_home - exp_away
+                                        
+                                        # Get Pinnacle odds
+                                        pinn_over_odds = None
+                                        pinn_under_odds = None
+                                        if pinnacle_markets.get("totals"):
+                                            pinn_outcomes = pinnacle_markets["totals"].get("outcomes", [])
+                                            pinn_over = next((o for o in pinn_outcomes if o.get("name") == "Over"), None)
+                                            pinn_under = next((o for o in pinn_outcomes if o.get("name") == "Under"), None)
+                                            if pinn_over:
+                                                pinn_over_odds = pinn_over.get("price")
+                                                game.pinnacle_total_odds = pinn_over_odds
+                                            if pinn_under:
+                                                pinn_under_odds = pinn_under.get("price")
+                                        
+                                        # Get historical performance
+                                        history_rate = max(game.away_ou_pct or 0, game.home_ou_pct or 0) / 100
+                                        sample = 10 if game.history_qualified is not None else 0
+                                        
+                                        # SHARP QUALIFICATION
+                                        qual_result = check_qualification_professional(
+                                            projected_total=proj_total,
+                                            line=line,
+                                            over_odds=over_odds,
+                                            under_odds=under_odds,
+                                            league=league,
+                                            pinnacle_over_odds=pinn_over_odds,
+                                            pinnacle_under_odds=pinn_under_odds,
+                                            historical_win_rate=history_rate,
+                                            sample_size=sample
+                                        )
+                                        
+                                        # Calculate edge metrics using VigRemover
+                                        fair_line = VigRemover.calculate_fair_line_totals(line, over_odds, under_odds)
+                                        vig_data = VigRemover.remove_two_way_vig(over_odds, under_odds)
+                                        
+                                        # Store sharp metrics
+                                        game.direction = 'O' if proj_total > fair_line else 'U'
+                                        game.edge = abs(proj_total - line)  # Raw edge
+                                        game.true_edge = qual_result.true_edge
+                                        game.fair_line = fair_line
+                                        game.vig_percentage = round(vig_data['vig_pct'], 2)
+                                        game.market_balance = 'OVER_SHADED' if vig_data['prob_a'] > 0.54 else ('UNDER_SHADED' if vig_data['prob_a'] < 0.46 else 'BALANCED')
+                                        game.total_ev = qual_result.ev_pct
+                                        
+                                        # Kelly sizing if qualified
+                                        if qual_result.qualified:
+                                            game.kelly_fraction = qual_result.bet_size_pct / 100 * 4  # Full Kelly
+                                            game.recommended_bet_size = qual_result.bet_size_pct / 100  # 1/4 Kelly
+                                            game.fair_probability = vig_data['prob_a'] if game.direction == 'O' else vig_data['prob_b']
+                                        
+                                        # Sharp qualification (ALL filters must pass)
+                                        game.is_qualified = qual_result.qualified
+                                        
+                                    lines_updated += 1
                         
                         # Process SPREADS using UniversalSpreadHandler for bulletproof extraction
                         spread_data = UniversalSpreadHandler.extract_spread_data(

@@ -1,0 +1,436 @@
+"""
+INTEGRATION GUIDE FOR YOUR MAIN APP FILE
+Copy these sections into your existing sports_app_full_code.txt file
+"""
+
+# ============================================================================
+# STEP 1: ADD IMPORTS AT TOP OF FILE (after existing imports)
+# ============================================================================
+
+# Add this after your existing imports:
+from sharp_betting import (
+    check_qualification_professional,
+    SharpEdgeCalculator,
+    EVCalculator,
+    QualificationResult,
+    EdgeResult
+)
+
+
+# ============================================================================
+# STEP 2: UPDATE GAME MODEL (replace existing Game class)
+# ============================================================================
+
+class Game(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    date = db.Column(db.Date, nullable=False)
+    league = db.Column(db.String(10), nullable=False)
+    away_team = db.Column(db.String(100), nullable=False)
+    home_team = db.Column(db.String(100), nullable=False)
+    game_time = db.Column(db.String(20))
+    
+    # Stats
+    away_ppg = db.Column(db.Float)
+    away_opp_ppg = db.Column(db.Float)
+    home_ppg = db.Column(db.Float)
+    home_opp_ppg = db.Column(db.Float)
+    
+    # Projections
+    projected_total = db.Column(db.Float)
+    expected_away = db.Column(db.Float)
+    expected_home = db.Column(db.Float)
+    projected_margin = db.Column(db.Float)
+    
+    # Lines
+    line = db.Column(db.Float)
+    spread_line = db.Column(db.Float)
+    
+    # OLD METRICS (keep for comparison)
+    edge = db.Column(db.Float)
+    spread_edge = db.Column(db.Float)
+    
+    # ⭐ NEW SHARP METRICS - ADD THESE
+    true_edge = db.Column(db.Float)
+    fair_line = db.Column(db.Float)
+    vig_percentage = db.Column(db.Float)
+    market_balance = db.Column(db.String(20))
+    kelly_fraction = db.Column(db.Float)
+    recommended_bet_size = db.Column(db.Float)
+    fair_probability = db.Column(db.Float)
+    probability_edge = db.Column(db.Float)
+    
+    # Qualification
+    direction = db.Column(db.String(10))
+    is_qualified = db.Column(db.Boolean, default=False)
+    spread_direction = db.Column(db.String(10))
+    spread_is_qualified = db.Column(db.Boolean, default=False)
+    
+    # History
+    away_ou_pct = db.Column(db.Float)
+    home_ou_pct = db.Column(db.Float)
+    away_spread_pct = db.Column(db.Float)
+    home_spread_pct = db.Column(db.Float)
+    history_qualified = db.Column(db.Boolean, default=None)
+    spread_history_qualified = db.Column(db.Boolean, default=None)
+    
+    # EV
+    bovada_total_odds = db.Column(db.Integer)
+    pinnacle_total_odds = db.Column(db.Integer)
+    total_ev = db.Column(db.Float)
+    spread_ev = db.Column(db.Float)
+    
+    # Event tracking
+    event_id = db.Column(db.String(64))
+    sport_key = db.Column(db.String(50))
+    
+    # Alt lines
+    alt_total_line = db.Column(db.Float)
+    alt_total_odds = db.Column(db.Integer)
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    __table_args__ = (
+        db.Index('idx_date_league', 'date', 'league'),
+        db.Index('idx_qualified', 'is_qualified'),
+        db.Index('idx_true_edge', 'true_edge'),  # NEW INDEX
+        db.Index('idx_kelly_fraction', 'kelly_fraction'),  # NEW INDEX
+    )
+
+
+# ============================================================================
+# STEP 3: UPDATE fetch_odds_internal() - CRITICAL SECTION
+# Find your existing fetch_odds_internal() and replace the totals processing
+# ============================================================================
+
+def fetch_odds_internal() -> dict:
+    """Fetch odds with SHARP qualification logic."""
+    start_time = time.time()
+    api_key = os.environ.get("ODDS_API_KEY")
+    if not api_key:
+        return {"success": False, "lines_updated": 0}
+    
+    et = pytz.timezone('America/New_York')
+    today = datetime.now(et).date()
+    
+    sport_map = {
+        "NBA": "basketball_nba",
+        "NHL": "icehockey_nhl",
+        "CBB": "basketball_ncaab",
+        "CFB": "americanfootball_ncaaf",
+        "NFL": "americanfootball_nfl"
+    }
+    
+    lines_updated = 0
+    qualified_count = 0
+    
+    # ... your existing parallel fetch code ...
+    
+    try:
+        games_to_update = Game.query.filter_by(date=today).with_for_update().all()
+        
+        # Clear old qualifications
+        for g in games_to_update:
+            g.is_qualified = False
+            g.true_edge = None
+            g.fair_line = None
+            g.kelly_fraction = None
+        
+        # Process odds
+        for league, data in all_odds.items():
+            events = data.get("events", [])
+            
+            for event in events:
+                # ... your existing event date validation ...
+                
+                away_team = event.get("away_team", "")
+                home_team = event.get("home_team", "")
+                
+                # Find matching game
+                matched_game = None
+                for game in Game.query.filter_by(date=today, league=league).all():
+                    if teams_match(game.away_team, away_team) and teams_match(game.home_team, home_team):
+                        matched_game = game
+                        break
+                
+                if not matched_game:
+                    continue
+                
+                bookmakers = event.get("bookmakers", [])
+                bovada_book = next((b for b in bookmakers if b.get("key") == "bovada"), None)
+                pinnacle_book = next((b for b in bookmakers if b.get("key") == "pinnacle"), None)
+                
+                if not bovada_book:
+                    continue
+                
+                bovada_markets = {m.get("key"): m for m in bovada_book.get("markets", [])}
+                pinnacle_markets = {m.get("key"): m for m in pinnacle_book.get("markets", [])} if pinnacle_book else {}
+                
+                # ==========================================
+                # ⭐ SHARP TOTALS PROCESSING - NEW LOGIC
+                # ==========================================
+                if "totals" in bovada_markets:
+                    totals_market = bovada_markets["totals"]
+                    outcomes = totals_market.get("outcomes", [])
+                    
+                    over_outcome = next((o for o in outcomes if o.get("name") == "Over"), None)
+                    under_outcome = next((o for o in outcomes if o.get("name") == "Under"), None)
+                    
+                    if over_outcome and under_outcome:
+                        line = over_outcome.get("point")
+                        over_odds = over_outcome.get("price", -110)
+                        under_odds = under_outcome.get("price", -110)
+                        
+                        if line is not None:
+                            matched_game.line = line
+                            matched_game.event_id = event.get("id")
+                            matched_game.sport_key = sport_key
+                            matched_game.bovada_total_odds = over_odds
+                            
+                            store_opening_line(event.get("id"), line)
+                            
+                            # Only calculate if we have projections
+                            if all([matched_game.away_ppg, matched_game.away_opp_ppg,
+                                   matched_game.home_ppg, matched_game.home_opp_ppg]):
+                                
+                                # Calculate projection
+                                exp_away, exp_home, proj_total = calculate_expected_scores(
+                                    matched_game.away_ppg, matched_game.away_opp_ppg,
+                                    matched_game.home_ppg, matched_game.home_opp_ppg
+                                )
+                                matched_game.expected_away = exp_away
+                                matched_game.expected_home = exp_home
+                                matched_game.projected_total = proj_total
+                                
+                                # Get Pinnacle odds
+                                pinn_over_odds = None
+                                pinn_under_odds = None
+                                if pinnacle_markets.get("totals"):
+                                    pinn_outcomes = pinnacle_markets["totals"].get("outcomes", [])
+                                    pinn_over = next((o for o in pinn_outcomes if o.get("name") == "Over"), None)
+                                    pinn_under = next((o for o in pinn_outcomes if o.get("name") == "Under"), None)
+                                    if pinn_over:
+                                        pinn_over_odds = pinn_over.get("price")
+                                        matched_game.pinnacle_total_odds = pinn_over_odds
+                                    if pinn_under:
+                                        pinn_under_odds = pinn_under.get("price")
+                                
+                                # Get historical performance
+                                history_win_rate = max(
+                                    matched_game.away_ou_pct or 0,
+                                    matched_game.home_ou_pct or 0
+                                ) / 100
+                                
+                                sample_size = 10 if matched_game.history_qualified is not None else 0
+                                
+                                # ⭐⭐⭐ SHARP QUALIFICATION - THE KEY CHANGE ⭐⭐⭐
+                                qual_result = check_qualification_professional(
+                                    projected_total=proj_total,
+                                    line=line,
+                                    over_odds=over_odds,
+                                    under_odds=under_odds,
+                                    league=league,
+                                    pinnacle_over_odds=pinn_over_odds,
+                                    pinnacle_under_odds=pinn_under_odds,
+                                    historical_win_rate=history_win_rate,
+                                    sample_size=sample_size
+                                )
+                                
+                                # Calculate edge result separately for storage
+                                edge_result = SharpEdgeCalculator.calculate_totals_edge(
+                                    proj_total, line, over_odds, under_odds, league
+                                )
+                                
+                                # ⭐ STORE SHARP METRICS
+                                matched_game.direction = edge_result.direction
+                                matched_game.true_edge = edge_result.true_edge
+                                matched_game.edge = edge_result.raw_edge  # Keep for comparison
+                                matched_game.fair_line = edge_result.fair_line
+                                matched_game.vig_percentage = edge_result.vig_pct
+                                matched_game.market_balance = edge_result.market_balance
+                                matched_game.total_ev = qual_result.ev_pct
+                                
+                                # Calculate Kelly if we have EV
+                                if qual_result.qualified and pinn_over_odds:
+                                    pinn_odds = pinn_over_odds if edge_result.direction == 'OVER' else pinn_under_odds
+                                    bov_odds = over_odds if edge_result.direction == 'OVER' else under_odds
+                                    ev_data = EVCalculator.calculate_ev_vs_pinnacle(bov_odds, pinn_odds)
+                                    if ev_data:
+                                        matched_game.kelly_fraction = ev_data['kelly']
+                                        matched_game.recommended_bet_size = qual_result.bet_size_pct / 100
+                                        matched_game.fair_probability = ev_data['true_prob']
+                                
+                                # ⭐ QUALIFICATION - Only if ALL filters pass
+                                matched_game.is_qualified = qual_result.qualified
+                                
+                                if qual_result.qualified:
+                                    qualified_count += 1
+                                    logger.info(
+                                        f"✅ {matched_game.away_team}@{matched_game.home_team} "
+                                        f"{edge_result.direction}{edge_result.fair_line} "
+                                        f"Edge:{edge_result.true_edge:.1f} "
+                                        f"EV:{qual_result.ev_pct:+.2f}% " if qual_result.ev_pct else "EV:N/A "
+                                        f"Kelly:{qual_result.bet_size_pct:.2f}%"
+                                    )
+                                
+                                lines_updated += 1
+        
+        db.session.commit()
+        logger.info(f"✅ Odds: {lines_updated} lines, {qualified_count} qualified (sharp)")
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Odds update failed: {e}")
+        return {"success": False}
+    
+    return {
+        "success": True,
+        "lines_updated": lines_updated,
+        "qualified_count": qualified_count
+    }
+
+
+# ============================================================================
+# STEP 4: UPDATE DASHBOARD ROUTE - Show sharp metrics
+# ============================================================================
+
+@app.route('/')
+def dashboard():
+    et = pytz.timezone('America/New_York')
+    today = datetime.now(et).date()
+    
+    # ... your existing old game cleanup code ...
+    
+    all_games = Game.query.filter_by(date=today).order_by(Game.true_edge.desc()).all()
+    
+    # Only show qualified games (passed ALL filters)
+    qualified = [g for g in all_games if g.is_qualified and g.history_qualified == True and (g.total_ev is None or g.total_ev >= 0)]
+    
+    # Sort by true edge (not raw edge)
+    qualified.sort(key=lambda x: x.true_edge or 0, reverse=True)
+    
+    # Analytics with SHARP metrics
+    analytics = {
+        'total_games': len(all_games),
+        'qualified_count': len(qualified),
+        'avg_true_edge': sum(g.true_edge or 0 for g in qualified) / len(qualified) if qualified else 0,
+        'avg_raw_edge': sum(g.edge or 0 for g in qualified) / len(qualified) if qualified else 0,
+        'avg_ev': sum(g.total_ev or 0 for g in qualified if g.total_ev) / max(1, len([g for g in qualified if g.total_ev])),
+        'total_kelly': sum(g.kelly_fraction or 0 for g in qualified),
+        'avg_vig': sum(g.vig_percentage or 0 for g in all_games) / len(all_games) if all_games else 0,
+        'picks_with_positive_ev': len([g for g in qualified if g.total_ev and g.total_ev > 0])
+    }
+    
+    return render_template('dashboard.html',
+                          games=all_games,
+                          qualified=qualified,
+                          today=today,
+                          analytics=analytics)
+
+
+# ============================================================================
+# STEP 5: UPDATE DISCORD POSTING - Include sharp metrics
+# ============================================================================
+
+@app.route('/post_discord', methods=['POST'])
+def post_discord():
+    et = pytz.timezone('America/New_York')
+    today = datetime.now(et).date()
+    today_str = today.strftime("%B %d, %Y")
+    
+    # Get qualified games (passed ALL sharp filters)
+    all_games = Game.query.filter_by(date=today).all()
+    qualified = [g for g in all_games if g.is_qualified and g.history_qualified == True and (g.total_ev is None or g.total_ev >= 0)]
+    
+    if not qualified:
+        return jsonify({"success": False, "message": "No picks passed sharp filters"})
+    
+    # Sort by confidence (Elite > High > Standard) then by true edge
+    def sort_key(g):
+        confidence_rank = {'ELITE': 3, 'HIGH': 2, 'STANDARD': 1, 'LOW': 0}
+        edge_result = SharpEdgeCalculator.calculate_totals_edge(
+            g.projected_total, g.line, -110, -110, g.league
+        )
+        rank = confidence_rank.get(edge_result.confidence, 0)
+        return (rank, g.true_edge or 0)
+    
+    qualified.sort(key=sort_key, reverse=True)
+    
+    top_3 = qualified[:3]
+    
+    # Build Discord message with SHARP metrics
+    msg = f"🔒 730's SHARP PICKS\n{today_str}\n\n"
+    
+    supermax = top_3[0]
+    msg += f"⚡ LOCK OF THE DAY\n"
+    msg += f"{supermax.league} {supermax.away_team}/{supermax.home_team}\n"
+    msg += f"{supermax.direction}{supermax.fair_line:.0f}\n"
+    msg += f"True Edge: {supermax.true_edge:.1f} | "
+    msg += f"EV: {supermax.total_ev:+.2f}%" if supermax.total_ev else "EV: N/A"
+    msg += f" | Kelly: {(supermax.recommended_bet_size or 0)*100:.1f}%\n\n"
+    
+    if len(top_3) > 1:
+        msg += f"📊 TOP PICKS\n"
+        for g in top_3[1:3]:
+            msg += f"{g.league} {g.away_team}/{g.home_team}\n"
+            msg += f"{g.direction}{g.fair_line:.0f} "
+            msg += f"(Edge: {g.true_edge:.1f})\n\n"
+    
+    webhook = os.environ.get("SPORTS_DISCORD_WEBHOOK")
+    if webhook:
+        resp = requests.post(webhook, json={"content": msg}, timeout=15)
+        if resp.status_code in [200, 204]:
+            # Save picks to history
+            for pick_game in top_3:
+                pick_str = f"{pick_game.direction}{pick_game.fair_line:.0f}"
+                new_pick = Pick(
+                    game_id=pick_game.id,
+                    date=today,
+                    league=pick_game.league,
+                    matchup=f"{pick_game.away_team} @ {pick_game.home_team}",
+                    pick=pick_str,
+                    edge=pick_game.true_edge,  # Store TRUE edge
+                    is_lock=True,
+                    posted_to_discord=True,
+                    pick_type='total',
+                    line_value=pick_game.fair_line,
+                    true_edge=pick_game.true_edge,  # NEW
+                    expected_ev=pick_game.total_ev,  # NEW
+                    kelly_size=(pick_game.recommended_bet_size or 0) * 100  # NEW
+                )
+                db.session.add(new_pick)
+            
+            db.session.commit()
+            return jsonify({"success": True, "picks_count": len(top_3)})
+    
+    return jsonify({"success": False, "message": "Discord webhook failed"})
+
+
+# ============================================================================
+# SUMMARY OF KEY CHANGES
+# ============================================================================
+
+"""
+WHAT CHANGED:
+
+1. ✅ Import sharp_betting module at top
+2. ✅ Add new columns to Game model (true_edge, fair_line, kelly_fraction, etc.)
+3. ✅ Replace qualification logic in fetch_odds_internal() with check_qualification_professional()
+4. ✅ Dashboard now sorts by true_edge (not raw edge)
+5. ✅ Discord posts include true edge, EV, and Kelly sizing
+6. ✅ Only picks that pass ALL 6 filters get qualified
+
+EXPECTED IMPACT:
+
+Before: ~30 qualified picks/day with raw edge
+After: ~10-15 qualified picks/day with TRUE edge + EV + Kelly
+
+This is GOOD - you're filtering out marginal -EV spots.
+
+TEST IT:
+1. Run database migration (add new columns)
+2. Import sharp_betting.py
+3. Run fetch_odds
+4. Check logs for "✅ QUALIFIED" vs "❌ REJECTED"
+5. Verify dashboard shows true_edge values
+6. Confirm fewer picks qualify (30-40% reduction expected)
+"""
