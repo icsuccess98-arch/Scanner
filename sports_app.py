@@ -2951,6 +2951,7 @@ class Game(db.Model):
     h2h_spread_pct = db.Column(db.Float)  # Head-to-head spread cover rate
     history_qualified = db.Column(db.Boolean, default=None)  # NULL = not checked, True/False = checked (for TOTALS)
     spread_history_qualified = db.Column(db.Boolean, default=None)  # Separate history qualification for SPREADS
+    history_sample_size = db.Column(db.Integer)  # Actual sample size (non-push games)
     # Pinnacle comparison for EV calculation
     bovada_total_odds = db.Column(db.Integer)  # Bovada odds for our totals pick
     pinnacle_total_odds = db.Column(db.Integer)  # Pinnacle odds for same line
