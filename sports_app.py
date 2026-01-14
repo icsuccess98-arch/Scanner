@@ -6266,6 +6266,58 @@ def deep_test():
     })
 
 
+@app.route('/api/export_picks_sql')
+def export_picks_sql():
+    """
+    Export all picks as SQL INSERT statements for production database sync.
+    Access via browser and copy the SQL to run in production database.
+    """
+    picks = Pick.query.order_by(Pick.date.desc()).all()
+    
+    sql_statements = []
+    sql_statements.append("-- Export of all picks from development database")
+    sql_statements.append("-- Run this SQL in your PRODUCTION database to sync picks")
+    sql_statements.append("-- Generated at: " + datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    sql_statements.append("")
+    sql_statements.append("-- First, clear existing picks (optional - uncomment if needed)")
+    sql_statements.append("-- DELETE FROM pick;")
+    sql_statements.append("")
+    
+    for p in picks:
+        # Escape single quotes in strings
+        matchup_safe = (p.matchup or '').replace("'", "''")
+        pick_safe = (p.pick or '').replace("'", "''")
+        result_safe = (p.result or '').replace("'", "''") if p.result else None
+        league_safe = (p.league or '').replace("'", "''")
+        pick_type_safe = (p.pick_type or '').replace("'", "''") if p.pick_type else None
+        game_window_safe = (p.game_window or '').replace("'", "''") if p.game_window else None
+        
+        # Format date fields
+        date_str = f"'{p.date}'" if p.date else 'NULL'
+        game_start_str = f"'{p.game_start}'" if p.game_start else 'NULL'
+        created_at_str = f"'{p.created_at}'" if p.created_at else 'NOW()'
+        
+        # Format numeric/boolean fields
+        game_id_str = str(p.game_id) if p.game_id else 'NULL'
+        edge_str = str(p.edge) if p.edge is not None else 'NULL'
+        actual_total_str = str(p.actual_total) if p.actual_total is not None else 'NULL'
+        line_value_str = str(p.line_value) if p.line_value is not None else 'NULL'
+        is_lock_str = 'TRUE' if p.is_lock else 'FALSE'
+        posted_str = 'TRUE' if p.posted_to_discord else 'FALSE'
+        result_str = f"'{result_safe}'" if result_safe else 'NULL'
+        pick_type_str = f"'{pick_type_safe}'" if pick_type_safe else 'NULL'
+        game_window_str = f"'{game_window_safe}'" if game_window_safe else 'NULL'
+        
+        sql = f"""INSERT INTO pick (game_id, date, league, matchup, pick, edge, result, actual_total, is_lock, posted_to_discord, created_at, pick_type, line_value, game_start, game_window) 
+VALUES ({game_id_str}, {date_str}, '{league_safe}', '{matchup_safe}', '{pick_safe}', {edge_str}, {result_str}, {actual_total_str}, {is_lock_str}, {posted_str}, {created_at_str}, {pick_type_str}, {line_value_str}, {game_start_str}, {game_window_str})
+ON CONFLICT DO NOTHING;"""
+        sql_statements.append(sql)
+    
+    # Return as plain text for easy copying
+    from flask import Response
+    return Response('\n'.join(sql_statements), mimetype='text/plain')
+
+
 with app.app_context():
     db.create_all()
 
