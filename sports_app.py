@@ -1420,11 +1420,11 @@ LEAGUE_SPORT_KEYS = {
 }
 
 LEAGUE_HISTORICAL_CONFIG = {
-    'NBA': {'games_count': 10, 'min_games': 8, 'ats_threshold': 0.60, 'over_threshold': 0.60, 'under_threshold': 0.40},
-    'CBB': {'games_count': 10, 'min_games': 8, 'ats_threshold': 0.60, 'over_threshold': 0.60, 'under_threshold': 0.40},
-    'NFL': {'games_count': 5, 'min_games': 4, 'ats_threshold': 0.60, 'over_threshold': 0.60, 'under_threshold': 0.40},
-    'CFB': {'games_count': 5, 'min_games': 4, 'ats_threshold': 0.60, 'over_threshold': 0.60, 'under_threshold': 0.40},
-    'NHL': {'games_count': 10, 'min_games': 8, 'ats_threshold': 0.60, 'over_threshold': 0.60, 'under_threshold': 0.40}
+    'NBA': {'games_count': 30, 'min_games': 15, 'ats_threshold': 0.60, 'over_threshold': 0.60, 'under_threshold': 0.40},
+    'CBB': {'games_count': 30, 'min_games': 15, 'ats_threshold': 0.60, 'over_threshold': 0.60, 'under_threshold': 0.40},
+    'NFL': {'games_count': 16, 'min_games': 8, 'ats_threshold': 0.60, 'over_threshold': 0.60, 'under_threshold': 0.40},
+    'CFB': {'games_count': 16, 'min_games': 8, 'ats_threshold': 0.60, 'over_threshold': 0.60, 'under_threshold': 0.40},
+    'NHL': {'games_count': 30, 'min_games': 15, 'ats_threshold': 0.60, 'over_threshold': 0.60, 'under_threshold': 0.40}
 }
 
 historical_lines_cache = TTLCache(maxsize=500, ttl=43200)
@@ -1443,7 +1443,7 @@ class BulletproofCurrentLineCalculator:
     
     def __init__(self):
         self.min_games = {
-            'NBA': 8, 'CBB': 8, 'NFL': 4, 'CFB': 4, 'NHL': 8
+            'NBA': 15, 'CBB': 15, 'NFL': 8, 'CFB': 8, 'NHL': 15
         }
         self.thresholds = {
             'qualify': 0.60,
@@ -4946,7 +4946,7 @@ def get_espn_team_id(team_name: str, league: str) -> Optional[str]:
 
 def fetch_team_last_10_games(team_name: str, league: str) -> list:
     """
-    Fetch team's last 10 completed games from ESPN with daily caching.
+    Fetch team's last 30 completed games from ESPN with daily caching.
     Returns list of game dicts with: total_score, opponent_score, was_home
     """
     et = pytz.timezone('America/New_York')
@@ -5023,7 +5023,7 @@ def fetch_team_last_10_games(team_name: str, league: str) -> list:
                 "margin": team_score - opp_score
             })
         
-        result = completed_games[-10:] if len(completed_games) >= 10 else completed_games
+        result = completed_games[-30:] if len(completed_games) >= 30 else completed_games
         espn_team_schedule_cache[cache_key] = result
         return result
     except Exception as e:

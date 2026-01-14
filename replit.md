@@ -32,7 +32,7 @@ This project develops and manages three independent trading systems: a Sports Be
     -   **Formulas**: Strict, unmodifiable formulas for `Expected Team Score`, `Projected Total`, and `Difference`.
     -   **Thresholds**: League-specific thresholds for pick validation (e.g., NBA/CBB: ±8.0 points).
     -   **Bet Direction**: Binary rules for OVER/UNDER based on `Projected_Total` vs. `Bovada_Line` plus threshold.
-    -   **Historical Qualification**: Totals picks require 60%+ historical O/U hit rate from last 10 games. Spreads use margin-based validation.
+    -   **Historical Qualification**: Totals picks require 60%+ historical O/U hit rate from last 30 games (NBA/CBB/NHL) or 16 games (NFL/CFB). Spreads use margin-based validation.
     -   **Alt Lines**: Fetched from Bovada, selecting best value with odds -180 or better.
     -   **Pinnacle EV Comparison**: Fetches Pinnacle odds to calculate Expected Value (EV), with a minimum EV threshold of 1.0%.
     -   **Result Checking**: Automatic result checking refreshes 2.5-3.5 hours after game start.
