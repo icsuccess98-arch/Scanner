@@ -1896,8 +1896,10 @@ def calculate_spread_edge_sharp(projected_margin: float, spread_line: float,
 
 
 class SharpThresholds:
-    """Centralized thresholds for sharp betting qualification."""
-    MIN_TRUE_EDGE = {'NBA': 8.0, 'CBB': 8.0, 'NFL': 3.5, 'CFB': 3.5, 'NHL': 0.5}
+    """Centralized thresholds for sharp betting qualification.
+    TRUE_EDGE thresholds are LOWER than raw edge thresholds because vig removal reduces edge by ~40-60%.
+    """
+    MIN_TRUE_EDGE = {'NBA': 3.5, 'CBB': 4.0, 'NFL': 2.0, 'CFB': 2.5, 'NHL': 0.3}
     MIN_EV = 0.0
     MAX_VIG = 6.0
 
