@@ -343,6 +343,218 @@ def calculate_trend_metrics(game_list: List[dict], team_name: str, metric_key: s
         'avg_value': round(avg_value, 2)
     }
 
+def calculate_over_under_edge(game: dict, odds: GameOdds) -> dict:
+    """
+    Calculate O/U edge with proper away favorite logic.
+    
+    Critical Features:
+    1. Away favorite O/U model: Requires BOTH away as favorite AND O/U threshold met
+    2. Normal O/U model: Separate validation
+    3. Proper favorite detection using moneyline
+    4. Enhanced logging for debugging
+    """
+    away_team = game.get('away_team', '')
+    home_team = game.get('home_team', '')
+    league = game.get('league', 'UNKNOWN')
+    
+    result = {
+        'total_edge': 0,
+        'total_direction': None,
+        'total_is_qualified': False,
+        'total_history_qualified': False,
+        'total_ev': 0,
+        'away_favorite_ou_qualified': False,
+        'away_is_favorite': False
+    }
+    
+    if not odds or odds.total is None:
+        logger.warning(f"No O/U odds for {away_team} @ {home_team}")
+        return result
+    
+    total_line = odds.total
+    
+    if odds.moneyline_away is not None and odds.moneyline_home is not None:
+        result['away_is_favorite'] = odds.moneyline_away < odds.moneyline_home
+        logger.info(f"Favorite check: {away_team} ({odds.moneyline_away}) vs {home_team} ({odds.moneyline_home}) - Away is favorite: {result['away_is_favorite']}")
+    
+    away_stats = game.get('away_stats', {})
+    home_stats = game.get('home_stats', {})
+    
+    away_ppg = away_stats.get('points_per_game', 0)
+    home_ppg = home_stats.get('points_per_game', 0)
+    projected_total = away_ppg + home_ppg
+    
+    if projected_total == 0:
+        logger.warning(f"No stats available for {away_team} @ {home_team}")
+        return result
+    
+    edge = abs(projected_total - total_line)
+    result['total_edge'] = round(edge, 1)
+    
+    if projected_total > total_line + 0.5:
+        result['total_direction'] = 'OVER'
+    elif projected_total < total_line - 0.5:
+        result['total_direction'] = 'UNDER'
+    else:
+        result['total_direction'] = None
+        logger.info(f"O/U edge too small for {away_team} @ {home_team}: {edge:.1f}")
+        return result
+    
+    threshold = GameConstants.EDGE_THRESHOLDS.get(league, 8.0)
+    edge_met = edge >= threshold
+    
+    if edge_met:
+        result['total_is_qualified'] = True
+        result['total_history_qualified'] = True
+        result['total_ev'] = round(edge * 0.5, 2)
+        logger.info(f"Normal O/U qualified: {away_team} @ {home_team} - Edge: {edge:.1f}, Direction: {result['total_direction']}")
+    
+    if result['away_is_favorite'] and edge_met:
+        result['away_favorite_ou_qualified'] = True
+        logger.info(f"AWAY FAVORITE O/U qualified: {away_team} @ {home_team} - Edge: {edge:.1f}, Direction: {result['total_direction']}")
+    elif result['away_is_favorite'] and not edge_met:
+        logger.info(f"Away team is favorite but O/U edge insufficient: {away_team} @ {home_team} - Edge: {edge:.1f} < {threshold}")
+    
+    return result
+
+def calculate_spread_edge(game: dict, odds: GameOdds) -> dict:
+    """
+    Calculate spread edge with proper model validation.
+    
+    Critical Features:
+    1. Proper spread calculation using team stats
+    2. Home/away percentage validation
+    3. Correct spread direction (home team perspective)
+    4. Enhanced logging
+    """
+    away_team = game.get('away_team', '')
+    home_team = game.get('home_team', '')
+    league = game.get('league', 'UNKNOWN')
+    
+    result = {
+        'spread_edge': 0,
+        'spread_direction': None,
+        'spread_is_qualified': False,
+        'spread_history_qualified': False,
+        'spread_ev': 0,
+        'away_spread_pct': 0,
+        'home_spread_pct': 0
+    }
+    
+    if not odds or odds.spread_home is None:
+        logger.warning(f"No spread odds for {away_team} @ {home_team}")
+        return result
+    
+    spread_line = odds.spread_home
+    
+    away_stats = game.get('away_stats', {})
+    home_stats = game.get('home_stats', {})
+    
+    away_ppg = away_stats.get('points_per_game', 0)
+    home_ppg = home_stats.get('points_per_game', 0)
+    away_opp = away_stats.get('opponent_ppg', 0)
+    home_opp = home_stats.get('opponent_ppg', 0)
+    
+    if away_ppg == 0 or home_ppg == 0:
+        logger.warning(f"No stats available for spread calculation: {away_team} @ {home_team}")
+        return result
+    
+    projected_margin = (home_ppg - away_opp) - (away_ppg - home_opp)
+    
+    edge = abs(projected_margin - spread_line)
+    result['spread_edge'] = round(edge, 1)
+    
+    if projected_margin > spread_line + 0.5:
+        result['spread_direction'] = 'HOME'
+    elif projected_margin < spread_line - 0.5:
+        result['spread_direction'] = 'AWAY'
+    else:
+        result['spread_direction'] = None
+        logger.info(f"Spread edge too small for {away_team} @ {home_team}: {edge:.1f}")
+        return result
+    
+    threshold = GameConstants.EDGE_THRESHOLDS.get(league, 8.0)
+    
+    if edge >= threshold:
+        result['spread_is_qualified'] = True
+        result['spread_history_qualified'] = True
+        result['spread_ev'] = round(edge * 0.4, 2)
+        result['away_spread_pct'] = round(50 + (edge / 2), 1)
+        result['home_spread_pct'] = round(50 + (edge / 2), 1)
+        logger.info(f"Spread qualified: {away_team} @ {home_team} - Edge: {edge:.1f}, Direction: {result['spread_direction']}")
+    
+    return result
+
+def calculate_first_half_edge(game: dict, odds: GameOdds) -> dict:
+    """
+    Calculate 1H edge with away favorite logic for 1H picks.
+    
+    Critical Features:
+    1. Away favorite 1H model: Requires away as favorite AND 1H threshold met
+    2. Proper 1H odds validation
+    3. Enhanced logging
+    """
+    away_team = game.get('away_team', '')
+    home_team = game.get('home_team', '')
+    league = game.get('league', 'UNKNOWN')
+    
+    result = {
+        'first_half_edge': 0,
+        'first_half_direction': None,
+        'first_half_is_qualified': False,
+        'first_half_history_qualified': False,
+        'first_half_ev': 0,
+        'away_favorite_1h_qualified': False,
+        'away_is_favorite_1h': False
+    }
+    
+    if not odds or odds.first_half_total is None:
+        logger.debug(f"No 1H total odds for {away_team} @ {home_team}")
+        return result
+    
+    fh_total_line = odds.first_half_total
+    
+    if odds.moneyline_away is not None and odds.moneyline_home is not None:
+        result['away_is_favorite_1h'] = odds.moneyline_away < odds.moneyline_home
+        logger.info(f"1H Favorite check: {away_team} - Away is favorite: {result['away_is_favorite_1h']}")
+    
+    away_stats = game.get('away_stats', {})
+    home_stats = game.get('home_stats', {})
+    
+    away_ppg = away_stats.get('points_per_game', 0)
+    home_ppg = home_stats.get('points_per_game', 0)
+    projected_1h_total = (away_ppg + home_ppg) * 0.47
+    
+    if projected_1h_total == 0:
+        return result
+    
+    edge = abs(projected_1h_total - fh_total_line)
+    result['first_half_edge'] = round(edge, 1)
+    
+    if projected_1h_total > fh_total_line + 0.5:
+        result['first_half_direction'] = '1H_OVER'
+    elif projected_1h_total < fh_total_line - 0.5:
+        result['first_half_direction'] = '1H_UNDER'
+    else:
+        return result
+    
+    threshold = GameConstants.EDGE_THRESHOLDS.get(league, 8.0)
+    edge_met = edge >= threshold
+    
+    if edge_met:
+        result['first_half_is_qualified'] = True
+        result['first_half_history_qualified'] = True
+        result['first_half_ev'] = round(edge * 0.45, 2)
+        logger.info(f"1H qualified: {away_team} @ {home_team} - Edge: {edge:.1f}, Direction: {result['first_half_direction']}")
+    
+    if result['away_is_favorite_1h'] and edge_met:
+        result['away_favorite_1h_qualified'] = True
+        logger.info(f"AWAY FAVORITE 1H qualified: {away_team} @ {home_team} - Edge: {edge:.1f}")
+    elif result['away_is_favorite_1h'] and not edge_met:
+        logger.info(f"Away team is favorite but 1H edge insufficient: {away_team} @ {home_team} - Edge: {edge:.1f} < {threshold}")
+    
+    return result
+
 class DataFetchError(Exception):
     """Custom exception for data fetch failures with context."""
     def __init__(self, message, source=None, retry_count=0):
