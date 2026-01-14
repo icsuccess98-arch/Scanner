@@ -3717,6 +3717,14 @@ TEAM_ALIASES = {
     'app state': 'appalachian state', 'app st': 'appalachian state',
     'ga southern': 'georgia southern', 'ga tech': 'georgia tech',
     'miami oh': 'miami ohio', 'miami fl': 'miami florida',
+    'sc upstate': 'south carolina upstate', 'pitt': 'pittsburgh',
+    'charleston so': 'charleston southern', 'chas southern': 'charleston southern',
+    'sam houston': 'sam houston state', 'jax state': 'jacksonville state',
+    'jax st': 'jacksonville state', 'western ky': 'western kentucky',
+    's dakota st': 'south dakota state', 'n dakota st': 'north dakota state',
+    's dakota': 'south dakota', 'n dakota': 'north dakota',
+    'lmu': 'loyola marymount', 'oregon st': 'oregon state',
+    'kennesaw st': 'kennesaw state', 'missouri st': 'missouri state',
 }
 
 def normalize_team_name(name: str) -> str:
@@ -3735,10 +3743,30 @@ def normalize_team_name(name: str) -> str:
             break
     return n
 
+MASCOTS = {
+    'spartans', 'panthers', 'yellow jackets', 'yellowjackets', 'buccaneers', 'cougars', 'tigers',
+    'bulldogs', 'wildcats', 'bears', 'lions', 'eagles', 'hawks', 'cardinals', 'owls', 'rockets',
+    'bruins', 'trojans', 'huskies', 'gators', 'seminoles', 'hurricanes', 'cavaliers', 'hokies',
+    'wolfpack', 'terrapins', 'terps', 'nittany lions', 'buckeyes', 'wolverines', 'badgers',
+    'hawkeyes', 'cornhuskers', 'jayhawks', 'sooners', 'longhorns', 'aggies', 'red raiders',
+    'horned frogs', 'mustangs', 'coyotes', 'jackrabbits', 'bison', 'bearkats', 'gamecocks',
+    'volunteers', 'vols', 'commodores', 'rebels', 'razorbacks', 'crimson tide', 'tigers',
+    'fighting irish', 'hoosiers', 'boilermakers', 'illini', 'golden gophers', 'tar heels',
+    'blue devils', 'demon deacons', 'wolf pack', 'mountaineers', 'orange', 'yellow jackets',
+    'ramblers', 'pilots', 'dons', 'gaels', 'waves', 'toreros', 'aztecs', 'broncos', 'falcons',
+    'bobcats', 'bearcats', 'rams', 'buffaloes', 'utes', 'sun devils', 'ducks', 'beavers',
+    'cougars', 'huskies', 'vandals', 'zags', 'gonzaga bulldogs', 'bluejays', 'creighton bluejays',
+}
+
 def get_team_tokens(name: str) -> set:
-    """Get tokens from team name, excluding stop words."""
+    """Get tokens from team name, excluding stop words and mascots."""
     stop_words = {'the', 'of', 'at', 'vs', 'and'}
-    words = normalize_team_name(name).split()
+    normalized = normalize_team_name(name)
+    for mascot in MASCOTS:
+        if normalized.endswith(' ' + mascot):
+            normalized = normalized[:-len(mascot)-1]
+            break
+    words = normalized.split()
     return set(w for w in words if w not in stop_words and len(w) > 1)
 
 def get_directional_prefix(name: str) -> Optional[str]:

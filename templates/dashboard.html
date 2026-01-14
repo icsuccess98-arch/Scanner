@@ -856,7 +856,8 @@
         {% set leagues = ['NBA', 'CBB', 'NFL', 'CFB', 'NHL'] %}
         {% set time_windows = {'EARLY': '🌅 Early Games (before 1pm)', 'MID': '☀️ Afternoon Games (1-6pm)', 'LATE': '🌙 Evening Games (after 6pm)'} %}
         {% for league in leagues %}
-            {% set league_games = games|selectattr('league', 'equalto', league)|list %}
+            {% set all_league_games = games|selectattr('league', 'equalto', league)|list %}
+            {% set league_games = all_league_games|selectattr('line')|list %}
             {% if league_games|length > 0 %}
             <div class="league-section league-{{ league|lower }}">
                 <div class="league-header">
