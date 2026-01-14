@@ -14,6 +14,7 @@ from sqlalchemy import delete
 import requests
 import pytz
 from bs4 import BeautifulSoup
+from rotowire_integration import get_team_injury_status, get_game_injury_analysis, get_cache_stats as get_rotowire_cache_stats
 
 
 class QualificationStatus(Enum):
@@ -2087,33 +2088,25 @@ def get_rotowire_team_status(team_name: str, league: str) -> dict:
 
 def fetch_enhanced_injuries(team_name: str, league: str) -> dict:
     """
-    Enhanced injury fetcher that combines ESPN and RotoWire data.
+    Enhanced injury fetcher using bulletproof RotoWire integration.
     Uses RotoWire as primary source with ESPN as fallback.
-    
-    This replaces direct calls to fetch_team_injuries for qualification.
+    Includes circuit breaker, rate limiting, and caching.
     """
-    rotowire_data = get_rotowire_team_status(team_name, league)
+    data = get_team_injury_status(team_name, league)
     
-    if rotowire_data["impact_score"] > 0 or rotowire_data["lineup_confirmed"]:
-        logger.debug(f"Using RotoWire data for {team_name}: impact={rotowire_data['impact_score']}, out={rotowire_data['injured_starters']}")
-        return {
-            "has_key_injuries": rotowire_data["has_key_injuries"],
-            "injured_starters": rotowire_data["injured_starters"],
-            "impact_score": rotowire_data["impact_score"],
-            "star_out": rotowire_data["star_out"],
-            "details": [{"name": p["name"], "status": p["status"]} for p in rotowire_data["injury_details"]],
-            "questionable_count": rotowire_data["questionable_count"],
-            "lineup_confirmed": rotowire_data["lineup_confirmed"],
-            "lineup_strength": rotowire_data["lineup_strength"],
-            "source": "rotowire"
-        }
+    logger.debug(f"Injury data for {team_name} [{data['source']}]: impact={data['impact_score']}, out={data['out_count']}")
     
-    espn_data = fetch_team_injuries(team_name, league)
-    espn_data["questionable_count"] = 0
-    espn_data["lineup_confirmed"] = False
-    espn_data["lineup_strength"] = 0.7
-    espn_data["source"] = "espn"
-    return espn_data
+    return {
+        "has_key_injuries": data["has_key_injuries"],
+        "injured_starters": data["injured_starters"],
+        "impact_score": data["impact_score"],
+        "star_out": data["star_out"],
+        "details": data["details"],
+        "questionable_count": data["questionable_count"],
+        "lineup_confirmed": data["lineup_confirmed"],
+        "lineup_strength": data["lineup_strength"],
+        "source": data["source"]
+    }
 
 def store_opening_line(event_id: str, line: float):
     """
@@ -7008,17 +7001,11 @@ def test_rotowire():
     league = request.args.get('league', 'NBA')
     
     try:
-        injuries_data = fetch_rotowire_injuries(league)
-        lineups_data = fetch_rotowire_lineups(league)
-        
-        team_status = get_rotowire_team_status(team, league)
+        team_status = get_team_injury_status(team, league)
         
         enhanced = fetch_enhanced_injuries(team, league)
         
-        team_count = len(injuries_data)
-        lineup_count = len(lineups_data)
-        
-        all_teams = list(injuries_data.keys())[:10]
+        cache_stats = get_rotowire_cache_stats()
         
         return jsonify({
             "success": True,
@@ -7026,11 +7013,7 @@ def test_rotowire():
             "league": league,
             "team_status": team_status,
             "enhanced_injuries": enhanced,
-            "stats": {
-                "teams_with_injuries": team_count,
-                "teams_with_lineups": lineup_count,
-                "sample_teams": all_teams
-            }
+            "cache_stats": cache_stats
         })
     except Exception as e:
         import traceback

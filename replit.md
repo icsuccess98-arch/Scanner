@@ -47,16 +47,20 @@ Additional data-driven factors that disqualify picks during game scanning:
     -   Tracks form trending: UP (recent > season + 2pts), DOWN (recent < season - 2pts), or STABLE
     -   Spreads disqualified if betting on a team with declining form AND recent margin doesn't support the pick
 
-2.  **Injury Data Integration (RotoWire + ESPN)**
+2.  **Injury Data Integration (RotoWire + ESPN)** - Bulletproof Module (Jan 2026)
+    -   **Architecture**: Separate `rotowire_integration.py` module with professional-grade error handling
     -   **Primary**: RotoWire.com for injury reports and starting lineups (web scraping)
     -   **Fallback**: ESPN API when RotoWire data unavailable
-    -   **RotoWire Features**: Fetches injuries with status (Out, Doubtful, Questionable, GTD, Probable)
+    -   **Circuit Breaker**: After 3 consecutive failures, pauses RotoWire requests for 5 minutes
+    -   **Rate Limiting**: 2-second delay between requests to be respectful
+    -   **Caching**: 1-hour TTL cache with source tracking
+    -   **Status-weighted impact scoring**: Out=3.0, Doubtful=2.5, GTD=2.0, Questionable=1.5, Probable=0.5
+    -   **InjuredPlayer dataclass**: Tracks name, team, position, status, injury, source, is_starter
+    -   **InjuryImpactCalculator**: Calculates total impact with DISQUALIFY_THRESHOLD=4.5, WARNING_THRESHOLD=3.0
     -   **Lineup Confirmation**: Tracks whether starting lineups are confirmed (NBA, NFL, NHL)
-    -   Status-weighted impact scoring: Out=3.0, Doubtful=2.5, GTD=2.0, Questionable=1.5, Probable=0.5
-    -   Thresholds: 3.0 pts (concern), 4.5 pts (significant), 6.0 pts (severe)
-    -   Disqualifies OVER picks if either team has significant injuries
+    -   **Lineup Strength**: FULL_STRENGTH (5+ starters), PARTIAL (3-4), WEAK (<3)
+    -   Disqualifies OVER picks if either team has significant injuries (impact >= 4.5)
     -   Disqualifies spread picks if team being bet on has key injuries
-    -   **Questionable Count**: Tracks multiple questionable players as additional risk factor
     -   Test endpoint: `/api/test_rotowire?team=Lakers&league=NBA`
 
 3.  **Sharp Money Detection (Line Movement)**

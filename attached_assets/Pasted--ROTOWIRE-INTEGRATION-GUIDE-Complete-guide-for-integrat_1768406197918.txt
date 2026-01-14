@@ -1,0 +1,635 @@
+"""
+ROTOWIRE INTEGRATION GUIDE
+Complete guide for integrating RotoWire into your sports betting app
+
+TABLE OF CONTENTS:
+1. Quick Start
+2. Integration into Existing Code
+3. Database Schema Updates
+4. API Endpoints
+5. Testing & Validation
+6. Monitoring & Logging
+7. Error Handling Strategies
+8. Production Deployment Checklist
+"""
+
+# ============================================================================
+# 1. QUICK START
+# ============================================================================
+
+"""
+Step 1: Install the RotoWire modules
+    - Copy rotowire_integration.py to your project
+    - Copy rotowire_qualification.py to your project
+
+Step 2: Install dependencies (if not already installed)
+    pip install beautifulsoup4 requests
+
+Step 3: Import in your main app
+    from rotowire_qualification import qualify_game_with_injuries
+
+Step 4: Use in your odds fetching function
+    # Before qualification
+    result = qualify_game_with_injuries(
+        game_data=game_data,
+        away_team=game.away_team,
+        home_team=game.home_team,
+        league=game.league
+    )
+    
+    if result['qualified']:
+        # Save pick with injury tracking
+        pick = create_pick(game, result)
+"""
+
+# ============================================================================
+# 2. INTEGRATION INTO EXISTING CODE
+# ============================================================================
+
+"""
+INTEGRATION POINT 1: In your fetch_odds() function
+----------------------------------------
+BEFORE:
+    for game in games:
+        edge = calculate_edge(game)
+        if edge >= threshold:
+            save_pick(game, edge)
+
+AFTER:
+    from rotowire_qualification import qualify_game_with_injuries
+    
+    for game in games:
+        # RotoWire check FIRST (saves computation on injured games)
+        result = qualify_game_with_injuries(
+            game_data={
+                'projected_total': game.projected_total,
+                'line': game.line,
+                'over_odds': game.over_odds,
+                'under_odds': game.under_odds,
+                'historical_win_rate': game.win_rate,
+                'sample_size': game.sample_size
+            },
+            away_team=game.away_team,
+            home_team=game.home_team,
+            league=game.league
+        )
+        
+        if result['qualified']:
+            save_pick(game, result)
+            logger.info(
+                f"✅ PICK SAVED: {game.away_team} @ {game.home_team} "
+                f"[{result['confidence_tier']}] "
+                f"Source: {result['injury_source']}"
+            )
+        else:
+            logger.debug(
+                f"❌ REJECTED: {game.away_team} @ {game.home_team} - "
+                f"{result['recommendation']}"
+            )
+"""
+
+# Example integration with your existing code structure
+import logging
+from typing import List, Dict, Optional
+from datetime import datetime
+from rotowire_qualification import (
+    qualify_game_with_injuries,
+    quick_injury_check,
+    RotoWireQualificationSystem
+)
+
+logger = logging.getLogger(__name__)
+
+
+def integrate_rotowire_into_fetch_odds(games: List) -> List[Dict]:
+    """
+    Example of integrating RotoWire into your existing fetch_odds function.
+    
+    This replaces your current qualification logic with the RotoWire-enhanced version.
+    """
+    qualified_picks = []
+    rejected_picks = []
+    
+    for game in games:
+        try:
+            # Build game data dict from your game object
+            game_data = {
+                'projected_total': getattr(game, 'projected_total', 0),
+                'line': getattr(game, 'line', 0),
+                'over_odds': getattr(game, 'over_odds', -110),
+                'under_odds': getattr(game, 'under_odds', -110),
+                'historical_win_rate': getattr(game, 'win_rate', 0.0),
+                'sample_size': getattr(game, 'sample_size', 0),
+                # For spreads, add these:
+                'projected_margin': getattr(game, 'projected_margin', None),
+                'spread_line': getattr(game, 'spread_line', None),
+                'home_odds': getattr(game, 'home_odds', -110),
+                'away_odds': getattr(game, 'away_odds', -110),
+                # For EV calculation:
+                'pinnacle_odds': getattr(game, 'pinnacle_odds', None),
+                'bovada_odds': getattr(game, 'bovada_odds', -110)
+            }
+            
+            # Qualify game with RotoWire integration
+            result = qualify_game_with_injuries(
+                game_data=game_data,
+                away_team=game.away_team,
+                home_team=game.home_team,
+                league=game.league,
+                pick_type='total'  # or 'spread'
+            )
+            
+            if result['qualified']:
+                # Add result data to game object
+                pick_data = {
+                    'game': game,
+                    'confidence_tier': result['confidence_tier'],
+                    'true_edge': result['true_edge'],
+                    'ev_pct': result['ev_pct'],
+                    'injury_source': result['injury_source'],
+                    'away_injury_impact': result['away_injury_impact'],
+                    'home_injury_impact': result['home_injury_impact'],
+                    'lineup_confirmed': result['away_lineup_confirmed'] and result['home_lineup_confirmed'],
+                    'recommendation': result['recommendation'],
+                    'timestamp': datetime.now()
+                }
+                qualified_picks.append(pick_data)
+                
+                logger.info(
+                    f"✅ QUALIFIED: {game.away_team} @ {game.home_team} - "
+                    f"{result['confidence_tier']} "
+                    f"(Edge: {result['true_edge']:.2f}, EV: {result['ev_pct']:.2f}%) "
+                    f"[{result['injury_source']}]"
+                )
+            else:
+                rejected_picks.append({
+                    'game': game,
+                    'reasons': result['disqualification_reasons'],
+                    'recommendation': result['recommendation']
+                })
+                
+                logger.debug(
+                    f"❌ REJECTED: {game.away_team} @ {game.home_team} - "
+                    f"{', '.join(result['disqualification_reasons'])}"
+                )
+        
+        except Exception as e:
+            logger.error(f"Error qualifying {game.away_team} @ {game.home_team}: {str(e)}")
+            continue
+    
+    logger.info(
+        f"Qualification complete: {len(qualified_picks)} qualified, "
+        f"{len(rejected_picks)} rejected"
+    )
+    
+    return qualified_picks
+
+
+# ============================================================================
+# 3. DATABASE SCHEMA UPDATES
+# ============================================================================
+
+"""
+Add these columns to your Pick table:
+
+ALTER TABLE pick ADD COLUMN injury_source VARCHAR(20);  -- 'rotowire', 'espn', 'none'
+ALTER TABLE pick ADD COLUMN away_injury_impact FLOAT DEFAULT 0.0;
+ALTER TABLE pick ADD COLUMN home_injury_impact FLOAT DEFAULT 0.0;
+ALTER TABLE pick ADD COLUMN lineup_confirmed BOOLEAN DEFAULT FALSE;
+ALTER TABLE pick ADD COLUMN injury_check_timestamp TIMESTAMP;
+
+Example SQLAlchemy model update:
+"""
+
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime
+
+class Pick(db.Model):
+    id = Column(Integer, primary_key=True)
+    # ... existing columns ...
+    
+    # NEW: RotoWire tracking columns
+    injury_source = Column(String(20))  # 'rotowire', 'espn', 'none'
+    away_injury_impact = Column(Float, default=0.0)
+    home_injury_impact = Column(Float, default=0.0)
+    lineup_confirmed = Column(Boolean, default=False)
+    injury_check_timestamp = Column(DateTime)
+    
+    def __repr__(self):
+        return f"<Pick {self.matchup} [{self.injury_source}]>"
+
+
+def save_pick_with_rotowire_data(game, qual_result: Dict):
+    """
+    Example function to save pick with RotoWire tracking data.
+    """
+    pick = Pick(
+        game_id=game.id,
+        date=datetime.now().date(),
+        league=game.league,
+        matchup=f"{game.away_team} @ {game.home_team}",
+        pick=determine_pick_direction(game, qual_result),
+        edge=qual_result['true_edge'],
+        # RotoWire tracking
+        injury_source=qual_result['injury_source'],
+        away_injury_impact=qual_result['away_injury_impact'],
+        home_injury_impact=qual_result['home_injury_impact'],
+        lineup_confirmed=qual_result['away_lineup_confirmed'] and qual_result['home_lineup_confirmed'],
+        injury_check_timestamp=datetime.now()
+    )
+    return pick
+
+
+# ============================================================================
+# 4. API ENDPOINTS
+# ============================================================================
+
+"""
+Add these endpoints to your Flask app for testing and monitoring:
+"""
+
+from flask import Flask, jsonify, request
+
+app = Flask(__name__)
+
+
+@app.route('/api/test_rotowire')
+def test_rotowire():
+    """
+    Test endpoint to verify RotoWire integration.
+    
+    Usage: GET /api/test_rotowire?team=Lakers&league=NBA
+    """
+    team = request.args.get('team', 'Lakers')
+    league = request.args.get('league', 'NBA')
+    
+    from rotowire_integration import fetch_team_injuries, fetch_team_lineup
+    
+    # Fetch injuries
+    injuries, injury_source = fetch_team_injuries(team, league)
+    
+    # Fetch lineup
+    lineup = fetch_team_lineup(team, league)
+    
+    return jsonify({
+        'team': team,
+        'league': league,
+        'injuries': {
+            'source': injury_source,
+            'count': len(injuries),
+            'players': [
+                {
+                    'name': inj.name,
+                    'status': inj.status.label,
+                    'injury': inj.injury,
+                    'impact_score': inj.impact_score
+                }
+                for inj in injuries[:10]  # First 10
+            ]
+        },
+        'lineup': {
+            'confirmed': lineup.confirmed if lineup else False,
+            'starters': lineup.starters if lineup else [],
+            'source': lineup.source if lineup else None
+        } if lineup else None,
+        'timestamp': datetime.now().isoformat()
+    })
+
+
+@app.route('/api/check_game_injuries')
+def check_game_injuries_api():
+    """
+    Check injuries for a specific game.
+    
+    Usage: GET /api/check_game_injuries?away=Suns&home=Lakers&league=NBA
+    """
+    away_team = request.args.get('away')
+    home_team = request.args.get('home')
+    league = request.args.get('league', 'NBA')
+    
+    if not away_team or not home_team:
+        return jsonify({'error': 'Missing required parameters: away, home'}), 400
+    
+    result = quick_injury_check(away_team, home_team, league)
+    
+    return jsonify({
+        'away_team': away_team,
+        'home_team': home_team,
+        'league': league,
+        'should_play': result['should_play'],
+        'away_injury_impact': result['away_impact'],
+        'home_injury_impact': result['home_impact'],
+        'source': result['source'],
+        'recommendation': result['recommendation'],
+        'details': {
+            'away': {
+                'out_count': result['details']['away']['out_count'],
+                'questionable_count': result['details']['away']['questionable_count'],
+                'starter_out_count': result['details']['away']['starter_out_count']
+            },
+            'home': {
+                'out_count': result['details']['home']['out_count'],
+                'questionable_count': result['details']['home']['questionable_count'],
+                'starter_out_count': result['details']['home']['starter_out_count']
+            }
+        }
+    })
+
+
+@app.route('/api/rotowire_cache_stats')
+def rotowire_cache_stats():
+    """
+    Get RotoWire cache statistics for monitoring.
+    
+    Usage: GET /api/rotowire_cache_stats
+    """
+    from rotowire_integration import get_cache_stats
+    
+    stats = get_cache_stats()
+    
+    return jsonify({
+        'cache_stats': stats,
+        'timestamp': datetime.now().isoformat()
+    })
+
+
+@app.route('/api/clear_rotowire_cache', methods=['POST'])
+def clear_rotowire_cache_api():
+    """
+    Manually clear RotoWire cache (admin endpoint).
+    
+    Usage: POST /api/clear_rotowire_cache
+    """
+    from rotowire_integration import clear_cache
+    
+    clear_cache()
+    
+    return jsonify({
+        'status': 'success',
+        'message': 'RotoWire cache cleared',
+        'timestamp': datetime.now().isoformat()
+    })
+
+
+# ============================================================================
+# 5. TESTING & VALIDATION
+# ============================================================================
+
+"""
+Comprehensive testing strategy:
+"""
+
+def run_rotowire_integration_tests():
+    """
+    Run all tests to validate RotoWire integration.
+    """
+    print("=" * 80)
+    print("ROTOWIRE INTEGRATION TESTS")
+    print("=" * 80)
+    
+    tests_passed = 0
+    tests_failed = 0
+    
+    # TEST 1: Injury fetching
+    print("\n--- TEST 1: Injury Fetching ---")
+    try:
+        from rotowire_integration import fetch_team_injuries
+        
+        injuries, source = fetch_team_injuries("Lakers", "NBA")
+        
+        assert source in ['rotowire', 'espn', 'none'], f"Invalid source: {source}"
+        assert isinstance(injuries, list), "Injuries should be a list"
+        
+        print(f"✅ PASS: Fetched {len(injuries)} injuries from {source}")
+        tests_passed += 1
+    except Exception as e:
+        print(f"❌ FAIL: {str(e)}")
+        tests_failed += 1
+    
+    # TEST 2: Lineup fetching
+    print("\n--- TEST 2: Lineup Fetching ---")
+    try:
+        from rotowire_integration import fetch_team_lineup
+        
+        lineup = fetch_team_lineup("Lakers", "NBA")
+        
+        if lineup:
+            assert hasattr(lineup, 'confirmed'), "Lineup should have 'confirmed' attribute"
+            assert hasattr(lineup, 'starters'), "Lineup should have 'starters' attribute"
+            print(f"✅ PASS: Fetched lineup with {len(lineup.starters)} starters")
+        else:
+            print(f"✅ PASS: No lineup available (expected for some times)")
+        
+        tests_passed += 1
+    except Exception as e:
+        print(f"❌ FAIL: {str(e)}")
+        tests_failed += 1
+    
+    # TEST 3: Game qualification
+    print("\n--- TEST 3: Game Qualification ---")
+    try:
+        result = qualify_game_with_injuries(
+            game_data={
+                'projected_total': 225.0,
+                'line': 215.0,
+                'over_odds': -110,
+                'under_odds': -110,
+                'historical_win_rate': 0.65,
+                'sample_size': 12
+            },
+            away_team="Suns",
+            home_team="Lakers",
+            league="NBA"
+        )
+        
+        assert 'qualified' in result, "Result should have 'qualified' key"
+        assert 'injury_source' in result, "Result should have 'injury_source' key"
+        assert result['injury_source'] in ['rotowire', 'espn', 'none', 'error']
+        
+        print(f"✅ PASS: Qualification complete")
+        print(f"   Qualified: {result['qualified']}")
+        print(f"   Source: {result['injury_source']}")
+        tests_passed += 1
+    except Exception as e:
+        print(f"❌ FAIL: {str(e)}")
+        tests_failed += 1
+    
+    # TEST 4: Cache functionality
+    print("\n--- TEST 4: Cache Functionality ---")
+    try:
+        from rotowire_integration import get_cache_stats, clear_cache
+        
+        stats = get_cache_stats()
+        assert 'total_entries' in stats
+        assert 'valid_entries' in stats
+        
+        print(f"✅ PASS: Cache stats retrieved")
+        print(f"   Total entries: {stats['total_entries']}")
+        print(f"   Valid entries: {stats['valid_entries']}")
+        
+        clear_cache()
+        print(f"✅ PASS: Cache cleared successfully")
+        tests_passed += 1
+    except Exception as e:
+        print(f"❌ FAIL: {str(e)}")
+        tests_failed += 1
+    
+    # TEST 5: Error handling (intentional bad data)
+    print("\n--- TEST 5: Error Handling ---")
+    try:
+        injuries, source = fetch_team_injuries("INVALID_TEAM_XXX", "NBA")
+        # Should not raise exception, should return empty list
+        assert isinstance(injuries, list)
+        print(f"✅ PASS: Graceful handling of invalid team")
+        tests_passed += 1
+    except Exception as e:
+        print(f"❌ FAIL: {str(e)}")
+        tests_failed += 1
+    
+    # SUMMARY
+    print("\n" + "=" * 80)
+    print(f"TESTS COMPLETE: {tests_passed} passed, {tests_failed} failed")
+    print("=" * 80)
+    
+    return tests_passed, tests_failed
+
+
+# ============================================================================
+# 6. MONITORING & LOGGING
+# ============================================================================
+
+"""
+Set up comprehensive logging for production:
+"""
+
+import logging
+from logging.handlers import RotatingFileHandler
+
+def setup_rotowire_logging():
+    """Configure logging for RotoWire integration."""
+    
+    # Create logger
+    logger = logging.getLogger('rotowire')
+    logger.setLevel(logging.INFO)
+    
+    # File handler with rotation
+    file_handler = RotatingFileHandler(
+        'rotowire.log',
+        maxBytes=10_000_000,  # 10MB
+        backupCount=5
+    )
+    file_handler.setLevel(logging.INFO)
+    
+    # Console handler for errors
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.ERROR)
+    
+    # Formatter
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    file_handler.setFormatter(formatter)
+    console_handler.setFormatter(formatter)
+    
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+    
+    return logger
+
+
+def log_rotowire_metrics():
+    """Log key metrics for monitoring."""
+    from rotowire_integration import get_cache_stats
+    
+    stats = get_cache_stats()
+    logger = logging.getLogger('rotowire')
+    
+    logger.info(
+        f"ROTOWIRE METRICS - "
+        f"Cache: {stats['valid_entries']}/{stats['total_entries']} valid, "
+        f"TTL: {stats['ttl_seconds']}s"
+    )
+
+
+# ============================================================================
+# 7. ERROR HANDLING STRATEGIES
+# ============================================================================
+
+"""
+Comprehensive error handling:
+
+1. Network Errors (RotoWire down)
+   → Automatic fallback to ESPN
+   → Circuit breaker after 3 failures (5min cooldown)
+
+2. Parsing Errors (HTML structure changed)
+   → Log error with full traceback
+   → Return empty list (fail-open)
+   → Alert admin via email/Slack
+
+3. Rate Limiting
+   → Respect 2-second delay between requests
+   → Exponential backoff on failures
+
+4. Cache Errors
+   → Log but continue (cache is non-critical)
+   → Auto-expire stale entries
+
+5. Data Validation Errors
+   → Validate all scraped data before returning
+   → Reject invalid entries (don't crash)
+"""
+
+# ============================================================================
+# 8. PRODUCTION DEPLOYMENT CHECKLIST
+# ============================================================================
+
+"""
+BEFORE DEPLOYING TO PRODUCTION:
+
+□ Install dependencies
+  pip install beautifulsoup4 requests
+
+□ Copy both modules to production
+  - rotowire_integration.py
+  - rotowire_qualification.py
+
+□ Update database schema
+  ALTER TABLE pick ADD COLUMN injury_source VARCHAR(20);
+  ALTER TABLE pick ADD COLUMN away_injury_impact FLOAT DEFAULT 0.0;
+  ALTER TABLE pick ADD COLUMN home_injury_impact FLOAT DEFAULT 0.0;
+  ALTER TABLE pick ADD COLUMN lineup_confirmed BOOLEAN DEFAULT FALSE;
+  ALTER TABLE pick ADD COLUMN injury_check_timestamp TIMESTAMP;
+
+□ Configure logging
+  setup_rotowire_logging()
+
+□ Set cache TTL (default: 3600 seconds = 1 hour)
+  from rotowire_integration import RotoWireScraper
+  scraper = RotoWireScraper(cache_ttl=3600)
+
+□ Test all endpoints
+  GET /api/test_rotowire?team=Lakers&league=NBA
+  GET /api/check_game_injuries?away=Suns&home=Lakers&league=NBA
+  GET /api/rotowire_cache_stats
+
+□ Run integration tests
+  python -m pytest tests/test_rotowire.py
+
+□ Monitor logs for 24 hours
+  tail -f rotowire.log
+
+□ Set up alerts
+  - Email/Slack on circuit breaker open
+  - Alert if cache hit rate < 50%
+  - Alert if all sources fail for 30+ minutes
+
+□ Document for team
+  - Share this guide
+  - Train team on new columns in database
+  - Update API documentation
+"""
+
+if __name__ == "__main__":
+    print(__doc__)
+    print("\nRunning integration tests...\n")
+    run_rotowire_integration_tests()
