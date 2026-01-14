@@ -946,8 +946,6 @@
                             <div class="sharp-metrics">
                                 {% if game.true_edge %}<span class="sharp-metric"><strong>True:</strong> {{ "%.1f"|format(game.true_edge) }}</span>{% endif %}
                                 {% if game.total_ev %}<span class="sharp-metric"><strong>EV:</strong> <span class="{{ 'positive' if game.total_ev > 0 else 'negative' }}">{{ "%.2f"|format(game.total_ev) }}%</span></span>{% endif %}
-                                {% if game.kelly_fraction %}<span class="sharp-metric"><strong>Kelly:</strong> {{ "%.1f"|format(game.kelly_fraction * 100) }}%</span>{% endif %}
-                                {% if game.vig_percentage %}<span class="sharp-metric"><strong>Vig:</strong> {{ "%.1f"|format(game.vig_percentage) }}%</span>{% endif %}
                                 {% if game.market_shade and game.market_shade != 'BALANCED' %}<span class="sharp-metric"><span class="shade">⚠️ {{ game.market_shade }}</span></span>{% endif %}
                             </div>
                             {% endif %}
@@ -1030,8 +1028,6 @@
                             <div class="sharp-metrics">
                                 {% if game.true_edge %}<span class="sharp-metric"><strong>True:</strong> {{ "%.1f"|format(game.true_edge) }}</span>{% endif %}
                                 {% if game.total_ev %}<span class="sharp-metric"><strong>EV:</strong> <span class="{{ 'positive' if game.total_ev > 0 else 'negative' }}">{{ "%.2f"|format(game.total_ev) }}%</span></span>{% endif %}
-                                {% if game.kelly_fraction %}<span class="sharp-metric"><strong>Kelly:</strong> {{ "%.1f"|format(game.kelly_fraction * 100) }}%</span>{% endif %}
-                                {% if game.vig_percentage %}<span class="sharp-metric"><strong>Vig:</strong> {{ "%.1f"|format(game.vig_percentage) }}%</span>{% endif %}
                                 {% if game.market_shade and game.market_shade != 'BALANCED' %}<span class="sharp-metric"><span class="shade">⚠️ {{ game.market_shade }}</span></span>{% endif %}
                             </div>
                             {% endif %}
