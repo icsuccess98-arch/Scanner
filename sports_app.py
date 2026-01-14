@@ -8299,6 +8299,10 @@ def history():
         else:
             past_picks.append(p)
     
+    # SUPERLOCK FIX: Show ONLY the top pick (highest edge) - not multiple picks
+    if upcoming_picks:
+        upcoming_picks = sorted(upcoming_picks, key=lambda p: p.edge or 0, reverse=True)[:1]
+    
     wins = len([p for p in all_picks if p.result == 'W'])
     losses = len([p for p in all_picks if p.result == 'L'])
     
