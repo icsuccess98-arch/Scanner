@@ -35,7 +35,7 @@ The overarching vision is to provide robust, automated, and data-backed trading 
     -   **Bet Direction**: Binary rules for OVER/UNDER based on `Projected_Total` vs. `Bovada_Line` plus threshold.
     -   **Historical Qualification**: Totals picks require 60%+ historical O/U hit rate from last 10 games. H2H history also considered if 3+ games exist. Spreads use margin-based validation.
     -   **Alt Lines**: Fetched from Bovada, selecting the best value under/over the main line, with odds strictly -180 or better.
-    -   **Pinnacle EV Comparison**: Fetches Pinnacle odds alongside Bovada to calculate Expected Value (EV). EV formula: `(p_true * decimal_payout) - 1` where `p_true` is Pinnacle's implied probability. Picks with negative EV are excluded; picks without Pinnacle data (NULL EV) are allowed through.
+    -   **Pinnacle EV Comparison**: Fetches Pinnacle odds alongside Bovada to calculate Expected Value (EV). EV formula: `(p_true * decimal_payout) - 1` where `p_true` is Pinnacle's implied probability. MIN_EV_THRESHOLD = 1.0% - picks with EV below 1% are excluded; picks without Pinnacle data (NULL EV) are allowed through.
     -   **Result Checking**: Automatic result checking refreshes approximately 2.5-3.5 hours after game start.
     -   **Automation**: Daily scheduled tasks for fetching games, stats, odds, posting picks to Discord, and checking results.
 
@@ -84,7 +84,9 @@ Additional data-driven factors that disqualify picks during game scanning:
 7.  **Bulletproof Pre-Send Validation (BulletproofPickValidator)**
     -   Final validation layer before picks are posted to Discord
     -   Runs 7 checks on every pick: Edge threshold, Model qualification, Historical qualification, EV non-negative (NULL allowed), Injury validation, Game status, Spread validation
-    -   Confidence tier ranking: SUPERMAX (edge 12+, EV 3%+, history 70%), HIGH (edge 10+, EV 1%+, history 65%), MEDIUM (edge 8+, EV 0%+, history 60%), LOW (meets minimums)
+    -   Confidence tier ranking: SUPERMAX (edge 12+, EV 3%+, history 70%), HIGH (edge 10+, EV 1.5%+, history 65%), MEDIUM (edge 8+, EV 0.5%+, history 60%), LOW (edge 6+, history 55%)
+    -   TOP 5 picks filter out NONE tier (picks that don't meet minimum thresholds)
+    -   Lock of the Day badge shows actual confidence tier instead of hardcoded "SUPERMAX"
     -   Detailed logging shows passed/rejected picks with reasons
     -   Test endpoint: `/api/deep_test` runs 45 tests across 8 layers
 
