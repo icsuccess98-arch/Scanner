@@ -6059,19 +6059,19 @@ def dashboard():
     # NBA/CBB: ±8.0, NFL/CFB: ±3.5, NHL: ±0.5
     qualified = [g for g in all_games if g.is_qualified]
     
-    # AWAY FAVORITE MODEL: Away team is favorite AND meets totals threshold
-    # These are bonus picks that combine two strong signals
+    # AWAY FAVORITE CONFIDENCE BOOST: Away team as favorite + O/U threshold = higher confidence
+    # When away team is favored AND meets totals threshold, O/U pick is more likely to hit
     # Spread line convention: negative = away is favorite (e.g., -5.5 means away favored by 5.5)
-    away_favorite_qualified = []
+    away_favorite_count = 0
     for g in all_games:
         # Check if away team is favorite using spread line
         # Negative spread_line means away team is giving points (favorite)
         away_is_fav = g.spread_line is not None and g.spread_line < -1.5  # At least 2 point favorite
         
-        # If away is favorite AND meets totals threshold = bonus qualified
+        # If away is favorite AND meets totals threshold = BONUS CONFIDENCE for O/U pick
         if away_is_fav and g.is_qualified:
             g.is_away_favorite = True
-            away_favorite_qualified.append(g)
+            away_favorite_count += 1
         else:
             g.is_away_favorite = False
     
@@ -6102,7 +6102,7 @@ def dashboard():
         'under_count': 0,
         'top_picks': [],
         'history_qualified': len(history_qualified),
-        'away_favorite_count': len(away_favorite_qualified)
+        'away_favorite_count': away_favorite_count
     }
     
     # League breakdown (TOTALS ONLY)
@@ -8342,11 +8342,12 @@ def win_rate_analytics():
 
 @app.route('/history')
 def history():
-    """Display pick history with win/loss stats - Supermax/Lock plays only."""
+    """Display pick history with win/loss stats - TOTALS ONLY (Lock of the Day)."""
     et = pytz.timezone('America/New_York')
     now = datetime.now(et)
     
-    all_picks_raw = Pick.query.filter_by(is_lock=True).order_by(Pick.date.desc(), Pick.edge.desc()).all()
+    # TOTALS ONLY: Filter to pick_type='total' since spreads are removed from model
+    all_picks_raw = Pick.query.filter_by(is_lock=True, pick_type='total').order_by(Pick.date.desc(), Pick.edge.desc()).all()
     
     # BULLETPROOF: Deduplicate picks by (date, matchup, pick_type) - keep highest edge
     seen = {}
@@ -8381,9 +8382,9 @@ def history():
         else:
             past_picks.append(p)
     
-    # Show ALL today's qualified picks (sorted by edge, highest first)
+    # LOCK OF THE DAY ONLY: Show only the single highest edge pick
     if upcoming_picks:
-        upcoming_picks = sorted(upcoming_picks, key=lambda p: p.edge or 0, reverse=True)
+        upcoming_picks = sorted(upcoming_picks, key=lambda p: p.edge or 0, reverse=True)[:1]
     
     wins = len([p for p in all_picks if p.result == 'W'])
     losses = len([p for p in all_picks if p.result == 'L'])
