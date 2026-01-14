@@ -813,24 +813,23 @@
                 <div class="col-md-6">
                     <div class="mb-2" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">TOP 5 PICKS</div>
                     {% for pick in analytics.top_picks %}
-                    <div class="top-pick-row" style="display: flex; flex-direction: column; gap: 0.4rem; padding: 0.75rem; border-bottom: 1px solid var(--border); background: var(--bg-card); border-radius: 8px; margin-bottom: 0.5rem;">
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <span class="badge" style="font-size: 0.65rem; background: var(--bg-input); color: var(--text-muted); padding: 0.2rem 0.4rem;">{{ pick.game.league }}</span>
-                            <span style="font-size: 0.85rem; font-weight: 600; color: var(--text);">{{ pick.game.away_team }} @ {{ pick.game.home_team }}</span>
+                    <div class="top-pick-row" style="display: flex; flex-direction: column; gap: 0.5rem; padding: 0.75rem; border-bottom: 1px solid var(--border); background: var(--bg-card); border-radius: 8px; margin-bottom: 0.5rem;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                            <span class="badge" style="font-size: 0.65rem; background: var(--bg-input); color: var(--text-muted); padding: 0.2rem 0.5rem; min-width: 32px; text-align: center;">{{ pick.game.league }}</span>
+                            <span style="font-size: 0.85rem; font-weight: 600; color: var(--text); flex: 1; min-width: 150px;">{{ pick.game.away_team }} @ {{ pick.game.home_team }}</span>
                             {% if pick.is_away_favorite %}<span class="badge" style="background: rgba(255, 215, 0, 0.2); color: var(--gold); font-size: 0.55rem; padding: 0.15rem 0.35rem;">AWAY FAV</span>{% endif %}
                         </div>
-                        <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-                            <span class="direction-chip {% if pick.direction == 'O' %}over{% else %}under{% endif %}" style="font-size: 0.8rem; padding: 0.3rem 0.6rem; font-weight: 600;">
-                                {{ pick.direction }}{{ "%.1f"|format(pick.alt_line if pick.alt_line else pick.line) }}
-                                {% if pick.game.alt_total_odds %}<span style="font-size: 0.7rem; opacity: 0.85; margin-left: 3px;">({{ pick.game.alt_total_odds }})</span>{% endif %}
+                        <div style="display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 0.75rem;">
+                            <span class="direction-chip {% if pick.direction == 'O' %}over{% else %}under{% endif %}" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; font-weight: 600; min-width: 85px; text-align: center;">
+                                {{ pick.direction }}{{ "%.1f"|format(pick.alt_line if pick.alt_line else pick.line) }}{% if pick.game.alt_total_odds %} <span style="font-size: 0.65rem; opacity: 0.9;">({{ pick.game.alt_total_odds }})</span>{% endif %}
                             </span>
-                            <span style="color: var(--green); font-weight: 700; font-size: 0.9rem;">+{{ "%.1f"|format(pick.edge) }} edge</span>
-                            <div class="edge-bar" title="Edge: {{ '%.1f'|format(pick.edge) }}" style="width: 50px; height: 6px; background: var(--bg-input); border-radius: 3px; overflow: hidden;">
+                            <span style="color: var(--green); font-weight: 700; font-size: 0.85rem; white-space: nowrap;">+{{ "%.1f"|format(pick.edge) }} edge</span>
+                            <div class="edge-bar" title="Edge: {{ '%.1f'|format(pick.edge) }}" style="width: 60px; height: 8px; background: var(--bg-input); border-radius: 4px; overflow: hidden;">
                                 {% set edge_pct = [[(pick.edge / 15 * 100), 100]|min, 0]|max %}
                                 {% set edge_class = 'elite' if pick.edge >= 12 else ('high' if pick.edge >= 10 else ('medium' if pick.edge >= 8 else 'low')) %}
                                 <div class="edge-bar-fill {{ edge_class }}" style="width: {{ edge_pct }}%; height: 100%;"></div>
                             </div>
-                            <span class="confidence-stars" title="Edge: {{ '%.1f'|format(pick.edge) }} pts" style="font-size: 0.75rem;">
+                            <span class="confidence-stars" title="Edge: {{ '%.1f'|format(pick.edge) }} pts" style="font-size: 0.75rem; min-width: 70px; text-align: right;">
                                 {% set stars = 5 if pick.edge >= 12 else (4 if pick.edge >= 10 else (3 if pick.edge >= 8 else 2)) %}
                                 {% for i in range(5) %}<span class="star {% if i < stars %}filled{% else %}empty{% endif %}">★</span>{% endfor %}
                             </span>
@@ -913,9 +912,10 @@
                             <div class="d-flex gap-4">
                                 <div class="breakdown-section">
                                     <div class="breakdown-title">TOTALS</div>
+                                    {% if game.line %}
                                     <div class="breakdown-row">
                                         <span class="breakdown-label">Line</span>
-                                        <span class="breakdown-value">{{ "%.1f"|format(game.line) if game.line else '-' }}</span>
+                                        <span class="breakdown-value">{{ "%.1f"|format(game.line) }}</span>
                                     </div>
                                     <div class="breakdown-row">
                                         <span class="breakdown-label">Proj</span>
@@ -929,6 +929,12 @@
                                     <span class="pick-chip {% if game.direction == 'O' %}over{% else %}under{% endif %}">{{ game.direction }}{{ game.line }}</span>
                                     {% else %}
                                     <span class="pick-chip no-bet">NO BET</span>
+                                    {% endif %}
+                                    {% else %}
+                                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 80px; color: var(--text-muted); font-size: 0.75rem;">
+                                        <i class="bi bi-exclamation-circle" style="font-size: 1.25rem; margin-bottom: 0.25rem; opacity: 0.5;"></i>
+                                        <span>NO LINES</span>
+                                    </div>
                                     {% endif %}
                                 </div>
                             </div>
@@ -990,9 +996,10 @@
                             <div class="d-flex gap-4">
                                 <div class="breakdown-section">
                                     <div class="breakdown-title">TOTALS</div>
+                                    {% if game.line %}
                                     <div class="breakdown-row">
                                         <span class="breakdown-label">Line</span>
-                                        <span class="breakdown-value">{{ "%.1f"|format(game.line) if game.line else '-' }}</span>
+                                        <span class="breakdown-value">{{ "%.1f"|format(game.line) }}</span>
                                     </div>
                                     <div class="breakdown-row">
                                         <span class="breakdown-label">Proj</span>
@@ -1006,6 +1013,12 @@
                                     <span class="pick-chip {% if game.direction == 'O' %}over{% else %}under{% endif %}">{{ game.direction }}{{ game.line }}</span>
                                     {% else %}
                                     <span class="pick-chip no-bet">NO BET</span>
+                                    {% endif %}
+                                    {% else %}
+                                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 80px; color: var(--text-muted); font-size: 0.75rem;">
+                                        <i class="bi bi-exclamation-circle" style="font-size: 1.25rem; margin-bottom: 0.25rem; opacity: 0.5;"></i>
+                                        <span>NO LINES</span>
+                                    </div>
                                     {% endif %}
                                 </div>
                             </div>
