@@ -46,6 +46,7 @@ This project develops and manages trading systems including a Sports Betting Cal
     -   **Qualification Requirements**: Edge threshold + Direction set + No star player injuries + H2H line coverage
     -   **Historical O/U Performance**: Uses last 15 games O/U hit rate to strengthen picks
     -   **H2H Line Coverage**: Checks last 20 H2H games between teams - requires 50%+ hit rate against current line (if 5+ games found)
+    -   **Away Favorite Model**: Confidence boost when away team is favorite AND meets totals threshold
     -   **Injury Disqualification**: Uses RotoWire to check star player injuries
     -   **SUPERMAX**: Highest absolute edge across all qualified TOTALS picks
     -   **TOP 5 Ranking**: Sorted by EDGE only (highest edge = best pick)
