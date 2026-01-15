@@ -814,14 +814,11 @@
                     <div class="mb-2" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">TOP 5 PICKS</div>
                     <div class="top5-container" style="display: flex; flex-direction: column; gap: 0.5rem;">
                     {% for pick in analytics.top_picks %}
-                    {% set tier_colors = {'ELITE': '#00ff41', 'HIGH': '#4ade80', 'MEDIUM': '#fbbf24', 'LOW': '#f87171'} %}
-                    {% set tier = pick.confidence_tier or 'MEDIUM' %}
-                    <div class="top-pick-row" style="display: grid; grid-template-columns: 36px 1fr; gap: 0.5rem; padding: 0.6rem 0.75rem; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border); border-left: 3px solid {{ tier_colors.get(tier, '#fbbf24') }};">
+                    <div class="top-pick-row" style="display: grid; grid-template-columns: 36px 1fr; gap: 0.5rem; padding: 0.6rem 0.75rem; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border);">
                         <span class="badge" style="font-size: 0.6rem; background: var(--bg-input); color: var(--text-muted); padding: 0.2rem 0.4rem; text-align: center; align-self: start; margin-top: 2px;">{{ pick.game.league }}</span>
                         <div style="display: flex; flex-direction: column; gap: 0.35rem;">
-                            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
                                 <span style="font-size: 0.8rem; font-weight: 600; color: var(--text);">{{ pick.game.away_team }} @ {{ pick.game.home_team }}</span>
-                                <span class="badge" style="background: {{ tier_colors.get(tier, '#fbbf24') }}20; color: {{ tier_colors.get(tier, '#fbbf24') }}; font-size: 0.5rem; padding: 0.1rem 0.3rem; font-weight: 700;">{{ tier }}</span>
                                 {% if pick.is_away_favorite %}<span class="badge" style="background: rgba(255, 215, 0, 0.2); color: var(--gold); font-size: 0.5rem; padding: 0.1rem 0.3rem;">AWAY FAV</span>{% endif %}
                             </div>
                             <div style="display: grid; grid-template-columns: 90px 75px 50px 60px; align-items: center; gap: 0.5rem;">
@@ -852,7 +849,11 @@
 
         <div class="section-header">
             <div class="d-flex align-items-center gap-3">
-                <h5 class="mb-0"><i class="bi bi-list-ul"></i> Qualified Picks</h5>
+                <h5 class="mb-0"><i class="bi bi-list-ul"></i> Games</h5>
+            </div>
+            <div class="filter-toggle">
+                <a href="/" class="{% if not show_only_qualified %}active{% endif %}">All Games</a>
+                <a href="/?qualified=1" class="{% if show_only_qualified %}active{% endif %}">Qualified Only</a>
             </div>
         </div>
 
@@ -860,7 +861,7 @@
         {% set time_windows = {'EARLY': '🌅 Early Games (before 1pm)', 'MID': '☀️ Afternoon Games (1-6pm)', 'LATE': '🌙 Evening Games (after 6pm)'} %}
         {% for league in leagues %}
             {% set all_league_games = games|selectattr('league', 'equalto', league)|list %}
-            {% set league_games = all_league_games|selectattr('is_qualified')|list %}
+            {% set league_games = all_league_games|selectattr('line')|list %}
             {% if league_games|length > 0 %}
             <div class="league-section league-{{ league|lower }}">
                 <div class="league-header">
@@ -868,7 +869,7 @@
                     <img src="https://a.espncdn.com/combiner/i?img={{ logo_paths[league] }}&w=100" class="league-logo" alt="{{ league }}">
                     <div>
                         <div class="league-title">{{ {'NBA': 'NBA Basketball', 'CBB': 'College Basketball', 'NFL': 'NFL Football', 'CFB': 'College Football', 'NHL': 'NHL Hockey'}[league] }}</div>
-                        <div class="league-count">{{ league_games|length }} qualified pick{% if league_games|length != 1 %}s{% endif %}</div>
+                        <div class="league-count">{{ league_games|length }} game{% if league_games|length != 1 %}s{% endif %} | {{ league_games|selectattr('is_qualified')|list|length }} qualified</div>
                     </div>
                 </div>
                 

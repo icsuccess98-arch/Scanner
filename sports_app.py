@@ -121,156 +121,6 @@ def track_performance(operation: str, duration: float):
     if len(_performance_metrics[operation]) > 100:
         _performance_metrics[operation] = _performance_metrics[operation][-100:]
 
-# ============================================================================
-# PROFESSIONAL CALCULATORS (20+ Years Betting Wisdom)
-# ============================================================================
-
-class ProVigCalc:
-    """Calculate vig and fair lines - critical for true edge."""
-    
-    @staticmethod
-    def american_to_decimal(odds: int) -> float:
-        if odds > 0:
-            return (odds / 100) + 1
-        else:
-            return (100 / abs(odds)) + 1
-    
-    @staticmethod
-    def calculate_vig_pct(over_odds: int, under_odds: int) -> float:
-        if not over_odds or not under_odds:
-            return 0.0
-        over_decimal = ProVigCalc.american_to_decimal(over_odds)
-        under_decimal = ProVigCalc.american_to_decimal(under_odds)
-        implied_over = 1 / over_decimal
-        implied_under = 1 / under_decimal
-        total_prob = implied_over + implied_under
-        vig_pct = ((total_prob - 1.0) / total_prob) * 100
-        return round(vig_pct, 2)
-
-
-class KellyCalculator:
-    """Kelly Criterion for optimal bet sizing."""
-    
-    @staticmethod
-    def calculate_kelly(win_prob: float, odds: int, fraction: float = 0.25) -> float:
-        if win_prob <= 0 or win_prob >= 1 or not odds:
-            return 0.0
-        if odds > 0:
-            decimal_odds = (odds / 100) + 1
-        else:
-            decimal_odds = (100 / abs(odds)) + 1
-        b = decimal_odds - 1
-        q = 1 - win_prob
-        kelly = ((b * win_prob) - q) / b
-        kelly = kelly * fraction
-        kelly = min(kelly, 0.05)
-        kelly = max(kelly, 0.0)
-        return round(kelly * 100, 2)
-
-
-class PaceCalculator:
-    """Pace/tempo analysis - fast pace = OVER, slow pace = UNDER."""
-    
-    LEAGUE_AVG_PACE = {'NBA': 100.0, 'CBB': 68.0, 'NFL': 64.0, 'CFB': 70.0, 'NHL': 30.0}
-    PACE_IMPACT = {'NBA': 1.5, 'CBB': 1.2, 'NFL': 0.8, 'CFB': 1.0, 'NHL': 0.5}
-    
-    @staticmethod
-    def calculate_projected_pace(away_pace: float, home_pace: float) -> float:
-        if not away_pace or not home_pace:
-            return 0.0
-        return round((away_pace * 0.4) + (home_pace * 0.6), 1)
-    
-    @staticmethod
-    def pace_impact_on_total(projected_pace: float, league: str) -> float:
-        league_avg = PaceCalculator.LEAGUE_AVG_PACE.get(league, 70.0)
-        impact_factor = PaceCalculator.PACE_IMPACT.get(league, 1.0)
-        pace_diff = projected_pace - league_avg
-        return round(pace_diff * impact_factor, 1)
-
-
-class WeatherCalculator:
-    """Weather impact for NFL/CFB outdoor games."""
-    
-    @staticmethod
-    def calculate_weather_impact(temp: float, wind: float, precip: str, is_dome: bool) -> float:
-        if is_dome:
-            return 0.0
-        impact = 0.0
-        if temp is not None:
-            if temp < 20:
-                impact -= 3.0
-            elif temp < 32:
-                impact -= 1.5
-            elif temp > 85:
-                impact -= 0.5
-        if wind is not None:
-            if wind >= 20:
-                impact -= 4.0
-            elif wind >= 15:
-                impact -= 2.0
-            elif wind >= 10:
-                impact -= 1.0
-        if precip:
-            precip_lower = precip.lower()
-            if 'snow' in precip_lower:
-                impact -= 3.0
-            elif 'rain' in precip_lower or 'storm' in precip_lower:
-                impact -= 2.0
-        return round(impact, 1)
-
-
-class RestDayCalculator:
-    """Rest day fatigue modeling - B2B kills scoring."""
-    
-    REST_IMPACT = {
-        'NBA': {'b2b': -4.0, 'one_day': -2.0, 'two_days': 0.0, 'three_plus': 1.5},
-        'NHL': {'b2b': -2.5, 'one_day': -1.0, 'two_plus': 0.0},
-        'NFL': {'thursday': -3.0, 'normal': 0.0, 'bye': 2.5},
-    }
-    
-    @staticmethod
-    def calculate_rest_impact(days_rest: int, is_b2b: bool, league: str) -> float:
-        if league not in RestDayCalculator.REST_IMPACT:
-            return 0.0
-        impacts = RestDayCalculator.REST_IMPACT[league]
-        if is_b2b:
-            return impacts.get('b2b', -2.0)
-        elif days_rest == 1:
-            return impacts.get('one_day', -1.0)
-        elif days_rest == 2:
-            return impacts.get('two_days', 0.0)
-        elif days_rest >= 3:
-            return impacts.get('three_plus', 1.0)
-        return 0.0
-
-
-class ConfidenceTierCalculator:
-    """Confidence tier based on edge, history, and EV."""
-    
-    TIERS = {
-        'ELITE': {'edge_min': 12.0, 'color': '#00ff41'},
-        'HIGH': {'edge_min': 10.0, 'color': '#4ade80'},
-        'MEDIUM': {'edge_min': 8.0, 'color': '#fbbf24'},
-        'LOW': {'edge_min': 3.0, 'color': '#f87171'}
-    }
-    
-    @staticmethod
-    def get_tier(edge: float) -> str:
-        if edge >= 12.0:
-            return 'ELITE'
-        elif edge >= 10.0:
-            return 'HIGH'
-        elif edge >= 8.0:
-            return 'MEDIUM'
-        elif edge >= 3.0:
-            return 'LOW'
-        return 'NONE'
-    
-    @staticmethod
-    def get_tier_color(tier: str) -> str:
-        return ConfidenceTierCalculator.TIERS.get(tier, {}).get('color', '#94a3b8')
-
-
 CITY_COORDS = {
     'Atlanta': (33.7490, -84.3880), 'Boston': (42.3601, -71.0589),
     'Brooklyn': (40.6782, -73.9442), 'Charlotte': (35.2271, -80.8431),
@@ -6328,41 +6178,15 @@ def dashboard():
         # Use alt edge if available (better line), else main edge
         best_edge = g.alt_edge or g.edge or 0
         best_line = g.alt_total_line or g.line
-        
-        # Calculate professional metrics using REAL game data
-        confidence_tier = ConfidenceTierCalculator.get_tier(best_edge)
-        
-        # Use actual odds from game (bovada_total_odds for vig estimate, assuming standard -110/-110)
-        # Since we only have the picked side odds, estimate vig using standard assumption
-        bet_odds = g.alt_total_odds if g.alt_total_odds else g.bovada_total_odds
-        vig_pct = ProVigCalc.calculate_vig_pct(-110, -110)  # Standard vig for totals
-        
-        # Kelly calculation using actual odds and edge-derived probability
-        if best_edge and bet_odds:
-            win_prob = 0.5 + (best_edge / 100)
-            win_prob = min(max(win_prob, 0.45), 0.75)
-            kelly_pct = KellyCalculator.calculate_kelly(win_prob, bet_odds)
-        else:
-            kelly_pct = 0.0
-        
-        # Rest day impact - use actual game attributes if available
-        days_rest = getattr(g, 'days_rest_away', None)
-        is_b2b = getattr(g, 'is_back_to_back_away', False) or getattr(g, 'is_back_to_back_home', False)
-        rest_impact = RestDayCalculator.calculate_rest_impact(days_rest or 2, is_b2b, g.league) if g.league in ['NBA', 'NHL', 'NFL'] else 0.0
-        
         top_picks.append({
             'game': g,
             'edge': best_edge,
             'direction': g.direction,
             'line': best_line,
-            'alt_line': g.alt_total_line,
+            'alt_line': g.alt_total_line,  # Track if using alt line
             'projected_total': g.projected_total,
-            'pick_type': 'total',
-            'is_away_favorite': getattr(g, 'is_away_favorite', False),
-            'confidence_tier': confidence_tier,
-            'kelly_pct': kelly_pct,
-            'vig_pct': vig_pct,
-            'rest_impact': rest_impact
+            'pick_type': 'total',  # Required for auto_save_qualified_picks
+            'is_away_favorite': getattr(g, 'is_away_favorite', False)
         })
     analytics['top_picks'] = top_picks
     
