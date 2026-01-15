@@ -45,7 +45,7 @@ This project develops and manages trading systems including a Sports Betting Cal
         -   UNDER: If `Bovada_Line >= Projected_Total + Threshold`
     -   **Qualification Requirements**: Edge threshold + Direction set
     -   **Historical O/U Performance**: Uses last 15 games O/U hit rate to strengthen picks
-    -   **Unit Sizing**: Simple units based on edge (3u for 12+, 2u for 10-12, 1u for 8-10, 0.5u for lower)
+    -   **Confidence Tiers**: SUPERMAX (≥12 edge), HIGH (≥10), STANDARD (≥8), LOW (<8) - no units displayed
     -   **SUPERMAX**: Highest absolute edge across all qualified TOTALS picks
     -   **TOP 5 Ranking**: Sorted by EDGE only (highest edge = best pick)
     -   **Star Ratings**: Based on edge only (5★ for 12+, 4★ for 10+, 3★ for 8+, 2★ otherwise)
@@ -63,11 +63,12 @@ This project develops and manages trading systems including a Sports Betting Cal
 -   **Spread Code Removed**: All spread-related processing logic removed
 -   **1H ML Model Removed**: Model 4 (NBA 1st half moneyline) completely removed
 -   **RotoWire/Injury Code Removed**: All injury scraping and checking removed for speed
--   **Kelly Criterion Replaced**: Simple units system (3u/2u/1u/0.5u based on edge)
--   **File Size**: Reduced to 8,095 lines
+-   **Units Logic Removed**: No units displayed - confidence based purely on edge thresholds
+-   **Away Favorite Badge**: Orange (#FFA500) ⭐ AWAY FAV badge on game cards and TOP 5 picks
+-   **File Size**: Reduced to 8,048 lines
 -   **Focus**: Pure TOTALS (Over/Under) functionality only with two models:
     1. **Totals Model**: Standard O/U picks with edge thresholds
-    2. **Away Favorite O/U Model**: Games where away team is favorite AND meets O/U threshold
+    2. **Away Favorite O/U Model**: Games where away team is favorite AND meets O/U threshold (shows orange badge)
 
 ### Feature Specifications
 -   **Sports Scanner**: Fetches NBA, CBB, NFL, CFB, NHL games, stats, and odds to identify qualified TOTALS picks.
