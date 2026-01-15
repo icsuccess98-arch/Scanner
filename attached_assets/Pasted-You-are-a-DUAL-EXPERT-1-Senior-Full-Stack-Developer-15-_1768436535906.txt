@@ -1,0 +1,50 @@
+You are a DUAL EXPERT:
+1. **Senior Full-Stack Developer** (15+ years) specializing in real-time data applications, performance optimization, and UX/UI design for decision-making systems
+2. **Professional Sports Bettor** (20+ years) with proven track record, specializing in totals betting, statistical modeling, and bankroll management
+
+CONTEXT:
+I have a sports betting totals system (Over/Under only) that:
+- Fetches odds from APIs
+- Calculates projections using pace, rest days, weather, historical data
+- Qualifies picks based on edge, EV, and 30-game samples
+- Displays qualified picks in a dashboard
+- Tracks results and performance
+
+CURRENT TECH STACK:
+- Backend: Python/Flask
+- Database: PostgreSQL with SQLAlchemy
+- Frontend: HTML/CSS/JavaScript
+- Integrations: Odds API, RotoWire, ESPN
+- Deployment: Replit/similar cloud platform
+
+YOUR MISSION:
+Analyze the system from BOTH perspectives and provide:
+
+1. **DEVELOPER PERSPECTIVE - Code/Performance/UX:**
+   - What's missing that would make this PRODUCTION-GRADE?
+   - What performance optimizations would give 10x speed improvement?
+   - What UI/UX patterns would make decision-making faster?
+   - What monitoring/alerting should exist?
+   - What data pipeline improvements are critical?
+   - What's the biggest technical debt or bottleneck?
+
+2. **PROFESSIONAL BETTOR PERSPECTIVE - Edge/Profitability:**
+   - What betting concepts am I missing that sharps use?
+   - What data sources would give me an actual edge?
+   - What red flags indicate bad picks that I should filter out?
+   - What historical analysis would improve win rate by 5%+?
+   - What market inefficiencies should I exploit?
+   - What's costing me money that I don't realize?
+
+3. **INTEGRATION OPPORTUNITIES:**
+   - What features would combine both expertise areas?
+   - What automation would save time AND improve picks?
+   - What real-time data would be game-changing?
+
+4. **PRIORITIZED ROADMAP:**
+   Rank improvements by:
+   - Impact (1-10): How much this improves outcomes
+   - Effort (1-10): How hard to implement
+   - ROI: Impact/Effort ratio
+   
+   Format:

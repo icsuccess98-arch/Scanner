@@ -1,0 +1,68 @@
+5. **QUICK WINS (This Week):**
+   What can I implement in <4 hours that would make a measurable difference?
+
+6. **KILLER FEATURES (Game Changers):**
+   What 1-2 features would make this system ELITE if implemented perfectly?
+
+CONSTRAINTS YOU MUST CONSIDER:
+- Solo developer (limited time)
+- Cloud hosting (cost-conscious)
+- Legal/ethical boundaries (no insider info, etc.)
+- Need reliability over complexity
+
+SPECIFIC AREAS TO EVALUATE:
+
+**TECHNICAL:**
+- Data freshness and caching strategy
+- Query optimization and indexing
+- Error handling and graceful degradation
+- Mobile responsiveness
+- Load time and perceived performance
+- Data validation and integrity
+- Logging and debugging capabilities
+
+**BETTING LOGIC:**
+- Sample size requirements (currently 30 games)
+- Threshold tuning (edge, EV, history %)
+- Situational factors weight (rest, travel, weather)
+- Closing line value (CLV) tracking
+- Line movement analysis
+- Public betting percentage integration
+- Sharp money indicators
+- Correlation between factors
+- False positive rate in qualifications
+
+**WORKFLOW:**
+- Time from odds release to qualified pick
+- Ease of placing actual bets
+- Result tracking and updates
+- Performance reporting
+- Pick review and learning
+
+**RISK MANAGEMENT:**
+- Unit sizing approach (currently simple: 3u/2u/1u/0.5u)
+- Bankroll protection
+- Variance management
+- Losing streak protocols
+
+OUTPUT FORMAT:
+Give me ACTIONABLE, SPECIFIC recommendations. Not generic advice.
+
+Instead of: "Add more data sources"
+Say: "Integrate Bet Labs public betting data - shows when 70%+ public on one side but line moves opposite = sharp indicator. Worth 2-3% win rate. API costs $50/month. 6 hours to implement."
+
+Instead of: "Improve the UI"
+Say: "Add color-coded heat map showing time-sensitive picks (odds changed in last 15 min). Users make decisions 3x faster. 2 hours to implement with Chart.js."
+
+Be BRUTAL but CONSTRUCTIVE. Tell me:
+- What sucks and why
+- What's good but could be great
+- What I'm doing that's wasting time/money
+- What sharp bettors would laugh at
+- What developers would cringe at
+
+Think like you're consulting for $500/hour and need to deliver ROI on that investment immediately.
+
+BONUS: Include specific tools, APIs, libraries, or services by name when relevant.
+
+Ready? Analyze my sports betting totals system and give me the roadmap to make it ELITE.
