@@ -1,7 +1,7 @@
-# Trading Systems Project
+# Ultra-Fast Totals Calculator
 
 ## Overview
-This project develops and manages trading systems including a Sports Betting Calculator focused on TOTALS (Over/Under) betting. The Sports Betting Calculator analyzes sports data using ESPN stats and Bovada lines to identify profitable Over/Under betting opportunities with strict edge thresholds.
+Ultra-fast sports betting calculator focused on TOTALS (Over/Under) betting. Uses The Odds API for Bovada lines with 30-game historical samples. NO injury checks = 3-4x faster odds fetching.
 
 ## User Preferences
 - Keep Discord message format consistent - never change formats
