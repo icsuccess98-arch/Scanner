@@ -200,10 +200,10 @@ class RotoWireScraper:
         self._circuit_open_until = 0
     
     def _rate_limit(self):
-        """Enforce 2-second delay between requests."""
+        """Enforce 0.5-second delay between requests (faster for better performance)."""
         elapsed = time.time() - self._last_request_time
-        if elapsed < 2.0:
-            time.sleep(2.0 - elapsed)
+        if elapsed < 0.5:
+            time.sleep(0.5 - elapsed)
         self._last_request_time = time.time()
     
     def _check_circuit_breaker(self) -> bool:
@@ -265,21 +265,30 @@ class RotoWireScraper:
             logger.debug(f"Cache hit: {team} injuries from {source}")
             return injuries, source
         
-        if not self._check_circuit_breaker():
-            injuries = self._get_injuries_rotowire(team, league)
-            if injuries is not None:
-                self._cache.set(cache_key, injuries, 'rotowire')
-                logger.info(f"RotoWire: Found {len(injuries)} injuries for {team}")
-                return injuries, 'rotowire'
+        # Skip college sports injury checks entirely (unreliable sources)
+        if league in ('CBB', 'CFB'):
+            self._cache.set(cache_key, [], 'skipped')
+            return [], 'skipped'
         
-        logger.info(f"Falling back to ESPN for {team} injuries")
-        injuries = self._get_injuries_espn(team, league)
+        # If circuit breaker is open, skip all checks
+        if self._check_circuit_breaker():
+            return [], 'circuit_open'
+        
+        injuries = self._get_injuries_rotowire(team, league)
         if injuries is not None:
-            self._cache.set(cache_key, injuries, 'espn')
-            logger.info(f"ESPN: Found {len(injuries)} injuries for {team}")
-            return injuries, 'espn'
+            self._cache.set(cache_key, injuries, 'rotowire')
+            logger.info(f"RotoWire: Found {len(injuries)} injuries for {team}")
+            return injuries, 'rotowire'
         
-        logger.warning(f"Could not fetch injuries for {team} from any source")
+        # Only try ESPN for pro leagues (NBA, NFL, NHL)
+        if league in ('NBA', 'NFL', 'NHL'):
+            injuries = self._get_injuries_espn(team, league)
+            if injuries is not None:
+                self._cache.set(cache_key, injuries, 'espn')
+                logger.info(f"ESPN: Found {len(injuries)} injuries for {team}")
+                return injuries, 'espn'
+        
+        logger.debug(f"No injuries found for {team}")
         return [], 'none'
     
     def _get_injuries_rotowire(self, team: str, league: str) -> Optional[List[InjuredPlayer]]:
