@@ -843,7 +843,7 @@
                                 <span style="color: var(--green); font-weight: 700; font-size: 0.75rem;">+{{ "%.1f"|format(pick.edge) }}</span>
                                 <div class="edge-bar" title="Edge: {{ '%.1f'|format(pick.edge) }}" style="width: 40px; height: 6px; background: var(--bg-input); border-radius: 3px; overflow: hidden;">
                                     {% set edge_pct = [[(pick.edge / 15 * 100), 100]|min, 0]|max %}
-                                    {% set edge_class = 'elite' if pick.edge >= 12 else ('high' if pick.edge >= 10 else ('medium' if pick.edge >= 8 else 'low')) %}
+                                    {% set edge_class = 'elite' if pick.edge >= 10 else ('medium' if pick.edge >= 8 else 'low') %}
                                     <div class="edge-bar-fill {{ edge_class }}" style="width: {{ edge_pct }}%; height: 100%;"></div>
                                 </div>
                                 <span class="confidence-stars" style="font-size: 0.7rem;">
