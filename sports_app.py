@@ -288,7 +288,6 @@ class GameConstants:
     CACHE_TTL_LIVE_SCORES = 15
     CACHE_TTL_TEAM_STATS = 3600
     CACHE_TTL_HISTORICAL = 43200
-    CACHE_TTL_INJURY = 21600
     CACHE_TTL_SCHEDULE = 43200
     CACHE_TTL_OPENING_LINE = 86400
     
@@ -298,8 +297,6 @@ class GameConstants:
     
     # Cache sizes
     CACHE_SIZE_DEFAULT = 500
-    CACHE_SIZE_INJURY = 200
-    CACHE_SIZE_LEAGUE_INJURY = 50
 
 THRESHOLDS = GameConstants.EDGE_THRESHOLDS
 
@@ -2233,32 +2230,12 @@ class QualificationResult:
     """Complete qualification result with all metrics."""
     qualified: bool
     confidence: str
-    bet_size_pct: float  # Kept for compatibility, now represents units
+    bet_size_pct: float  # Kept for compatibility
     true_edge: float
     ev_pct: Optional[float]
     reasons_pass: List[str]
     reasons_fail: List[str]
     recommendation: str
-    units: float = 0.0  # Simple unit sizing (3u/2u/1u/0.5u)
-
-
-def calculate_bet_units(edge: float, league: str) -> float:
-    """
-    Simple unit sizing based on edge only.
-    
-    3u = SUPERMAX (edge 12+)
-    2u = HIGH (edge 10-12)
-    1u = MEDIUM (edge 8-10)
-    0.5u = LOW (edge below 8 but meets threshold)
-    """
-    if edge >= 12.0:
-        return 3.0
-    elif edge >= 10.0:
-        return 2.0
-    elif edge >= 8.0:
-        return 1.0
-    else:
-        return 0.5
 
 
 class ProfessionalQualifier:
@@ -2294,10 +2271,6 @@ class ProfessionalQualifier:
             reasons_fail.append(f"EV: {ev_data['ev_pct']:+.2f}% < +{cls.MIN_EV:.1f}%")
             ev_pct = ev_data['ev_pct']
         
-        # Simple unit sizing based on edge (3u/2u/1u/0.5u)
-        units = calculate_bet_units(edge_result.true_edge, league)
-        reasons_pass.append(f"Units: {units}u (based on {edge_result.true_edge:.1f} edge)")
-        
         if historical_win_rate >= cls.MIN_WIN_RATE:
             reasons_pass.append(f"History: {historical_win_rate:.1%} >= {cls.MIN_WIN_RATE:.1%}")
         else:
@@ -2315,34 +2288,32 @@ class ProfessionalQualifier:
         
         qualified = len(reasons_fail) == 0
         
-        # Simple confidence based on edge and units
+        # Confidence based on edge only
         if not qualified:
             confidence = 'NONE'
             recommendation = 'PASS'
-            units = 0.0
-        elif units >= 3.0:
+        elif edge_result.true_edge >= 12.0:
             confidence = 'SUPERMAX'
-            recommendation = '3_UNITS'
-        elif units >= 2.0:
+            recommendation = 'BET'
+        elif edge_result.true_edge >= 10.0:
             confidence = 'HIGH'
-            recommendation = '2_UNITS'
-        elif units >= 1.0:
+            recommendation = 'BET'
+        elif edge_result.true_edge >= 8.0:
             confidence = 'STANDARD'
-            recommendation = '1_UNIT'
+            recommendation = 'BET'
         else:
             confidence = 'LOW'
-            recommendation = '0.5_UNITS'
+            recommendation = 'BET'
         
         return QualificationResult(
             qualified=qualified,
             confidence=confidence,
-            bet_size_pct=units,  # Now stores units (3u/2u/1u/0.5u)
+            bet_size_pct=0.0,
             true_edge=edge_result.true_edge,
             ev_pct=ev_pct,
             reasons_pass=reasons_pass,
             reasons_fail=reasons_fail,
-            recommendation=recommendation,
-            units=units
+            recommendation=recommendation
         )
 
 
@@ -2381,7 +2352,6 @@ def log_qualification_decision(game, qual_result: QualificationResult):
         'confidence': qual_result.confidence,
         'true_edge': qual_result.true_edge,
         'ev_pct': qual_result.ev_pct,
-        'units': qual_result.units,
         'recommendation': qual_result.recommendation
     }
     
@@ -2605,8 +2575,7 @@ def check_qualification_professional(
     if qual_result.qualified:
         logger.info(
             f"QUALIFIED: {league} {edge_result.direction}{edge_result.fair_line} "
-            f"(True Edge: {edge_result.true_edge:.1f}, EV: {qual_result.ev_pct or 0:+.2f}%, "
-            f"Units: {qual_result.units}u) - {qual_result.confidence}"
+            f"(True Edge: {edge_result.true_edge:.1f}, EV: {qual_result.ev_pct or 0:+.2f}%) - {qual_result.confidence}"
         )
     else:
         logger.debug(
@@ -3583,12 +3552,6 @@ class Pick(db.Model):
     kelly_fraction = db.Column(db.Float)  # Kelly bet size
     expected_ev = db.Column(db.Float)  # Expected value at time of bet
     
-    # RotoWire injury tracking
-    injury_source = db.Column(db.String(20))  # 'rotowire', 'espn', 'none'
-    away_injury_impact = db.Column(db.Float, default=0.0)
-    home_injury_impact = db.Column(db.Float, default=0.0)
-    lineup_confirmed = db.Column(db.Boolean, default=False)
-    injury_check_timestamp = db.Column(db.DateTime)
     
     __table_args__ = (
         db.Index('idx_pick_result', 'result'),
@@ -5174,7 +5137,9 @@ def update_game_historical_data(game: Game) -> bool:
         away_form_trending = "UP" if away_recent_margin > away_avg_margin + 2 else ("DOWN" if away_recent_margin < away_avg_margin - 2 else "STABLE")
         home_form_trending = "UP" if home_recent_margin > home_avg_margin + 2 else ("DOWN" if home_recent_margin < home_avg_margin - 2 else "STABLE")
         
-        # Injury checks removed for speed
+        # Injury checks removed for speed - use empty stubs
+        away_injuries = {"has_key_injuries": False, "injured_starters": 0, "impact_score": 0}
+        home_injuries = {"has_key_injuries": False, "injured_starters": 0, "impact_score": 0}
         
         h2h = fetch_h2h_history(game.away_team, game.home_team, game.league, direction)
         game.h2h_ou_pct = h2h["ou_pct"]
@@ -7396,7 +7361,6 @@ def win_rate_analytics():
         'by_day_of_week': {day: {'wins': 0, 'losses': 0} for day in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']},
         'by_pick_type': {'total': {'wins': 0, 'losses': 0}, 'spread': {'wins': 0, 'losses': 0}},
         'by_time_window': {'EARLY': {'wins': 0, 'losses': 0}, 'MID': {'wins': 0, 'losses': 0}, 'LATE': {'wins': 0, 'losses': 0}},
-        'by_injury_source': {'rotowire': {'wins': 0, 'losses': 0}, 'espn': {'wins': 0, 'losses': 0}, 'none': {'wins': 0, 'losses': 0}},
         'recent_streak': [],
         'best_edge_threshold': None
     }
@@ -7411,7 +7375,6 @@ def win_rate_analytics():
         result = pick.result
         league = pick.league or 'Unknown'
         pick_type = getattr(pick, 'pick_type', None) or 'total'
-        injury_source = getattr(pick, 'injury_source', None) or 'none'
         
         # Overall
         if result == 'W':
@@ -7470,12 +7433,6 @@ def win_rate_analytics():
         elif result == 'L':
             analytics['by_confidence_tier'][tier]['losses'] += 1
         
-        # By injury source
-        if injury_source in analytics['by_injury_source']:
-            if result == 'W':
-                analytics['by_injury_source'][injury_source]['wins'] += 1
-            elif result == 'L':
-                analytics['by_injury_source'][injury_source]['losses'] += 1
     
     # Calculate win rates
     def calc_win_rate(wins, losses):
@@ -7509,10 +7466,6 @@ def win_rate_analytics():
         d['win_rate'] = calc_win_rate(d['wins'], d['losses'])
         d['total'] = d['wins'] + d['losses']
     
-    for source in analytics['by_injury_source']:
-        d = analytics['by_injury_source'][source]
-        d['win_rate'] = calc_win_rate(d['wins'], d['losses'])
-        d['total'] = d['wins'] + d['losses']
     
     # Recent streak (last 20 picks)
     recent = Pick.query.filter(Pick.result.in_(['W', 'L'])).order_by(Pick.date.desc()).limit(20).all()
