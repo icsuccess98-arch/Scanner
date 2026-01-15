@@ -3,422 +3,1267 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡ Ultra-Fast Totals</title>
+    <title>730's Locks</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="730 Locks">
+    <link rel="apple-touch-icon" href="/static/icon-512.png">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#d4af37">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
+        :root {
+            /* Royal Gold Theme */
+            --bg-dark: #0a0a12;
+            --bg-card: #12101a;
+            --bg-input: #1a1825;
+            --border: #2d2640;
+            --text: #F8F8FF;
+            --text-muted: #9990B0;
+            --accent: #7B2CBF;
+            --emerald: #50C878;
+            --green: #50C878;
+            --sapphire: #7B2CBF;
+            --amber: #FFD700;
+            --crimson: #DC143C;
+            --red: #DC143C;
+            --ice: #E0B0FF;
+            --gold: #FFD700;
+            --gold-light: #FFEC8B;
+            --gold-dark: #DAA520;
+            --purple: #7B2CBF;
+            --purple-light: #9D4EDD;
+            --nba: #C9082A;
+            --cbb: #7B2CBF;
+            --nfl: #013369;
+            --cfb: #9D4EDD;
+            --nhl: #A2AAAD;
+        }
+        * { box-sizing: border-box; }
+        html, body {
+            overflow-x: hidden;
+            max-width: 100vw;
+        }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: #0a0e27;
-            color: #e5e7eb;
-            line-height: 1.6;
+            background: var(--bg-dark);
+            color: var(--text);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
         }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        
-        /* Header */
         .header {
-            background: linear-gradient(135deg, #1e293b, #0f172a);
-            border-radius: 12px;
-            padding: 24px;
-            margin-bottom: 24px;
-            border-left: 4px solid #00ff88;
-        }
-        
-        .header h1 {
-            font-size: 24px;
-            font-weight: 700;
-            color: #00ff88;
-            margin-bottom: 6px;
-        }
-        
-        .header p {
-            font-size: 13px;
-            color: #94a3b8;
-        }
-        
-        /* Stats Grid */
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 12px;
-            margin-bottom: 24px;
-        }
-        
-        .stat {
-            background: rgba(255, 255, 255, 0.03);
-            border-radius: 8px;
-            padding: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-        
-        .stat-label {
-            font-size: 11px;
-            color: #64748b;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 6px;
-        }
-        
-        .stat-value {
-            font-size: 22px;
-            font-weight: 700;
-            color: #00ff88;
-        }
-        
-        /* Section Titles */
-        .section-title {
-            font-size: 18px;
-            font-weight: 600;
-            color: #f1f5f9;
-            margin: 32px 0 16px 0;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .section-title::before {
-            content: '';
-            width: 4px;
-            height: 20px;
-            background: var(--section-color, #00ff88);
-            border-radius: 2px;
-        }
-        
-        .section-title.away-fav { --section-color: #f59e0b; }
-        
-        /* Game Cards */
-        .game {
-            background: rgba(255, 255, 255, 0.02);
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 16px;
-            border-left: 3px solid var(--tier-color);
-            border-right: 1px solid rgba(255, 255, 255, 0.05);
-            transition: all 0.2s ease;
-            position: relative;
-        }
-        
-        .game:hover {
-            background: rgba(255, 255, 255, 0.04);
-            transform: translateX(2px);
-        }
-        
-        .game.ELITE { --tier-color: #00ff88; }
-        .game.HIGH { --tier-color: #3b82f6; }
-        .game.MEDIUM { --tier-color: #f59e0b; }
-        .game.LOW { --tier-color: #ef4444; }
-        
-        /* AWAY FAVORITE BADGE */
-        .away-fav-badge {
-            position: absolute;
-            top: 12px;
-            right: 12px;
-            background: linear-gradient(135deg, #f59e0b, #f97316);
-            color: #000;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            box-shadow: 0 4px 6px rgba(245, 158, 11, 0.3);
-        }
-        
-        /* Game Header */
-        .game-header {
+            background: linear-gradient(180deg, #16131f 0%, var(--bg-dark) 100%);
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 16px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
         }
-        
-        .teams {
-            font-size: 16px;
+        .brand {
+            font-size: 1.1rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            white-space: nowrap;
+            flex-shrink: 0;
+            text-decoration: none;
+        }
+        .brand i { -webkit-text-fill-color: var(--gold); filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.5)); font-size: 0.9rem; }
+        .nav-links { display: flex; gap: 0.5rem; flex-shrink: 0; }
+        .nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
             font-weight: 600;
-            color: #f1f5f9;
+            font-size: 0.8rem;
+            padding: 0.4rem 0.75rem;
+            border-radius: 16px;
+            transition: all 0.2s;
+            white-space: nowrap;
         }
-        
-        .tier-badge {
-            font-size: 10px;
+        .nav-links a:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+        .nav-links a.active { 
+            color: var(--gold); 
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.15) 0%, rgba(218, 165, 32, 0.08) 100%);
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.2);
+        }
+        .header-section {
+            background: linear-gradient(135deg, #0d0b12 0%, #14101c 100%);
+            border-bottom: 1px solid var(--border);
+            padding: 2rem 0;
+        }
+        .date-display {
+            font-size: 1.75rem;
             font-weight: 700;
-            padding: 4px 10px;
-            border-radius: 4px;
-            background: var(--tier-color);
-            color: #0a0e27;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            color: var(--text);
         }
-        
-        /* Pick Display */
-        .pick {
-            text-align: center;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 8px;
-            padding: 16px;
-            margin-bottom: 16px;
+        .stat-pill {
+            background: linear-gradient(135deg, var(--bg-input) 0%, rgba(20, 16, 28, 0.9) 100%);
+            border: 1px solid var(--border);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+            border-radius: 50px;
+            padding: 0.5rem 1.25rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
         }
-        
-        .pick-direction {
-            font-size: 28px;
-            font-weight: 700;
-            color: var(--tier-color);
-            margin-bottom: 4px;
-        }
-        
-        .pick-line {
-            font-size: 20px;
-            color: #cbd5e1;
-        }
-        
-        /* Metrics */
-        .metrics {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
-            margin-bottom: 16px;
-        }
-        
-        .metric {
-            text-align: center;
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 6px;
-            padding: 10px 8px;
-        }
-        
-        .metric-label {
-            font-size: 10px;
-            color: #64748b;
-            text-transform: uppercase;
-            margin-bottom: 4px;
-        }
-        
-        .metric-value {
-            font-size: 16px;
-            font-weight: 700;
-            color: #e5e7eb;
-        }
-        
-        .metric-value.good { color: #00ff88; }
-        
-        /* Button */
-        .btn {
-            width: 100%;
-            padding: 14px;
-            background: var(--tier-color);
-            color: #0a0e27;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 700;
-            cursor: pointer;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            transition: opacity 0.2s;
-        }
-        
-        .btn:hover { opacity: 0.9; }
-        
-        .btn:disabled {
-            background: rgba(255, 255, 255, 0.05);
-            color: #64748b;
-            cursor: not-allowed;
-        }
-        
-        /* Empty State */
-        .empty {
-            text-align: center;
-            padding: 40px 20px;
-            background: rgba(255, 255, 255, 0.02);
+        .stat-pill .value { font-weight: 700; font-size: 1.5rem; color: var(--gold); }
+        .stat-pill .label { color: var(--text-muted); font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-pill.qualified .value { color: var(--gold-light); }
+        .stat-pill.qualified { border-color: rgba(255, 215, 0, 0.3); }
+        .btn-fetch {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.625rem 1.25rem;
             border-radius: 10px;
-            border: 1px dashed rgba(255, 255, 255, 0.1);
+            font-weight: 600;
+            transition: all 0.2s;
         }
-        
-        .empty h3 {
-            font-size: 16px;
-            color: #64748b;
-            margin-bottom: 6px;
+        .btn-fetch:hover { background: var(--bg-card); border-color: var(--accent); color: var(--text); transform: translateY(-1px); }
+        .btn-fetch.odds { border-color: var(--gold); color: var(--gold); }
+        .btn-fetch.odds:hover { background: rgba(255, 215, 0, 0.1); }
+        .btn-fetch.alt { border-color: #9333EA; color: #9333EA; }
+        .btn-fetch.alt:hover { background: rgba(147, 51, 234, 0.1); }
+        .alt-line { color: #9333EA; font-size: 0.8rem; margin-top: 4px; }
+        .alt-line .odds { background: rgba(147, 51, 234, 0.2); padding: 2px 6px; border-radius: 4px; }
+        .pick-odds { font-size: 0.7em; font-weight: 500; color: var(--text-muted); background: rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 6px; margin-left: 8px; vertical-align: middle; }
+        .btn-discord {
+            background: linear-gradient(135deg, #7B2CBF 0%, #9D4EDD 100%);
+            border: none;
+            color: white;
+            padding: 0.625rem 1.25rem;
+            border-radius: 10px;
+            font-weight: 600;
+            transition: all 0.2s;
         }
-        
-        .empty p {
-            font-size: 13px;
-            color: #475569;
+        .btn-discord:hover { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(123, 44, 191, 0.5); color: white; }
+        .btn-discord:disabled { opacity: 0.5; transform: none; }
+        .lock-hero {
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.12) 0%, rgba(123, 44, 191, 0.08) 50%, rgba(218, 165, 32, 0.05) 100%);
+            border: 2px solid;
+            border-image: linear-gradient(135deg, #FFD700, #9D4EDD, #DAA520) 1;
+            border-radius: 16px;
+            padding: 1.5rem 2rem;
+            margin: 2rem 0;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 40px rgba(255, 215, 0, 0.15), 0 0 80px rgba(123, 44, 191, 0.1);
         }
+        .lock-hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255, 215, 0, 0.15) 0%, rgba(123, 44, 191, 0.05) 40%, transparent 70%);
+            animation: pulse 3s ease-in-out infinite;
+        }
+        @keyframes pulse { 0%, 100% { opacity: 0.5; transform: scale(1); } 50% { opacity: 1; transform: scale(1.02); } }
+        .lock-badge {
+            background: linear-gradient(135deg, #FFD700 0%, #FFF8DC 50%, #DAA520 100%);
+            color: #0a0a12;
+            font-weight: 800;
+            font-size: 0.75rem;
+            padding: 0.375rem 0.75rem;
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 2px 10px rgba(255, 215, 0, 0.4);
+        }
+        .lock-matchup { font-size: 1.5rem; font-weight: 700; position: relative; }
+        .lock-pick {
+            font-size: 2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #FFD700 0%, #FFF8DC 50%, #DAA520 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.5));
+        }
+        .lock-pick.under {
+            background: linear-gradient(135deg, #9D4EDD 0%, #E0B0FF 50%, #7B2CBF 100%);
+            -webkit-background-clip: text;
+            filter: drop-shadow(0 0 10px rgba(157, 78, 221, 0.5));
+        }
+        .lock-edge { 
+            color: var(--text-muted); 
+            font-size: 0.75rem; 
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 4px;
+            opacity: 0.8;
+        }
+        .lock-edge-top {
+            color: var(--gold);
+            font-size: 0.9rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .lock-hero .league-icon {
+            width: auto;
+            height: auto;
+            padding: 4px 10px;
+            font-size: 0.7rem;
+        }
+        .pick-container { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: flex-end; 
+        }
+        .league-section { margin-bottom: 2rem; }
+        .league-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem 0;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 1rem;
+        }
+        .league-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.75rem;
+            color: white;
+        }
+        .league-icon.nba { background: linear-gradient(135deg, #17408B, #C9082A); }
+        .league-icon.cbb { background: linear-gradient(135deg, #1e40af, #7c3aed); }
+        .league-icon.nfl { background: linear-gradient(135deg, #013369, #D50A0A); }
+        .league-icon.cfb { background: linear-gradient(135deg, #7c3aed, #dc2626); }
+        .league-icon.nhl { background: linear-gradient(135deg, #000000, #A2AAAD); }
+        .league-logo {
+            width: 50px;
+            height: 50px;
+            object-fit: contain;
+        }
+        .league-title { font-size: 1.25rem; font-weight: 700; }
+        .league-count { color: var(--text-muted); font-size: 0.875rem; }
+        .game-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 0.75rem;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        .game-card::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: var(--league-color, var(--border));
+        }
+        .game-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.3); }
+        .game-card.qualified {
+            border-left: none;
+            background: linear-gradient(90deg, rgba(255, 215, 0, 0.08) 0%, var(--bg-card) 25%);
+        }
+        .game-card.qualified::before { background: linear-gradient(180deg, #FFD700, #DAA520); width: 5px; }
+        .game-card.lock-card {
+            border: 2px solid;
+            border-image: linear-gradient(135deg, #FFD700, #9D4EDD) 1;
+            background: linear-gradient(90deg, rgba(255, 215, 0, 0.12) 0%, rgba(123, 44, 191, 0.05) 15%, var(--bg-card) 30%);
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.2), 0 0 60px rgba(123, 44, 191, 0.1);
+        }
+        .game-card.lock-card::before { background: linear-gradient(180deg, #FFD700, #9D4EDD, #DAA520); width: 5px; }
+        .league-nba .game-card::before { background: linear-gradient(180deg, #17408B, #C9082A); }
+        .league-nfl .game-card::before { background: linear-gradient(180deg, #013369, #D50A0A); }
+        .league-nhl .game-card::before { background: linear-gradient(180deg, #000000, #A2AAAD); }
+        .league-cbb .game-card::before { background: linear-gradient(180deg, #1e40af, #7c3aed); }
+        .league-cfb .game-card::before { background: linear-gradient(180deg, #7c3aed, #dc2626); }
+        .matchup { font-weight: 600; font-size: 1rem; }
+        .game-time { color: var(--text-muted); font-size: 0.8rem; }
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin: 0.75rem 0; }
+        .stat-item { text-align: center; }
+        .stat-label { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; }
+        .stat-value { font-weight: 600; font-size: 0.875rem; }
+        .breakdown-section { 
+            flex: 1; 
+            padding: 0.5rem 0.75rem; 
+            background: var(--bg-input); 
+            border-radius: 8px;
+            min-width: 120px;
+            display: flex;
+            flex-direction: column;
+            min-height: 130px;
+        }
+        .breakdown-section .pick-chip { margin-top: auto; }
+        .breakdown-section.spread { border-left: 2px solid var(--accent); }
+        .breakdown-title { 
+            font-size: 0.6rem; 
+            font-weight: 700; 
+            color: var(--text-muted); 
+            text-transform: uppercase; 
+            letter-spacing: 0.5px;
+            margin-bottom: 0.375rem;
+        }
+        .breakdown-row { 
+            display: flex; 
+            justify-content: space-between; 
+            font-size: 0.75rem; 
+            margin-bottom: 0.125rem;
+        }
+        .breakdown-label { color: var(--text-muted); }
+        .breakdown-value { font-weight: 600; }
+        .breakdown-value.high { color: #FFD700; }
+        .breakdown-value.low { color: #EF4444; }
+        .pick-chip.spread-pick { background: linear-gradient(135deg, var(--accent) 0%, #6B9FFF 100%); }
+        .line-input {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            color: var(--text);
+            width: 80px;
+            text-align: center;
+            border-radius: 8px;
+            padding: 0.375rem;
+            font-weight: 600;
+        }
+        .line-input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px rgba(76, 130, 255, 0.15); }
+        .projection-box { text-align: center; }
+        .projection-value { font-size: 1.25rem; font-weight: 700; }
+        .edge-value { font-size: 1rem; font-weight: 700; }
+        .edge-value.high { color: #FFD700; }
+        .edge-value.low { color: var(--text-muted); }
+        .sharp-metrics { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 0.5rem; 
+            margin-top: 0.5rem; 
+            padding-top: 0.5rem; 
+            border-top: 1px solid var(--border); 
+            font-size: 0.7rem;
+        }
+        .sharp-metric { 
+            background: rgba(123, 44, 191, 0.15); 
+            padding: 0.25rem 0.5rem; 
+            border-radius: 4px; 
+        }
+        .sharp-metric strong { color: var(--text-muted); }
+        .sharp-metric .positive { color: #00E676; }
+        .sharp-metric .negative { color: #FF5252; }
+        .sharp-metric .shade { color: #FFA726; }
+        .pick-chip {
+            padding: 0.375rem 0.75rem;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 0.875rem;
+        }
+        .pick-chip.over { background: rgba(0, 230, 118, 0.2); color: #00E676; }
+        .pick-chip.under { background: rgba(255, 82, 82, 0.2); color: #FF5252; }
+        .pick-chip.no-bet { background: var(--bg-input); color: var(--text-muted); }
+        .btn-delete {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        .btn-delete:hover { border-color: var(--red); color: var(--red); background: rgba(255, 77, 79, 0.1); }
+        .filter-toggle {
+            display: inline-flex;
+            background: var(--bg-input);
+            border-radius: 10px;
+            padding: 4px;
+            border: 1px solid var(--border);
+        }
+        .filter-toggle a {
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+        .filter-toggle a:hover { color: var(--text); }
+        .filter-toggle a.active { background: linear-gradient(135deg, #7B2CBF, #9D4EDD); color: white; }
+        .analytics-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            overflow: hidden;
+        }
+        .analytics-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.25rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .analytics-title { font-weight: 700; font-size: 1rem; }
+        .analytics-grid { display: flex; gap: 1rem; }
+        .analytics-grid > * { flex: 1; min-width: 0; }
+        @media (max-width: 768px) { 
+            .analytics-grid { gap: 0.5rem; } 
+            .analytics-card { padding: 0.75rem 0.5rem; }
+            .analytics-card-value { font-size: 1.5rem; min-height: 2rem; }
+            .analytics-card-label { font-size: 0.6rem; letter-spacing: 0; }
+            .tier-badge { padding: 0.25rem 0.4rem; font-size: 0.65rem; }
+            .tier-count { font-size: 0.8rem; }
+        }
+        @media (max-width: 480px) { 
+            .analytics-grid { gap: 0.375rem; } 
+            .analytics-card { padding: 0.5rem 0.25rem; }
+            .analytics-card-value { font-size: 1.25rem; min-height: 1.75rem; }
+            .analytics-card-label { font-size: 0.5rem; }
+            .tier-badge { padding: 0.15rem 0.25rem; font-size: 0.5rem; }
+            .tier-count { font-size: 0.6rem; }
+        }
+        .analytics-card {
+            background: var(--bg-input);
+            border-radius: 12px;
+            padding: 1rem;
+            text-align: center;
+        }
+        .analytics-card-value { font-size: 1.75rem; font-weight: 800; margin-bottom: 0.25rem; color: var(--gold); min-height: 2.25rem; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 0.25rem; }
+        .analytics-card-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; }
+        .league-bar-container { margin-bottom: 0.5rem; }
+        .league-bar-header { display: flex; justify-content: space-between; margin-bottom: 0.25rem; font-size: 0.75rem; }
+        .league-bar-name { font-weight: 600; }
+        .league-bar-count { color: var(--text-muted); }
+        .league-bar { height: 8px; background: var(--bg-dark); border-radius: 4px; overflow: hidden; }
+        .league-bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s ease; }
+        .league-bar-fill.nba { background: var(--nba); }
+        .league-bar-fill.cbb { background: var(--cbb); }
+        .league-bar-fill.nfl { background: var(--nfl); }
+        .league-bar-fill.cfb { background: var(--cfb); }
+        .league-bar-fill.nhl { background: var(--nhl); }
+        .tier-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.375rem 0.625rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .tier-badge.elite { background: rgba(255, 215, 0, 0.25); color: #FFD700; box-shadow: 0 0 10px rgba(255, 215, 0, 0.3); }
+        .tier-badge.strong { background: rgba(157, 78, 221, 0.25); color: #E0B0FF; }
+        .tier-badge.standard { background: rgba(123, 44, 191, 0.2); color: var(--accent); }
         
-        /* Mobile */
-        @media (max-width: 640px) {
-            .metrics { grid-template-columns: repeat(2, 1fr); }
-            .stats { grid-template-columns: repeat(2, 1fr); }
-            .away-fav-badge {
-                position: static;
-                display: inline-block;
-                margin-bottom: 12px;
+        /* Injury Indicators */
+        .injury-indicator { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.7rem; padding: 0.15rem 0.4rem; border-radius: 4px; margin-left: 0.5rem; }
+        .injury-indicator.major { background: rgba(220, 20, 60, 0.2); color: #FF6B6B; }
+        .injury-indicator.minor { background: rgba(255, 193, 7, 0.2); color: #FFD93D; }
+        .injury-indicator.clean { background: rgba(80, 200, 120, 0.15); color: #50C878; }
+        .injury-indicator.rotowire { border: 1px solid rgba(123, 44, 191, 0.3); }
+        .injury-indicator.espn { border: 1px solid rgba(220, 20, 60, 0.3); }
+        .lineup-status { font-size: 0.65rem; color: var(--text-muted); margin-top: 0.25rem; }
+        .lineup-status.confirmed { color: #50C878; }
+        
+        /* Edge Visualization Bar */
+        .edge-bar-container { margin-top: 0.25rem; }
+        .edge-bar { height: 6px; background: var(--bg-dark); border-radius: 3px; overflow: hidden; width: 100%; max-width: 80px; }
+        .edge-bar-fill { height: 100%; border-radius: 3px; transition: width 0.3s ease; }
+        .edge-bar-fill.low { background: linear-gradient(90deg, #6B7280, #9CA3AF); }
+        .edge-bar-fill.medium { background: linear-gradient(90deg, #9333EA, #A855F7); }
+        .edge-bar-fill.high { background: linear-gradient(90deg, #22C55E, #4ADE80); }
+        .edge-bar-fill.elite { background: linear-gradient(90deg, #FFD700, #FFEC8B); box-shadow: 0 0 8px rgba(255, 215, 0, 0.5); }
+        
+        /* Confidence Stars */
+        .confidence-stars { display: inline-flex; gap: 1px; margin-left: 0.5rem; }
+        .confidence-stars .star { font-size: 0.65rem; }
+        .confidence-stars .star.filled { color: #FFD700; }
+        .confidence-stars .star.empty { color: #3D3D5C; }
+        
+        /* B2B Badge */
+        .b2b-badge { font-size: 0.6rem; padding: 0.1rem 0.3rem; background: rgba(255, 107, 107, 0.2); color: #FF6B6B; border-radius: 3px; margin-left: 0.25rem; }
+        .tier-count { font-weight: 800; font-size: 1rem; }
+        .direction-chip { padding: 0.25rem 0.5rem; border-radius: 4px; font-weight: 700; font-size: 0.75rem; white-space: nowrap; flex-shrink: 0; }
+        .direction-chip.over { background: rgba(0, 230, 118, 0.2); color: #00E676; }
+        .direction-chip.under { background: rgba(255, 82, 82, 0.2); color: #FF5252; }
+        .direction-chip.spread-chip { font-size: 0.7rem; }
+        .top-pick-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.8rem;
+        }
+        .top-pick-row:last-child { border-bottom: none; }
+        .top-pick-matchup { font-weight: 500; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .top-pick-edge { font-weight: 700; color: #FFD700; flex-shrink: 0; }
+        .ev-badge { padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.65rem; font-weight: 600; flex-shrink: 0; }
+        .ev-badge.positive { background: rgba(0, 230, 118, 0.2); color: #00E676; }
+        .ev-badge.negative { background: rgba(255, 82, 82, 0.2); color: #FF5252; }
+        .btn-clear {
+            background: transparent;
+            border: 1px solid var(--red);
+            color: var(--red);
+            font-size: 0.75rem;
+            padding: 0.25rem 0.625rem;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+        .btn-clear:hover { background: rgba(255, 77, 79, 0.1); color: var(--red); }
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-muted);
+        }
+        .empty-state i { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .thresholds-badge {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            padding: 0.375rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        @media (max-width: 768px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .breakdown-section { min-width: 100px; padding: 0.375rem 0.5rem; }
+            .breakdown-title { font-size: 0.55rem; }
+            .breakdown-row { font-size: 0.7rem; }
+            .pick-chip { font-size: 0.65rem; padding: 0.25rem 0.5rem; }
+            .lock-hero { padding: 1rem; }
+            .lock-matchup { font-size: 1.25rem; }
+            .lock-pick { font-size: 1.5rem; }
+            .pick-odds { font-size: 0.6em; padding: 2px 6px; }
+            .header-section { padding: 1rem 0; }
+            .date-display { font-size: 1.25rem; }
+            .stat-pill { padding: 0.375rem 0.75rem; }
+            .stat-pill .value { font-size: 1.125rem; }
+            .stat-pill .label { font-size: 0.75rem; }
+            .game-card { padding: 1rem; }
+            .game-card .row { gap: 0.5rem; flex-direction: column; }
+            .game-card .col-md-3, .game-card .col-md-4 { width: 100%; }
+            .matchup { font-size: 0.9rem; }
+            .header-buttons { display: none; }
+            .mobile-action-bar { display: flex; }
+            body { padding-bottom: 80px; }
+            .row.mt-4 { flex-direction: column; }
+            .col-md-6 { width: 100%; margin-bottom: 1rem; }
+            .top-pick-row > div:last-child > div:last-child { grid-template-columns: 80px 60px 40px 50px !important; gap: 0.25rem !important; }
+            .direction-chip { font-size: 0.6rem !important; padding: 0.15rem 0.3rem !important; }
+            .elite-picks-container { grid-template-columns: 1fr !important; }
+            .section-header { flex-direction: column; align-items: flex-start !important; gap: 0.5rem; }
+        }
+        @media (max-width: 480px) {
+            .container { padding-left: 0.75rem; padding-right: 0.75rem; }
+            .header { padding: 0.75rem; }
+            .brand { font-size: 1rem; }
+            .nav-links a { font-size: 0.7rem; padding: 0.35rem 0.6rem; }
+            .header-actions { flex-wrap: wrap; gap: 0.5rem; }
+            .game-card .col-md-3, .game-card .col-md-2, .game-card .col-md-1 { 
+                flex: 0 0 100%; width: 100%; 
             }
+            .game-card .row { flex-direction: column; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+            .stat-item { padding: 0.25rem; }
+            .stat-label { font-size: 0.625rem; }
+            .stat-value { font-size: 0.875rem; }
+            .lock-hero { padding: 0.875rem; }
+            .lock-hero > div { flex-direction: column !important; align-items: flex-start !important; gap: 0.75rem !important; }
+            .lock-hero .text-center { text-align: left !important; order: 2; }
+            .lock-hero .pick-container { order: 3; align-items: flex-start !important; width: 100%; }
+            .lock-pick { font-size: 1.25rem !important; }
+            .lock-matchup { font-size: 1.1rem !important; }
+            .lock-edge-top { font-size: 0.8rem; }
+            .lock-badge { font-size: 0.7rem; padding: 0.25rem 0.5rem; }
+            .stat-pill { padding: 0.25rem 0.5rem; }
+            .stat-pill .value { font-size: 1rem; }
+            .stat-pill .label { font-size: 0.65rem; }
+            .date-display { font-size: 1.1rem; }
+            .d-flex.gap-3.align-items-center { flex-wrap: wrap; gap: 0.5rem !important; }
+            .top-pick-row { padding: 0.5rem !important; }
+            .top-pick-row > div:last-child > div:last-child { grid-template-columns: 70px 50px 35px 45px !important; gap: 0.2rem !important; }
+            .direction-chip { font-size: 0.55rem !important; padding: 0.1rem 0.25rem !important; }
+            .confidence-stars { font-size: 0.6rem !important; }
+            .confidence-stars .star { font-size: 0.55rem !important; }
+            .d-flex.gap-4 { flex-direction: column; gap: 0.5rem !important; }
+            .breakdown-section { width: 100%; }
+        }
+        .mobile-action-bar {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--bg-card);
+            border-top: 1px solid var(--border);
+            padding: 0.75rem 1rem;
+            gap: 0.75rem;
+            z-index: 1000;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
+        }
+        .mobile-action-bar .btn-fetch,
+        .mobile-action-bar .btn-discord {
+            flex: 1;
+            justify-content: center;
+            padding: 0.75rem 1rem;
+            font-size: 0.9rem;
+        }
+        .header-buttons { display: flex; gap: 0.5rem; }
+        .skeleton {
+            background: linear-gradient(90deg, var(--bg-input) 25%, var(--bg-card) 50%, var(--bg-input) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: 8px;
+        }
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(9, 12, 18, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+        .loading-overlay.active { display: flex; }
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid var(--border);
+            border-top-color: var(--gold);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* Skeleton Loading */
+        .skeleton {
+            background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-input) 50%, var(--bg-card) 75%);
+            background-size: 200% 100%;
+            animation: skeleton-shimmer 1.5s infinite;
+            border-radius: 8px;
+        }
+        @keyframes skeleton-shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        .skeleton-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .skeleton-title { height: 24px; width: 60%; margin-bottom: 12px; }
+        .skeleton-subtitle { height: 16px; width: 40%; margin-bottom: 20px; }
+        .skeleton-pick { height: 32px; width: 50%; }
+        .skeleton-badge { height: 28px; width: 80px; border-radius: 20px; display: inline-block; margin-right: 8px; }
+        
+        /* Offline indicator */
+        .offline-banner {
+            background: linear-gradient(135deg, #DC143C 0%, #8B0000 100%);
+            color: white;
+            text-align: center;
+            padding: 8px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            display: none;
+        }
+        .offline-banner.show { display: block; }
+        .offline-badge {
+            background: rgba(220, 20, 60, 0.2);
+            color: #DC143C;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: 10px;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Header -->
-        <div class="header">
-            <h1>⚡ Ultra-Fast Totals Calculator</h1>
-            <p>NO Injury Checks • 30-Game Samples • 2 Models Only</p>
-        </div>
-        
-        <!-- Stats -->
-        <div class="stats">
-            <div class="stat">
-                <div class="stat-label">Games Today</div>
-                <div class="stat-value">{{ stats.total }}</div>
-            </div>
-            <div class="stat">
-                <div class="stat-label">Totals Qualified</div>
-                <div class="stat-value">{{ stats.qualified }}</div>
-            </div>
-            <div class="stat">
-                <div class="stat-label">Away Fav O/U</div>
-                <div class="stat-value" style="color: #f59e0b;">{{ stats.away_fav }}</div>
-            </div>
-            <div class="stat">
-                <div class="stat-label">Saved</div>
-                <div class="stat-value" style="color: #3b82f6;">{{ stats.saved }}</div>
-            </div>
-        </div>
-        
-        <!-- MAIN TOTALS MODEL -->
-        <h2 class="section-title">📊 Totals Model</h2>
-        
-        {% if totals_picks %}
-            {% for game in totals_picks %}
-            <div class="game {{ game.confidence_tier }}">
-                <!-- Away Favorite Badge (if applicable) -->
-                {% if game.is_away_fav_model %}
-                <div class="away-fav-badge">⭐ AWAY FAV</div>
-                {% endif %}
-                
-                <div class="game-header">
-                    <div>
-                        <div class="teams">{{ game.away_team }} @ {{ game.home_team }}</div>
-                        <div style="font-size: 12px; color: #64748b;">{{ game.game_time }} • {{ game.league }}</div>
-                    </div>
-                    <div class="tier-badge">{{ game.confidence_tier }}</div>
-                </div>
-                
-                <div class="pick">
-                    <div class="pick-direction">{{ game.direction }}</div>
-                    <div class="pick-line">{{ game.line }}</div>
-                </div>
-                
-                <div class="metrics">
-                    <div class="metric">
-                        <div class="metric-label">Edge</div>
-                        <div class="metric-value good">{{ "%.1f"|format(game.true_edge) }}</div>
-                    </div>
-                    <div class="metric">
-                        <div class="metric-label">Proj</div>
-                        <div class="metric-value">{{ "%.1f"|format(game.projected_total) }}</div>
-                    </div>
-                    <div class="metric">
-                        <div class="metric-label">History</div>
-                        <div class="metric-value good">{{ "%.0f%%"|format(game.away_ou_pct or game.home_ou_pct or 0) }}</div>
-                    </div>
-                    <div class="metric">
-                        <div class="metric-label">Units</div>
-                        <div class="metric-value">{{ game.recommended_units }}</div>
-                    </div>
-                </div>
-                
-                <button 
-                    class="btn" 
-                    onclick="savePick({{ game.id }})"
-                    {% if (game.away_team + '_' + game.home_team) in saved_ids %}disabled{% endif %}>
-                    {% if (game.away_team + '_' + game.home_team) in saved_ids %}
-                        ✓ Saved
-                    {% else %}
-                        Save Pick
-                    {% endif %}
-                </button>
-            </div>
-            {% endfor %}
-        {% else %}
-            <div class="empty">
-                <h3>No Totals Picks</h3>
-                <p>Waiting for odds fetch</p>
-            </div>
-        {% endif %}
-        
-        <!-- AWAY FAVORITE O/U MODEL -->
-        {% if away_fav_picks and away_fav_picks|length > 0 %}
-        <h2 class="section-title away-fav">⭐ Away Favorite O/U Model</h2>
-        
-        {% for game in away_fav_picks %}
-        <div class="game {{ game.confidence_tier }}">
-            <div class="away-fav-badge">⭐ AWAY FAV</div>
-            
-            <div class="game-header">
-                <div>
-                    <div class="teams">{{ game.away_team }} @ {{ game.home_team }}</div>
-                    <div style="font-size: 12px; color: #64748b;">{{ game.game_time }} • {{ game.league }}</div>
-                </div>
-                <div class="tier-badge">{{ game.confidence_tier }}</div>
-            </div>
-            
-            <div class="pick">
-                <div class="pick-direction">{{ game.direction }}</div>
-                <div class="pick-line">{{ game.line }}</div>
-            </div>
-            
-            <div class="metrics">
-                <div class="metric">
-                    <div class="metric-label">Edge</div>
-                    <div class="metric-value good">{{ "%.1f"|format(game.true_edge) }}</div>
-                </div>
-                <div class="metric">
-                    <div class="metric-label">Spread</div>
-                    <div class="metric-value">{{ "%.1f"|format(game.away_spread) }}</div>
-                </div>
-                <div class="metric">
-                    <div class="metric-label">History</div>
-                    <div class="metric-value good">{{ "%.0f%%"|format(game.away_ou_pct or 0) }}</div>
-                </div>
-                <div class="metric">
-                    <div class="metric-label">Units</div>
-                    <div class="metric-value">{{ game.recommended_units }}</div>
-                </div>
-            </div>
-            
-            <button 
-                class="btn" 
-                onclick="savePick({{ game.id }})"
-                {% if (game.away_team + '_' + game.home_team) in saved_ids %}disabled{% endif %}>
-                {% if (game.away_team + '_' + game.home_team) in saved_ids %}
-                    ✓ Saved
-                {% else %}
-                    Save Pick
-                {% endif %}
-            </button>
-        </div>
-        {% endfor %}
-        {% endif %}
+    <div class="offline-banner" id="offlineBanner">
+        <i class="bi bi-wifi-off"></i> You're offline - showing cached picks
+    </div>
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
     </div>
     
+    <header class="header">
+        <a href="/" class="brand">
+            <i class="bi bi-lock-fill"></i>
+            730's Locks
+        </a>
+        <nav class="nav-links">
+            <a href="/" class="active">Dashboard</a>
+            <a href="/bankroll">Bankroll</a>
+            <a href="/history">History</a>
+        </nav>
+    </header>
+
+    <div class="header-section">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div>
+                    <div class="date-display" id="current-date">{{ today.strftime('%B %d, %Y') }}</div>
+                    <div class="text-muted"><span id="games-count">{{ total_games }}</span> games loaded</div>
+                </div>
+                <div class="d-flex gap-3 align-items-center">
+                    <div class="stat-pill qualified">
+                        <span class="value">{{ qualified|length }}</span>
+                        <span class="label">Qualified Picks</span>
+                    </div>
+                    <div class="stat-pill">
+                        <span class="value">{{ total_games }}</span>
+                        <span class="label">Games Today</span>
+                    </div>
+                </div>
+                <div class="d-flex gap-2 header-buttons">
+                    <button class="btn-fetch" onclick="fetchGames()">
+                        <i class="bi bi-arrow-repeat"></i> Fetch Games
+                    </button>
+                    <button class="btn-discord" {% if not qualified %}disabled{% endif %} onclick="postDiscord()">
+                        <i class="bi bi-discord"></i> Post to Discord
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container py-4">
+        {% if supermax_lock %}
+        <div class="lock-hero">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div class="d-flex flex-column align-items-start">
+                    <div class="lock-edge-top mb-1">
+                        EDGE {{ "%.1f"|format(supermax_lock.edge) }} PTS
+                    </div>
+                    <span class="lock-badge"><i class="bi bi-lightning-charge-fill"></i> SUPERMAX</span>
+                    <span class="badge mt-1" style="background: var(--bg-card); color: var(--text-muted); font-size: 0.7rem; padding: 0.25rem 0.5rem;">{{ supermax_lock.league }}</span>
+                </div>
+                <div class="text-center flex-grow-1">
+                    <div class="lock-matchup">{{ supermax_lock.away_team }} @ {{ supermax_lock.home_team }}</div>
+                    <div class="game-time">{{ supermax_lock.game_time }}</div>
+                </div>
+                <div class="pick-container">
+                    <div class="lock-pick {% if supermax_lock.direction == 'U' %}under{% endif %}">
+                        {% if supermax_lock.alt_total_line %}
+                        {{ supermax_lock.direction }}{{ supermax_lock.alt_total_line }}{% if supermax_lock.alt_total_odds %} <span class="pick-odds">{{ supermax_lock.alt_total_odds }}</span>{% endif %}
+                        {% else %}
+                        {{ supermax_lock.direction }}{{ supermax_lock.line }}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="analytics-section">
+            <div class="analytics-header">
+                <div class="analytics-title"><i class="bi bi-graph-up-arrow"></i> Edge Analysis</div>
+                <form action="/clear_games" method="post" class="d-inline">
+                    <button type="submit" class="btn-clear" onclick="return confirm('Clear all games?')">
+                        <i class="bi bi-trash"></i> Reset
+                    </button>
+                </form>
+            </div>
+            
+            <div class="analytics-grid" style="grid-template-columns: 1fr 1fr;">
+                <div class="analytics-card">
+                    <div class="analytics-card-value" style="color: var(--green);">{{ "%.1f"|format(analytics.avg_edge) if analytics.avg_edge else '0.0' }}</div>
+                    <div class="analytics-card-label">Avg Edge</div>
+                </div>
+                <div class="analytics-card">
+                    <div class="analytics-card-value" style="color: var(--gold);">{{ "%.1f"|format(analytics.best_edge) if analytics.best_edge else '0.0' }}</div>
+                    <div class="analytics-card-label">Best Edge</div>
+                </div>
+            </div>
+            
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <div class="mb-2" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">LEAGUE BREAKDOWN</div>
+                    {% for league in ['NBA', 'CBB', 'NFL', 'CFB', 'NHL'] %}
+                    {% set data = analytics.league_breakdown.get(league, {'total': 0, 'qualified': 0}) %}
+                    {% if data.total > 0 %}
+                    <div class="league-bar-container">
+                        <div class="league-bar-header">
+                            <span class="league-bar-name">{{ league }}</span>
+                            <span class="league-bar-count">{{ data.qualified }}/{{ data.total }} qualified</span>
+                        </div>
+                        <div class="league-bar">
+                            <div class="league-bar-fill {{ league|lower }}" style="width: {{ (data.qualified / data.total * 100) if data.total > 0 else 0 }}%"></div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                    {% if total_games == 0 %}
+                    <div class="text-muted" style="font-size: 0.8rem;">No games loaded yet</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-2" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">TOP 5 PICKS</div>
+                    <div class="top5-container" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                    {% for pick in analytics.top_picks %}
+                    <div class="top-pick-row" style="display: grid; grid-template-columns: 36px 1fr; gap: 0.5rem; padding: 0.6rem 0.75rem; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border);">
+                        <span class="badge" style="font-size: 0.6rem; background: var(--bg-input); color: var(--text-muted); padding: 0.2rem 0.4rem; text-align: center; align-self: start; margin-top: 2px;">{{ pick.game.league }}</span>
+                        <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                                <span style="font-size: 0.8rem; font-weight: 600; color: var(--text);">{{ pick.game.away_team }} @ {{ pick.game.home_team }}</span>
+                                {% if pick.edge >= 10 %}<span class="badge" style="background: linear-gradient(135deg, #9D4EDD, #7C3AED); color: white; font-size: 0.5rem; padding: 0.1rem 0.3rem; font-weight: 700;">ELITE</span>{% endif %}
+                                {% if pick.is_away_favorite %}<span class="badge" style="background: rgba(255, 215, 0, 0.2); color: var(--gold); font-size: 0.5rem; padding: 0.1rem 0.3rem;">AWAY FAV</span>{% endif %}
+                            </div>
+                            <div style="display: grid; grid-template-columns: 90px 75px 50px 60px; align-items: center; gap: 0.5rem;">
+                                <span class="direction-chip {% if pick.direction == 'O' %}over{% else %}under{% endif %}" style="font-size: 0.7rem; padding: 0.2rem 0.4rem; font-weight: 600; text-align: center;">
+                                    {{ pick.direction }}{{ "%.1f"|format(pick.alt_line if pick.alt_line else pick.line) }}{% if pick.game.alt_total_odds %} ({{ pick.game.alt_total_odds }}){% endif %}
+                                </span>
+                                <span style="color: var(--green); font-weight: 700; font-size: 0.75rem;">+{{ "%.1f"|format(pick.edge) }}</span>
+                                <div class="edge-bar" title="Edge: {{ '%.1f'|format(pick.edge) }}" style="width: 40px; height: 6px; background: var(--bg-input); border-radius: 3px; overflow: hidden;">
+                                    {% set edge_pct = [[(pick.edge / 15 * 100), 100]|min, 0]|max %}
+                                    {% set edge_class = 'elite' if pick.edge >= 10 else ('medium' if pick.edge >= 8 else 'low') %}
+                                    <div class="edge-bar-fill {{ edge_class }}" style="width: {{ edge_pct }}%; height: 100%;"></div>
+                                </div>
+                                <span class="confidence-stars" style="font-size: 0.7rem;">
+                                    {% set stars = 5 if pick.edge >= 12 else (4 if pick.edge >= 10 else (3 if pick.edge >= 8 else 2)) %}
+                                    {% for i in range(5) %}<span class="star {% if i < stars %}filled{% else %}empty{% endif %}">★</span>{% endfor %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    </div>
+                    {% if not analytics.top_picks %}
+                    <div class="text-muted" style="font-size: 0.8rem;">No qualified picks yet</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="section-header">
+            <div class="d-flex align-items-center gap-3">
+                <h5 class="mb-0"><i class="bi bi-trophy-fill" style="color: var(--gold);"></i> All Qualified Picks</h5>
+            </div>
+            <span class="text-muted" style="font-size: 0.8rem;">Picks that meet edge thresholds</span>
+        </div>
+
+        {% set leagues = ['NBA', 'CBB', 'NFL', 'CFB', 'NHL'] %}
+        {% set time_windows = {'EARLY': '🌅 Early Games (before 1pm)', 'MID': '☀️ Afternoon Games (1-6pm)', 'LATE': '🌙 Evening Games (after 6pm)'} %}
+        {% for league in leagues %}
+            {% set all_league_games = games|selectattr('league', 'equalto', league)|list %}
+            {% set league_games = all_league_games|selectattr('is_qualified')|list %}
+            {% if league_games|length > 0 %}
+            <div class="league-section league-{{ league|lower }}">
+                <div class="league-header">
+                    {% set logo_paths = {'NBA': '/i/teamlogos/leagues/500/nba.png', 'CBB': '/i/espn/misc_logos/500/ncaa.png', 'NFL': '/i/teamlogos/leagues/500/nfl.png', 'CFB': '/i/espn/misc_logos/500/ncaa.png', 'NHL': '/i/teamlogos/leagues/500/nhl.png'} %}
+                    <img src="https://a.espncdn.com/combiner/i?img={{ logo_paths[league] }}&w=100" class="league-logo" alt="{{ league }}">
+                    <div>
+                        <div class="league-title">{{ {'NBA': 'NBA Basketball', 'CBB': 'College Basketball', 'NFL': 'NFL Football', 'CFB': 'College Football', 'NHL': 'NHL Hockey'}[league] }}</div>
+                        <div class="league-count">{{ league_games|length }} qualified pick{% if league_games|length != 1 %}s{% endif %}</div>
+                    </div>
+                </div>
+                
+                {% if is_big_slate %}
+                {% for window in ['EARLY', 'MID', 'LATE'] %}
+                {% set window_games = league_games|selectattr('time_window', 'equalto', window)|list %}
+                {% if window_games|length > 0 %}
+                <div class="time-slot-header" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 1rem; background: linear-gradient(90deg, rgba(255,215,0,0.1) 0%, transparent 100%); border-left: 3px solid var(--gold); margin: 0.75rem 0 0.5rem 0; border-radius: 0 8px 8px 0;">
+                    <span style="font-size: 1rem;">{{ time_windows[window].split(' ')[0] }}</span>
+                    <span style="font-weight: 600; color: var(--gold); font-size: 0.9rem;">{{ time_windows[window].split(' ', 1)[1] }}</span>
+                    <span style="color: var(--text-muted); font-size: 0.8rem; margin-left: auto;">{{ window_games|length }} game{% if window_games|length != 1 %}s{% endif %}</span>
+                </div>
+                {% for game in window_games %}
+                <div class="game-card game-row {% if game.is_qualified %}qualified{% endif %} {% if supermax_lock and game.id == supermax_lock.id %}lock-card{% endif %}" data-away="{{ game.away_team }}" data-home="{{ game.home_team }}">
+                    <div class="row align-items-center">
+                        <div class="col-md-3">
+                            <div class="matchup">
+                                {{ game.away_team }} @ {{ game.home_team }}
+                                {% set game_edge = game.alt_edge if game.alt_edge else game.edge %}
+                                {% if game_edge and game_edge >= 10 %}<span class="elite-badge" style="background: linear-gradient(135deg, #9D4EDD, #7C3AED); color: white; font-size: 0.55rem; font-weight: 700; padding: 0.15rem 0.4rem; border-radius: 4px; margin-left: 0.3rem;">ELITE</span>{% endif %}
+                                {% if game.is_away_favorite %}<span class="away-fav-badge" style="background: rgba(255, 215, 0, 0.2); color: var(--gold); font-size: 0.55rem; font-weight: 600; padding: 0.15rem 0.4rem; border-radius: 4px; margin-left: 0.3rem;">AWAY FAV</span>{% endif %}
+                                {% if game.is_back_to_back_away or game.is_back_to_back_home %}<span class="b2b-badge" title="Back-to-back game">B2B</span>{% endif %}
+                            </div>
+                            <div class="game-time">{{ game.game_time }}</div>
+                            <div class="live-score" style="display:none; margin-top:0.5rem; font-size:0.875rem; color:#21C55D;"></div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stats-grid">
+                                <div class="stat-item">
+                                    <div class="stat-label">Away PPG</div>
+                                    <div class="stat-value">{{ "%.1f"|format(game.away_ppg) if game.away_ppg else '-' }}</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">Away Opp</div>
+                                    <div class="stat-value">{{ "%.1f"|format(game.away_opp_ppg) if game.away_opp_ppg else '-' }}</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">Home PPG</div>
+                                    <div class="stat-value">{{ "%.1f"|format(game.home_ppg) if game.home_ppg else '-' }}</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">Home Opp</div>
+                                    <div class="stat-value">{{ "%.1f"|format(game.home_opp_ppg) if game.home_opp_ppg else '-' }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="d-flex gap-4">
+                                <div class="breakdown-section">
+                                    <div class="breakdown-title">TOTALS</div>
+                                    {% if game.line %}
+                                    <div class="breakdown-row">
+                                        <span class="breakdown-label">Line</span>
+                                        <span class="breakdown-value">{{ "%.1f"|format(game.alt_total_line if game.alt_total_line else game.line) }}</span>
+                                    </div>
+                                    <div class="breakdown-row">
+                                        <span class="breakdown-label">Proj</span>
+                                        <span class="breakdown-value">{{ "%.1f"|format(game.projected_total) if game.projected_total else '-' }}</span>
+                                    </div>
+                                    <div class="breakdown-row">
+                                        <span class="breakdown-label">Edge</span>
+                                        <span class="breakdown-value {% if game.is_qualified %}high{% endif %}">{{ "%.1f"|format(game.alt_edge if game.alt_edge else game.edge) if (game.alt_edge or game.edge) else '-' }}</span>
+                                    </div>
+                                    {% if game.is_qualified %}
+                                    <span class="pick-chip {% if game.direction == 'O' %}over{% else %}under{% endif %}">{{ game.direction }}{{ game.alt_total_line if game.alt_total_line else game.line }}{% if game.alt_total_odds %} ({{ game.alt_total_odds }}){% endif %}</span>
+                                    {% else %}
+                                    <span class="pick-chip no-bet">NO BET</span>
+                                    {% endif %}
+                                    {% else %}
+                                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 80px; color: var(--text-muted); font-size: 0.75rem;">
+                                        <i class="bi bi-exclamation-circle" style="font-size: 1.25rem; margin-bottom: 0.25rem; opacity: 0.5;"></i>
+                                        <span>NO LINES</span>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% if game.is_qualified %}
+                            <div class="sharp-metrics">
+                                {% if game.true_edge %}<span class="sharp-metric"><strong>True:</strong> {{ "%.1f"|format(game.true_edge) }}</span>{% endif %}
+                                {% if game.total_ev %}<span class="sharp-metric"><strong>EV:</strong> <span class="{{ 'positive' if game.total_ev > 0 else 'negative' }}">{{ "%.2f"|format(game.total_ev) }}%</span></span>{% endif %}
+                                {% if game.kelly_fraction %}<span class="sharp-metric"><strong>Kelly:</strong> {{ "%.1f"|format(game.kelly_fraction * 100) }}%</span>{% endif %}
+                                {% if game.vig_percentage %}<span class="sharp-metric"><strong>Vig:</strong> {{ "%.1f"|format(game.vig_percentage) }}%</span>{% endif %}
+                                {% if game.market_shade and game.market_shade != 'BALANCED' %}<span class="sharp-metric"><span class="shade">⚠️ {{ game.market_shade }}</span></span>{% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-1 text-end">
+                            <form action="/delete_game/{{ game.id }}" method="post" class="d-inline">
+                                <button type="submit" class="btn-delete" onclick="return confirm('Delete?')">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                {% endif %}
+                {% endfor %}
+                {% else %}
+                {% for game in league_games %}
+                <div class="game-card game-row {% if game.is_qualified %}qualified{% endif %} {% if lock and game.id == lock.id %}lock-card{% endif %}" data-away="{{ game.away_team }}" data-home="{{ game.home_team }}">
+                    <div class="row align-items-center">
+                        <div class="col-md-3">
+                            <div class="matchup">
+                                {{ game.away_team }} @ {{ game.home_team }}
+                                {% set game_edge = game.alt_edge if game.alt_edge else game.edge %}
+                                {% if game_edge and game_edge >= 10 %}<span class="elite-badge" style="background: linear-gradient(135deg, #9D4EDD, #7C3AED); color: white; font-size: 0.55rem; font-weight: 700; padding: 0.15rem 0.4rem; border-radius: 4px; margin-left: 0.3rem;">ELITE</span>{% endif %}
+                                {% if game.is_away_favorite %}<span class="away-fav-badge" style="background: rgba(255, 215, 0, 0.2); color: var(--gold); font-size: 0.55rem; font-weight: 600; padding: 0.15rem 0.4rem; border-radius: 4px; margin-left: 0.3rem;">AWAY FAV</span>{% endif %}
+                                {% if game.is_back_to_back_away or game.is_back_to_back_home %}<span class="b2b-badge" title="Back-to-back game">B2B</span>{% endif %}
+                            </div>
+                            <div class="game-time">{{ game.game_time }}</div>
+                            <div class="live-score" style="display:none; margin-top:0.5rem; font-size:0.875rem; color:#21C55D;"></div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stats-grid">
+                                <div class="stat-item">
+                                    <div class="stat-label">Away PPG</div>
+                                    <div class="stat-value">{{ "%.1f"|format(game.away_ppg) if game.away_ppg else '-' }}</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">Away Opp</div>
+                                    <div class="stat-value">{{ "%.1f"|format(game.away_opp_ppg) if game.away_opp_ppg else '-' }}</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">Home PPG</div>
+                                    <div class="stat-value">{{ "%.1f"|format(game.home_ppg) if game.home_ppg else '-' }}</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">Home Opp</div>
+                                    <div class="stat-value">{{ "%.1f"|format(game.home_opp_ppg) if game.home_opp_ppg else '-' }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="d-flex gap-4">
+                                <div class="breakdown-section">
+                                    <div class="breakdown-title">TOTALS</div>
+                                    {% if game.line %}
+                                    <div class="breakdown-row">
+                                        <span class="breakdown-label">Line</span>
+                                        <span class="breakdown-value">{{ "%.1f"|format(game.alt_total_line if game.alt_total_line else game.line) }}</span>
+                                    </div>
+                                    <div class="breakdown-row">
+                                        <span class="breakdown-label">Proj</span>
+                                        <span class="breakdown-value">{{ "%.1f"|format(game.projected_total) if game.projected_total else '-' }}</span>
+                                    </div>
+                                    <div class="breakdown-row">
+                                        <span class="breakdown-label">Edge</span>
+                                        <span class="breakdown-value {% if game.is_qualified %}high{% endif %}">{{ "%.1f"|format(game.alt_edge if game.alt_edge else game.edge) if (game.alt_edge or game.edge) else '-' }}</span>
+                                    </div>
+                                    {% if game.is_qualified %}
+                                    <span class="pick-chip {% if game.direction == 'O' %}over{% else %}under{% endif %}">{{ game.direction }}{{ game.alt_total_line if game.alt_total_line else game.line }}{% if game.alt_total_odds %} ({{ game.alt_total_odds }}){% endif %}</span>
+                                    {% else %}
+                                    <span class="pick-chip no-bet">NO BET</span>
+                                    {% endif %}
+                                    {% else %}
+                                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 80px; color: var(--text-muted); font-size: 0.75rem;">
+                                        <i class="bi bi-exclamation-circle" style="font-size: 1.25rem; margin-bottom: 0.25rem; opacity: 0.5;"></i>
+                                        <span>NO LINES</span>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% if game.is_qualified %}
+                            <div class="sharp-metrics">
+                                {% if game.true_edge %}<span class="sharp-metric"><strong>True:</strong> {{ "%.1f"|format(game.true_edge) }}</span>{% endif %}
+                                {% if game.total_ev %}<span class="sharp-metric"><strong>EV:</strong> <span class="{{ 'positive' if game.total_ev > 0 else 'negative' }}">{{ "%.2f"|format(game.total_ev) }}%</span></span>{% endif %}
+                                {% if game.kelly_fraction %}<span class="sharp-metric"><strong>Kelly:</strong> {{ "%.1f"|format(game.kelly_fraction * 100) }}%</span>{% endif %}
+                                {% if game.vig_percentage %}<span class="sharp-metric"><strong>Vig:</strong> {{ "%.1f"|format(game.vig_percentage) }}%</span>{% endif %}
+                                {% if game.market_shade and game.market_shade != 'BALANCED' %}<span class="sharp-metric"><span class="shade">⚠️ {{ game.market_shade }}</span></span>{% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-1 text-end">
+                            <form action="/delete_game/{{ game.id }}" method="post" class="d-inline">
+                                <button type="submit" class="btn-delete" onclick="return confirm('Delete?')">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                {% endif %}
+            </div>
+            {% endif %}
+        {% endfor %}
+
+        {% if not games %}
+        <div class="empty-state">
+            <i class="bi bi-calendar-x"></i>
+            <h5>No games loaded</h5>
+            <p>Click "Fetch Games" to load today's games and betting lines.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        function savePick(id) {
-            fetch(`/save_pick/${id}`, { method: 'POST' })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Pick saved!');
-                    location.reload();
-                } else {
-                    alert('Error: ' + data.error);
-                }
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => console.log('Service Worker registered'))
+                    .catch(err => console.log('Service Worker registration failed:', err));
             });
         }
     </script>
+    <script>
+        let lastDate = new Date().toDateString();
+        
+        function formatDate(date) {
+            const months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                          'July', 'August', 'September', 'October', 'November', 'December'];
+            return `${months[date.getMonth()]} ${String(date.getDate()).padStart(2, '0')}, ${date.getFullYear()}`;
+        }
+        
+        function checkDateChange() {
+            const currentDate = new Date().toDateString();
+            if (currentDate !== lastDate) {
+                lastDate = currentDate;
+                document.getElementById('current-date').textContent = formatDate(new Date());
+                location.reload();
+            }
+        }
+        
+        function autoRefreshData() {
+            fetch('/api/status')
+            .then(r => r.json())
+            .then(data => {
+                if (data.games_changed) {
+                    location.reload();
+                }
+            })
+            .catch(() => {});
+        }
+        
+        setInterval(checkDateChange, 60000);
+        setInterval(autoRefreshData, 300000);
+        
+        function fetchLiveScores() {
+            fetch('/api/live_scores')
+            .then(r => r.json())
+            .then(data => {
+                if (data.count > 0) {
+                    document.querySelectorAll('.game-row').forEach(row => {
+                        const awayTeam = row.dataset.away;
+                        const homeTeam = row.dataset.home;
+                        const key = `${awayTeam}@${homeTeam}`;
+                        const scoreData = data.live_scores[key];
+                        if (scoreData) {
+                            const liveEl = row.querySelector('.live-score');
+                            if (liveEl) {
+                                liveEl.innerHTML = `<span class="badge bg-danger me-2">LIVE</span>${scoreData.away_score}-${scoreData.home_score} (${scoreData.total}) ${scoreData.period} ${scoreData.clock}`;
+                                liveEl.style.display = 'block';
+                            }
+                        }
+                    });
+                }
+            })
+            .catch(() => {});
+        }
+        
+        setInterval(fetchLiveScores, 30000);
+        fetchLiveScores();
+        
+        if ('Notification' in window && 'serviceWorker' in navigator) {
+            Notification.requestPermission();
+        }
+        
+        function sendNotification(title, body) {
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification(title, { body: body, icon: '/static/icon-512.png' });
+            }
+        }
+        
+        function updateLine(gameId, value) {
+            fetch(`/update_line/${gameId}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({line: value})
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) location.reload();
+            });
+        }
+
+        function showLoading() {
+            document.getElementById('loadingOverlay').classList.add('active');
+        }
+        
+        function hideLoading() {
+            document.getElementById('loadingOverlay').classList.remove('active');
+        }
+
+        function hapticFeedback() {
+            if ('vibrate' in navigator) navigator.vibrate(10);
+        }
+        
+        // Offline mode detection
+        let isOffline = !navigator.onLine;
+        
+        function updateOfflineStatus() {
+            isOffline = !navigator.onLine;
+            const banner = document.getElementById('offlineBanner');
+            if (banner) {
+                if (isOffline) {
+                    banner.classList.add('show');
+                } else {
+                    banner.classList.remove('show');
+                }
+            }
+        }
+        
+        window.addEventListener('online', updateOfflineStatus);
+        window.addEventListener('offline', updateOfflineStatus);
+        document.addEventListener('DOMContentLoaded', updateOfflineStatus);
+        
+        function fetchGames() {
+            hapticFeedback();
+            const btn = event.target.closest('button');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Loading...';
+            showLoading();
+            
+            fetch('/fetch_games', {method: 'POST'})
+            .then(r => r.json())
+            .then(data => {
+                window.location.href = '/';
+            })
+            .catch(() => hideLoading());
+        }
+
+        function fetchOdds() {
+            const btn = event.target.closest('button');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Loading...';
+            showLoading();
+            
+            fetch('/fetch_odds', {method: 'POST'})
+            .then(r => r.json())
+            .then(data => {
+                hideLoading();
+                if (data.success) {
+                    window.location.href = '/?qualified=1';
+                } else {
+                    alert(data.message || 'Failed to fetch odds');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-currency-dollar"></i> Fetch Odds';
+                }
+            });
+        }
+
+        function postDiscord() {
+            const btn = event.target.closest('button');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Posting...';
+            
+            fetch('/post_discord', {method: 'POST'})
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`Posted ${data.picks_count} picks to Discord!`);
+                    sendNotification("730's Locks", `${data.picks_count} picks posted to Discord!`);
+                } else {
+                    alert(data.message || 'Failed to post');
+                }
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-discord"></i> Post to Discord';
+            });
+        }
+    </script>
+    
+    <div class="mobile-action-bar">
+        <button class="btn-fetch" onclick="fetchGames()">
+            <i class="bi bi-arrow-repeat"></i> Fetch
+        </button>
+        <button class="btn-discord" {% if not qualified %}disabled{% endif %} onclick="postDiscord()">
+            <i class="bi bi-discord"></i> Discord
+        </button>
+    </div>
 </body>
 </html>
