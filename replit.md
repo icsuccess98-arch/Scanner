@@ -94,6 +94,12 @@ This project develops and manages trading systems including a Sports Betting Cal
 -   **Real-Time Updates**: Auto-refresh every 30 seconds when panel is open
 -   **Toggle Button**: Click "Line Movement" button to show/hide the tracker
 
+### Sharp Betting Improvements (Jan 2026)
+-   **Pinnacle Edge Comparison**: Calculate edge vs Pinnacle fair line (true sharp market) not just Bovada
+-   **Steam Alert Integration**: Game model tracks steam_alert flag for rapid line movements
+-   **Increased MIN_GAMES**: NBA=20, NHL=15, NFL/CFB=6 for 95% statistical confidence
+-   **Pinnacle Fair Line**: Stored for each game to show true market value
+
 ### Feature Specifications
 -   **Sports Scanner**: Fetches NBA, CBB, NFL, CFB, NHL games, stats, and odds to identify qualified TOTALS picks.
 

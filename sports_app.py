@@ -314,11 +314,11 @@ class GameConstants:
     # Minimum games for analysis by league
     # CBB requires 15+ games due to small sample sizes early season
     MIN_GAMES = {
-        "NBA": 8,
-        "CBB": 15,  # Higher threshold - many CBB teams have unreliable early-season stats
-        "NFL": 4,
-        "CFB": 4,
-        "NHL": 8
+        "NBA": 20,   # Increased from 8 - need ~20 for 95% statistical confidence
+        "CBB": 15,   # Higher threshold - many CBB teams have unreliable early-season stats
+        "NFL": 6,    # Increased from 4 - max practical in-season
+        "CFB": 6,    # Increased from 4 - max practical in-season
+        "NHL": 15    # Increased from 8 - more games for reliable patterns
     }
     MIN_GAMES_DEFAULT = 5
     
@@ -4023,6 +4023,11 @@ class Game(db.Model):
     is_back_to_back_home = db.Column(db.Boolean, default=False)
     travel_distance = db.Column(db.Float)
     situational_adjustment = db.Column(db.Float, default=0.0)
+    # Steam move and Pinnacle edge tracking (Jan 2026)
+    steam_alert = db.Column(db.Boolean, default=False)  # True if line moved >1.5 pts in <15 min
+    pinnacle_edge = db.Column(db.Float)  # Edge vs Pinnacle fair line (true market)
+    fair_line = db.Column(db.Float)  # Pinnacle-derived fair line
+    market_balance = db.Column(db.String(20))  # OVER_SHADED, UNDER_SHADED, BALANCED
     
     __table_args__ = (
         db.Index('idx_date_league', 'date', 'league'),
@@ -7132,8 +7137,24 @@ def fetch_odds_internal() -> dict:
                                         
                                         game.edge = edge
                                         
+                                        # PINNACLE EDGE: Calculate edge vs Pinnacle fair line (TRUE market)
+                                        # Sharps use Pinnacle as the benchmark; Bovada is soft
+                                        pinnacle_edge = None
+                                        pinnacle_fair_line = None
+                                        if pinn_over_odds and pinn_under_odds:
+                                            # Calculate Pinnacle fair line (vig-free)
+                                            pinnacle_fair_line = VigRemover.calculate_fair_line_totals(line, pinn_over_odds, pinn_under_odds)
+                                            if pinnacle_fair_line:
+                                                pinnacle_edge = abs(proj_total - pinnacle_fair_line)
+                                                game.pinnacle_edge = round(pinnacle_edge, 2)
+                                                logger.debug(
+                                                    f"{game.away_team} @ {game.home_team}: "
+                                                    f"Bovada edge={edge:.1f}, Pinnacle edge={pinnacle_edge:.1f}, "
+                                                    f"Bovada line={line}, Pinnacle fair={pinnacle_fair_line:.1f}"
+                                                )
+                                        
                                         # Store metrics for display
-                                        game.fair_line = VigRemover.calculate_fair_line_totals(line, over_odds, under_odds)
+                                        game.fair_line = pinnacle_fair_line or VigRemover.calculate_fair_line_totals(line, over_odds, under_odds)
                                         game.vig_percentage = round(vig_data['vig_pct'], 2)
                                         game.market_balance = 'OVER_SHADED' if vig_data['prob_a'] > 0.54 else ('UNDER_SHADED' if vig_data['prob_a'] < 0.46 else 'BALANCED')
                                         game.total_ev = qual_result.ev_pct
@@ -7159,7 +7180,7 @@ def fetch_odds_internal() -> dict:
                                                             not injury_disqualified and
                                                             not sample_size_disqualified)
                                         
-                                        # Track line movement for qualified picks
+                                        # Track line movement for qualified picks + STEAM ALERTS
                                         if game.is_qualified and line:
                                             try:
                                                 from services.line_movement_realtime import get_line_movement_service
@@ -7171,6 +7192,17 @@ def fetch_odds_internal() -> dict:
                                                     line, 
                                                     f"{game.away_team} @ {game.home_team}"
                                                 )
+                                                
+                                                # Check for steam alerts (>1.5 pts in <15 min)
+                                                alerts = lm_service.get_recent_alerts()
+                                                for alert in alerts:
+                                                    if alert.get('game_id') == str(game.id) and alert.get('alert_type') == 'steam_move':
+                                                        game.steam_alert = True
+                                                        logger.warning(
+                                                            f"STEAM ALERT: {game.away_team} @ {game.home_team} "
+                                                            f"line moved {alert.get('movement', 0):+.1f} pts in <15 min"
+                                                        )
+                                                        break
                                             except Exception as lm_err:
                                                 logger.debug(f"Line movement tracking error: {lm_err}")
                                         
