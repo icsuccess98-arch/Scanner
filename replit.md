@@ -43,9 +43,9 @@ This project develops and manages trading systems including a Sports Betting Cal
     -   **Bet Direction (BINARY)**:
         -   OVER: If `Projected_Total >= Bovada_Line + Threshold`
         -   UNDER: If `Bovada_Line >= Projected_Total + Threshold`
-    -   **Qualification Requirements**: Edge threshold + Direction set + No star player injuries
+    -   **Qualification Requirements**: Edge threshold + Direction set
     -   **Historical O/U Performance**: Uses last 15 games O/U hit rate to strengthen picks
-    -   **Injury Disqualification**: Uses RotoWire to check star player injuries
+    -   **Unit Sizing**: Simple units based on edge (3u for 12+, 2u for 10-12, 1u for 8-10, 0.5u for lower)
     -   **SUPERMAX**: Highest absolute edge across all qualified TOTALS picks
     -   **TOP 5 Ranking**: Sorted by EDGE only (highest edge = best pick)
     -   **Star Ratings**: Based on edge only (5★ for 12+, 4★ for 10+, 3★ for 8+, 2★ otherwise)
@@ -57,14 +57,17 @@ This project develops and manages trading systems including a Sports Betting Cal
 -   **Performance Optimizations**:
     -   **Database Indexes**: Composite indexes on Game model for fast queries.
     -   **Dashboard Caching**: 30-second TTL cache with thread-safe locking.
-    -   **Parallel Processing**: ThreadPoolExecutor for batch injury checks.
     -   **Response Compression**: Flask-Compress for gzip/deflate compression.
 
 ### Code Optimization (Jan 2026)
--   **Spread Code Removed**: All spread-related processing logic removed (334 lines)
+-   **Spread Code Removed**: All spread-related processing logic removed
 -   **1H ML Model Removed**: Model 4 (NBA 1st half moneyline) completely removed
--   **File Size**: Reduced from 9066 to 8732 lines
--   **Focus**: Pure TOTALS (Over/Under) functionality only
+-   **RotoWire/Injury Code Removed**: All injury scraping and checking removed for speed
+-   **Kelly Criterion Replaced**: Simple units system (3u/2u/1u/0.5u based on edge)
+-   **File Size**: Reduced to 8,095 lines
+-   **Focus**: Pure TOTALS (Over/Under) functionality only with two models:
+    1. **Totals Model**: Standard O/U picks with edge thresholds
+    2. **Away Favorite O/U Model**: Games where away team is favorite AND meets O/U threshold
 
 ### Feature Specifications
 -   **Sports Scanner**: Fetches NBA, CBB, NFL, CFB, NHL games, stats, and odds to identify qualified TOTALS picks.
@@ -74,6 +77,5 @@ This project develops and manages trading systems including a Sports Betting Cal
     -   ESPN API (team statistics, schedules)
     -   Bovada (betting lines via The Odds API)
     -   The Odds API (alternate lines)
-    -   RotoWire.com (injury reports)
 -   **Communication**:
     -   Discord Webhooks (automated notifications)
