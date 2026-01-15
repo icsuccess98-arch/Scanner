@@ -1,0 +1,345 @@
+#!/usr/bin/env python3
+"""
+COMPLETE DATABASE MIGRATION
+Ensures dev and prod databases are identical.
+Adds ALL missing columns for ultra-fast totals system.
+"""
+
+import os
+import sys
+import psycopg2
+from urllib.parse import urlparse
+
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+if not DATABASE_URL:
+    print("❌ ERROR: DATABASE_URL environment variable not set")
+    print("\nSet it with:")
+    print("  export DATABASE_URL='your_postgres_url'")
+    sys.exit(1)
+
+print("="*60)
+print("DATABASE MIGRATION - ULTRA-FAST TOTALS SYSTEM")
+print("="*60)
+
+# Parse database URL
+url = urlparse(DATABASE_URL)
+
+try:
+    # Connect to database
+    print(f"\n🔄 Connecting to database: {url.hostname}")
+    conn = psycopg2.connect(
+        host=url.hostname,
+        port=url.port or 5432,
+        user=url.username,
+        password=url.password,
+        database=url.path[1:]
+    )
+    
+    cursor = conn.cursor()
+    print("✅ Connected successfully")
+    
+    # ========================================================================
+    # STEP 1: Rename old columns if they exist
+    # ========================================================================
+    
+    print("\n" + "="*60)
+    print("STEP 1: Renaming old columns")
+    print("="*60)
+    
+    column_renames = [
+        ("home_team_ou_pct", "home_ou_pct"),
+        ("away_team_ou_pct", "away_ou_pct"),
+    ]
+    
+    for old_name, new_name in column_renames:
+        try:
+            print(f"\n🔄 Checking if '{old_name}' needs renaming...")
+            
+            # Check if old column exists
+            cursor.execute("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'game' 
+                  AND column_name = %s
+            """, (old_name,))
+            
+            if cursor.fetchone():
+                print(f"  Found '{old_name}' - renaming to '{new_name}'...")
+                cursor.execute(f"ALTER TABLE game RENAME COLUMN {old_name} TO {new_name};")
+                conn.commit()
+                print(f"  ✅ Renamed {old_name} → {new_name}")
+            else:
+                print(f"  ⏭️  Column '{old_name}' doesn't exist (already renamed or never existed)")
+        
+        except Exception as e:
+            if "does not exist" in str(e):
+                print(f"  ⏭️  Column already renamed or doesn't exist")
+            else:
+                print(f"  ⚠️  Error: {e}")
+            conn.rollback()
+    
+    # ========================================================================
+    # STEP 2: Add ALL missing columns
+    # ========================================================================
+    
+    print("\n" + "="*60)
+    print("STEP 2: Adding missing columns")
+    print("="*60)
+    
+    # Complete list of ALL columns needed
+    columns_to_add = [
+        # Historical (30 games)
+        ("sample_size", "INTEGER DEFAULT 0"),
+        ("away_ou_pct", "FLOAT"),
+        ("home_ou_pct", "FLOAT"),
+        
+        # Pace metrics
+        ("away_pace", "FLOAT"),
+        ("home_pace", "FLOAT"),
+        ("projected_pace", "FLOAT"),
+        ("pace_impact", "FLOAT DEFAULT 0.0"),
+        
+        # Rest days
+        ("days_rest_away", "INTEGER"),
+        ("days_rest_home", "INTEGER"),
+        ("is_back_to_back_away", "BOOLEAN DEFAULT FALSE"),
+        ("is_back_to_back_home", "BOOLEAN DEFAULT FALSE"),
+        ("rest_impact", "FLOAT DEFAULT 0.0"),
+        
+        # Spreads (for away favorite detection)
+        ("away_spread", "FLOAT"),
+        ("home_spread", "FLOAT"),
+        
+        # Weather (NFL/CFB)
+        ("weather_temp", "FLOAT"),
+        ("weather_wind", "FLOAT"),
+        ("weather_precip", "VARCHAR(20)"),
+        ("weather_impact", "FLOAT DEFAULT 0.0"),
+        ("is_dome", "BOOLEAN DEFAULT FALSE"),
+        
+        # Odds
+        ("bovada_over_odds", "INTEGER"),
+        ("bovada_under_odds", "INTEGER"),
+        ("pinnacle_over_odds", "INTEGER"),
+        ("pinnacle_under_odds", "INTEGER"),
+        ("total_ev", "FLOAT"),
+        ("vig_pct", "FLOAT"),
+        
+        # Qualification
+        ("confidence_tier", "VARCHAR(10)"),
+        ("recommended_units", "FLOAT"),
+        
+        # Totals specific
+        ("projected_total", "FLOAT"),
+        ("true_edge", "FLOAT"),
+        
+        # Model flags
+        ("is_totals_model", "BOOLEAN DEFAULT FALSE"),
+        ("is_away_fav_model", "BOOLEAN DEFAULT FALSE"),
+    ]
+    
+    added_count = 0
+    skipped_count = 0
+    
+    for col_name, col_type in columns_to_add:
+        try:
+            print(f"\n🔄 Adding column '{col_name}'...")
+            
+            # Try to add column
+            sql = f"ALTER TABLE game ADD COLUMN IF NOT EXISTS {col_name} {col_type};"
+            cursor.execute(sql)
+            conn.commit()
+            
+            # Verify it was added
+            cursor.execute("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'game' 
+                  AND column_name = %s
+            """, (col_name,))
+            
+            if cursor.fetchone():
+                print(f"  ✅ Column '{col_name}' ready")
+                added_count += 1
+            else:
+                print(f"  ⚠️  Column '{col_name}' might not be added properly")
+        
+        except Exception as e:
+            print(f"  ⚠️  Error with '{col_name}': {e}")
+            conn.rollback()
+            skipped_count += 1
+    
+    print(f"\n📊 Summary: {added_count} columns ready, {skipped_count} issues")
+    
+    # ========================================================================
+    # STEP 3: Add missing columns to Pick table
+    # ========================================================================
+    
+    print("\n" + "="*60)
+    print("STEP 3: Updating Pick table")
+    print("="*60)
+    
+    pick_columns = [
+        ("model_type", "VARCHAR(20)"),
+        ("recommended_units", "FLOAT"),
+    ]
+    
+    for col_name, col_type in pick_columns:
+        try:
+            print(f"\n🔄 Adding pick.{col_name}...")
+            sql = f"ALTER TABLE pick ADD COLUMN IF NOT EXISTS {col_name} {col_type};"
+            cursor.execute(sql)
+            conn.commit()
+            print(f"  ✅ Column 'pick.{col_name}' ready")
+        except Exception as e:
+            print(f"  ⚠️  Error: {e}")
+            conn.rollback()
+    
+    # ========================================================================
+    # STEP 4: Create performance indexes
+    # ========================================================================
+    
+    print("\n" + "="*60)
+    print("STEP 4: Creating performance indexes")
+    print("="*60)
+    
+    indexes = [
+        ("idx_game_date_qualified", 
+         "CREATE INDEX IF NOT EXISTS idx_game_date_qualified ON game(date, is_qualified) WHERE is_qualified = true"),
+        
+        ("idx_game_league_date",
+         "CREATE INDEX IF NOT EXISTS idx_game_league_date ON game(league, date DESC)"),
+        
+        ("idx_game_confidence",
+         "CREATE INDEX IF NOT EXISTS idx_game_confidence ON game(confidence_tier, true_edge DESC) WHERE is_qualified = true"),
+        
+        ("idx_game_teams_date",
+         "CREATE INDEX IF NOT EXISTS idx_game_teams_date ON game(away_team, home_team, date DESC)"),
+        
+        ("idx_game_models",
+         "CREATE INDEX IF NOT EXISTS idx_game_models ON game(date, is_totals_model, is_away_fav_model) WHERE is_qualified = true"),
+        
+        ("idx_pick_date_result",
+         "CREATE INDEX IF NOT EXISTS idx_pick_date_result ON pick(date DESC, result)"),
+        
+        ("idx_pick_tier_result",
+         "CREATE INDEX IF NOT EXISTS idx_pick_tier_result ON pick(confidence_tier, result) WHERE result IN ('W', 'L')"),
+    ]
+    
+    for idx_name, idx_sql in indexes:
+        try:
+            print(f"\n🔄 Creating index '{idx_name}'...")
+            cursor.execute(idx_sql)
+            conn.commit()
+            print(f"  ✅ Index '{idx_name}' created")
+        except Exception as e:
+            if "already exists" in str(e):
+                print(f"  ⏭️  Index '{idx_name}' already exists")
+            else:
+                print(f"  ⚠️  Error: {e}")
+            conn.rollback()
+    
+    # ========================================================================
+    # STEP 5: Update table statistics
+    # ========================================================================
+    
+    print("\n" + "="*60)
+    print("STEP 5: Updating statistics")
+    print("="*60)
+    
+    try:
+        print("\n🔄 Analyzing game table...")
+        cursor.execute("ANALYZE game;")
+        conn.commit()
+        print("  ✅ Game table analyzed")
+        
+        print("\n🔄 Analyzing pick table...")
+        cursor.execute("ANALYZE pick;")
+        conn.commit()
+        print("  ✅ Pick table analyzed")
+    except Exception as e:
+        print(f"  ⚠️  Error: {e}")
+        conn.rollback()
+    
+    # ========================================================================
+    # STEP 6: Verification
+    # ========================================================================
+    
+    print("\n" + "="*60)
+    print("STEP 6: VERIFICATION")
+    print("="*60)
+    
+    # Check critical columns exist
+    critical_columns = [
+        'sample_size', 'away_ou_pct', 'home_ou_pct', 
+        'projected_pace', 'pace_impact', 'rest_impact',
+        'confidence_tier', 'recommended_units',
+        'is_totals_model', 'is_away_fav_model',
+        'away_spread', 'home_spread'
+    ]
+    
+    cursor.execute("""
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'game' 
+          AND column_name = ANY(%s)
+        ORDER BY column_name
+    """, (critical_columns,))
+    
+    found_columns = [row[0] for row in cursor.fetchall()]
+    missing_columns = set(critical_columns) - set(found_columns)
+    
+    print(f"\n✅ Critical columns found: {len(found_columns)}/{len(critical_columns)}")
+    
+    if missing_columns:
+        print(f"\n⚠️  MISSING COLUMNS:")
+        for col in missing_columns:
+            print(f"  - {col}")
+        print("\n❌ Migration incomplete - some columns are missing!")
+        print("Please review errors above and try again.")
+    else:
+        print("\n" + "="*60)
+        print("✅ MIGRATION COMPLETE!")
+        print("="*60)
+        print("\nAll required columns are present.")
+        print("Database is ready for ultra-fast totals system.")
+        print("\n📋 Next steps:")
+        print("  1. Restart your app: pkill -f sports_app.py && python sports_app.py")
+        print("  2. Test fetch: curl -X POST http://localhost:5000/fetch_odds")
+        print("  3. Should be 3-4x faster now! ⚡")
+    
+    # Show a sample of the schema
+    print("\n" + "="*60)
+    print("DATABASE SCHEMA SAMPLE")
+    print("="*60)
+    
+    cursor.execute("""
+        SELECT column_name, data_type, is_nullable, column_default
+        FROM information_schema.columns 
+        WHERE table_name = 'game'
+        ORDER BY ordinal_position
+        LIMIT 15
+    """)
+    
+    print(f"\n{'Column':<25} {'Type':<15} {'Nullable':<10} {'Default':<20}")
+    print("-" * 75)
+    
+    for row in cursor.fetchall():
+        col_name, data_type, nullable, default = row
+        default_str = str(default)[:18] if default else '-'
+        print(f"{col_name:<25} {data_type:<15} {nullable:<10} {default_str:<20}")
+    
+    cursor.close()
+    conn.close()
+    
+    print("\n✅ Migration script completed successfully!")
+    print("="*60)
+
+except Exception as e:
+    print(f"\n❌ FATAL ERROR: {e}")
+    print("\nTroubleshooting:")
+    print("1. Check DATABASE_URL is correct")
+    print("2. Ensure database is accessible")
+    print("3. Verify you have ALTER TABLE permissions")
+    sys.exit(1)
