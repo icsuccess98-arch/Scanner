@@ -6085,6 +6085,11 @@ def check_pick_results() -> int:
     db.session.commit()
     return results_updated
 
+@app.route('/download/sports_app')
+def download_sports_app():
+    from flask import send_file
+    return send_file('sports_app.tar.gz', as_attachment=True, download_name='sports_app.tar.gz')
+
 @app.route('/')
 def dashboard():
     et = pytz.timezone('America/New_York')
