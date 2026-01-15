@@ -36,21 +36,12 @@ from calculators import (
 )
 from services.scheduler import init_scheduler as init_background_scheduler, get_scheduler
 
-
-class QualificationStatus(Enum):
-    """
-    FOOLPROOF PICK QUALIFICATION SYSTEM
-    
-    A pick ONLY qualifies if it passes ALL checks.
-    NO EXCEPTIONS. NO PARTIAL QUALIFICATIONS.
-    """
-    FULLY_QUALIFIED = "FULLY_QUALIFIED"           # Passes ALL checks
-    EDGE_ONLY = "EDGE_ONLY"                       # Edge met, but history/EV failed
-    HISTORY_ONLY = "HISTORY_ONLY"                 # History met, but edge/EV failed
-    NEGATIVE_EV = "NEGATIVE_EV"                   # Has proven negative EV
-    INJURY_CONCERN = "INJURY_CONCERN"             # Major injury impact
-    VALIDATION_FAILED = "VALIDATION_FAILED"       # Data validation failed
-    NOT_QUALIFIED = "NOT_QUALIFIED"               # Didn't meet basic criteria
+# Import from modular core components
+from core.constants import GameConstants as CoreGameConstants, THRESHOLDS as CoreThresholds, QualificationStatus
+from core.qualification import EdgeResult, QualificationResult, ProfessionalQualifier as CoreProfessionalQualifier
+from core.qualification import validate_game_data as core_validate_game_data
+from core.edge import SharpThresholds as CoreSharpThresholds, SharpEdgeCalculator as CoreSharpEdgeCalculator
+from core.utils import TTLCache as CoreTTLCache
 
 logging.basicConfig(
     level=logging.INFO,
