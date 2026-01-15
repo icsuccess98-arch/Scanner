@@ -198,9 +198,6 @@ class RotoWireScraper:
         self._failure_count = 0
         self._circuit_open = False
         self._circuit_open_until = 0
-        self._espn_failure_count = 0
-        self._espn_circuit_open = False
-        self._espn_circuit_open_until = 0
     
     def _rate_limit(self):
         """Enforce 2-second delay between requests."""
@@ -231,25 +228,6 @@ class RotoWireScraper:
     def _record_success(self):
         """Reset failure count on success."""
         self._failure_count = max(0, self._failure_count - 1)
-    
-    def _check_espn_circuit_breaker(self) -> bool:
-        """Check if ESPN circuit breaker is open."""
-        if self._espn_circuit_open:
-            if time.time() > self._espn_circuit_open_until:
-                logger.info("ESPN circuit breaker closing, retrying ESPN")
-                self._espn_circuit_open = False
-                self._espn_failure_count = 0
-                return False
-            return True
-        return False
-    
-    def _record_espn_failure(self):
-        """Track ESPN failures for circuit breaker."""
-        self._espn_failure_count += 1
-        if self._espn_failure_count >= 3:
-            self._espn_circuit_open = True
-            self._espn_circuit_open_until = time.time() + 300
-            logger.warning("Circuit breaker OPEN - 3 consecutive ESPN failures")
     
     def _fetch_url(self, url: str, timeout: int = 15) -> Optional[BeautifulSoup]:
         """Fetch and parse URL with comprehensive error handling."""
@@ -287,31 +265,20 @@ class RotoWireScraper:
             logger.debug(f"Cache hit: {team} injuries from {source}")
             return injuries, source
         
-        rotowire_open = self._check_circuit_breaker()
-        espn_open = self._check_espn_circuit_breaker()
-        
-        if rotowire_open and espn_open:
-            logger.debug(f"Both circuit breakers open, returning empty for {team}")
-            self._cache.set(cache_key, [], 'circuit_breaker')
-            return [], 'circuit_breaker'
-        
-        if not rotowire_open:
+        if not self._check_circuit_breaker():
             injuries = self._get_injuries_rotowire(team, league)
             if injuries is not None:
                 self._cache.set(cache_key, injuries, 'rotowire')
                 logger.info(f"RotoWire: Found {len(injuries)} injuries for {team}")
                 return injuries, 'rotowire'
         
-        if not espn_open:
-            logger.info(f"Falling back to ESPN for {team} injuries")
-            injuries = self._get_injuries_espn(team, league)
-            if injuries is not None:
-                self._cache.set(cache_key, injuries, 'espn')
-                logger.info(f"ESPN: Found {len(injuries)} injuries for {team}")
-                return injuries, 'espn'
-            self._record_espn_failure()
+        logger.info(f"Falling back to ESPN for {team} injuries")
+        injuries = self._get_injuries_espn(team, league)
+        if injuries is not None:
+            self._cache.set(cache_key, injuries, 'espn')
+            logger.info(f"ESPN: Found {len(injuries)} injuries for {team}")
+            return injuries, 'espn'
         
-        self._cache.set(cache_key, [], 'failed')
         logger.warning(f"Could not fetch injuries for {team} from any source")
         return [], 'none'
     
