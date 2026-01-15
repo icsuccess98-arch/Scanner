@@ -3964,6 +3964,8 @@ class Game(db.Model):
     away_spread_pct = db.Column(db.Float)  # Away team's spread cover rate
     home_spread_pct = db.Column(db.Float)  # Home team's spread cover rate
     h2h_ou_pct = db.Column(db.Float)  # Head-to-head O/U hit rate
+    h2h_line_hit_pct = db.Column(db.Float)  # H2H hit rate against current line
+    h2h_games_found = db.Column(db.Integer)  # Number of H2H games found
     h2h_spread_pct = db.Column(db.Float)  # Head-to-head spread cover rate
     history_qualified = db.Column(db.Boolean, default=None)  # NULL = not checked, True/False = checked (for TOTALS)
     spread_history_qualified = db.Column(db.Boolean, default=None)  # Separate history qualification for SPREADS
@@ -5210,120 +5212,130 @@ def calculate_spread_cover_rate(games: list, spread_direction: str = None, curre
     
     return (covers / non_push_games) * 100
 
-def fetch_h2h_history(team1: str, team2: str, league: str, direction: str = "O") -> dict:
+def fetch_h2h_history(team1: str, team2: str, league: str, direction: str = "O", current_line: float = None) -> dict:
     """
     Fetch head-to-head history between two teams from ESPN.
     Filters each team's schedule for games against the opponent.
-    Returns: {"ou_pct": float, "games_found": int, "games": list}
+    Calculates hit rate against current line if provided.
+    Returns: {"ou_pct": float, "line_hit_pct": float, "games_found": int, "games": list}
     """
     et = pytz.timezone('America/New_York')
     today_str = datetime.now(et).strftime("%Y-%m-%d")
     cache_key = f"h2h:{today_str}:{league}:{team1.lower()}:{team2.lower()}"
     
+    cached_games = None
     if cache_key in espn_team_schedule_cache:
         cached = espn_team_schedule_cache[cache_key]
-        if cached["games_found"] >= 3:
-            return cached
-        return cached
+        cached_games = cached.get("games", [])
     
-    try:
-        sport_map = {
-            "NBA": "basketball/nba",
-            "CBB": "basketball/mens-college-basketball", 
-            "NFL": "football/nfl",
-            "CFB": "football/college-football",
-            "NHL": "hockey/nhl"
-        }
-        sport = sport_map.get(league)
-        if not sport:
-            return {"ou_pct": 0, "games_found": 0, "games": []}
-        
-        team1_id = get_espn_team_id(team1, league)
-        team2_id = get_espn_team_id(team2, league)
-        
-        if not team1_id or not team2_id:
-            logger.warning(f"H2H: Could not find ESPN IDs for {team1} or {team2}")
-            return {"ou_pct": 0, "games_found": 0, "games": []}
-        
-        url = f"https://site.api.espn.com/apis/site/v2/sports/{sport}/teams/{team1_id}/schedule"
-        resp = requests.get(url, timeout=15)
-        if resp.status_code != 200:
-            return {"ou_pct": 0, "games_found": 0, "games": []}
-        
-        events = resp.json().get("events", [])
+    h2h_games = cached_games
+    
+    if h2h_games is None:
         h2h_games = []
-        
-        for event in events:
-            status = event.get("competitions", [{}])[0].get("status", {}).get("type", {}).get("name", "")
-            if status != "STATUS_FINAL":
-                continue
+        try:
+            sport_map = {
+                "NBA": "basketball/nba",
+                "CBB": "basketball/mens-college-basketball", 
+                "NFL": "football/nfl",
+                "CFB": "football/college-football",
+                "NHL": "hockey/nhl"
+            }
+            sport = sport_map.get(league)
+            if not sport:
+                return {"ou_pct": 0, "line_hit_pct": 0, "games_found": 0, "games": []}
             
-            comps = event.get("competitions", [{}])[0]
-            competitors = comps.get("competitors", [])
-            if len(competitors) < 2:
-                continue
+            team1_id = get_espn_team_id(team1, league)
+            team2_id = get_espn_team_id(team2, league)
             
-            home_team = next((c for c in competitors if c.get("homeAway") == "home"), None)
-            away_team = next((c for c in competitors if c.get("homeAway") == "away"), None)
+            if not team1_id or not team2_id:
+                logger.warning(f"H2H: Could not find ESPN IDs for {team1} or {team2}")
+                return {"ou_pct": 0, "line_hit_pct": 0, "games_found": 0, "games": []}
             
-            if not home_team or not away_team:
-                continue
+            url = f"https://site.api.espn.com/apis/site/v2/sports/{sport}/teams/{team1_id}/schedule"
+            resp = requests.get(url, timeout=15)
+            if resp.status_code != 200:
+                return {"ou_pct": 0, "line_hit_pct": 0, "games_found": 0, "games": []}
             
-            home_id = str(home_team.get("team", {}).get("id", ""))
-            away_id = str(away_team.get("team", {}).get("id", ""))
+            events = resp.json().get("events", [])
             
-            if not ((home_id == str(team1_id) and away_id == str(team2_id)) or 
-                    (home_id == str(team2_id) and away_id == str(team1_id))):
-                continue
+            for event in events:
+                status = event.get("competitions", [{}])[0].get("status", {}).get("type", {}).get("name", "")
+                if status != "STATUS_FINAL":
+                    continue
+                
+                comps = event.get("competitions", [{}])[0]
+                competitors = comps.get("competitors", [])
+                if len(competitors) < 2:
+                    continue
+                
+                home_team = next((c for c in competitors if c.get("homeAway") == "home"), None)
+                away_team = next((c for c in competitors if c.get("homeAway") == "away"), None)
+                
+                if not home_team or not away_team:
+                    continue
+                
+                home_id = str(home_team.get("team", {}).get("id", ""))
+                away_id = str(away_team.get("team", {}).get("id", ""))
+                
+                if not ((home_id == str(team1_id) and away_id == str(team2_id)) or 
+                        (home_id == str(team2_id) and away_id == str(team1_id))):
+                    continue
+                
+                home_score_val = home_team.get("score", 0)
+                away_score_val = away_team.get("score", 0)
+                if isinstance(home_score_val, dict):
+                    home_score_val = home_score_val.get("value", 0)
+                if isinstance(away_score_val, dict):
+                    away_score_val = away_score_val.get("value", 0)
+                try:
+                    home_score = int(home_score_val) if home_score_val else 0
+                    away_score = int(away_score_val) if away_score_val else 0
+                except (ValueError, TypeError):
+                    continue
+                total_score = home_score + away_score
+                
+                h2h_games.append({
+                    "total": total_score,
+                    "home_score": home_score,
+                    "away_score": away_score,
+                    "date": event.get("date", "")
+                })
             
-            home_score_val = home_team.get("score", 0)
-            away_score_val = away_team.get("score", 0)
-            if isinstance(home_score_val, dict):
-                home_score_val = home_score_val.get("value", 0)
-            if isinstance(away_score_val, dict):
-                away_score_val = away_score_val.get("value", 0)
-            try:
-                home_score = int(home_score_val) if home_score_val else 0
-                away_score = int(away_score_val) if away_score_val else 0
-            except (ValueError, TypeError):
-                continue
-            total_score = home_score + away_score
+            h2h_games = h2h_games[-20:]
+            espn_team_schedule_cache[cache_key] = {"games": h2h_games, "games_found": len(h2h_games)}
             
-            h2h_games.append({
-                "total": total_score,
-                "home_score": home_score,
-                "away_score": away_score,
-                "date": event.get("date", "")
-            })
-        
-        h2h_games = h2h_games[-30:]
-        
-        if len(h2h_games) < 3:
-            result = {"ou_pct": 0, "games_found": len(h2h_games), "games": h2h_games}
-            espn_team_schedule_cache[cache_key] = result
-            return result
-        
-        totals = [g["total"] for g in h2h_games]
-        avg_total = sum(totals) / len(totals)
-        
-        hits = 0
+        except Exception as e:
+            logger.error(f"Error fetching H2H for {team1} vs {team2}: {e}")
+            return {"ou_pct": 0, "line_hit_pct": 0, "games_found": 0, "games": []}
+    
+    if len(h2h_games) < 3:
+        return {"ou_pct": 0, "line_hit_pct": 0, "games_found": len(h2h_games), "games": h2h_games}
+    
+    totals = [g["total"] for g in h2h_games]
+    avg_total = sum(totals) / len(totals)
+    
+    avg_hits = 0
+    for g in h2h_games:
+        if direction == "O" and g["total"] > avg_total:
+            avg_hits += 1
+        elif direction == "U" and g["total"] < avg_total:
+            avg_hits += 1
+    ou_pct = (avg_hits / len(h2h_games)) * 100
+    
+    line_hit_pct = 0
+    if current_line is not None:
+        line_hits = 0
         for g in h2h_games:
-            if direction == "O" and g["total"] > avg_total:
-                hits += 1
-            elif direction == "U" and g["total"] < avg_total:
-                hits += 1
-        
-        ou_pct = (hits / len(h2h_games)) * 100
-        
-        result = {"ou_pct": ou_pct, "games_found": len(h2h_games), "games": h2h_games}
-        espn_team_schedule_cache[cache_key] = result
-        
-        logger.info(f"H2H {team1} vs {team2}: {len(h2h_games)} games, {ou_pct:.1f}% O/U rate")
-        return result
-        
-    except Exception as e:
-        logger.error(f"Error fetching H2H for {team1} vs {team2}: {e}")
-        return {"ou_pct": 0, "games_found": 0, "games": []}
+            if direction == "O" and g["total"] > current_line:
+                line_hits += 1
+            elif direction == "U" and g["total"] < current_line:
+                line_hits += 1
+        line_hit_pct = (line_hits / len(h2h_games)) * 100
+        logger.info(f"H2H {team1} vs {team2}: {len(h2h_games)} games, line {current_line} hit {line_hit_pct:.0f}% ({line_hits}/{len(h2h_games)})")
+    else:
+        logger.info(f"H2H {team1} vs {team2}: {len(h2h_games)} games, {ou_pct:.1f}% O/U rate (no line)")
+    
+    return {"ou_pct": ou_pct, "line_hit_pct": line_hit_pct, "games_found": len(h2h_games), "games": h2h_games}
 
 def fetch_first_half_history(team: str, league: str, limit: int = 20) -> dict:
     """
@@ -5686,8 +5698,11 @@ def update_game_historical_data(game: Game) -> bool:
         if away_injuries.get("lineup_confirmed") and home_injuries.get("lineup_confirmed"):
             logger.debug(f"{game.away_team} @ {game.home_team}: Both lineups CONFIRMED (Away: {away_injuries.get('lineup_strength', 0):.0%}, Home: {home_injuries.get('lineup_strength', 0):.0%})")
         
-        h2h = fetch_h2h_history(game.away_team, game.home_team, game.league, direction)
+        current_line = game.alt_total_line if game.alt_total_line else game.line
+        h2h = fetch_h2h_history(game.away_team, game.home_team, game.league, direction, current_line)
         game.h2h_ou_pct = h2h["ou_pct"]
+        game.h2h_line_hit_pct = h2h.get("line_hit_pct", 0)
+        game.h2h_games_found = h2h["games_found"]
         h2h_games = h2h["games_found"]
         
         max_ou_pct = max(game.away_ou_pct or 0, game.home_ou_pct or 0)
@@ -5697,6 +5712,14 @@ def update_game_historical_data(game: Game) -> bool:
         totals_qualified = max_ou_pct >= 58 and sample_size >= 15
         # SUPERMAX qualification for history posting (70%+ AND 15+ games)
         totals_supermax = max_ou_pct >= 70 and sample_size >= 15
+        
+        # H2H line hit requirement: if 5+ games found, require 50%+ hit rate against current line
+        if h2h_games >= 5:
+            h2h_line_qualified = (game.h2h_line_hit_pct or 0) >= 50
+            if not h2h_line_qualified:
+                logger.info(f"{game.away_team} @ {game.home_team}: H2H line check FAILED - only {game.h2h_line_hit_pct:.0f}% hit rate on line {current_line} ({h2h_games} games)")
+            totals_qualified = totals_qualified and h2h_line_qualified
+            totals_supermax = totals_supermax and h2h_line_qualified
         
         if h2h_games >= 3:
             h2h_qualified = (game.h2h_ou_pct or 0) >= 60

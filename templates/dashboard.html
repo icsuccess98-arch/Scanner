@@ -325,6 +325,7 @@
         .breakdown-label { color: var(--text-muted); }
         .breakdown-value { font-weight: 600; }
         .breakdown-value.high { color: #FFD700; }
+        .breakdown-value.low { color: #EF4444; }
         .pick-chip.spread-pick { background: linear-gradient(135deg, var(--accent) 0%, #6B9FFF 100%); }
         .line-input {
             background: var(--bg-input);
@@ -984,6 +985,12 @@
                                         <span class="breakdown-label">Edge</span>
                                         <span class="breakdown-value {% if game.is_qualified %}high{% endif %}">{{ "%.1f"|format(game.alt_edge if game.alt_edge else game.edge) if (game.alt_edge or game.edge) else '-' }}</span>
                                     </div>
+                                    {% if game.h2h_games_found and game.h2h_games_found >= 3 %}
+                                    <div class="breakdown-row">
+                                        <span class="breakdown-label">H2H</span>
+                                        <span class="breakdown-value {% if game.h2h_line_hit_pct and game.h2h_line_hit_pct >= 50 %}high{% elif game.h2h_line_hit_pct and game.h2h_line_hit_pct < 50 %}low{% endif %}" title="Line coverage: {{ game.h2h_games_found }} games">{{ "%.0f"|format(game.h2h_line_hit_pct) if game.h2h_line_hit_pct else '0' }}%</span>
+                                    </div>
+                                    {% endif %}
                                     {% if game.is_qualified %}
                                     <span class="pick-chip {% if game.direction == 'O' %}over{% else %}under{% endif %}">{{ game.direction }}{{ game.alt_total_line if game.alt_total_line else game.line }}{% if game.alt_total_odds %} ({{ game.alt_total_odds }}){% endif %}</span>
                                     {% else %}
@@ -1068,6 +1075,12 @@
                                         <span class="breakdown-label">Edge</span>
                                         <span class="breakdown-value {% if game.is_qualified %}high{% endif %}">{{ "%.1f"|format(game.alt_edge if game.alt_edge else game.edge) if (game.alt_edge or game.edge) else '-' }}</span>
                                     </div>
+                                    {% if game.h2h_games_found and game.h2h_games_found >= 3 %}
+                                    <div class="breakdown-row">
+                                        <span class="breakdown-label">H2H</span>
+                                        <span class="breakdown-value {% if game.h2h_line_hit_pct and game.h2h_line_hit_pct >= 50 %}high{% elif game.h2h_line_hit_pct and game.h2h_line_hit_pct < 50 %}low{% endif %}" title="Line coverage: {{ game.h2h_games_found }} games">{{ "%.0f"|format(game.h2h_line_hit_pct) if game.h2h_line_hit_pct else '0' }}%</span>
+                                    </div>
+                                    {% endif %}
                                     {% if game.is_qualified %}
                                     <span class="pick-chip {% if game.direction == 'O' %}over{% else %}under{% endif %}">{{ game.direction }}{{ game.alt_total_line if game.alt_total_line else game.line }}{% if game.alt_total_odds %} ({{ game.alt_total_odds }}){% endif %}</span>
                                     {% else %}
