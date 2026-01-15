@@ -78,6 +78,22 @@ This project develops and manages trading systems including a Sports Betting Cal
 -   **File Size**: Reduced from 9066 to 8732 lines
 -   **Focus**: Pure TOTALS (Over/Under) functionality only
 
+### Modular Architecture (Jan 2026)
+-   **calculators/**: Extracted professional betting calculators (ProVigCalc, Kelly, Pace, Weather, RestDay, ConfidenceTier)
+-   **services/**: Background scheduler, line movement tracking, edge calculation
+-   **Background Scheduler**: Auto-refreshes dashboard cache every 5 minutes (no UI blocking)
+-   **Line Movement Service**: Real-time tracking with steam move alerts (>1.5 point moves in 15 min)
+
+### CBB Sample Size Filter (Jan 2026)
+-   **MIN_GAMES_PLAYED**: CBB requires 15+ games for reliable PPG statistics
+-   **Rationale**: Many CBB teams have unreliable early-season stats with <10 games
+
+### Line Movement Dashboard (Jan 2026)
+-   **Heat Map Display**: Color-coded movement indicators (green=favorable, red=unfavorable, gray=stable)
+-   **Steam Alerts**: Automatic detection of rapid line movements (>1.5 points in 15 minutes)
+-   **Real-Time Updates**: Auto-refresh every 30 seconds when panel is open
+-   **Toggle Button**: Click "Line Movement" button to show/hide the tracker
+
 ### Feature Specifications
 -   **Sports Scanner**: Fetches NBA, CBB, NFL, CFB, NHL games, stats, and odds to identify qualified TOTALS picks.
 

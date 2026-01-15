@@ -850,9 +850,41 @@
             </div>
         </div>
 
+        <!-- Line Movement Heat Map Section -->
+        <div class="analytics-card mt-3" id="lineMovementSection" style="display: none;">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="analytics-title"><i class="bi bi-activity"></i> Line Movement Tracker</div>
+                <button class="btn btn-sm" id="refreshLineMovement" style="background: var(--bg-input); border: 1px solid var(--border); color: var(--text-muted); padding: 0.25rem 0.75rem; border-radius: 8px;">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                </button>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.5rem;">STEAM ALERTS</div>
+                    <div id="lineAlerts" style="max-height: 200px; overflow-y: auto;">
+                        <div class="text-muted" style="font-size: 0.75rem;">No alerts yet - movement tracked after odds refresh</div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.5rem;">LINE MOVEMENT HEAT MAP</div>
+                    <div id="lineHeatMap" style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                        <div class="text-muted" style="font-size: 0.75rem;">Loading movement data...</div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-2" style="font-size: 0.7rem; color: var(--text-muted);">
+                <span style="display: inline-block; width: 12px; height: 12px; background: #22c55e; border-radius: 3px; margin-right: 4px;"></span> Moving your way
+                <span style="display: inline-block; width: 12px; height: 12px; background: #ef4444; border-radius: 3px; margin-left: 12px; margin-right: 4px;"></span> Moving against
+                <span style="display: inline-block; width: 12px; height: 12px; background: #94a3b8; border-radius: 3px; margin-left: 12px; margin-right: 4px;"></span> Stable
+            </div>
+        </div>
+
         <div class="section-header">
             <div class="d-flex align-items-center gap-3">
                 <h5 class="mb-0"><i class="bi bi-list-ul"></i> Qualified Picks</h5>
+                <button class="btn btn-sm" id="toggleLineMovement" style="background: var(--bg-input); border: 1px solid var(--border); color: var(--text-muted); padding: 0.25rem 0.75rem; border-radius: 8px;">
+                    <i class="bi bi-activity"></i> Line Movement
+                </button>
             </div>
         </div>
 
@@ -1230,6 +1262,102 @@
                 btn.innerHTML = '<i class="bi bi-discord"></i> Post to Discord';
             });
         }
+
+        // Line Movement Tracker Functions
+        function toggleLineMovement() {
+            const section = document.getElementById('lineMovementSection');
+            const btn = document.getElementById('toggleLineMovement');
+            if (section.style.display === 'none') {
+                section.style.display = 'block';
+                btn.style.background = 'linear-gradient(135deg, rgba(34, 197, 94, 0.2) 0%, rgba(34, 197, 94, 0.1) 100%)';
+                btn.style.borderColor = '#22c55e';
+                btn.style.color = '#22c55e';
+                fetchLineMovement();
+            } else {
+                section.style.display = 'none';
+                btn.style.background = 'var(--bg-input)';
+                btn.style.borderColor = 'var(--border)';
+                btn.style.color = 'var(--text-muted)';
+            }
+        }
+
+        function fetchLineMovement() {
+            fetch('/api/line_movement')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    renderHeatMap(data.heat_map);
+                    renderAlerts(data.alerts);
+                }
+            })
+            .catch(err => console.error('Line movement fetch error:', err));
+        }
+
+        function renderHeatMap(heatMapData) {
+            const container = document.getElementById('lineHeatMap');
+            if (!heatMapData || heatMapData.length === 0) {
+                container.innerHTML = '<div class="text-muted" style="font-size: 0.75rem;">No movement data - refresh odds to start tracking</div>';
+                return;
+            }
+            
+            container.innerHTML = heatMapData.map(game => `
+                <div class="heat-map-item" style="background: var(--bg-input); border: 1px solid ${game.color}; border-radius: 8px; padding: 0.5rem; min-width: 120px; text-align: center;">
+                    <div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.25rem;">${game.matchup}</div>
+                    <div style="font-size: 1rem; font-weight: 700; color: ${game.color};">
+                        ${game.movement > 0 ? '+' : ''}${game.movement.toFixed(1)}
+                    </div>
+                    <div style="font-size: 0.65rem; color: var(--text-muted);">
+                        ${game.opening_line} → ${game.current_line}
+                    </div>
+                    <div style="font-size: 0.6rem; margin-top: 0.25rem;">
+                        ${game.is_favorable ? '<span style="color: #22c55e;">Favorable</span>' : '<span style="color: #ef4444;">Unfavorable</span>'}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderAlerts(alerts) {
+            const container = document.getElementById('lineAlerts');
+            if (!alerts || alerts.length === 0) {
+                container.innerHTML = '<div class="text-muted" style="font-size: 0.75rem;">No steam moves detected yet</div>';
+                return;
+            }
+            
+            container.innerHTML = alerts.map(alert => `
+                <div class="alert-item" style="background: ${alert.is_favorable ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)'}; border-left: 3px solid ${alert.is_favorable ? '#22c55e' : '#ef4444'}; padding: 0.5rem; margin-bottom: 0.5rem; border-radius: 0 8px 8px 0;">
+                    <div style="font-size: 0.75rem; font-weight: 600;">${alert.matchup}</div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted);">${alert.message}</div>
+                    <div style="font-size: 0.6rem; color: var(--text-muted);">${new Date(alert.timestamp).toLocaleTimeString()}</div>
+                </div>
+            `).join('');
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            const toggleBtn = document.getElementById('toggleLineMovement');
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', toggleLineMovement);
+            }
+            
+            const refreshBtn = document.getElementById('refreshLineMovement');
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', function() {
+                    this.innerHTML = '<i class="bi bi-arrow-clockwise spin"></i> Refreshing...';
+                    fetchLineMovement();
+                    setTimeout(() => {
+                        this.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh';
+                    }, 1000);
+                });
+            }
+        });
+
+        // Auto-refresh line movement every 30 seconds if panel is open
+        setInterval(() => {
+            const section = document.getElementById('lineMovementSection');
+            if (section && section.style.display !== 'none') {
+                fetchLineMovement();
+            }
+        }, 30000);
     </script>
     
     <div class="mobile-action-bar">

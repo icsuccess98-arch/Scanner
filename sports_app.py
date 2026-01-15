@@ -29,6 +29,13 @@ from rotowire_integration import (
 )
 from rotowire_qualification import qualify_game_with_injuries, quick_injury_check
 
+# Import modular calculators and services
+from calculators import (
+    ProVigCalc, KellyCalculator, RestDayCalculator,
+    ConfidenceTierCalculator, WeatherCalculator, PaceCalculator
+)
+from services.scheduler import init_scheduler as init_background_scheduler, get_scheduler
+
 
 class QualificationStatus(Enum):
     """
@@ -122,154 +129,10 @@ def track_performance(operation: str, duration: float):
         _performance_metrics[operation] = _performance_metrics[operation][-100:]
 
 # ============================================================================
-# PROFESSIONAL CALCULATORS (20+ Years Betting Wisdom)
+# PROFESSIONAL CALCULATORS - Imported from calculators/ module
 # ============================================================================
-
-class ProVigCalc:
-    """Calculate vig and fair lines - critical for true edge."""
-    
-    @staticmethod
-    def american_to_decimal(odds: int) -> float:
-        if odds > 0:
-            return (odds / 100) + 1
-        else:
-            return (100 / abs(odds)) + 1
-    
-    @staticmethod
-    def calculate_vig_pct(over_odds: int, under_odds: int) -> float:
-        if not over_odds or not under_odds:
-            return 0.0
-        over_decimal = ProVigCalc.american_to_decimal(over_odds)
-        under_decimal = ProVigCalc.american_to_decimal(under_odds)
-        implied_over = 1 / over_decimal
-        implied_under = 1 / under_decimal
-        total_prob = implied_over + implied_under
-        vig_pct = ((total_prob - 1.0) / total_prob) * 100
-        return round(vig_pct, 2)
-
-
-class KellyCalculator:
-    """Kelly Criterion for optimal bet sizing."""
-    
-    @staticmethod
-    def calculate_kelly(win_prob: float, odds: int, fraction: float = 0.25) -> float:
-        if win_prob <= 0 or win_prob >= 1 or not odds:
-            return 0.0
-        if odds > 0:
-            decimal_odds = (odds / 100) + 1
-        else:
-            decimal_odds = (100 / abs(odds)) + 1
-        b = decimal_odds - 1
-        q = 1 - win_prob
-        kelly = ((b * win_prob) - q) / b
-        kelly = kelly * fraction
-        kelly = min(kelly, 0.05)
-        kelly = max(kelly, 0.0)
-        return round(kelly * 100, 2)
-
-
-class PaceCalculator:
-    """Pace/tempo analysis - fast pace = OVER, slow pace = UNDER."""
-    
-    LEAGUE_AVG_PACE = {'NBA': 100.0, 'CBB': 68.0, 'NFL': 64.0, 'CFB': 70.0, 'NHL': 30.0}
-    PACE_IMPACT = {'NBA': 1.5, 'CBB': 1.2, 'NFL': 0.8, 'CFB': 1.0, 'NHL': 0.5}
-    
-    @staticmethod
-    def calculate_projected_pace(away_pace: float, home_pace: float) -> float:
-        if not away_pace or not home_pace:
-            return 0.0
-        return round((away_pace * 0.4) + (home_pace * 0.6), 1)
-    
-    @staticmethod
-    def pace_impact_on_total(projected_pace: float, league: str) -> float:
-        league_avg = PaceCalculator.LEAGUE_AVG_PACE.get(league, 70.0)
-        impact_factor = PaceCalculator.PACE_IMPACT.get(league, 1.0)
-        pace_diff = projected_pace - league_avg
-        return round(pace_diff * impact_factor, 1)
-
-
-class WeatherCalculator:
-    """Weather impact for NFL/CFB outdoor games."""
-    
-    @staticmethod
-    def calculate_weather_impact(temp: float, wind: float, precip: str, is_dome: bool) -> float:
-        if is_dome:
-            return 0.0
-        impact = 0.0
-        if temp is not None:
-            if temp < 20:
-                impact -= 3.0
-            elif temp < 32:
-                impact -= 1.5
-            elif temp > 85:
-                impact -= 0.5
-        if wind is not None:
-            if wind >= 20:
-                impact -= 4.0
-            elif wind >= 15:
-                impact -= 2.0
-            elif wind >= 10:
-                impact -= 1.0
-        if precip:
-            precip_lower = precip.lower()
-            if 'snow' in precip_lower:
-                impact -= 3.0
-            elif 'rain' in precip_lower or 'storm' in precip_lower:
-                impact -= 2.0
-        return round(impact, 1)
-
-
-class RestDayCalculator:
-    """Rest day fatigue modeling - B2B kills scoring."""
-    
-    REST_IMPACT = {
-        'NBA': {'b2b': -4.0, 'one_day': -2.0, 'two_days': 0.0, 'three_plus': 1.5},
-        'NHL': {'b2b': -2.5, 'one_day': -1.0, 'two_plus': 0.0},
-        'NFL': {'thursday': -3.0, 'normal': 0.0, 'bye': 2.5},
-    }
-    
-    @staticmethod
-    def calculate_rest_impact(days_rest: int, is_b2b: bool, league: str) -> float:
-        if league not in RestDayCalculator.REST_IMPACT:
-            return 0.0
-        impacts = RestDayCalculator.REST_IMPACT[league]
-        if is_b2b:
-            return impacts.get('b2b', -2.0)
-        elif days_rest == 1:
-            return impacts.get('one_day', -1.0)
-        elif days_rest == 2:
-            return impacts.get('two_days', 0.0)
-        elif days_rest >= 3:
-            return impacts.get('three_plus', 1.0)
-        return 0.0
-
-
-class ConfidenceTierCalculator:
-    """Confidence tier based on edge, history, and EV."""
-    
-    TIERS = {
-        'ELITE': {'edge_min': 12.0, 'color': '#00ff41'},
-        'HIGH': {'edge_min': 10.0, 'color': '#4ade80'},
-        'MEDIUM': {'edge_min': 8.0, 'color': '#fbbf24'},
-        'LOW': {'edge_min': 3.0, 'color': '#f87171'}
-    }
-    
-    @staticmethod
-    def get_tier(edge: float) -> str:
-        if edge >= 12.0:
-            return 'ELITE'
-        elif edge >= 10.0:
-            return 'HIGH'
-        elif edge >= 8.0:
-            return 'MEDIUM'
-        elif edge >= 3.0:
-            return 'LOW'
-        return 'NONE'
-    
-    @staticmethod
-    def get_tier_color(tier: str) -> str:
-        return ConfidenceTierCalculator.TIERS.get(tier, {}).get('color', '#94a3b8')
-
+# ProVigCalc, KellyCalculator, RestDayCalculator, ConfidenceTierCalculator,
+# WeatherCalculator, PaceCalculator are imported at top of file from calculators/
 
 CITY_COORDS = {
     'Atlanta': (33.7490, -84.3880), 'Boston': (42.3601, -71.0589),
@@ -449,14 +312,24 @@ class GameConstants:
     }
     
     # Minimum games for analysis by league
+    # CBB requires 15+ games due to small sample sizes early season
     MIN_GAMES = {
         "NBA": 8,
-        "CBB": 8,
+        "CBB": 15,  # Higher threshold - many CBB teams have unreliable early-season stats
         "NFL": 4,
         "CFB": 4,
         "NHL": 8
     }
     MIN_GAMES_DEFAULT = 5
+    
+    # Minimum games played for PPG reliability by league
+    MIN_GAMES_PLAYED = {
+        "NBA": 5,
+        "CBB": 15,  # Critical: CBB teams need 15+ games for reliable PPG
+        "NFL": 3,
+        "CFB": 3,
+        "NHL": 5
+    }
     
     # Confidence tier thresholds
     SUPERMAX_EDGE = 12.0
@@ -7266,10 +7139,40 @@ def fetch_odds_internal() -> dict:
                                         game.total_ev = qual_result.ev_pct
                                         game.true_edge = qual_result.true_edge
                                         
-                                        # Qualify if: edge meets threshold + direction set + no star player injuries
+                                        # CBB Sample Size Filter: Require 15+ games played for reliable PPG
+                                        sample_size_disqualified = False
+                                        if league == 'CBB':
+                                            min_games_required = GameConstants.MIN_GAMES_PLAYED.get('CBB', 15)
+                                            away_games_played = getattr(game, 'away_games_played', None) or 0
+                                            home_games_played = getattr(game, 'home_games_played', None) or 0
+                                            if away_games_played < min_games_required or home_games_played < min_games_required:
+                                                sample_size_disqualified = True
+                                                logger.info(
+                                                    f"{game.away_team} @ {game.home_team}: "
+                                                    f"DISQUALIFIED - Insufficient games played "
+                                                    f"(Away: {away_games_played}, Home: {home_games_played}, Required: {min_games_required})"
+                                                )
+                                        
+                                        # Qualify if: edge meets threshold + direction set + no star player injuries + sample size met
                                         game.is_qualified = (edge >= threshold and 
                                                             game.direction is not None and 
-                                                            not injury_disqualified)
+                                                            not injury_disqualified and
+                                                            not sample_size_disqualified)
+                                        
+                                        # Track line movement for qualified picks
+                                        if game.is_qualified and line:
+                                            try:
+                                                from services.line_movement_realtime import get_line_movement_service
+                                                lm_service = get_line_movement_service()
+                                                lm_service.record_snapshot(str(game.id), league, line)
+                                                lm_service.register_pick(
+                                                    str(game.id), 
+                                                    game.direction, 
+                                                    line, 
+                                                    f"{game.away_team} @ {game.home_team}"
+                                                )
+                                            except Exception as lm_err:
+                                                logger.debug(f"Line movement tracking error: {lm_err}")
                                         
                                     lines_updated += 1
         
@@ -8931,8 +8834,187 @@ ON CONFLICT DO NOTHING;"""
     return Response('\n'.join(sql_statements), mimetype='text/plain')
 
 
+# ============================================================================
+# LINE MOVEMENT REAL-TIME ROUTES
+# ============================================================================
+
+@app.route('/api/line_movement')
+def api_line_movement():
+    """Get real-time line movement data for heat map display."""
+    try:
+        from services.line_movement_realtime import get_line_movement_service
+        service = get_line_movement_service()
+        
+        heat_map = service.get_heat_map_data()
+        alerts = service.get_recent_alerts(limit=10)
+        
+        return jsonify({
+            'success': True,
+            'heat_map': heat_map,
+            'alerts': alerts,
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        logger.error(f"Line movement API error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/line_movement/<int:game_id>')
+def api_line_movement_game(game_id):
+    """Get line movement history for a specific game."""
+    try:
+        from services.line_movement_realtime import get_line_movement_service
+        service = get_line_movement_service()
+        
+        history = service.get_movement_history(str(game_id))
+        
+        return jsonify({
+            'success': True,
+            'game_id': game_id,
+            'history': history
+        })
+    except Exception as e:
+        logger.error(f"Line movement history error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/line_alerts')
+def api_line_alerts():
+    """Get recent line movement alerts (steam moves, sharp action)."""
+    try:
+        from services.line_movement_realtime import get_line_movement_service
+        service = get_line_movement_service()
+        
+        alerts = service.get_recent_alerts(limit=20)
+        
+        return jsonify({
+            'success': True,
+            'alerts': alerts,
+            'count': len(alerts)
+        })
+    except Exception as e:
+        logger.error(f"Line alerts API error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/scheduler/status')
+def api_scheduler_status():
+    """Get background scheduler status."""
+    try:
+        from services.scheduler import get_scheduler
+        scheduler = get_scheduler()
+        
+        return jsonify({
+            'success': True,
+            'running': scheduler.is_running,
+            'jobs': scheduler.get_all_jobs()
+        })
+    except Exception as e:
+        logger.error(f"Scheduler status error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/scheduler/trigger/<job_id>', methods=['POST'])
+def api_scheduler_trigger(job_id):
+    """Manually trigger a scheduled job."""
+    try:
+        from services.scheduler import get_scheduler
+        scheduler = get_scheduler()
+        
+        if scheduler.trigger_job(job_id):
+            return jsonify({'success': True, 'message': f'Job {job_id} triggered'})
+        else:
+            return jsonify({'success': False, 'error': f'Job {job_id} not found'}), 404
+    except Exception as e:
+        logger.error(f"Scheduler trigger error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/games_played_check')
+def api_games_played_check():
+    """Check games played for CBB qualification filter."""
+    try:
+        today = date.today()
+        et = pytz.timezone("US/Eastern")
+        
+        games = Game.query.filter_by(date=today, league='CBB').all()
+        
+        min_required = GameConstants.MIN_GAMES_PLAYED.get('CBB', 15)
+        
+        results = []
+        for game in games:
+            away_check = {
+                'team': game.away_team,
+                'games_played': getattr(game, 'away_games_played', None),
+                'meets_minimum': (getattr(game, 'away_games_played', 0) or 0) >= min_required
+            }
+            home_check = {
+                'team': game.home_team,
+                'games_played': getattr(game, 'home_games_played', None),
+                'meets_minimum': (getattr(game, 'home_games_played', 0) or 0) >= min_required
+            }
+            
+            both_qualify = away_check['meets_minimum'] and home_check['meets_minimum']
+            
+            results.append({
+                'matchup': f"{game.away_team} @ {game.home_team}",
+                'away': away_check,
+                'home': home_check,
+                'qualifies_for_bet': both_qualify,
+                'current_qualification': game.is_qualified
+            })
+        
+        qualified_count = sum(1 for r in results if r['qualifies_for_bet'])
+        
+        return jsonify({
+            'success': True,
+            'league': 'CBB',
+            'min_games_required': min_required,
+            'games_checked': len(results),
+            'games_qualifying': qualified_count,
+            'details': results
+        })
+    except Exception as e:
+        logger.error(f"Games played check error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================================================
+# BACKGROUND SCHEDULER INITIALIZATION
+# ============================================================================
+
+def init_background_scheduler():
+    """Initialize background scheduler for auto-refresh."""
+    try:
+        from services.scheduler import get_scheduler
+        scheduler = get_scheduler()
+        
+        def refresh_odds_job():
+            """Background job to refresh odds every 5 minutes."""
+            try:
+                logger.info("Background refresh: Starting odds update")
+                clear_dashboard_cache()
+                logger.info("Background refresh: Dashboard cache cleared, ready for next user request")
+            except Exception as e:
+                logger.error(f"Background refresh failed: {e}")
+        
+        scheduler.add_job(
+            func=refresh_odds_job,
+            job_id='dashboard_cache_refresh',
+            interval_seconds=300,  # 5 minutes
+            run_immediately=False
+        )
+        
+        scheduler.start()
+        logger.info("Background scheduler initialized with 5-minute refresh cycle")
+        
+    except Exception as e:
+        logger.warning(f"Background scheduler initialization failed: {e}")
+
+
 with app.app_context():
     db.create_all()
+    init_background_scheduler()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
