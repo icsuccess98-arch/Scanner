@@ -559,11 +559,16 @@
             .stat-pill .value { font-size: 1.125rem; }
             .stat-pill .label { font-size: 0.75rem; }
             .game-card { padding: 1rem; }
-            .game-card .row { gap: 0.5rem; }
+            .game-card .row { gap: 0.5rem; flex-direction: column; }
+            .game-card .col-md-3, .game-card .col-md-4 { width: 100%; }
             .matchup { font-size: 0.9rem; }
             .header-buttons { display: none; }
             .mobile-action-bar { display: flex; }
             body { padding-bottom: 80px; }
+            .row.mt-4 { flex-direction: column; }
+            .col-md-6 { width: 100%; margin-bottom: 1rem; }
+            .top-pick-row > div:last-child > div:last-child { grid-template-columns: 80px 60px 40px 50px !important; gap: 0.25rem !important; }
+            .direction-chip { font-size: 0.6rem !important; padding: 0.15rem 0.3rem !important; }
         }
         @media (max-width: 480px) {
             .container { padding-left: 0.75rem; padding-right: 0.75rem; }
@@ -572,8 +577,9 @@
             .nav-links a { font-size: 0.7rem; padding: 0.35rem 0.6rem; }
             .header-actions { flex-wrap: wrap; gap: 0.5rem; }
             .game-card .col-md-3, .game-card .col-md-2, .game-card .col-md-1 { 
-                flex: 0 0 auto; width: auto; 
+                flex: 0 0 100%; width: 100%; 
             }
+            .game-card .row { flex-direction: column; }
             .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
             .stat-item { padding: 0.25rem; }
             .stat-label { font-size: 0.625rem; }
@@ -591,6 +597,13 @@
             .stat-pill .label { font-size: 0.65rem; }
             .date-display { font-size: 1.1rem; }
             .d-flex.gap-3.align-items-center { flex-wrap: wrap; gap: 0.5rem !important; }
+            .top-pick-row { padding: 0.5rem !important; }
+            .top-pick-row > div:last-child > div:last-child { grid-template-columns: 70px 50px 35px 45px !important; gap: 0.2rem !important; }
+            .direction-chip { font-size: 0.55rem !important; padding: 0.1rem 0.25rem !important; }
+            .confidence-stars { font-size: 0.6rem !important; }
+            .confidence-stars .star { font-size: 0.55rem !important; }
+            .d-flex.gap-4 { flex-direction: column; gap: 0.5rem !important; }
+            .breakdown-section { width: 100%; }
         }
         .mobile-action-bar {
             display: none;

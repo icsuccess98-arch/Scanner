@@ -228,13 +228,31 @@
         .empty-state i { font-size: 2.5rem; margin-bottom: 1rem; opacity: 0.5; color: var(--gold); }
         .empty-state h5 { color: var(--text); margin-bottom: 0.5rem; }
         
+        @media (max-width: 768px) {
+            .filter-bar { flex-direction: column; align-items: stretch !important; }
+            .filter-bar select { width: 100%; }
+            .filter-bar button { margin-left: 0 !important; width: 100%; }
+            .pick-card { padding: 0.875rem; }
+            .pick-matchup { font-size: 0.9rem; }
+            .pick-details { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+            .result-buttons { flex-wrap: wrap; }
+            .btn-result { min-width: 60px; padding: 0.6rem 0.5rem; font-size: 0.8rem; }
+        }
         @media (max-width: 480px) {
+            html, body { overflow-x: hidden; max-width: 100vw; }
             .container { padding-left: 0.75rem; padding-right: 0.75rem; }
             .header { padding: 0.75rem; }
             .brand { font-size: 1rem; }
             .nav-links a { font-size: 0.7rem; padding: 0.35rem 0.6rem; }
             .stat-value { font-size: 1.5rem; }
             .stat-card { padding: 0.75rem; }
+            .stats-row { gap: 0.5rem; }
+            .pick-header { flex-wrap: wrap; gap: 0.25rem; }
+            .pick-date { font-size: 0.7rem; }
+            .pick-league { font-size: 0.6rem; padding: 0.15rem 0.4rem; }
+            .pick-chip { font-size: 0.7rem; padding: 0.25rem 0.5rem; }
+            .pick-edge { font-size: 0.7rem; }
+            .result-badge { font-size: 0.65rem; padding: 0.2rem 0.5rem; }
         }
     </style>
 </head>
