@@ -1,0 +1,138 @@
+#!/usr/bin/env python3
+"""
+Quick database migration to fix column name mismatches.
+Run this once to fix the error.
+"""
+
+import os
+import psycopg2
+from urllib.parse import urlparse
+
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+if not DATABASE_URL:
+    print("❌ ERROR: DATABASE_URL not set")
+    exit(1)
+
+# Parse database URL
+url = urlparse(DATABASE_URL)
+
+try:
+    # Connect to database
+    conn = psycopg2.connect(
+        host=url.hostname,
+        port=url.port,
+        user=url.username,
+        password=url.password,
+        database=url.path[1:]
+    )
+    
+    cursor = conn.cursor()
+    
+    print("🔄 Applying database fixes...")
+    
+    # CRITICAL FIX: Rename columns
+    fixes = [
+        ("Renaming home_team_ou_pct → home_ou_pct", 
+         "ALTER TABLE game RENAME COLUMN home_team_ou_pct TO home_ou_pct;"),
+        
+        ("Renaming away_team_ou_pct → away_ou_pct",
+         "ALTER TABLE game RENAME COLUMN away_team_ou_pct TO away_ou_pct;"),
+    ]
+    
+    for description, sql in fixes:
+        try:
+            print(f"  {description}...")
+            cursor.execute(sql)
+            conn.commit()
+            print(f"  ✅ Done")
+        except Exception as e:
+            if "does not exist" in str(e):
+                print(f"  ⏭️  Column already renamed")
+                conn.rollback()
+            else:
+                print(f"  ⚠️  {e}")
+                conn.rollback()
+    
+    # Add missing columns
+    missing_columns = [
+        ("sample_size", "INTEGER DEFAULT 0"),
+        ("projected_pace", "FLOAT"),
+        ("pace_impact", "FLOAT DEFAULT 0.0"),
+        ("rest_impact", "FLOAT DEFAULT 0.0"),
+        ("confidence_tier", "VARCHAR(10)"),
+        ("recommended_units", "FLOAT"),
+        ("projected_total", "FLOAT"),
+        ("true_edge", "FLOAT"),
+        ("weather_temp", "FLOAT"),
+        ("weather_wind", "FLOAT"),
+        ("weather_precip", "VARCHAR(20)"),
+        ("weather_impact", "FLOAT DEFAULT 0.0"),
+        ("is_dome", "BOOLEAN DEFAULT FALSE"),
+        ("bovada_over_odds", "INTEGER"),
+        ("bovada_under_odds", "INTEGER"),
+        ("pinnacle_over_odds", "INTEGER"),
+        ("pinnacle_under_odds", "INTEGER"),
+        ("total_ev", "FLOAT"),
+        ("vig_pct", "FLOAT"),
+    ]
+    
+    print("\n🔄 Adding missing columns...")
+    for col_name, col_type in missing_columns:
+        try:
+            sql = f"ALTER TABLE game ADD COLUMN IF NOT EXISTS {col_name} {col_type};"
+            cursor.execute(sql)
+            conn.commit()
+            print(f"  ✅ Added {col_name}")
+        except Exception as e:
+            print(f"  ⏭️  {col_name} exists or error: {e}")
+            conn.rollback()
+    
+    # Add indexes
+    print("\n🔄 Creating performance indexes...")
+    indexes = [
+        "CREATE INDEX IF NOT EXISTS idx_game_date_qualified ON game(date, is_qualified) WHERE is_qualified = true;",
+        "CREATE INDEX IF NOT EXISTS idx_game_league_date ON game(league, date DESC);",
+        "CREATE INDEX IF NOT EXISTS idx_game_confidence ON game(confidence_tier, true_edge DESC) WHERE is_qualified = true;",
+        "CREATE INDEX IF NOT EXISTS idx_game_teams_date ON game(away_team, home_team, date DESC);",
+    ]
+    
+    for idx_sql in indexes:
+        try:
+            cursor.execute(idx_sql)
+            conn.commit()
+            print(f"  ✅ Index created")
+        except Exception as e:
+            print(f"  ⏭️  Index exists: {e}")
+            conn.rollback()
+    
+    # Analyze tables
+    print("\n🔄 Analyzing tables...")
+    cursor.execute("ANALYZE game;")
+    cursor.execute("ANALYZE pick;")
+    conn.commit()
+    print("  ✅ Done")
+    
+    # Verify
+    print("\n✅ Verification:")
+    cursor.execute("""
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'game' 
+          AND column_name IN ('home_ou_pct', 'away_ou_pct', 'sample_size', 
+                              'confidence_tier', 'recommended_units')
+    """)
+    cols = cursor.fetchall()
+    print(f"  Critical columns present: {len(cols)}/5")
+    
+    if len(cols) >= 5:
+        print("\n✅ DATABASE FIXED! Restart your app now.")
+    else:
+        print("\n⚠️  Some columns might still be missing. Check logs.")
+    
+    cursor.close()
+    conn.close()
+
+except Exception as e:
+    print(f"\n❌ ERROR: {e}")
+    exit(1)
