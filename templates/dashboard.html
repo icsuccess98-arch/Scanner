@@ -569,6 +569,8 @@
             .col-md-6 { width: 100%; margin-bottom: 1rem; }
             .top-pick-row > div:last-child > div:last-child { grid-template-columns: 80px 60px 40px 50px !important; gap: 0.25rem !important; }
             .direction-chip { font-size: 0.6rem !important; padding: 0.15rem 0.3rem !important; }
+            .elite-picks-container { grid-template-columns: 1fr !important; }
+            .section-header { flex-direction: column; align-items: flex-start !important; gap: 0.5rem; }
         }
         @media (max-width: 480px) {
             .container { padding-left: 0.75rem; padding-right: 0.75rem; }
@@ -860,21 +862,60 @@
             </div>
         </div>
 
+        {% set elite_picks = [] %}
+        {% for g in games if g.is_qualified and ((g.alt_edge if g.alt_edge else g.edge) or 0) >= 10 %}
+            {% set _ = elite_picks.append(g) %}
+        {% endfor %}
+        {% if elite_picks|length > 0 %}
         <div class="section-header">
             <div class="d-flex align-items-center gap-3">
-                <h5 class="mb-0"><i class="bi bi-list-ul"></i> Games</h5>
+                <h5 class="mb-0"><i class="bi bi-gem" style="color: #9D4EDD;"></i> Elite Picks</h5>
+                <span class="badge" style="background: linear-gradient(135deg, #9D4EDD, #7C3AED); color: white; font-size: 0.7rem; padding: 0.25rem 0.5rem;">{{ elite_picks|length }} ELITE</span>
             </div>
-            <div class="filter-toggle">
-                <a href="/" class="{% if not show_only_qualified %}active{% endif %}">All Games</a>
-                <a href="/?qualified=1" class="{% if show_only_qualified %}active{% endif %}">Qualified Only</a>
+            <span class="text-muted" style="font-size: 0.8rem;">Edge 10+ | Highest confidence plays</span>
+        </div>
+        
+        <div class="elite-picks-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+            {% for game in elite_picks|sort(attribute='edge', reverse=true) %}
+            <div class="elite-card" style="background: linear-gradient(135deg, rgba(157, 78, 221, 0.15), rgba(124, 58, 237, 0.1)); border: 2px solid rgba(157, 78, 221, 0.5); border-radius: 12px; padding: 1rem; position: relative; overflow: hidden;">
+                <div style="position: absolute; top: 0; right: 0; background: linear-gradient(135deg, #9D4EDD, #7C3AED); color: white; font-size: 0.65rem; font-weight: 700; padding: 0.25rem 0.75rem; border-radius: 0 10px 0 10px;">ELITE</div>
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+                    <span class="badge" style="background: var(--bg-card); color: var(--text-muted); font-size: 0.65rem; padding: 0.2rem 0.4rem;">{{ game.league }}</span>
+                    <span style="font-weight: 700; color: var(--text); font-size: 0.9rem;">{{ game.away_team }} @ {{ game.home_team }}</span>
+                </div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;">{{ game.game_time }}</div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <span class="direction-chip {% if game.direction == 'O' %}over{% else %}under{% endif %}" style="font-size: 0.8rem; padding: 0.3rem 0.6rem; font-weight: 700;">
+                            {{ game.direction }}{{ "%.1f"|format(game.alt_total_line if game.alt_total_line else game.line) }}{% if game.alt_total_odds %} ({{ game.alt_total_odds }}){% endif %}
+                        </span>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="color: #9D4EDD; font-weight: 800; font-size: 1.25rem;">+{{ "%.1f"|format(game.alt_edge if game.alt_edge else game.edge) }}</div>
+                        <div style="font-size: 0.7rem; color: var(--text-muted);">EDGE</div>
+                    </div>
+                </div>
+                <div style="margin-top: 0.5rem;">
+                    {% set stars = 5 if (game.alt_edge if game.alt_edge else game.edge) >= 12 else 4 %}
+                    <span class="confidence-stars" style="font-size: 0.8rem;">{% for i in range(5) %}<span class="star {% if i < stars %}filled{% else %}empty{% endif %}">★</span>{% endfor %}</span>
+                </div>
             </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="section-header">
+            <div class="d-flex align-items-center gap-3">
+                <h5 class="mb-0"><i class="bi bi-trophy-fill" style="color: var(--gold);"></i> All Qualified Picks</h5>
+            </div>
+            <span class="text-muted" style="font-size: 0.8rem;">Picks that meet edge thresholds</span>
         </div>
 
         {% set leagues = ['NBA', 'CBB', 'NFL', 'CFB', 'NHL'] %}
         {% set time_windows = {'EARLY': '🌅 Early Games (before 1pm)', 'MID': '☀️ Afternoon Games (1-6pm)', 'LATE': '🌙 Evening Games (after 6pm)'} %}
         {% for league in leagues %}
             {% set all_league_games = games|selectattr('league', 'equalto', league)|list %}
-            {% set league_games = all_league_games|selectattr('line')|list %}
+            {% set league_games = all_league_games|selectattr('is_qualified')|list %}
             {% if league_games|length > 0 %}
             <div class="league-section league-{{ league|lower }}">
                 <div class="league-header">
@@ -882,7 +923,7 @@
                     <img src="https://a.espncdn.com/combiner/i?img={{ logo_paths[league] }}&w=100" class="league-logo" alt="{{ league }}">
                     <div>
                         <div class="league-title">{{ {'NBA': 'NBA Basketball', 'CBB': 'College Basketball', 'NFL': 'NFL Football', 'CFB': 'College Football', 'NHL': 'NHL Hockey'}[league] }}</div>
-                        <div class="league-count">{{ league_games|length }} game{% if league_games|length != 1 %}s{% endif %} | {{ league_games|selectattr('is_qualified')|list|length }} qualified</div>
+                        <div class="league-count">{{ league_games|length }} qualified pick{% if league_games|length != 1 %}s{% endif %}</div>
                     </div>
                 </div>
                 

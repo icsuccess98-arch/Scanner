@@ -333,6 +333,9 @@
             <div class="pick-matchup">
                 <i class="bi bi-hourglass-split" style="color: var(--gold); margin-right: 0.5rem;"></i>
                 {{ pick.matchup }}
+                {% if pick.edge and pick.edge >= 10 %}
+                <span class="elite-badge" style="background: linear-gradient(135deg, #9D4EDD, #7C3AED); color: white; font-size: 0.55rem; font-weight: 700; padding: 0.15rem 0.4rem; border-radius: 4px; margin-left: 0.5rem;">ELITE</span>
+                {% endif %}
             </div>
             <div class="pick-details">
                 <div class="pick-info">
@@ -369,6 +372,9 @@
             <div class="pick-matchup">
                 {% if pick.is_lock %}<i class="bi bi-lock-fill lock-icon"></i>{% endif %}
                 {{ pick.matchup }}
+                {% if pick.edge and pick.edge >= 10 %}
+                <span class="elite-badge" style="background: linear-gradient(135deg, #9D4EDD, #7C3AED); color: white; font-size: 0.55rem; font-weight: 700; padding: 0.15rem 0.4rem; border-radius: 4px; margin-left: 0.5rem;">ELITE</span>
+                {% endif %}
             </div>
             <div class="pick-details">
                 <div class="pick-info">
