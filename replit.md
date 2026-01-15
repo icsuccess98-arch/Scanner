@@ -79,8 +79,11 @@ This project develops and manages trading systems including a Sports Betting Cal
 -   **Focus**: Pure TOTALS (Over/Under) functionality only
 
 ### Modular Architecture (Jan 2026)
--   **calculators/**: Extracted professional betting calculators (ProVigCalc, Kelly, Pace, Weather, RestDay, ConfidenceTier)
+-   **core/**: Centralized constants, qualification logic, edge calculators (GameConstants, TTLCache, SharpThresholds)
+-   **models/**: SQLAlchemy model definitions (Game, Pick) - reference only, Flask app owns db instance
+-   **calculators/**: Professional betting calculators (ProVigCalc, Kelly, Pace, Weather, RestDay, ConfidenceTier)
 -   **services/**: Background scheduler, line movement tracking, edge calculation
+-   **sports_app.py**: Main Flask application (~8950 lines) - uses core modules as single source of truth
 -   **Background Scheduler**: Auto-refreshes dashboard cache every 5 minutes (no UI blocking)
 -   **Line Movement Service**: Real-time tracking with steam move alerts (>1.5 point moves in 15 min)
 

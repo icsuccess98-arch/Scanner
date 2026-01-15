@@ -290,76 +290,9 @@ def add_cache_headers(response):
     response.headers['Expires'] = '0'
     return response
 
-class GameConstants:
-    """Centralized configuration for all magic numbers and thresholds."""
-    
-    # Edge thresholds by league
-    EDGE_THRESHOLDS = {
-        "NBA": 8.0,
-        "CBB": 8.0,
-        "NFL": 3.5,
-        "CFB": 3.5,
-        "NHL": 0.5
-    }
-    
-    # Minimum games for analysis by league
-    # CBB requires 15+ games due to small sample sizes early season
-    MIN_GAMES = {
-        "NBA": 20,   # Increased from 8 - need ~20 for 95% statistical confidence
-        "CBB": 15,   # Higher threshold - many CBB teams have unreliable early-season stats
-        "NFL": 6,    # Increased from 4 - max practical in-season
-        "CFB": 6,    # Increased from 4 - max practical in-season
-        "NHL": 15    # Increased from 8 - more games for reliable patterns
-    }
-    MIN_GAMES_DEFAULT = 5
-    
-    # Minimum games played for PPG reliability by league
-    MIN_GAMES_PLAYED = {
-        "NBA": 5,
-        "CBB": 15,  # Critical: CBB teams need 15+ games for reliable PPG
-        "NFL": 3,
-        "CFB": 3,
-        "NHL": 5
-    }
-    
-    # Confidence tier thresholds
-    SUPERMAX_EDGE = 12.0
-    HIGH_EDGE = 10.0
-    MEDIUM_EDGE = 8.0
-    
-    # History qualification rates
-    HISTORY_QUALIFY_RATE = 0.60
-    SUPERMAX_HISTORY_RATE = 0.70
-    HIGH_HISTORY_RATE = 0.65
-    
-    # Retry configuration
-    RETRY_MAX_ATTEMPTS = 3
-    RETRY_BASE_DELAY = 0.3
-    RETRY_BACKOFF_MULTIPLIER = 2
-    
-    # API timeouts
-    API_TIMEOUT_DEFAULT = 15
-    API_TIMEOUT_SCOREBOARD = 30
-    API_TIMEOUT_LONG = 60
-    
-    # Cache TTLs (seconds)
-    CACHE_TTL_LIVE_SCORES = 15
-    CACHE_TTL_TEAM_STATS = 3600
-    CACHE_TTL_HISTORICAL = 43200
-    CACHE_TTL_INJURY = 21600
-    CACHE_TTL_SCHEDULE = 43200
-    CACHE_TTL_OPENING_LINE = 86400
-    
-    # Rate limits (requests per second)
-    RATE_LIMIT_ESPN = 5
-    RATE_LIMIT_ODDS_API = 2
-    
-    # Cache sizes
-    CACHE_SIZE_DEFAULT = 500
-    CACHE_SIZE_INJURY = 200
-    CACHE_SIZE_LEAGUE_INJURY = 50
-
-THRESHOLDS = GameConstants.EDGE_THRESHOLDS
+# Use GameConstants from core module (single source of truth)
+GameConstants = CoreGameConstants
+THRESHOLDS = CoreThresholds
 
 
 def get_display_spread(game, use_alt=True) -> tuple:
@@ -409,38 +342,8 @@ def format_spread_pick(game, use_alt=True, include_odds=False) -> str:
     return pick_str
 
 
-class TTLCache:
-    """Time-based cache with max size to prevent memory leaks."""
-    def __init__(self, maxsize=1000, ttl=3600):
-        from collections import OrderedDict
-        self.cache = OrderedDict()
-        self.maxsize = maxsize
-        self.ttl = ttl
-    
-    def get(self, key):
-        if key in self.cache:
-            value, timestamp = self.cache[key]
-            if time.time() - timestamp < self.ttl:
-                return value
-            del self.cache[key]
-        return None
-    
-    def set(self, key, value):
-        if len(self.cache) >= self.maxsize:
-            self.cache.popitem(last=False)
-        self.cache[key] = (value, time.time())
-    
-    def __contains__(self, key):
-        return self.get(key) is not None
-    
-    def __getitem__(self, key):
-        return self.get(key)
-    
-    def __setitem__(self, key, value):
-        self.set(key, value)
-    
-    def clear(self):
-        self.cache.clear()
+# Use TTLCache from core module (single source of truth)
+TTLCache = CoreTTLCache
 
 injury_cache = TTLCache(maxsize=200, ttl=21600)
 line_movement_cache = TTLCache(maxsize=500, ttl=43200)
