@@ -325,7 +325,6 @@
         .breakdown-label { color: var(--text-muted); }
         .breakdown-value { font-weight: 600; }
         .breakdown-value.high { color: #FFD700; }
-        .breakdown-value.low { color: #EF4444; }
         .pick-chip.spread-pick { background: linear-gradient(135deg, var(--accent) 0%, #6B9FFF 100%); }
         .line-input {
             background: var(--bg-input);
@@ -833,9 +832,8 @@
                     <div class="top-pick-row" style="display: grid; grid-template-columns: 36px 1fr; gap: 0.5rem; padding: 0.6rem 0.75rem; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border);">
                         <span class="badge" style="font-size: 0.6rem; background: var(--bg-input); color: var(--text-muted); padding: 0.2rem 0.4rem; text-align: center; align-self: start; margin-top: 2px;">{{ pick.game.league }}</span>
                         <div style="display: flex; flex-direction: column; gap: 0.35rem;">
-                            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
                                 <span style="font-size: 0.8rem; font-weight: 600; color: var(--text);">{{ pick.game.away_team }} @ {{ pick.game.home_team }}</span>
-                                {% if pick.edge >= 10 %}<span class="badge" style="background: linear-gradient(135deg, #9D4EDD, #7C3AED); color: white; font-size: 0.5rem; padding: 0.1rem 0.3rem; font-weight: 700;">ELITE</span>{% endif %}
                                 {% if pick.is_away_favorite %}<span class="badge" style="background: rgba(255, 215, 0, 0.2); color: var(--gold); font-size: 0.5rem; padding: 0.1rem 0.3rem;">AWAY FAV</span>{% endif %}
                             </div>
                             <div style="display: grid; grid-template-columns: 90px 75px 50px 60px; align-items: center; gap: 0.5rem;">
@@ -845,7 +843,7 @@
                                 <span style="color: var(--green); font-weight: 700; font-size: 0.75rem;">+{{ "%.1f"|format(pick.edge) }}</span>
                                 <div class="edge-bar" title="Edge: {{ '%.1f'|format(pick.edge) }}" style="width: 40px; height: 6px; background: var(--bg-input); border-radius: 3px; overflow: hidden;">
                                     {% set edge_pct = [[(pick.edge / 15 * 100), 100]|min, 0]|max %}
-                                    {% set edge_class = 'elite' if pick.edge >= 10 else ('medium' if pick.edge >= 8 else 'low') %}
+                                    {% set edge_class = 'elite' if pick.edge >= 12 else ('high' if pick.edge >= 10 else ('medium' if pick.edge >= 8 else 'low')) %}
                                     <div class="edge-bar-fill {{ edge_class }}" style="width: {{ edge_pct }}%; height: 100%;"></div>
                                 </div>
                                 <span class="confidence-stars" style="font-size: 0.7rem;">
@@ -863,6 +861,48 @@
                 </div>
             </div>
         </div>
+
+        {% set elite_picks = [] %}
+        {% for g in games if g.is_qualified and ((g.alt_edge if g.alt_edge else g.edge) or 0) >= 10 %}
+            {% set _ = elite_picks.append(g) %}
+        {% endfor %}
+        {% if elite_picks|length > 0 %}
+        <div class="section-header">
+            <div class="d-flex align-items-center gap-3">
+                <h5 class="mb-0"><i class="bi bi-gem" style="color: #9D4EDD;"></i> Elite Picks</h5>
+                <span class="badge" style="background: linear-gradient(135deg, #9D4EDD, #7C3AED); color: white; font-size: 0.7rem; padding: 0.25rem 0.5rem;">{{ elite_picks|length }} ELITE</span>
+            </div>
+            <span class="text-muted" style="font-size: 0.8rem;">Edge 10+ | Highest confidence plays</span>
+        </div>
+        
+        <div class="elite-picks-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+            {% for game in elite_picks|sort(attribute='edge', reverse=true) %}
+            <div class="elite-card" style="background: linear-gradient(135deg, rgba(157, 78, 221, 0.15), rgba(124, 58, 237, 0.1)); border: 2px solid rgba(157, 78, 221, 0.5); border-radius: 12px; padding: 1rem; position: relative; overflow: hidden;">
+                <div style="position: absolute; top: 0; right: 0; background: linear-gradient(135deg, #9D4EDD, #7C3AED); color: white; font-size: 0.65rem; font-weight: 700; padding: 0.25rem 0.75rem; border-radius: 0 10px 0 10px;">ELITE</div>
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+                    <span class="badge" style="background: var(--bg-card); color: var(--text-muted); font-size: 0.65rem; padding: 0.2rem 0.4rem;">{{ game.league }}</span>
+                    <span style="font-weight: 700; color: var(--text); font-size: 0.9rem;">{{ game.away_team }} @ {{ game.home_team }}</span>
+                </div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;">{{ game.game_time }}</div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <span class="direction-chip {% if game.direction == 'O' %}over{% else %}under{% endif %}" style="font-size: 0.8rem; padding: 0.3rem 0.6rem; font-weight: 700;">
+                            {{ game.direction }}{{ "%.1f"|format(game.alt_total_line if game.alt_total_line else game.line) }}{% if game.alt_total_odds %} ({{ game.alt_total_odds }}){% endif %}
+                        </span>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="color: #9D4EDD; font-weight: 800; font-size: 1.25rem;">+{{ "%.1f"|format(game.alt_edge if game.alt_edge else game.edge) }}</div>
+                        <div style="font-size: 0.7rem; color: var(--text-muted);">EDGE</div>
+                    </div>
+                </div>
+                <div style="margin-top: 0.5rem;">
+                    {% set stars = 5 if (game.alt_edge if game.alt_edge else game.edge) >= 12 else 4 %}
+                    <span class="confidence-stars" style="font-size: 0.8rem;">{% for i in range(5) %}<span class="star {% if i < stars %}filled{% else %}empty{% endif %}">★</span>{% endfor %}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
 
         <div class="section-header">
             <div class="d-flex align-items-center gap-3">
@@ -902,9 +942,6 @@
                         <div class="col-md-3">
                             <div class="matchup">
                                 {{ game.away_team }} @ {{ game.home_team }}
-                                {% set game_edge = game.alt_edge if game.alt_edge else game.edge %}
-                                {% if game_edge and game_edge >= 10 %}<span class="elite-badge" style="background: linear-gradient(135deg, #9D4EDD, #7C3AED); color: white; font-size: 0.55rem; font-weight: 700; padding: 0.15rem 0.4rem; border-radius: 4px; margin-left: 0.3rem;">ELITE</span>{% endif %}
-                                {% if game.is_away_favorite %}<span class="away-fav-badge" style="background: rgba(255, 215, 0, 0.2); color: var(--gold); font-size: 0.55rem; font-weight: 600; padding: 0.15rem 0.4rem; border-radius: 4px; margin-left: 0.3rem;">AWAY FAV</span>{% endif %}
                                 {% if game.is_back_to_back_away or game.is_back_to_back_home %}<span class="b2b-badge" title="Back-to-back game">B2B</span>{% endif %}
                             </div>
                             <div class="game-time">{{ game.game_time }}</div>
@@ -989,9 +1026,6 @@
                         <div class="col-md-3">
                             <div class="matchup">
                                 {{ game.away_team }} @ {{ game.home_team }}
-                                {% set game_edge = game.alt_edge if game.alt_edge else game.edge %}
-                                {% if game_edge and game_edge >= 10 %}<span class="elite-badge" style="background: linear-gradient(135deg, #9D4EDD, #7C3AED); color: white; font-size: 0.55rem; font-weight: 700; padding: 0.15rem 0.4rem; border-radius: 4px; margin-left: 0.3rem;">ELITE</span>{% endif %}
-                                {% if game.is_away_favorite %}<span class="away-fav-badge" style="background: rgba(255, 215, 0, 0.2); color: var(--gold); font-size: 0.55rem; font-weight: 600; padding: 0.15rem 0.4rem; border-radius: 4px; margin-left: 0.3rem;">AWAY FAV</span>{% endif %}
                                 {% if game.is_back_to_back_away or game.is_back_to_back_home %}<span class="b2b-badge" title="Back-to-back game">B2B</span>{% endif %}
                             </div>
                             <div class="game-time">{{ game.game_time }}</div>
