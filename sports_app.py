@@ -7616,6 +7616,9 @@ def api_player_props():
                             continue
                     
                     logger.info(f"Fetched {len(bovada_lines)} Bovada prop lines")
+                    # Log some sample keys for debugging
+                    sample_keys = list(bovada_lines.keys())[:5]
+                    logger.info(f"Sample Bovada keys: {sample_keys}")
                 else:
                     logger.warning(f"Events API returned status {events_resp.status_code}")
         except Exception as e:
@@ -7695,6 +7698,10 @@ def api_player_props():
             ].head(100)
         
         logger.info(f"Processing {len(active_players)} active players")
+        
+        # Log sample NBA API player names for debugging
+        sample_nba_names = [p['PLAYER_NAME'].lower() for _, p in active_players.head(5).iterrows()]
+        logger.info(f"Sample NBA API player names: {sample_nba_names}")
         
         props_found = []
         
