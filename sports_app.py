@@ -7656,6 +7656,14 @@ def api_player_props():
                 if len(logs_df) < 20:
                     continue  # Need 20 games for 20/20 streak
                 
+                # Get opponent's defensive rank FIRST - must be bottom 10 (rank 21-30)
+                opponent_id = team_opponents.get(team_id)
+                opp_def_rank = get_def_rank(opponent_id) if opponent_id else 15
+                
+                # MANDATORY: Only include if against bottom 10 defense (favorable matchup)
+                if opp_def_rank < 21:
+                    continue  # Skip - not a favorable matchup
+                
                 # Check each prop type
                 for prop in prop_types:
                     if 'stats' in prop:
@@ -7664,32 +7672,41 @@ def api_player_props():
                     else:
                         values = logs_df[prop['stat']].tolist()
                     
-                    # Count streak
-                    streak = sum(1 for v in values if v >= prop['threshold'])
+                    # Calculate hit rates for different windows
+                    last_5_hits = sum(1 for v in values[:5] if v >= prop['threshold'])
+                    last_10_hits = sum(1 for v in values[:10] if v >= prop['threshold'])
+                    last_20_hits = sum(1 for v in values if v >= prop['threshold'])
                     
-                    # Only include if 20/20 perfect streak
-                    if streak >= 20:
-                        # Run 100-game simulation for AI projection
-                        mean_val = sum(values) / len(values)
-                        std_val = (sum((v - mean_val) ** 2 for v in values) / len(values)) ** 0.5
-                        simulations = [max(0, random.gauss(mean_val, std_val * 0.5)) for _ in range(100)]
-                        ai_proj = sum(simulations) / len(simulations)
-                        
-                        # Get opponent's defensive rank
-                        opponent_id = team_opponents.get(team_id)
-                        opp_def_rank = get_def_rank(opponent_id) if opponent_id else 15
-                        
-                        props_found.append({
-                            'team': team_name,
-                            'player': player_name,
-                            'prop_type': prop['key'],
-                            'prop_display': prop['display'],
-                            'streak': streak,
-                            'sample': 20,
-                            'def_rank': opp_def_rank,
-                            'ai_proj': round(ai_proj, 1),
-                            'status': None
-                        })
+                    # STRICT REQUIREMENTS:
+                    # - 100% in last 5 (5/5)
+                    # - 90%+ in last 10 (9/10 or 10/10)
+                    # - 95%+ in last 20 (19/20 or 20/20)
+                    if last_5_hits < 5:
+                        continue  # Must be 100% in last 5
+                    if last_10_hits < 9:
+                        continue  # Must be 90%+ in last 10
+                    if last_20_hits < 19:
+                        continue  # Must be 95%+ in last 20
+                    
+                    # Run 100-game simulation for AI projection
+                    mean_val = sum(values) / len(values)
+                    std_val = (sum((v - mean_val) ** 2 for v in values) / len(values)) ** 0.5
+                    simulations = [max(0, random.gauss(mean_val, std_val * 0.5)) for _ in range(100)]
+                    ai_proj = sum(simulations) / len(simulations)
+                    
+                    props_found.append({
+                        'team': team_name,
+                        'player': player_name,
+                        'prop_type': prop['key'],
+                        'prop_display': prop['display'],
+                        'streak': last_20_hits,
+                        'sample': 20,
+                        'last_5': f"{last_5_hits}/5",
+                        'last_10': f"{last_10_hits}/10",
+                        'def_rank': opp_def_rank,
+                        'ai_proj': round(ai_proj, 1),
+                        'status': None
+                    })
                         
             except Exception as e:
                 logger.warning(f"Error processing player {player_name}: {e}")

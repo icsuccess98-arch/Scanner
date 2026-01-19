@@ -245,7 +245,7 @@
                         <i class="bi bi-person-fill"></i>
                         Player Props Streak Tracker
                     </h1>
-                    <p class="text-muted mb-0" style="font-size: 0.85rem;">NBA players with 20/20 streaks on props</p>
+                    <p class="text-muted mb-0" style="font-size: 0.85rem;">NBA players with hot streaks vs bottom 10 defenses</p>
                 </div>
                 <button class="btn-fetch" id="fetchBtn" onclick="fetchPlayerStats()">
                     <i class="bi bi-arrow-repeat"></i> Fetch Player Stats
@@ -311,7 +311,9 @@
                         <th>Team</th>
                         <th>Player</th>
                         <th>Prop</th>
-                        <th>Streak</th>
+                        <th>L5</th>
+                        <th>L10</th>
+                        <th>L20</th>
                         <th>Def Rank</th>
                         <th>AI Proj</th>
                     </tr>
@@ -382,8 +384,8 @@
             }
             
             tbody.innerHTML = props.map(p => {
-                const streakClass = p.streak >= 20 ? 'streak-perfect' : (p.streak >= 15 ? 'streak-good' : 'streak-warning');
-                const defClass = p.def_rank >= 25 ? 'elite' : (p.def_rank >= 20 ? 'good' : (p.def_rank >= 10 ? 'mid' : 'bad'));
+                const streakClass = p.streak >= 20 ? 'streak-perfect' : (p.streak >= 19 ? 'streak-good' : 'streak-warning');
+                const defClass = p.def_rank >= 25 ? 'elite' : (p.def_rank >= 21 ? 'good' : 'mid');
                 const statusClass = p.status === 'Questionable' ? 'questionable' : '';
                 
                 return `
@@ -394,7 +396,9 @@
                             ${p.status ? `<div class="player-status ${statusClass}">${p.status}</div>` : ''}
                         </td>
                         <td><span class="prop-type">${p.prop_display}</span></td>
-                        <td class="streak-cell ${streakClass}">${p.streak} / L${p.sample}</td>
+                        <td class="streak-cell streak-perfect">${p.last_5 || '5/5'}</td>
+                        <td class="streak-cell ${p.last_10 === '10/10' ? 'streak-perfect' : 'streak-good'}">${p.last_10 || '9/10'}</td>
+                        <td class="streak-cell ${streakClass}">${p.streak}/20</td>
                         <td class="def-rank ${defClass}">${p.def_rank}${getOrdinalSuffix(p.def_rank)}</td>
                         <td class="ai-proj">${p.ai_proj.toFixed(1)}</td>
                     </tr>
