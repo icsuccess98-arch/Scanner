@@ -7782,9 +7782,26 @@ def api_player_props():
                 except:
                     continue
                 
-                # Try each threshold to find best streak (original system)
+                # Calculate AI projection first
+                recent_values = values[:min(20, len(values))]
+                mean_val = sum(recent_values) / len(recent_values) if len(recent_values) > 0 else 0
+                
+                # Skip if no opponent or not bottom 10 defense
+                if not opp_def_rank or opp_def_rank < 21:
+                    continue
+                
+                # Boost for weak defense matchup (rank 21-30 = 1-10% boost)
+                defense_boost = 1.0 + ((opp_def_rank - 20) * 0.01)
+                ai_proj = mean_val * defense_boost
+                
+                # Only qualify if AI projection is HIGHER than Bovada line
+                if ai_proj <= bovada_line:
+                    continue
+                
+                # Find best streak at highest threshold
+                best_streak = 0
+                best_threshold = 0
                 for threshold in prop['thresholds']:
-                    # Count consecutive hits from most recent
                     streak = 0
                     for v in values:
                         if v >= threshold:
@@ -7792,31 +7809,32 @@ def api_player_props():
                         else:
                             break
                     
-                    # Include if streak >= 10 games
-                    if streak >= 10:
-                        # Run 100-game simulation for AI projection
-                        recent_values = values[:min(20, len(values))]
-                        mean_val = sum(recent_values) / len(recent_values) if len(recent_values) > 0 else 0
-                        std_val = (sum((v - mean_val) ** 2 for v in recent_values) / len(recent_values)) ** 0.5 if len(recent_values) > 0 else 0
-                        simulations = [max(0, random.gauss(mean_val, std_val * 0.5)) for _ in range(100)]
-                        ai_proj = sum(simulations) / len(simulations)
-                        
-                        prop_display = f"O {threshold} {prop['name']}"
-                        
-                        props_found.append({
-                            'team': team_full_name,
-                            'player': player_name,
-                            'prop_type': prop['key'],
-                            'prop_display': prop_display,
-                            'streak': streak,
-                            'sample': min(20, games_available),
-                            'streak_display': f"{streak} / L{min(20, games_available)}",
-                            'def_rank': opp_def_rank,
-                            'ai_proj': round(ai_proj, 1),
-                            'bovada_line': bovada_line,
-                            'status': None
-                        })
-                        break  # Only add best threshold for this prop type
+                    # Track best streak (highest threshold with 10+ games)
+                    if streak >= 10 and threshold > best_threshold:
+                        best_streak = streak
+                        best_threshold = threshold
+                
+                # Include if found a valid streak
+                if best_streak >= 10:
+                    # Calculate edge (how much AI proj exceeds Bovada line)
+                    edge = round(ai_proj - bovada_line, 1)
+                    
+                    prop_display = f"O {bovada_line} {prop['name']}"
+                    
+                    props_found.append({
+                        'team': team_full_name,
+                        'player': player_name,
+                        'prop_type': prop['key'],
+                        'prop_display': prop_display,
+                        'streak': best_streak,
+                        'sample': min(20, games_available),
+                        'streak_display': f"{best_streak} / L{min(20, games_available)}",
+                        'def_rank': opp_def_rank,
+                        'ai_proj': round(ai_proj, 1),
+                        'bovada_line': bovada_line,
+                        'edge': edge,
+                        'status': None
+                    })
             
             player_count += 1
         
