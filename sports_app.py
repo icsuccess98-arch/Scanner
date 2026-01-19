@@ -7796,34 +7796,31 @@ def api_player_props():
                     defense_boost = 1.0
                 ai_proj = mean_val * defense_boost
                 
-                # Find best streak using hit rate criteria:
-                # 100% last 5, 95% last 10, 90% last 20
+                # Check hit rate AGAINST BOVADA'S LINE
+                # Find best sample size where player hits over the line
+                threshold = bovada_line + 0.5  # Over the line
                 best_streak = 0
-                best_threshold = 0
                 best_sample = 0
+                best_hit_rate = 0
                 
-                for threshold in prop['thresholds']:
-                    # Check different sample sizes for hit rate
-                    for sample_size in [20, 15, 12, 10, 5]:
-                        if len(values) < sample_size:
-                            continue
-                        
-                        sample_values = values[:sample_size]
-                        hits = sum(1 for v in sample_values if v >= threshold)
-                        hit_rate = hits / sample_size
-                        
-                        # Check if meets hit rate requirement
-                        # 100% for L5, 95% for L10, 90% for L20
-                        required_rate = 1.0 if sample_size <= 5 else (0.95 if sample_size <= 10 else 0.90)
-                        
-                        if hit_rate >= required_rate and threshold > best_threshold:
-                            best_streak = hits
-                            best_threshold = threshold
-                            best_sample = sample_size
+                # Check different sample sizes
+                for sample_size in [20, 17, 15, 14, 12, 11, 10, 5]:
+                    if len(values) < sample_size:
+                        continue
+                    
+                    sample_values = values[:sample_size]
+                    hits = sum(1 for v in sample_values if v >= threshold)
+                    hit_rate = hits / sample_size
+                    
+                    # Track best sample where hit rate >= 50% (matching competitor style)
+                    if hit_rate >= 0.50 and hits >= best_streak:
+                        best_streak = hits
+                        best_sample = sample_size
+                        best_hit_rate = hit_rate
                 
-                # Include if found a valid streak
-                if best_streak >= 5 and best_threshold > 0:
-                    prop_display = f"{int(best_threshold)}+ {prop['name']}"
+                # Include if found valid streak (at least 10 hits in any sample)
+                if best_streak >= 10:
+                    prop_display = f"{bovada_line}+ {prop['name']}"
                     
                     props_found.append({
                         'team': team_full_name,
