@@ -70,6 +70,15 @@ This project develops and manages trading systems including a Sports Betting Cal
     1. **Totals Model**: Standard O/U picks with edge thresholds
     2. **Away Favorite O/U Model**: Games where away team is favorite AND meets O/U threshold (shows orange badge)
 
+### Player Props Streak Tracker (Jan 2026)
+-   **Separate Tab**: /props route with dedicated "Fetch Player Stats" button
+-   **NBA API Integration**: Uses nba_api for player game logs and team stats
+-   **20/20 Streaks Only**: Shows players who hit a prop in 20 out of last 20 games
+-   **Prop Types**: Points, Rebounds, Assists, P+R, P+A, R+A, P+R+A, 3PM, Steals, Blocks
+-   **Defensive Rankings**: Real opponent defensive rankings from NBA API (higher rank = worse defense = easier matchup)
+-   **AI Projection**: 100-game Monte Carlo simulation based on player's recent performance
+-   **Columns**: Team, Player, Prop, Streak (X/L20), Def Rank, AI Proj
+
 ### Feature Specifications
 -   **Sports Scanner**: Fetches NBA, CBB, NFL, CFB, NHL games, stats, and odds to identify qualified TOTALS picks.
 
@@ -78,5 +87,6 @@ This project develops and manages trading systems including a Sports Betting Cal
     -   ESPN API (team statistics, schedules)
     -   Bovada (betting lines via The Odds API)
     -   The Odds API (alternate lines)
+    -   NBA API (nba_api package for player stats and game logs)
 -   **Communication**:
     -   Discord Webhooks (automated notifications)

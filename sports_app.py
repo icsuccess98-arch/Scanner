@@ -7530,6 +7530,187 @@ def bankroll():
     """52 Week Bankroll Builder tracker."""
     return render_template('bankroll.html')
 
+@app.route('/props')
+def props():
+    """Player Props Streak Tracker page."""
+    return render_template('props.html')
+
+@app.route('/api/player_props')
+def api_player_props():
+    """
+    Fetch NBA player props with streak data.
+    Analyzes last 20 games for each player to find hot streaks.
+    Uses 100-game simulation for AI projections.
+    """
+    try:
+        from nba_api.stats.endpoints import playergamelogs, leaguedashplayerstats, scoreboardv2
+        from nba_api.stats.static import teams as nba_teams
+        import random
+        
+        et = pytz.timezone('America/New_York')
+        today = datetime.now(et).strftime('%Y-%m-%d')
+        
+        # Get today's games to find active players
+        try:
+            scoreboard = scoreboardv2.ScoreboardV2(game_date=today)
+            games_data = scoreboard.get_normalized_dict()
+            today_games = games_data.get('GameHeader', [])
+        except Exception as e:
+            logger.warning(f"Could not fetch today's games: {e}")
+            today_games = []
+        
+        # Get teams playing today
+        teams_playing = set()
+        for game in today_games:
+            teams_playing.add(game.get('HOME_TEAM_ID'))
+            teams_playing.add(game.get('VISITOR_TEAM_ID'))
+        
+        # Team ID to name mapping
+        team_id_to_name = {t['id']: t['full_name'] for t in nba_teams.get_teams()}
+        team_id_to_abbrev = {t['id']: t['abbreviation'] for t in nba_teams.get_teams()}
+        
+        # Get player stats for the season
+        try:
+            player_stats = leaguedashplayerstats.LeagueDashPlayerStats(
+                season='2025-26',
+                per_mode_detailed='PerGame'
+            )
+            stats_df = player_stats.get_data_frames()[0]
+        except Exception as e:
+            logger.error(f"Could not fetch player stats: {e}")
+            return jsonify({'success': False, 'message': f'Error fetching player stats: {str(e)}'})
+        
+        # Filter to players on teams playing today with meaningful minutes
+        if teams_playing:
+            active_players = stats_df[
+                (stats_df['TEAM_ID'].isin(teams_playing)) & 
+                (stats_df['MIN'] >= 15) &
+                (stats_df['GP'] >= 10)
+            ]
+        else:
+            # If no games today, get top players by minutes
+            active_players = stats_df[
+                (stats_df['MIN'] >= 20) &
+                (stats_df['GP'] >= 15)
+            ].head(50)
+        
+        props_found = []
+        
+        # Define prop types to check
+        prop_types = [
+            {'key': 'points', 'display': '10+ Points', 'threshold': 10, 'stat': 'PTS'},
+            {'key': 'rebounds', 'display': '5+ Rebounds', 'threshold': 5, 'stat': 'REB'},
+            {'key': 'assists', 'display': '5+ Assists', 'threshold': 5, 'stat': 'AST'},
+            {'key': 'pts_reb', 'display': '15+ Points + Rebounds', 'threshold': 15, 'stats': ['PTS', 'REB']},
+            {'key': 'pts_ast', 'display': '15+ Points + Assists', 'threshold': 15, 'stats': ['PTS', 'AST']},
+            {'key': 'reb_ast', 'display': '10+ Rebounds + Assists', 'threshold': 10, 'stats': ['REB', 'AST']},
+            {'key': 'pts_reb_ast', 'display': '25+ P+R+A', 'threshold': 25, 'stats': ['PTS', 'REB', 'AST']},
+            {'key': 'threes', 'display': '2+ Three-Pointers', 'threshold': 2, 'stat': 'FG3M'},
+            {'key': 'steals', 'display': '1+ Steal', 'threshold': 1, 'stat': 'STL'},
+            {'key': 'blocks', 'display': '1+ Block', 'threshold': 1, 'stat': 'BLK'},
+        ]
+        
+        # Fetch real defensive rankings from NBA API
+        def_rankings = {}
+        try:
+            from nba_api.stats.endpoints import leaguedashteamstats
+            team_stats = leaguedashteamstats.LeagueDashTeamStats(
+                season='2025-26',
+                measure_type_detailed_defense='Opponent'
+            )
+            team_df = team_stats.get_data_frames()[0]
+            # Rank by opponent points (higher = worse defense = higher rank number)
+            team_df = team_df.sort_values('OPP_PTS', ascending=True)
+            for rank, (_, row) in enumerate(team_df.iterrows(), 1):
+                def_rankings[row['TEAM_ID']] = rank
+        except Exception as e:
+            logger.warning(f"Could not fetch defensive rankings: {e}")
+        
+        def get_def_rank(opponent_team_id):
+            return def_rankings.get(opponent_team_id, 15)  # Default to middle rank
+        
+        # Build opponent lookup from today's games
+        team_opponents = {}
+        for game in today_games:
+            home_id = game.get('HOME_TEAM_ID')
+            away_id = game.get('VISITOR_TEAM_ID')
+            team_opponents[home_id] = away_id
+            team_opponents[away_id] = home_id
+        
+        # Process each player
+        for _, player in active_players.iterrows():
+            player_id = player['PLAYER_ID']
+            player_name = player['PLAYER_NAME']
+            team_id = player['TEAM_ID']
+            team_name = team_id_to_abbrev.get(team_id, 'UNK')
+            
+            try:
+                # Get last 20 games for this player
+                game_logs = playergamelogs.PlayerGameLogs(
+                    player_id_nullable=player_id,
+                    season_nullable='2025-26',
+                    last_n_games_nullable=20
+                )
+                logs_df = game_logs.get_data_frames()[0]
+                
+                if len(logs_df) < 20:
+                    continue  # Need 20 games for 20/20 streak
+                
+                # Check each prop type
+                for prop in prop_types:
+                    if 'stats' in prop:
+                        # Combo stat
+                        values = logs_df[prop['stats']].sum(axis=1).tolist()
+                    else:
+                        values = logs_df[prop['stat']].tolist()
+                    
+                    # Count streak
+                    streak = sum(1 for v in values if v >= prop['threshold'])
+                    
+                    # Only include if 20/20 perfect streak
+                    if streak >= 20:
+                        # Run 100-game simulation for AI projection
+                        mean_val = sum(values) / len(values)
+                        std_val = (sum((v - mean_val) ** 2 for v in values) / len(values)) ** 0.5
+                        simulations = [max(0, random.gauss(mean_val, std_val * 0.5)) for _ in range(100)]
+                        ai_proj = sum(simulations) / len(simulations)
+                        
+                        # Get opponent's defensive rank
+                        opponent_id = team_opponents.get(team_id)
+                        opp_def_rank = get_def_rank(opponent_id) if opponent_id else 15
+                        
+                        props_found.append({
+                            'team': team_name,
+                            'player': player_name,
+                            'prop_type': prop['key'],
+                            'prop_display': prop['display'],
+                            'streak': streak,
+                            'sample': 20,
+                            'def_rank': opp_def_rank,
+                            'ai_proj': round(ai_proj, 1),
+                            'status': None
+                        })
+                        
+            except Exception as e:
+                logger.warning(f"Error processing player {player_name}: {e}")
+                continue
+        
+        # Sort by streak (desc), then by AI projection (desc)
+        props_found.sort(key=lambda x: (-x['streak'], -x['ai_proj']))
+        
+        logger.info(f"Found {len(props_found)} player props with 20/20 streaks")
+        
+        return jsonify({
+            'success': True,
+            'props': props_found,
+            'count': len(props_found),
+            'message': f'Found {len(props_found)} players with perfect streaks'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in player props API: {e}")
+        return jsonify({'success': False, 'message': str(e), 'props': []})
+
 @app.route('/download/codebase_structure')
 def download_codebase_structure():
     """Download the codebase structure CSV."""

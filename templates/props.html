@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Player Props - 730's Locks</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0a0a12;
+            --bg-card: #12101a;
+            --bg-input: #1a1825;
+            --border: #2d2640;
+            --text: #F8F8FF;
+            --text-muted: #9990B0;
+            --accent: #7B2CBF;
+            --green: #50C878;
+            --gold: #FFD700;
+            --gold-light: #FFEC8B;
+            --red: #DC143C;
+            --nba: #C9082A;
+        }
+        * { box-sizing: border-box; }
+        body {
+            background: var(--bg-dark);
+            color: var(--text);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
+        }
+        .header {
+            background: linear-gradient(180deg, #16131f 0%, var(--bg-dark) 100%);
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .brand {
+            font-size: 1.1rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            text-decoration: none;
+        }
+        .brand i { -webkit-text-fill-color: var(--gold); }
+        .nav-links { display: flex; gap: 0.5rem; }
+        .nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 0.4rem 0.75rem;
+            border-radius: 16px;
+            transition: all 0.2s;
+        }
+        .nav-links a:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+        .nav-links a.active { 
+            color: var(--gold); 
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.15) 0%, rgba(218, 165, 32, 0.08) 100%);
+        }
+        .hero-section {
+            background: linear-gradient(135deg, #0d0b12 0%, #14101c 100%);
+            padding: 2rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .hero-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--gold);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .btn-fetch {
+            background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%);
+            color: #000;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+        }
+        .btn-fetch:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3); }
+        .btn-fetch:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .props-table-container {
+            background: var(--bg-card);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            margin-top: 1.5rem;
+        }
+        .props-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .props-table th {
+            background: var(--bg-input);
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        .props-table td {
+            padding: 0.875rem 1rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.85rem;
+        }
+        .props-table tr:last-child td { border-bottom: none; }
+        .props-table tr:hover { background: rgba(255,255,255,0.02); }
+        .team-name { font-weight: 600; color: var(--text); }
+        .player-name { font-weight: 700; color: var(--text); }
+        .player-status { font-size: 0.7rem; color: var(--text-muted); }
+        .player-status.questionable { color: #FFA500; }
+        .prop-type { 
+            background: rgba(123, 44, 191, 0.2); 
+            color: var(--accent); 
+            padding: 0.25rem 0.5rem; 
+            border-radius: 4px; 
+            font-weight: 600;
+            font-size: 0.75rem;
+        }
+        .streak-cell { font-weight: 700; }
+        .streak-perfect { color: var(--green); }
+        .streak-good { color: var(--gold); }
+        .streak-warning { color: #FFA500; }
+        .def-rank { font-weight: 600; }
+        .def-rank.elite { color: var(--green); }
+        .def-rank.good { color: var(--gold); }
+        .def-rank.mid { color: var(--text-muted); }
+        .def-rank.bad { color: var(--red); }
+        .ai-proj { 
+            font-weight: 700; 
+            color: var(--green);
+            font-size: 0.9rem;
+        }
+        .loading-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-muted);
+        }
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--gold);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-muted);
+        }
+        .empty-state i { font-size: 3rem; margin-bottom: 1rem; display: block; }
+        .filter-bar {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .filter-select {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.5rem 0.75rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .stat-pills {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .stat-pill {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            padding: 0.75rem 1.25rem;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .stat-pill .value {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--gold);
+        }
+        .stat-pill .label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+        @media (max-width: 768px) {
+            .props-table-container { overflow-x: auto; }
+            .props-table { min-width: 700px; }
+            .hero-section { padding: 1.5rem 0; }
+            .hero-title { font-size: 1.25rem; }
+        }
+        @media (max-width: 480px) {
+            .nav-links a { font-size: 0.7rem; padding: 0.35rem 0.6rem; }
+            .stat-pills { flex-wrap: wrap; }
+            .stat-pill { flex: 1; min-width: 100px; }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <a href="/" class="brand">
+            <i class="bi bi-lock-fill"></i>
+            730's Locks
+        </a>
+        <nav class="nav-links">
+            <a href="/">Dashboard</a>
+            <a href="/props" class="active">Player Props</a>
+            <a href="/bankroll">Bankroll</a>
+            <a href="/history">History</a>
+        </nav>
+    </header>
+
+    <div class="hero-section">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div>
+                    <h1 class="hero-title">
+                        <i class="bi bi-person-fill"></i>
+                        Player Props Streak Tracker
+                    </h1>
+                    <p class="text-muted mb-0" style="font-size: 0.85rem;">NBA players with 20/20 streaks on props</p>
+                </div>
+                <button class="btn-fetch" id="fetchBtn" onclick="fetchPlayerStats()">
+                    <i class="bi bi-arrow-repeat"></i> Fetch Player Stats
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container py-4">
+        <div class="stat-pills" id="statPills" style="display: none;">
+            <div class="stat-pill">
+                <div class="value" id="totalPlayers">0</div>
+                <div class="label">Players Found</div>
+            </div>
+            <div class="stat-pill">
+                <div class="value" id="perfectStreaks">0</div>
+                <div class="label">20/20 Streaks</div>
+            </div>
+            <div class="stat-pill">
+                <div class="value" id="avgProjection">0</div>
+                <div class="label">Avg AI Proj</div>
+            </div>
+        </div>
+
+        <div class="filter-bar" id="filterBar" style="display: none;">
+            <select class="filter-select" id="propFilter" onchange="filterProps()">
+                <option value="all">All Prop Types</option>
+                <option value="points">Points</option>
+                <option value="rebounds">Rebounds</option>
+                <option value="assists">Assists</option>
+                <option value="pts_reb">Points + Rebounds</option>
+                <option value="pts_ast">Points + Assists</option>
+                <option value="reb_ast">Rebounds + Assists</option>
+                <option value="pts_reb_ast">Points + Rebounds + Assists</option>
+                <option value="threes">3-Pointers Made</option>
+                <option value="steals">Steals</option>
+                <option value="blocks">Blocks</option>
+            </select>
+            <select class="filter-select" id="streakFilter" onchange="filterProps()">
+                <option value="all">All Streaks</option>
+                <option value="20">20/20 Only</option>
+                <option value="15">15+ Streak</option>
+                <option value="10">10+ Streak</option>
+            </select>
+        </div>
+
+        <div class="props-table-container">
+            <div class="empty-state" id="emptyState">
+                <i class="bi bi-person-bounding-box"></i>
+                <h5>No Player Props Loaded</h5>
+                <p>Click "Fetch Player Stats" to find players with hot streaks</p>
+            </div>
+            
+            <div class="loading-state" id="loadingState" style="display: none;">
+                <div class="loading-spinner"></div>
+                <p>Analyzing player stats...</p>
+                <p style="font-size: 0.75rem;">This may take 1-2 minutes</p>
+            </div>
+
+            <table class="props-table" id="propsTable" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Team</th>
+                        <th>Player</th>
+                        <th>Prop</th>
+                        <th>Streak</th>
+                        <th>Def Rank</th>
+                        <th>AI Proj</th>
+                    </tr>
+                </thead>
+                <tbody id="propsTableBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let allProps = [];
+
+        async function fetchPlayerStats() {
+            const btn = document.getElementById('fetchBtn');
+            const loading = document.getElementById('loadingState');
+            const empty = document.getElementById('emptyState');
+            const table = document.getElementById('propsTable');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Fetching...';
+            loading.style.display = 'block';
+            empty.style.display = 'none';
+            table.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/player_props');
+                const data = await response.json();
+                
+                if (data.success && data.props && data.props.length > 0) {
+                    allProps = data.props;
+                    renderProps(allProps);
+                    updateStats(allProps);
+                    document.getElementById('filterBar').style.display = 'flex';
+                    document.getElementById('statPills').style.display = 'flex';
+                } else {
+                    empty.innerHTML = `
+                        <i class="bi bi-emoji-frown"></i>
+                        <h5>No Qualifying Streaks Found</h5>
+                        <p>${data.message || 'No players with 20/20 streaks today'}</p>
+                    `;
+                    empty.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error fetching props:', error);
+                empty.innerHTML = `
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <h5>Error Loading Data</h5>
+                    <p>Please try again later</p>
+                `;
+                empty.style.display = 'block';
+            } finally {
+                loading.style.display = 'none';
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Fetch Player Stats';
+            }
+        }
+
+        function renderProps(props) {
+            const tbody = document.getElementById('propsTableBody');
+            const table = document.getElementById('propsTable');
+            const empty = document.getElementById('emptyState');
+            
+            if (props.length === 0) {
+                table.style.display = 'none';
+                empty.style.display = 'block';
+                return;
+            }
+            
+            tbody.innerHTML = props.map(p => {
+                const streakClass = p.streak >= 20 ? 'streak-perfect' : (p.streak >= 15 ? 'streak-good' : 'streak-warning');
+                const defClass = p.def_rank >= 25 ? 'elite' : (p.def_rank >= 20 ? 'good' : (p.def_rank >= 10 ? 'mid' : 'bad'));
+                const statusClass = p.status === 'Questionable' ? 'questionable' : '';
+                
+                return `
+                    <tr data-prop-type="${p.prop_type}" data-streak="${p.streak}">
+                        <td class="team-name">${p.team}</td>
+                        <td>
+                            <div class="player-name">${p.player}</div>
+                            ${p.status ? `<div class="player-status ${statusClass}">${p.status}</div>` : ''}
+                        </td>
+                        <td><span class="prop-type">${p.prop_display}</span></td>
+                        <td class="streak-cell ${streakClass}">${p.streak} / L${p.sample}</td>
+                        <td class="def-rank ${defClass}">${p.def_rank}${getOrdinalSuffix(p.def_rank)}</td>
+                        <td class="ai-proj">${p.ai_proj.toFixed(1)}</td>
+                    </tr>
+                `;
+            }).join('');
+            
+            table.style.display = 'table';
+            empty.style.display = 'none';
+        }
+
+        function updateStats(props) {
+            document.getElementById('totalPlayers').textContent = props.length;
+            document.getElementById('perfectStreaks').textContent = props.filter(p => p.streak >= 20).length;
+            const avgProj = props.reduce((sum, p) => sum + p.ai_proj, 0) / props.length;
+            document.getElementById('avgProjection').textContent = avgProj.toFixed(1);
+        }
+
+        function filterProps() {
+            const propType = document.getElementById('propFilter').value;
+            const streakMin = document.getElementById('streakFilter').value;
+            
+            let filtered = allProps;
+            
+            if (propType !== 'all') {
+                filtered = filtered.filter(p => p.prop_type === propType);
+            }
+            
+            if (streakMin !== 'all') {
+                const min = parseInt(streakMin);
+                filtered = filtered.filter(p => p.streak >= min);
+            }
+            
+            renderProps(filtered);
+            updateStats(filtered);
+        }
+
+        function getOrdinalSuffix(n) {
+            const s = ['th', 'st', 'nd', 'rd'];
+            const v = n % 100;
+            return s[(v - 20) % 10] || s[v] || s[0];
+        }
+    </script>
+</body>
+</html>
