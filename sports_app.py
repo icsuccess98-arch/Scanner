@@ -7782,21 +7782,17 @@ def api_player_props():
                 except:
                     continue
                 
-                # Calculate AI projection first
-                recent_values = values[:min(20, len(values))]
-                mean_val = sum(recent_values) / len(recent_values) if len(recent_values) > 0 else 0
-                
                 # Skip if no opponent or not bottom 10 defense
                 if not opp_def_rank or opp_def_rank < 21:
                     continue
                 
+                # Calculate AI projection
+                recent_values = values[:min(20, len(values))]
+                mean_val = sum(recent_values) / len(recent_values) if len(recent_values) > 0 else 0
+                
                 # Boost for weak defense matchup (rank 21-30 = 1-10% boost)
                 defense_boost = 1.0 + ((opp_def_rank - 20) * 0.01)
                 ai_proj = mean_val * defense_boost
-                
-                # Only qualify if AI projection is HIGHER than Bovada line
-                if ai_proj <= bovada_line:
-                    continue
                 
                 # Find best streak at highest threshold
                 best_streak = 0
@@ -7814,7 +7810,7 @@ def api_player_props():
                         best_streak = streak
                         best_threshold = threshold
                 
-                # Include if found a valid streak
+                # Include if found a valid streak (10+ games)
                 if best_streak >= 10:
                     # Calculate edge (how much AI proj exceeds Bovada line)
                     edge = round(ai_proj - bovada_line, 1)
