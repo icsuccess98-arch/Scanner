@@ -130,16 +130,12 @@
             border-bottom: 1px solid var(--border);
             font-size: 0.8rem;
         }
-        .props-table th:nth-child(1), .props-table td:nth-child(1) { width: 45px; text-align: left; }
-        .props-table th:nth-child(2), .props-table td:nth-child(2) { width: 110px; text-align: left; }
-        .props-table th:nth-child(3), .props-table td:nth-child(3) { width: 55px; }
-        .props-table th:nth-child(4), .props-table td:nth-child(4) { width: 45px; }
-        .props-table th:nth-child(5), .props-table td:nth-child(5) { width: 40px; }
-        .props-table th:nth-child(6), .props-table td:nth-child(6) { width: 45px; }
-        .props-table th:nth-child(7), .props-table td:nth-child(7) { width: 45px; }
-        .props-table th:nth-child(8), .props-table td:nth-child(8) { width: 40px; }
-        .props-table th:nth-child(9), .props-table td:nth-child(9) { width: 45px; }
-        .bovada-line { font-weight: 600; color: var(--gold); font-size: 0.8rem; }
+        .props-table th:nth-child(1), .props-table td:nth-child(1) { width: 140px; text-align: left; }
+        .props-table th:nth-child(2), .props-table td:nth-child(2) { width: 130px; text-align: left; }
+        .props-table th:nth-child(3), .props-table td:nth-child(3) { width: 160px; text-align: left; }
+        .props-table th:nth-child(4), .props-table td:nth-child(4) { width: 70px; }
+        .props-table th:nth-child(5), .props-table td:nth-child(5) { width: 70px; }
+        .props-table th:nth-child(6), .props-table td:nth-child(6) { width: 60px; }
         .props-table tr:last-child td { border-bottom: none; }
         .props-table tr:hover { background: rgba(255,255,255,0.02); }
         .team-name { font-weight: 600; color: var(--text); font-size: 0.75rem; }
@@ -249,8 +245,19 @@
             color: var(--text);
         }
         .mobile-card-team {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             color: var(--text-muted);
+            margin-bottom: 0.15rem;
+        }
+        .mobile-card-prop {
+            font-size: 0.75rem;
+            color: var(--gold);
+            font-weight: 600;
+            margin-top: 0.25rem;
+        }
+        .prop-display {
+            font-size: 0.75rem;
+            color: var(--gold);
         }
         .mobile-card-stats {
             display: grid;
@@ -316,7 +323,7 @@
                         <i class="bi bi-person-fill"></i>
                         Player Props Streak Tracker
                     </h1>
-                    <p class="text-muted mb-0" style="font-size: 0.85rem;">NBA players with hot streaks vs bottom 10 defenses</p>
+                    <p class="text-muted mb-0" style="font-size: 0.85rem;">NBA player props with hot streaks (10+ consecutive hits)</p>
                 </div>
                 <button class="btn-fetch" id="fetchBtn" onclick="fetchPlayerStats()">
                     <i class="bi bi-arrow-repeat"></i> Fetch Player Stats
@@ -333,7 +340,7 @@
             </div>
             <div class="stat-pill">
                 <div class="value" id="perfectStreaks">0</div>
-                <div class="label">20/20 Streaks</div>
+                <div class="label">15+ Streaks</div>
             </div>
             <div class="stat-pill">
                 <div class="value" id="avgProjection">0</div>
@@ -382,12 +389,9 @@
                         <th>Team</th>
                         <th>Player</th>
                         <th>Prop</th>
-                        <th>Line</th>
-                        <th>L5</th>
-                        <th>L10</th>
-                        <th>L20</th>
-                        <th>Def</th>
-                        <th>Proj</th>
+                        <th>Streak</th>
+                        <th>Def Rank</th>
+                        <th>AI Proj</th>
                     </tr>
                 </thead>
                 <tbody id="propsTableBody">
@@ -460,59 +464,49 @@
             }
             
             tbody.innerHTML = props.map(p => {
-                const streakClass = p.streak >= 20 ? 'streak-perfect' : (p.streak >= 19 ? 'streak-good' : 'streak-warning');
-                const defClass = p.def_rank >= 25 ? 'elite' : (p.def_rank >= 21 ? 'good' : 'mid');
-                const statusClass = p.status === 'Questionable' ? 'questionable' : '';
-                const lineDisplay = p.bovada_line ? p.bovada_line.toFixed(1) : '-';
+                const streakClass = p.streak >= 20 ? 'streak-perfect' : (p.streak >= 15 ? 'streak-good' : 'streak-warning');
+                const defRank = p.def_rank || 'N/A';
+                const defClass = p.def_rank >= 25 ? 'elite' : (p.def_rank >= 20 ? 'good' : 'mid');
+                const defDisplay = p.def_rank ? `${p.def_rank}${getOrdinalSuffix(p.def_rank)}` : 'N/A';
                 
                 return `
                     <tr data-prop-type="${p.prop_type}" data-streak="${p.streak}">
                         <td class="team-name">${p.team}</td>
-                        <td>
-                            <div class="player-name">${p.player}</div>
-                            ${p.status ? `<div class="player-status ${statusClass}">${p.status}</div>` : ''}
-                        </td>
-                        <td><span class="prop-type">${p.prop_display}</span></td>
-                        <td class="bovada-line">${lineDisplay}</td>
-                        <td class="streak-cell streak-perfect">${p.last_5 || '5/5'}</td>
-                        <td class="streak-cell ${p.last_10 === '10/10' ? 'streak-perfect' : 'streak-good'}">${p.last_10 || '9/10'}</td>
-                        <td class="streak-cell ${streakClass}">${p.streak}/20</td>
-                        <td class="def-rank ${defClass}">${p.def_rank}${getOrdinalSuffix(p.def_rank)}</td>
+                        <td class="player-name">${p.player}</td>
+                        <td class="prop-display">${p.prop_display}</td>
+                        <td class="streak-cell ${streakClass}">${p.streak_display || p.streak + ' / L' + p.sample}</td>
+                        <td class="def-rank ${defClass}">${defDisplay}</td>
                         <td class="ai-proj">${p.ai_proj.toFixed(1)}</td>
                     </tr>
                 `;
             }).join('');
             
             mobileCards.innerHTML = props.map(p => {
-                const streakClass = p.streak >= 20 ? 'streak-perfect' : 'streak-good';
-                const defClass = p.def_rank >= 25 ? 'elite' : 'good';
-                const lineDisplay = p.bovada_line ? p.bovada_line.toFixed(1) : '-';
+                const streakClass = p.streak >= 20 ? 'streak-perfect' : (p.streak >= 15 ? 'streak-good' : 'streak-warning');
+                const defClass = p.def_rank >= 25 ? 'elite' : (p.def_rank >= 20 ? 'good' : 'mid');
+                const defDisplay = p.def_rank ? `${p.def_rank}${getOrdinalSuffix(p.def_rank)}` : 'N/A';
                 
                 return `
                     <div class="mobile-card">
                         <div class="mobile-card-header">
-                            <div>
+                            <div style="flex: 1;">
+                                <div class="mobile-card-team">${p.team}</div>
                                 <div class="mobile-card-player">${p.player}</div>
-                                <div class="mobile-card-team">${p.team} · <span class="prop-type">${p.prop_display}</span> · <span class="bovada-line">O ${lineDisplay}</span></div>
+                                <div class="mobile-card-prop">${p.prop_display}</div>
                             </div>
-                            <div class="ai-proj" style="font-size: 1.1rem;">${p.ai_proj.toFixed(1)}</div>
                         </div>
-                        <div class="mobile-card-stats">
+                        <div class="mobile-card-stats" style="grid-template-columns: repeat(3, 1fr);">
                             <div class="mobile-stat">
-                                <div class="mobile-stat-label">L5</div>
-                                <div class="mobile-stat-value streak-perfect">${p.last_5 || '5/5'}</div>
+                                <div class="mobile-stat-label">Streak</div>
+                                <div class="mobile-stat-value ${streakClass}">${p.streak_display || p.streak + '/L' + p.sample}</div>
                             </div>
                             <div class="mobile-stat">
-                                <div class="mobile-stat-label">L10</div>
-                                <div class="mobile-stat-value ${p.last_10 === '10/10' ? 'streak-perfect' : 'streak-good'}">${p.last_10 || '9/10'}</div>
+                                <div class="mobile-stat-label">Def Rank</div>
+                                <div class="mobile-stat-value def-rank ${defClass}">${defDisplay}</div>
                             </div>
                             <div class="mobile-stat">
-                                <div class="mobile-stat-label">L20</div>
-                                <div class="mobile-stat-value ${streakClass}">${p.streak}/20</div>
-                            </div>
-                            <div class="mobile-stat">
-                                <div class="mobile-stat-label">Def</div>
-                                <div class="mobile-stat-value def-rank ${defClass}">${p.def_rank}${getOrdinalSuffix(p.def_rank)}</div>
+                                <div class="mobile-stat-label">AI Proj</div>
+                                <div class="mobile-stat-value ai-proj">${p.ai_proj.toFixed(1)}</div>
                             </div>
                         </div>
                     </div>
@@ -525,8 +519,8 @@
 
         function updateStats(props) {
             document.getElementById('totalPlayers').textContent = props.length;
-            document.getElementById('perfectStreaks').textContent = props.filter(p => p.streak >= 20).length;
-            const avgProj = props.reduce((sum, p) => sum + p.ai_proj, 0) / props.length;
+            document.getElementById('perfectStreaks').textContent = props.filter(p => p.streak >= 15).length;
+            const avgProj = props.length > 0 ? props.reduce((sum, p) => sum + p.ai_proj, 0) / props.length : 0;
             document.getElementById('avgProjection').textContent = avgProj.toFixed(1);
         }
 

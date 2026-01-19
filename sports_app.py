@@ -7623,18 +7623,19 @@ def api_player_props():
         
         props_found = []
         
-        # Define prop types to check (market_key maps to Bovada API keys)
+        # Define prop types to check with multiple thresholds (like reference spreadsheet)
         prop_types = [
-            {'key': 'points', 'display': 'Points', 'threshold': 10, 'stat': 'PTS', 'market_key': 'points'},
-            {'key': 'rebounds', 'display': 'Rebounds', 'threshold': 5, 'stat': 'REB', 'market_key': 'rebounds'},
-            {'key': 'assists', 'display': 'Assists', 'threshold': 5, 'stat': 'AST', 'market_key': 'assists'},
-            {'key': 'pts_reb', 'display': 'Pts+Reb', 'threshold': 15, 'stats': ['PTS', 'REB'], 'market_key': None},
-            {'key': 'pts_ast', 'display': 'Pts+Ast', 'threshold': 15, 'stats': ['PTS', 'AST'], 'market_key': None},
-            {'key': 'reb_ast', 'display': 'Reb+Ast', 'threshold': 10, 'stats': ['REB', 'AST'], 'market_key': None},
-            {'key': 'pts_reb_ast', 'display': 'P+R+A', 'threshold': 25, 'stats': ['PTS', 'REB', 'AST'], 'market_key': None},
-            {'key': 'threes', 'display': '3PM', 'threshold': 2, 'stat': 'FG3M', 'market_key': 'threes'},
-            {'key': 'steals', 'display': 'Steals', 'threshold': 1, 'stat': 'STL', 'market_key': None},
-            {'key': 'blocks', 'display': 'Blocks', 'threshold': 1, 'stat': 'BLK', 'market_key': None},
+            {'key': 'points', 'name': 'Points', 'thresholds': [8, 10, 12, 15, 20], 'stat': 'PTS', 'market_key': 'points'},
+            {'key': 'rebounds', 'name': 'Rebounds', 'thresholds': [2, 3, 4, 5, 7], 'stat': 'REB', 'market_key': 'rebounds'},
+            {'key': 'assists', 'name': 'Assists', 'thresholds': [2, 3, 4, 5, 6], 'stat': 'AST', 'market_key': 'assists'},
+            {'key': 'pts_reb', 'name': 'Points + Rebounds', 'thresholds': [10, 12, 15, 18, 20], 'stats': ['PTS', 'REB'], 'market_key': None},
+            {'key': 'pts_ast', 'name': 'Points + Assists', 'thresholds': [10, 12, 15, 18, 20], 'stats': ['PTS', 'AST'], 'market_key': None},
+            {'key': 'reb_ast', 'name': 'Rebounds + Assists', 'thresholds': [6, 8, 10, 12], 'stats': ['REB', 'AST'], 'market_key': None},
+            {'key': 'pts_reb_ast', 'name': 'Points + Assists + Rebounds', 'thresholds': [12, 15, 18, 20, 25], 'stats': ['PTS', 'REB', 'AST'], 'market_key': None},
+            {'key': 'threes', 'name': 'Three-Pointers Made', 'thresholds': [1, 2, 3], 'stat': 'FG3M', 'market_key': 'threes'},
+            {'key': 'steals', 'name': 'Steal', 'thresholds': [1, 2], 'stat': 'STL', 'market_key': None},
+            {'key': 'blocks', 'name': 'Block', 'thresholds': [1, 2], 'stat': 'BLK', 'market_key': None},
+            {'key': 'stl_blk', 'name': 'Steal + Block', 'thresholds': [1, 2, 3], 'stats': ['STL', 'BLK'], 'market_key': None},
         ]
         
         # Fetch real defensive rankings from NBA API
@@ -7669,7 +7670,7 @@ def api_player_props():
             player_id = player['PLAYER_ID']
             player_name = player['PLAYER_NAME']
             team_id = player['TEAM_ID']
-            team_name = team_id_to_abbrev.get(team_id, 'UNK')
+            team_full_name = team_id_to_name.get(team_id, 'Unknown')
             
             try:
                 # Get last 20 games for this player
@@ -7680,74 +7681,69 @@ def api_player_props():
                 )
                 logs_df = game_logs.get_data_frames()[0]
                 
-                if len(logs_df) < 20:
-                    continue  # Need 20 games for 20/20 streak
+                games_available = len(logs_df)
+                if games_available < 10:
+                    continue  # Need at least 10 games
                 
-                # Get opponent's defensive rank FIRST - must be bottom 10 (rank 21-30)
+                # Get opponent's defensive rank
                 opponent_id = team_opponents.get(team_id)
-                opp_def_rank = get_def_rank(opponent_id) if opponent_id else 15
+                opp_def_rank = get_def_rank(opponent_id) if opponent_id else None
                 
-                # MANDATORY: Only include if against bottom 10 defense (favorable matchup)
-                if opp_def_rank < 21:
-                    continue  # Skip - not a favorable matchup
-                
-                # Check each prop type
+                # Check each prop type with multiple thresholds
                 for prop in prop_types:
                     if 'stats' in prop:
-                        # Combo stat
                         values = logs_df[prop['stats']].sum(axis=1).tolist()
                     else:
                         values = logs_df[prop['stat']].tolist()
                     
-                    # Calculate hit rates for different windows
-                    last_5_hits = sum(1 for v in values[:5] if v >= prop['threshold'])
-                    last_10_hits = sum(1 for v in values[:10] if v >= prop['threshold'])
-                    last_20_hits = sum(1 for v in values if v >= prop['threshold'])
-                    
-                    # STRICT REQUIREMENTS:
-                    # - 100% in last 5 (5/5)
-                    # - 90%+ in last 10 (9/10 or 10/10)
-                    # - 95%+ in last 20 (19/20 or 20/20)
-                    if last_5_hits < 5:
-                        continue  # Must be 100% in last 5
-                    if last_10_hits < 9:
-                        continue  # Must be 90%+ in last 10
-                    if last_20_hits < 19:
-                        continue  # Must be 95%+ in last 20
-                    
-                    # Run 100-game simulation for AI projection
-                    mean_val = sum(values) / len(values)
-                    std_val = (sum((v - mean_val) ** 2 for v in values) / len(values)) ** 0.5
-                    simulations = [max(0, random.gauss(mean_val, std_val * 0.5)) for _ in range(100)]
-                    ai_proj = sum(simulations) / len(simulations)
-                    
-                    # Get Bovada line if available
-                    bovada_line = None
-                    if prop.get('market_key'):
-                        line_key = f"{player_name.lower()}_{prop['market_key']}"
-                        bovada_line = bovada_lines.get(line_key)
-                    
-                    props_found.append({
-                        'team': team_name,
-                        'player': player_name,
-                        'prop_type': prop['key'],
-                        'prop_display': prop['display'],
-                        'streak': last_20_hits,
-                        'sample': 20,
-                        'last_5': f"{last_5_hits}/5",
-                        'last_10': f"{last_10_hits}/10",
-                        'def_rank': opp_def_rank,
-                        'ai_proj': round(ai_proj, 1),
-                        'bovada_line': bovada_line,
-                        'status': None
-                    })
+                    # Try each threshold to find best streak
+                    for threshold in prop['thresholds']:
+                        # Count consecutive hits from most recent
+                        streak = 0
+                        for v in values:
+                            if v >= threshold:
+                                streak += 1
+                            else:
+                                break
+                        
+                        # Only include if streak >= 10 games
+                        if streak >= 10:
+                            # Run 100-game simulation for AI projection
+                            mean_val = sum(values[:streak]) / streak if streak > 0 else 0
+                            std_val = (sum((v - mean_val) ** 2 for v in values[:streak]) / streak) ** 0.5 if streak > 0 else 0
+                            simulations = [max(0, random.gauss(mean_val, std_val * 0.5)) for _ in range(100)]
+                            ai_proj = sum(simulations) / len(simulations)
+                            
+                            # Get Bovada line if available
+                            bovada_line = None
+                            if prop.get('market_key'):
+                                line_key = f"{player_name.lower()}_{prop['market_key']}"
+                                bovada_line = bovada_lines.get(line_key)
+                            
+                            # Format prop display like "10+ Points + Rebounds"
+                            prop_display = f"{threshold}+ {prop['name']}"
+                            
+                            props_found.append({
+                                'team': team_full_name,
+                                'player': player_name,
+                                'prop_type': prop['key'],
+                                'prop_display': prop_display,
+                                'streak': streak,
+                                'sample': min(streak, games_available),
+                                'streak_display': f"{streak} / L{min(streak, games_available)}",
+                                'def_rank': opp_def_rank,
+                                'ai_proj': round(ai_proj, 1),
+                                'bovada_line': bovada_line,
+                                'status': None
+                            })
+                            break  # Only add best threshold for this prop type
                         
             except Exception as e:
                 logger.warning(f"Error processing player {player_name}: {e}")
                 continue
         
-        # Sort by streak (desc), then by AI projection (desc)
-        props_found.sort(key=lambda x: (-x['streak'], -x['ai_proj']))
+        # Sort by streak (desc), then by def_rank (desc for weaker defenses), then by AI projection (desc)
+        props_found.sort(key=lambda x: (-x['streak'], -(x['def_rank'] or 0), -x['ai_proj']))
         
         logger.info(f"Found {len(props_found)} player props with 20/20 streaks")
         

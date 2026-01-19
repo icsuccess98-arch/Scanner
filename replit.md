@@ -73,15 +73,14 @@ This project develops and manages trading systems including a Sports Betting Cal
 ### Player Props Streak Tracker (Jan 2026)
 -   **Separate Tab**: /props route with dedicated "Fetch Player Stats" button
 -   **NBA API Integration**: Uses nba_api for player game logs and team stats
--   **Strict Requirements**:
-    -   100% hit rate in last 5 games (5/5)
-    -   90%+ hit rate in last 10 games (9/10 or 10/10)
-    -   95%+ hit rate in last 20 games (19/20 or 20/20)
-    -   MANDATORY: Against bottom 10 defenses only (favorable matchup, ranks 21-30)
--   **Prop Types**: Points, Rebounds, Assists, P+R, P+A, R+A, P+R+A, 3PM, Steals, Blocks
+-   **Streak Tracking**: Finds consecutive hits on props (10+ games in a row)
+-   **Multiple Thresholds**: Dynamically checks various thresholds per prop (e.g., 8+, 10+, 12+ points)
+-   **Prop Types**: Points, Rebounds, Assists, P+R, P+A, R+A, P+R+A, 3PM, Steals, Blocks, Steal+Block
+-   **Format**: Full team names, streak as "X / LY" (e.g., "20 / L20")
 -   **Defensive Rankings**: Real opponent defensive rankings from NBA API (higher rank = worse defense = easier matchup)
 -   **AI Projection**: 100-game Monte Carlo simulation based on player's recent performance
--   **Columns**: Team, Player, Prop, L5, L10, L20, Def Rank, AI Proj
+-   **Columns**: Team, Player, Prop, Streak, Def Rank, AI Proj
+-   **Mobile Layout**: Card-based responsive design with 3-column stat grid
 
 ### Feature Specifications
 -   **Sports Scanner**: Fetches NBA, CBB, NFL, CFB, NHL games, stats, and odds to identify qualified TOTALS picks.
