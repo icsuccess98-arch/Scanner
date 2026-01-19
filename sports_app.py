@@ -7616,9 +7616,6 @@ def api_player_props():
                             continue
                     
                     logger.info(f"Fetched {len(bovada_lines)} Bovada prop lines")
-                    # Log some sample keys for debugging
-                    sample_keys = list(bovada_lines.keys())[:5]
-                    logger.info(f"Sample Bovada keys: {sample_keys}")
                 else:
                     logger.warning(f"Events API returned status {events_resp.status_code}")
         except Exception as e:
@@ -7698,10 +7695,6 @@ def api_player_props():
             ].head(100)
         
         logger.info(f"Processing {len(active_players)} active players")
-        
-        # Log sample NBA API player names for debugging
-        sample_nba_names = [p['PLAYER_NAME'].lower() for _, p in active_players.head(5).iterrows()]
-        logger.info(f"Sample NBA API player names: {sample_nba_names}")
         
         props_found = []
         
@@ -7800,8 +7793,8 @@ def api_player_props():
                     else:
                         break
                 
-                # Only include if streak >= 10 games AND facing bottom 10 defense (rank 21-30)
-                if streak >= 10 and opp_def_rank and opp_def_rank >= 21:
+                # Include if streak >= 3 games (shows players hitting over their Bovada line consistently)
+                if streak >= 3:
                     # Run 100-game simulation for AI projection
                     mean_val = sum(values[:min(20, len(values))]) / min(20, len(values)) if len(values) > 0 else 0
                     std_val = (sum((v - mean_val) ** 2 for v in values[:min(20, len(values))]) / min(20, len(values))) ** 0.5 if len(values) > 0 else 0
@@ -7839,7 +7832,7 @@ def api_player_props():
                 elite_picks.append(prop)
                 seen_players.add(prop['player'])
         
-        logger.info(f"Found {len(props_found)} player props with 10+ streaks from {player_count} players (skipped {skipped_injured} injured)")
+        logger.info(f"Found {len(props_found)} player props with 3+ streaks from {player_count} players (skipped {skipped_injured} injured)")
         
         return jsonify({
             'success': True,
