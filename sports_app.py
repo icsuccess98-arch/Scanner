@@ -7580,24 +7580,44 @@ def api_player_props():
         try:
             odds_api_key = os.environ.get('ODDS_API_KEY')
             if odds_api_key:
-                props_markets = ['player_points', 'player_rebounds', 'player_assists', 'player_threes']
-                props_url = f"https://api.the-odds-api.com/v4/sports/basketball_nba/events?apiKey={odds_api_key}&regions=us&markets={','.join(props_markets)}&bookmakers=bovada"
-                resp = requests.get(props_url, timeout=15)
-                if resp.status_code == 200:
-                    events = resp.json()
-                    for event in events:
-                        bookmakers = event.get('bookmakers', [])
-                        for bm in bookmakers:
-                            if bm.get('key') == 'bovada':
-                                for market in bm.get('markets', []):
-                                    market_key = market.get('key', '').replace('player_', '')
-                                    for outcome in market.get('outcomes', []):
-                                        player_name = outcome.get('description', '')
-                                        line = outcome.get('point')
-                                        if player_name and line:
-                                            key = f"{player_name.lower()}_{market_key}"
-                                            bovada_lines[key] = line
+                # First get today's events
+                events_url = f"https://api.the-odds-api.com/v4/sports/basketball_nba/events?apiKey={odds_api_key}"
+                events_resp = requests.get(events_url, timeout=15)
+                if events_resp.status_code == 200:
+                    events = events_resp.json()
+                    logger.info(f"Found {len(events)} NBA events for props")
+                    
+                    # Fetch player props for each event
+                    for event in events[:12]:  # Limit to avoid API quota
+                        event_id = event.get('id')
+                        if not event_id:
+                            continue
+                        
+                        props_markets = ['player_points', 'player_rebounds', 'player_assists', 'player_threes']
+                        props_url = f"https://api.the-odds-api.com/v4/sports/basketball_nba/events/{event_id}/odds?apiKey={odds_api_key}&regions=us&markets={','.join(props_markets)}&bookmakers=bovada"
+                        
+                        try:
+                            props_resp = requests.get(props_url, timeout=10)
+                            if props_resp.status_code == 200:
+                                props_data = props_resp.json()
+                                bookmakers = props_data.get('bookmakers', [])
+                                for bm in bookmakers:
+                                    if bm.get('key') == 'bovada':
+                                        for market in bm.get('markets', []):
+                                            market_key = market.get('key', '').replace('player_', '')
+                                            for outcome in market.get('outcomes', []):
+                                                player_name = outcome.get('description', '')
+                                                line = outcome.get('point')
+                                                if player_name and line:
+                                                    key = f"{player_name.lower()}_{market_key}"
+                                                    bovada_lines[key] = line
+                        except Exception as e:
+                            logger.warning(f"Error fetching props for event {event_id}: {e}")
+                            continue
+                    
                     logger.info(f"Fetched {len(bovada_lines)} Bovada prop lines")
+                else:
+                    logger.warning(f"Events API returned status {events_resp.status_code}")
         except Exception as e:
             logger.warning(f"Could not fetch Bovada lines: {e}")
         
