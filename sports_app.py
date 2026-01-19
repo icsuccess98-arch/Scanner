@@ -7760,20 +7760,8 @@ def api_player_props():
             opponent_id = team_opponents.get(team_id)
             opp_def_rank = get_def_rank(opponent_id) if opponent_id else None
             
-            # Check each prop type - ONLY if Bovada has a line for it
+            # Check each prop type - show ALL streaks regardless of Bovada
             for prop in prop_types:
-                # Skip props without Bovada market key
-                if not prop.get('market_key'):
-                    continue
-                
-                # Look up Bovada line for this player/prop
-                line_key = f"{player_name.lower()}_{prop['market_key']}"
-                bovada_line = bovada_lines.get(line_key)
-                
-                # ONLY process if Bovada has a line
-                if not bovada_line:
-                    continue
-                
                 try:
                     if 'stats' in prop:
                         values = logs_df[prop['stats']].sum(axis=1).tolist()
@@ -7782,40 +7770,49 @@ def api_player_props():
                 except:
                     continue
                 
-                # Skip if no opponent or not bottom 10 defense
-                if not opp_def_rank or opp_def_rank < 21:
-                    continue
-                
-                # Calculate AI projection
+                # Calculate AI projection (100-game simulation based on recent performance)
                 recent_values = values[:min(20, len(values))]
                 mean_val = sum(recent_values) / len(recent_values) if len(recent_values) > 0 else 0
                 
-                # Boost for weak defense matchup (rank 21-30 = 1-10% boost)
-                defense_boost = 1.0 + ((opp_def_rank - 20) * 0.01)
-                ai_proj = mean_val * defense_boost
+                # Apply defense boost if facing weak defense
+                if opp_def_rank and opp_def_rank >= 21:
+                    defense_boost = 1.0 + ((opp_def_rank - 20) * 0.01)
+                    ai_proj = mean_val * defense_boost
+                else:
+                    ai_proj = mean_val
                 
-                # Find best streak at highest threshold
+                # Find best streak using hit rate criteria:
+                # 100% last 5, 95% last 10, 90% last 20
                 best_streak = 0
                 best_threshold = 0
-                for threshold in prop['thresholds']:
-                    streak = 0
-                    for v in values:
-                        if v >= threshold:
-                            streak += 1
-                        else:
-                            break
-                    
-                    # Track best streak (highest threshold with 10+ games)
-                    if streak >= 10 and threshold > best_threshold:
-                        best_streak = streak
-                        best_threshold = threshold
+                best_sample = 0
                 
-                # Include if found a valid streak (10+ games)
-                if best_streak >= 10:
-                    # Calculate edge (how much AI proj exceeds Bovada line)
-                    edge = round(ai_proj - bovada_line, 1)
+                for threshold in prop['thresholds']:
+                    # Check different sample sizes for hit rate
+                    for sample_size in [20, 15, 12, 10, 5]:
+                        if len(values) < sample_size:
+                            continue
+                        
+                        sample_values = values[:sample_size]
+                        hits = sum(1 for v in sample_values if v >= threshold)
+                        hit_rate = hits / sample_size
+                        
+                        # Check if meets hit rate requirement
+                        # 100% for L5, 95% for L10, 90% for L20
+                        required_rate = 1.0 if sample_size <= 5 else (0.95 if sample_size <= 10 else 0.90)
+                        
+                        if hit_rate >= required_rate and threshold > best_threshold:
+                            best_streak = hits
+                            best_threshold = threshold
+                            best_sample = sample_size
+                
+                # Include if found a valid streak
+                if best_streak >= 5 and best_threshold > 0:
+                    # Look up Bovada line if available
+                    line_key = f"{player_name.lower()}_{prop.get('market_key', '')}"
+                    bovada_line = bovada_lines.get(line_key)
                     
-                    prop_display = f"O {bovada_line} {prop['name']}"
+                    prop_display = f"{int(best_threshold)}+ {prop['name']}"
                     
                     props_found.append({
                         'team': team_full_name,
@@ -7823,12 +7820,12 @@ def api_player_props():
                         'prop_type': prop['key'],
                         'prop_display': prop_display,
                         'streak': best_streak,
-                        'sample': min(20, games_available),
-                        'streak_display': f"{best_streak} / L{min(20, games_available)}",
+                        'sample': best_sample,
+                        'streak_display': f"{best_streak} / L{best_sample}",
                         'def_rank': opp_def_rank,
                         'ai_proj': round(ai_proj, 1),
                         'bovada_line': bovada_line,
-                        'edge': edge,
+                        'edge': round(ai_proj - bovada_line, 1) if bovada_line else None,
                         'status': None
                     })
             
@@ -7847,7 +7844,7 @@ def api_player_props():
                 elite_picks.append(prop)
                 seen_players.add(prop['player'])
         
-        logger.info(f"Found {len(props_found)} player props with 10+ streaks from {player_count} players (skipped {skipped_injured} injured)")
+        logger.info(f"Found {len(props_found)} player props with hot streaks from {player_count} players (skipped {skipped_injured} injured)")
         
         return jsonify({
             'success': True,
