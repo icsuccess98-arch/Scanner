@@ -101,47 +101,63 @@
             background: var(--bg-card);
             border-radius: 12px;
             border: 1px solid var(--border);
-            overflow: hidden;
+            overflow-x: auto;
             margin-top: 1.5rem;
+            -webkit-overflow-scrolling: touch;
         }
         .props-table {
             width: 100%;
             border-collapse: collapse;
+            table-layout: fixed;
+        }
+        .props-table th,
+        .props-table td {
+            white-space: nowrap;
+            text-align: center;
+            vertical-align: middle;
         }
         .props-table th {
             background: var(--bg-input);
             color: var(--text-muted);
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             font-weight: 600;
             text-transform: uppercase;
-            padding: 0.75rem 1rem;
-            text-align: left;
+            padding: 0.6rem 0.5rem;
             border-bottom: 1px solid var(--border);
         }
         .props-table td {
-            padding: 0.875rem 1rem;
+            padding: 0.6rem 0.5rem;
             border-bottom: 1px solid var(--border);
-            font-size: 0.85rem;
+            font-size: 0.8rem;
         }
+        .props-table th:nth-child(1), .props-table td:nth-child(1) { width: 50px; text-align: left; }
+        .props-table th:nth-child(2), .props-table td:nth-child(2) { width: 120px; text-align: left; }
+        .props-table th:nth-child(3), .props-table td:nth-child(3) { width: 65px; }
+        .props-table th:nth-child(4), .props-table td:nth-child(4) { width: 45px; }
+        .props-table th:nth-child(5), .props-table td:nth-child(5) { width: 50px; }
+        .props-table th:nth-child(6), .props-table td:nth-child(6) { width: 50px; }
+        .props-table th:nth-child(7), .props-table td:nth-child(7) { width: 55px; }
+        .props-table th:nth-child(8), .props-table td:nth-child(8) { width: 55px; }
         .props-table tr:last-child td { border-bottom: none; }
         .props-table tr:hover { background: rgba(255,255,255,0.02); }
-        .team-name { font-weight: 600; color: var(--text); }
-        .player-name { font-weight: 700; color: var(--text); }
-        .player-status { font-size: 0.7rem; color: var(--text-muted); }
+        .team-name { font-weight: 600; color: var(--text); font-size: 0.75rem; }
+        .player-name { font-weight: 700; color: var(--text); font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; }
+        .player-status { font-size: 0.65rem; color: var(--text-muted); }
         .player-status.questionable { color: #FFA500; }
         .prop-type { 
             background: rgba(123, 44, 191, 0.2); 
             color: var(--accent); 
-            padding: 0.25rem 0.5rem; 
+            padding: 0.2rem 0.4rem; 
             border-radius: 4px; 
             font-weight: 600;
-            font-size: 0.75rem;
+            font-size: 0.65rem;
+            display: inline-block;
         }
-        .streak-cell { font-weight: 700; }
+        .streak-cell { font-weight: 700; font-size: 0.75rem; }
         .streak-perfect { color: var(--green); }
         .streak-good { color: var(--gold); }
         .streak-warning { color: #FFA500; }
-        .def-rank { font-weight: 600; }
+        .def-rank { font-weight: 600; font-size: 0.75rem; }
         .def-rank.elite { color: var(--green); }
         .def-rank.good { color: var(--gold); }
         .def-rank.mid { color: var(--text-muted); }
@@ -149,7 +165,7 @@
         .ai-proj { 
             font-weight: 700; 
             color: var(--green);
-            font-size: 0.9rem;
+            font-size: 0.8rem;
         }
         .loading-state {
             text-align: center;
@@ -210,16 +226,69 @@
             color: var(--text-muted);
             text-transform: uppercase;
         }
+        .mobile-cards { display: none; }
+        .mobile-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+        }
+        .mobile-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.75rem;
+            gap: 0.5rem;
+        }
+        .mobile-card-player {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: var(--text);
+        }
+        .mobile-card-team {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        .mobile-card-stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.5rem;
+            text-align: center;
+        }
+        .mobile-stat {
+            background: var(--bg-input);
+            padding: 0.5rem 0.25rem;
+            border-radius: 6px;
+        }
+        .mobile-stat-label {
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 0.15rem;
+        }
+        .mobile-stat-value {
+            font-weight: 700;
+            font-size: 0.8rem;
+        }
         @media (max-width: 768px) {
-            .props-table-container { overflow-x: auto; }
-            .props-table { min-width: 700px; }
-            .hero-section { padding: 1.5rem 0; }
-            .hero-title { font-size: 1.25rem; }
+            .props-table-container { display: block; overflow-x: auto; }
+            .props-table { min-width: 550px; }
+            .hero-section { padding: 1.25rem 0; }
+            .hero-title { font-size: 1.1rem; }
+            .btn-fetch { padding: 0.6rem 1rem; font-size: 0.8rem; }
+            .nav-links a { font-size: 0.7rem; padding: 0.35rem 0.5rem; }
         }
         @media (max-width: 480px) {
-            .nav-links a { font-size: 0.7rem; padding: 0.35rem 0.6rem; }
-            .stat-pills { flex-wrap: wrap; }
-            .stat-pill { flex: 1; min-width: 100px; }
+            .stat-pills { flex-wrap: wrap; gap: 0.5rem; }
+            .stat-pill { flex: 1; min-width: 90px; padding: 0.5rem; }
+            .stat-pill .value { font-size: 1.2rem; }
+            .stat-pill .label { font-size: 0.6rem; }
+            .props-table-container { display: none; }
+            .mobile-cards { display: block; margin-top: 1rem; }
+            .hero-title { font-size: 1rem; }
+            .filter-bar { gap: 0.5rem; }
+            .filter-select { font-size: 0.75rem; padding: 0.4rem 0.6rem; }
         }
     </style>
 </head>
@@ -314,14 +383,16 @@
                         <th>L5</th>
                         <th>L10</th>
                         <th>L20</th>
-                        <th>Def Rank</th>
-                        <th>AI Proj</th>
+                        <th>Def</th>
+                        <th>Proj</th>
                     </tr>
                 </thead>
                 <tbody id="propsTableBody">
                 </tbody>
             </table>
         </div>
+        
+        <div class="mobile-cards" id="mobileCards"></div>
     </div>
 
     <script>
@@ -376,9 +447,11 @@
             const tbody = document.getElementById('propsTableBody');
             const table = document.getElementById('propsTable');
             const empty = document.getElementById('emptyState');
+            const mobileCards = document.getElementById('mobileCards');
             
             if (props.length === 0) {
                 table.style.display = 'none';
+                mobileCards.innerHTML = '';
                 empty.style.display = 'block';
                 return;
             }
@@ -402,6 +475,41 @@
                         <td class="def-rank ${defClass}">${p.def_rank}${getOrdinalSuffix(p.def_rank)}</td>
                         <td class="ai-proj">${p.ai_proj.toFixed(1)}</td>
                     </tr>
+                `;
+            }).join('');
+            
+            mobileCards.innerHTML = props.map(p => {
+                const streakClass = p.streak >= 20 ? 'streak-perfect' : 'streak-good';
+                const defClass = p.def_rank >= 25 ? 'elite' : 'good';
+                
+                return `
+                    <div class="mobile-card">
+                        <div class="mobile-card-header">
+                            <div>
+                                <div class="mobile-card-player">${p.player}</div>
+                                <div class="mobile-card-team">${p.team} · <span class="prop-type">${p.prop_display}</span></div>
+                            </div>
+                            <div class="ai-proj" style="font-size: 1.1rem;">${p.ai_proj.toFixed(1)}</div>
+                        </div>
+                        <div class="mobile-card-stats">
+                            <div class="mobile-stat">
+                                <div class="mobile-stat-label">L5</div>
+                                <div class="mobile-stat-value streak-perfect">${p.last_5 || '5/5'}</div>
+                            </div>
+                            <div class="mobile-stat">
+                                <div class="mobile-stat-label">L10</div>
+                                <div class="mobile-stat-value ${p.last_10 === '10/10' ? 'streak-perfect' : 'streak-good'}">${p.last_10 || '9/10'}</div>
+                            </div>
+                            <div class="mobile-stat">
+                                <div class="mobile-stat-label">L20</div>
+                                <div class="mobile-stat-value ${streakClass}">${p.streak}/20</div>
+                            </div>
+                            <div class="mobile-stat">
+                                <div class="mobile-stat-label">Def</div>
+                                <div class="mobile-stat-value def-rank ${defClass}">${p.def_rank}${getOrdinalSuffix(p.def_rank)}</div>
+                            </div>
+                        </div>
+                    </div>
                 `;
             }).join('');
             
