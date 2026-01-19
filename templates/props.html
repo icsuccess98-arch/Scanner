@@ -31,7 +31,7 @@
         }
         .header {
             background: linear-gradient(180deg, #16131f 0%, var(--bg-dark) 100%);
-            padding: 0.75rem 1rem;
+            padding: 1rem;
             border-bottom: 1px solid var(--border);
             display: flex;
             justify-content: space-between;
@@ -39,7 +39,6 @@
             position: sticky;
             top: 0;
             z-index: 100;
-            gap: 0.5rem;
         }
         .brand {
             font-size: 1.1rem;
@@ -54,16 +53,15 @@
             text-decoration: none;
         }
         .brand i { -webkit-text-fill-color: var(--gold); }
-        .nav-links { display: flex; gap: 0.35rem; flex-shrink: 0; }
+        .nav-links { display: flex; gap: 0.5rem; }
         .nav-links a {
             color: var(--text-muted);
             text-decoration: none;
             font-weight: 600;
-            font-size: 0.75rem;
-            padding: 0.35rem 0.6rem;
+            font-size: 0.8rem;
+            padding: 0.4rem 0.75rem;
             border-radius: 16px;
             transition: all 0.2s;
-            white-space: nowrap;
         }
         .nav-links a:hover { color: var(--text); background: rgba(255,255,255,0.05); }
         .nav-links a.active { 
@@ -129,12 +127,8 @@
         .props-table tr:hover { background: rgba(255,255,255,0.02); }
         .team-name { font-weight: 600; color: var(--text); }
         .player-name { font-weight: 700; color: var(--text); }
-        .player-status { font-size: 0.7rem; font-weight: 700; padding: 0.15rem 0.4rem; border-radius: 3px; display: inline-block; margin-top: 0.25rem; }
-        .player-status.out { background: rgba(220, 20, 60, 0.2); color: #FF4444; }
-        .player-status.gtd { background: rgba(255, 165, 0, 0.2); color: #FFA500; }
-        .player-status.doubtful { background: rgba(220, 20, 60, 0.15); color: #FF6666; }
-        .row-injured { background: rgba(220, 20, 60, 0.08) !important; }
-        .row-injured:hover { background: rgba(220, 20, 60, 0.12) !important; }
+        .player-status { font-size: 0.7rem; color: var(--text-muted); }
+        .player-status.questionable { color: #FFA500; }
         .prop-type { 
             background: rgba(123, 44, 191, 0.2); 
             color: var(--accent); 
@@ -156,18 +150,6 @@
             font-weight: 700; 
             color: var(--green);
             font-size: 0.9rem;
-        }
-        .bovada-line {
-            font-weight: 600;
-            color: var(--gold);
-        }
-        .bovada-odds {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            margin-left: 0.25rem;
-        }
-        .no-line {
-            color: var(--text-muted);
         }
         .loading-state {
             text-align: center;
@@ -229,109 +211,15 @@
             text-transform: uppercase;
         }
         @media (max-width: 768px) {
-            .header {
-                padding: 0.5rem 0.75rem;
-                gap: 0.25rem;
-            }
-            .brand {
-                font-size: 0.85rem;
-                white-space: nowrap;
-                flex-shrink: 0;
-            }
-            .nav-links {
-                gap: 0.15rem;
-            }
-            .nav-links a {
-                font-size: 0.6rem;
-                padding: 0.25rem 0.4rem;
-            }
-            .hero-section { 
-                padding: 1rem 0; 
-            }
-            .hero-section .d-flex {
-                flex-direction: column;
-                align-items: flex-start !important;
-                gap: 1rem !important;
-            }
-            .hero-title { 
-                font-size: 1.1rem; 
-            }
-            .hero-title i {
-                font-size: 0.9rem;
-            }
-            .btn-fetch {
-                width: 100%;
-                justify-content: center;
-                padding: 0.6rem 1rem;
-                font-size: 0.85rem;
-            }
-            .props-table-container { 
-                overflow-x: auto; 
-                -webkit-overflow-scrolling: touch;
-            }
-            .props-table { 
-                min-width: 800px; 
-            }
-            .props-table th,
-            .props-table td {
-                padding: 0.5rem 0.6rem;
-                font-size: 0.75rem;
-                white-space: nowrap;
-            }
-            .stat-pills { 
-                flex-wrap: nowrap;
-                gap: 0.5rem;
-                overflow-x: auto;
-            }
-            .stat-pill { 
-                flex: 0 0 auto;
-                min-width: 90px;
-                padding: 0.5rem 0.75rem;
-            }
-            .stat-pill .value {
-                font-size: 1.2rem;
-            }
-            .stat-pill .label {
-                font-size: 0.6rem;
-            }
-            .filter-bar {
-                flex-wrap: nowrap;
-                overflow-x: auto;
-            }
-            .filter-select {
-                flex: 0 0 auto;
-                font-size: 0.75rem;
-                padding: 0.4rem 0.6rem;
-            }
-            .container {
-                padding-left: 0.75rem;
-                padding-right: 0.75rem;
-            }
+            .props-table-container { overflow-x: auto; }
+            .props-table { min-width: 700px; }
+            .hero-section { padding: 1.5rem 0; }
+            .hero-title { font-size: 1.25rem; }
         }
         @media (max-width: 480px) {
-            .header {
-                padding: 0.4rem 0.5rem;
-            }
-            .brand {
-                font-size: 0.75rem;
-            }
-            .nav-links a { 
-                font-size: 0.55rem; 
-                padding: 0.2rem 0.35rem;
-                border-radius: 10px;
-            }
-            .hero-title { 
-                font-size: 0.95rem; 
-            }
-        }
-        @media (max-width: 360px) {
-            .brand {
-                font-size: 0.7rem;
-            }
-            .nav-links a { 
-                font-size: 0.5rem; 
-                padding: 0.15rem 0.25rem;
-            }
+            .nav-links a { font-size: 0.7rem; padding: 0.35rem 0.6rem; }
+            .stat-pills { flex-wrap: wrap; }
+            .stat-pill { flex: 1; min-width: 100px; }
         }
     </style>
 </head>
@@ -423,7 +311,6 @@
                         <th>Team</th>
                         <th>Player</th>
                         <th>Prop</th>
-                        <th>Bovada Line</th>
                         <th>L5</th>
                         <th>L10</th>
                         <th>L20</th>
@@ -499,23 +386,16 @@
             tbody.innerHTML = props.map(p => {
                 const streakClass = p.streak >= 20 ? 'streak-perfect' : (p.streak >= 19 ? 'streak-good' : 'streak-warning');
                 const defClass = p.def_rank >= 25 ? 'elite' : (p.def_rank >= 21 ? 'good' : 'mid');
-                const isInjured = p.status === 'OUT' || p.status === 'GTD' || p.status === 'DOUBTFUL';
-                const rowClass = isInjured ? 'row-injured' : '';
-                const statusClass = p.status === 'OUT' ? 'out' : (p.status === 'GTD' ? 'gtd' : (p.status === 'DOUBTFUL' ? 'doubtful' : ''));
-                
-                const bovadaDisplay = p.bovada_line !== null 
-                    ? `O ${p.bovada_line} <span class="bovada-odds">(${p.bovada_odds > 0 ? '+' : ''}${p.bovada_odds})</span>`
-                    : '<span class="no-line">--</span>';
+                const statusClass = p.status === 'Questionable' ? 'questionable' : '';
                 
                 return `
-                    <tr data-prop-type="${p.prop_type}" data-streak="${p.streak}" class="${rowClass}">
+                    <tr data-prop-type="${p.prop_type}" data-streak="${p.streak}">
                         <td class="team-name">${p.team}</td>
                         <td>
                             <div class="player-name">${p.player}</div>
                             ${p.status ? `<div class="player-status ${statusClass}">${p.status}</div>` : ''}
                         </td>
                         <td><span class="prop-type">${p.prop_display}</span></td>
-                        <td class="bovada-line">${bovadaDisplay}</td>
                         <td class="streak-cell streak-perfect">${p.last_5 || '5/5'}</td>
                         <td class="streak-cell ${p.last_10 === '10/10' ? 'streak-perfect' : 'streak-good'}">${p.last_10 || '9/10'}</td>
                         <td class="streak-cell ${streakClass}">${p.streak}/20</td>

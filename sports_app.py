@@ -7538,202 +7538,179 @@ def props():
 @app.route('/api/player_props')
 def api_player_props():
     """
-    Fetch NBA player props with streak data - OPTIMIZED for speed.
-    Uses parallel processing and early filtering.
+    Fetch NBA player props with streak data.
+    Analyzes last 20 games for each player to find hot streaks.
+    Uses 100-game simulation for AI projections.
     """
     try:
-        from nba_api.stats.endpoints import playergamelogs, leaguedashplayerstats, scoreboardv2, leaguedashteamstats
+        from nba_api.stats.endpoints import playergamelogs, leaguedashplayerstats, scoreboardv2
         from nba_api.stats.static import teams as nba_teams
-        from concurrent.futures import ThreadPoolExecutor, as_completed
         import random
         
         et = pytz.timezone('America/New_York')
         today = datetime.now(et).strftime('%Y-%m-%d')
         
-        # Team ID mappings
-        team_id_to_abbrev = {t['id']: t['abbreviation'] for t in nba_teams.get_teams()}
-        
-        # Fetch defensive rankings FIRST to pre-filter teams
-        def_rankings = {}
-        bottom_10_teams = set()
-        try:
-            team_stats = leaguedashteamstats.LeagueDashTeamStats(
-                season='2025-26',
-                measure_type_detailed_defense='Opponent'
-            )
-            team_df = team_stats.get_data_frames()[0]
-            team_df = team_df.sort_values('OPP_PTS', ascending=True)
-            for rank, (_, row) in enumerate(team_df.iterrows(), 1):
-                def_rankings[row['TEAM_ID']] = rank
-                if rank >= 21:
-                    bottom_10_teams.add(row['TEAM_ID'])
-        except Exception as e:
-            logger.warning(f"Could not fetch defensive rankings: {e}")
-        
-        # Get today's games
-        today_games = []
+        # Get today's games to find active players
         try:
             scoreboard = scoreboardv2.ScoreboardV2(game_date=today)
             games_data = scoreboard.get_normalized_dict()
             today_games = games_data.get('GameHeader', [])
         except Exception as e:
             logger.warning(f"Could not fetch today's games: {e}")
+            today_games = []
         
-        # Build opponent lookup - only include teams playing against bottom 10 defenses
+        # Get teams playing today
+        teams_playing = set()
+        for game in today_games:
+            teams_playing.add(game.get('HOME_TEAM_ID'))
+            teams_playing.add(game.get('VISITOR_TEAM_ID'))
+        
+        # Team ID to name mapping
+        team_id_to_name = {t['id']: t['full_name'] for t in nba_teams.get_teams()}
+        team_id_to_abbrev = {t['id']: t['abbreviation'] for t in nba_teams.get_teams()}
+        
+        # Get player stats for the season
+        try:
+            player_stats = leaguedashplayerstats.LeagueDashPlayerStats(
+                season='2025-26',
+                per_mode_detailed='PerGame'
+            )
+            stats_df = player_stats.get_data_frames()[0]
+        except Exception as e:
+            logger.error(f"Could not fetch player stats: {e}")
+            return jsonify({'success': False, 'message': f'Error fetching player stats: {str(e)}'})
+        
+        # Filter to players on teams playing today with meaningful minutes
+        if teams_playing:
+            active_players = stats_df[
+                (stats_df['TEAM_ID'].isin(teams_playing)) & 
+                (stats_df['MIN'] >= 15) &
+                (stats_df['GP'] >= 10)
+            ]
+        else:
+            # If no games today, get top players by minutes
+            active_players = stats_df[
+                (stats_df['MIN'] >= 20) &
+                (stats_df['GP'] >= 15)
+            ].head(50)
+        
+        props_found = []
+        
+        # Define prop types to check
+        prop_types = [
+            {'key': 'points', 'display': '10+ Points', 'threshold': 10, 'stat': 'PTS'},
+            {'key': 'rebounds', 'display': '5+ Rebounds', 'threshold': 5, 'stat': 'REB'},
+            {'key': 'assists', 'display': '5+ Assists', 'threshold': 5, 'stat': 'AST'},
+            {'key': 'pts_reb', 'display': '15+ Points + Rebounds', 'threshold': 15, 'stats': ['PTS', 'REB']},
+            {'key': 'pts_ast', 'display': '15+ Points + Assists', 'threshold': 15, 'stats': ['PTS', 'AST']},
+            {'key': 'reb_ast', 'display': '10+ Rebounds + Assists', 'threshold': 10, 'stats': ['REB', 'AST']},
+            {'key': 'pts_reb_ast', 'display': '25+ P+R+A', 'threshold': 25, 'stats': ['PTS', 'REB', 'AST']},
+            {'key': 'threes', 'display': '2+ Three-Pointers', 'threshold': 2, 'stat': 'FG3M'},
+            {'key': 'steals', 'display': '1+ Steal', 'threshold': 1, 'stat': 'STL'},
+            {'key': 'blocks', 'display': '1+ Block', 'threshold': 1, 'stat': 'BLK'},
+        ]
+        
+        # Fetch real defensive rankings from NBA API
+        def_rankings = {}
+        try:
+            from nba_api.stats.endpoints import leaguedashteamstats
+            team_stats = leaguedashteamstats.LeagueDashTeamStats(
+                season='2025-26',
+                measure_type_detailed_defense='Opponent'
+            )
+            team_df = team_stats.get_data_frames()[0]
+            # Rank by opponent points (higher = worse defense = higher rank number)
+            team_df = team_df.sort_values('OPP_PTS', ascending=True)
+            for rank, (_, row) in enumerate(team_df.iterrows(), 1):
+                def_rankings[row['TEAM_ID']] = rank
+        except Exception as e:
+            logger.warning(f"Could not fetch defensive rankings: {e}")
+        
+        def get_def_rank(opponent_team_id):
+            return def_rankings.get(opponent_team_id, 15)  # Default to middle rank
+        
+        # Build opponent lookup from today's games
         team_opponents = {}
-        teams_vs_bottom_10 = set()
         for game in today_games:
             home_id = game.get('HOME_TEAM_ID')
             away_id = game.get('VISITOR_TEAM_ID')
             team_opponents[home_id] = away_id
             team_opponents[away_id] = home_id
-            if away_id in bottom_10_teams:
-                teams_vs_bottom_10.add(home_id)
-            if home_id in bottom_10_teams:
-                teams_vs_bottom_10.add(away_id)
         
-        if not teams_vs_bottom_10:
-            return jsonify({'success': True, 'props': [], 'count': 0, 
-                           'message': 'No teams playing against bottom 10 defenses today'})
-        
-        # Get player stats - filter to only teams vs bottom 10 defenses
-        try:
-            player_stats = leaguedashplayerstats.LeagueDashPlayerStats(
-                season='2025-26', per_mode_detailed='PerGame'
-            )
-            stats_df = player_stats.get_data_frames()[0]
-            active_players = stats_df[
-                (stats_df['TEAM_ID'].isin(teams_vs_bottom_10)) & 
-                (stats_df['MIN'] >= 20) & (stats_df['GP'] >= 10)
-            ]
-        except Exception as e:
-            return jsonify({'success': False, 'message': f'Error: {str(e)}'})
-        
-        # Prop types
-        prop_types = [
-            {'key': 'points', 'display': '10+ Points', 'threshold': 10, 'stat': 'PTS'},
-            {'key': 'rebounds', 'display': '5+ Rebounds', 'threshold': 5, 'stat': 'REB'},
-            {'key': 'assists', 'display': '5+ Assists', 'threshold': 5, 'stat': 'AST'},
-            {'key': 'pts_reb', 'display': '15+ P+R', 'threshold': 15, 'stats': ['PTS', 'REB']},
-            {'key': 'pts_ast', 'display': '15+ P+A', 'threshold': 15, 'stats': ['PTS', 'AST']},
-            {'key': 'pts_reb_ast', 'display': '25+ P+R+A', 'threshold': 25, 'stats': ['PTS', 'REB', 'AST']},
-            {'key': 'threes', 'display': '2+ Threes', 'threshold': 2, 'stat': 'FG3M'},
-        ]
-        
-        # Fetch injuries in parallel with Bovada props
-        player_injuries = {}
-        bovada_props = {}
-        
-        def fetch_injuries():
-            try:
-                resp = requests.get("https://www.rotowire.com/basketball/nba-lineups.php", timeout=5)
-                if resp.status_code == 200:
-                    import re
-                    for name in re.findall(r'is-out[^"]*"[^>]*data-player="([^"]+)"', resp.text, re.I):
-                        player_injuries[name.lower().strip()] = 'OUT'
-                    for name in re.findall(r'is-gtd[^"]*"[^>]*data-player="([^"]+)"', resp.text, re.I):
-                        player_injuries[name.lower().strip()] = 'GTD'
-            except:
-                pass
-        
-        def fetch_bovada():
-            api_key = os.environ.get("ODDS_API_KEY") or os.environ.get("API_KEY")
-            if not api_key:
-                return
-            try:
-                resp = requests.get("https://api.the-odds-api.com/v4/sports/basketball_nba/odds",
-                    params={'apiKey': api_key, 'regions': 'us', 'oddsFormat': 'american',
-                            'markets': 'player_points,player_rebounds,player_assists,player_threes,player_points_rebounds_assists',
-                            'bookmakers': 'bovada'}, timeout=8)
-                if resp.status_code == 200:
-                    for event in resp.json():
-                        for bm in event.get('bookmakers', []):
-                            if bm.get('key') != 'bovada':
-                                continue
-                            for mkt in bm.get('markets', []):
-                                for out in mkt.get('outcomes', []):
-                                    pname = out.get('description', '').lower().strip()
-                                    line, price = out.get('point'), out.get('price', 0)
-                                    if pname and line and abs(price) <= 190:
-                                        key = f"{pname}_{mkt.get('key')}_{out.get('name','').lower()}"
-                                        bovada_props[key] = {'line': line, 'odds': price}
-            except:
-                pass
-        
-        # Run parallel fetches
-        with ThreadPoolExecutor(max_workers=2) as ex:
-            ex.submit(fetch_injuries)
-            ex.submit(fetch_bovada)
-        
-        def get_player_status(name):
-            n = name.lower().strip()
-            if n in player_injuries:
-                return player_injuries[n]
-            for k, v in player_injuries.items():
-                if k in n or n in k:
-                    return v
-            return None
-        
-        def get_bovada_line(name, prop_key):
-            market_map = {'points': 'player_points', 'rebounds': 'player_rebounds', 
-                         'assists': 'player_assists', 'threes': 'player_threes',
-                         'pts_reb_ast': 'player_points_rebounds_assists'}
-            mkt = market_map.get(prop_key)
-            if not mkt:
-                return None, None
-            n = name.lower().strip()
-            for d in ['over', 'under']:
-                k = f"{n}_{mkt}_{d}"
-                if k in bovada_props:
-                    return bovada_props[k]['line'], bovada_props[k]['odds']
-            return None, None
-        
-        # Process players in parallel
-        props_found = []
-        
-        def process_player(player_row):
-            results = []
-            pid, pname, tid = player_row['PLAYER_ID'], player_row['PLAYER_NAME'], player_row['TEAM_ID']
-            team_name = team_id_to_abbrev.get(tid, 'UNK')
-            opp_id = team_opponents.get(tid)
-            opp_rank = def_rankings.get(opp_id, 15) if opp_id else 15
+        # Process each player
+        for _, player in active_players.iterrows():
+            player_id = player['PLAYER_ID']
+            player_name = player['PLAYER_NAME']
+            team_id = player['TEAM_ID']
+            team_name = team_id_to_abbrev.get(team_id, 'UNK')
             
             try:
-                logs = playergamelogs.PlayerGameLogs(player_id_nullable=pid, season_nullable='2025-26', last_n_games_nullable=20, timeout=8)
-                df = logs.get_data_frames()[0]
-                if len(df) < 20:
-                    return results
+                # Get last 20 games for this player
+                game_logs = playergamelogs.PlayerGameLogs(
+                    player_id_nullable=player_id,
+                    season_nullable='2025-26',
+                    last_n_games_nullable=20
+                )
+                logs_df = game_logs.get_data_frames()[0]
                 
+                if len(logs_df) < 20:
+                    continue  # Need 20 games for 20/20 streak
+                
+                # Get opponent's defensive rank FIRST - must be bottom 10 (rank 21-30)
+                opponent_id = team_opponents.get(team_id)
+                opp_def_rank = get_def_rank(opponent_id) if opponent_id else 15
+                
+                # MANDATORY: Only include if against bottom 10 defense (favorable matchup)
+                if opp_def_rank < 21:
+                    continue  # Skip - not a favorable matchup
+                
+                # Check each prop type
                 for prop in prop_types:
-                    vals = df[prop['stats']].sum(axis=1).tolist() if 'stats' in prop else df[prop['stat']].tolist()
-                    l5 = sum(1 for v in vals[:5] if v >= prop['threshold'])
-                    l10 = sum(1 for v in vals[:10] if v >= prop['threshold'])
-                    l20 = sum(1 for v in vals if v >= prop['threshold'])
+                    if 'stats' in prop:
+                        # Combo stat
+                        values = logs_df[prop['stats']].sum(axis=1).tolist()
+                    else:
+                        values = logs_df[prop['stat']].tolist()
                     
-                    if l5 >= 5 and l10 >= 9 and l20 >= 19:
-                        # 100-game Monte Carlo simulation
-                        mean_v = sum(vals) / len(vals)
-                        std_v = (sum((v - mean_v) ** 2 for v in vals) / len(vals)) ** 0.5
-                        simulations = [max(0, random.gauss(mean_v, std_v * 0.5)) for _ in range(100)]
-                        ai_proj = sum(simulations) / len(simulations)
+                    # Calculate hit rates for different windows
+                    last_5_hits = sum(1 for v in values[:5] if v >= prop['threshold'])
+                    last_10_hits = sum(1 for v in values[:10] if v >= prop['threshold'])
+                    last_20_hits = sum(1 for v in values if v >= prop['threshold'])
+                    
+                    # STRICT REQUIREMENTS:
+                    # - 100% in last 5 (5/5)
+                    # - 90%+ in last 10 (9/10 or 10/10)
+                    # - 95%+ in last 20 (19/20 or 20/20)
+                    if last_5_hits < 5:
+                        continue  # Must be 100% in last 5
+                    if last_10_hits < 9:
+                        continue  # Must be 90%+ in last 10
+                    if last_20_hits < 19:
+                        continue  # Must be 95%+ in last 20
+                    
+                    # Run 100-game simulation for AI projection
+                    mean_val = sum(values) / len(values)
+                    std_val = (sum((v - mean_val) ** 2 for v in values) / len(values)) ** 0.5
+                    simulations = [max(0, random.gauss(mean_val, std_val * 0.5)) for _ in range(100)]
+                    ai_proj = sum(simulations) / len(simulations)
+                    
+                    props_found.append({
+                        'team': team_name,
+                        'player': player_name,
+                        'prop_type': prop['key'],
+                        'prop_display': prop['display'],
+                        'streak': last_20_hits,
+                        'sample': 20,
+                        'last_5': f"{last_5_hits}/5",
+                        'last_10': f"{last_10_hits}/10",
+                        'def_rank': opp_def_rank,
+                        'ai_proj': round(ai_proj, 1),
+                        'status': None
+                    })
                         
-                        bline, bodds = get_bovada_line(pname, prop['key'])
-                        results.append({
-                            'team': team_name, 'player': pname, 'prop_type': prop['key'],
-                            'prop_display': prop['display'], 'streak': l20, 'sample': 20,
-                            'last_5': f"{l5}/5", 'last_10': f"{l10}/10", 'def_rank': opp_rank,
-                            'ai_proj': round(ai_proj, 1), 'bovada_line': bline, 'bovada_odds': bodds,
-                            'status': get_player_status(pname)
-                        })
-            except:
-                pass
-            return results
-        
-        # Use thread pool for parallel player processing (8 workers for speed)
-        with ThreadPoolExecutor(max_workers=8) as executor:
-            futures = [executor.submit(process_player, row) for _, row in active_players.iterrows()]
-            for future in as_completed(futures):
-                props_found.extend(future.result())
+            except Exception as e:
+                logger.warning(f"Error processing player {player_name}: {e}")
+                continue
         
         # Sort by streak (desc), then by AI projection (desc)
         props_found.sort(key=lambda x: (-x['streak'], -x['ai_proj']))
