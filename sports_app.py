@@ -7782,40 +7782,41 @@ def api_player_props():
                 except:
                     continue
                 
-                # Use Bovada line as the threshold
-                threshold = bovada_line
-                
-                # Count consecutive hits from most recent using Bovada line
-                streak = 0
-                for v in values:
-                    if v >= threshold:
-                        streak += 1
-                    else:
-                        break
-                
-                # Include if streak >= 3 games (shows players hitting over their Bovada line consistently)
-                if streak >= 3:
-                    # Run 100-game simulation for AI projection
-                    mean_val = sum(values[:min(20, len(values))]) / min(20, len(values)) if len(values) > 0 else 0
-                    std_val = (sum((v - mean_val) ** 2 for v in values[:min(20, len(values))]) / min(20, len(values))) ** 0.5 if len(values) > 0 else 0
-                    simulations = [max(0, random.gauss(mean_val, std_val * 0.5)) for _ in range(100)]
-                    ai_proj = sum(simulations) / len(simulations)
+                # Try each threshold to find best streak (original system)
+                for threshold in prop['thresholds']:
+                    # Count consecutive hits from most recent
+                    streak = 0
+                    for v in values:
+                        if v >= threshold:
+                            streak += 1
+                        else:
+                            break
                     
-                    prop_display = f"O {threshold} {prop['name']}"
-                    
-                    props_found.append({
-                        'team': team_full_name,
-                        'player': player_name,
-                        'prop_type': prop['key'],
-                        'prop_display': prop_display,
-                        'streak': streak,
-                        'sample': min(20, games_available),
-                        'streak_display': f"{streak} / L{min(20, games_available)}",
-                        'def_rank': opp_def_rank,
-                        'ai_proj': round(ai_proj, 1),
-                        'bovada_line': bovada_line,
-                        'status': None
-                    })
+                    # Include if streak >= 10 games
+                    if streak >= 10:
+                        # Run 100-game simulation for AI projection
+                        recent_values = values[:min(20, len(values))]
+                        mean_val = sum(recent_values) / len(recent_values) if len(recent_values) > 0 else 0
+                        std_val = (sum((v - mean_val) ** 2 for v in recent_values) / len(recent_values)) ** 0.5 if len(recent_values) > 0 else 0
+                        simulations = [max(0, random.gauss(mean_val, std_val * 0.5)) for _ in range(100)]
+                        ai_proj = sum(simulations) / len(simulations)
+                        
+                        prop_display = f"O {threshold} {prop['name']}"
+                        
+                        props_found.append({
+                            'team': team_full_name,
+                            'player': player_name,
+                            'prop_type': prop['key'],
+                            'prop_display': prop_display,
+                            'streak': streak,
+                            'sample': min(20, games_available),
+                            'streak_display': f"{streak} / L{min(20, games_available)}",
+                            'def_rank': opp_def_rank,
+                            'ai_proj': round(ai_proj, 1),
+                            'bovada_line': bovada_line,
+                            'status': None
+                        })
+                        break  # Only add best threshold for this prop type
             
             player_count += 1
         
@@ -7832,7 +7833,7 @@ def api_player_props():
                 elite_picks.append(prop)
                 seen_players.add(prop['player'])
         
-        logger.info(f"Found {len(props_found)} player props with 3+ streaks from {player_count} players (skipped {skipped_injured} injured)")
+        logger.info(f"Found {len(props_found)} player props with 10+ streaks from {player_count} players (skipped {skipped_injured} injured)")
         
         return jsonify({
             'success': True,
