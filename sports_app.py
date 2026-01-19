@@ -7711,13 +7711,18 @@ def api_player_props():
                     l20 = sum(1 for v in vals if v >= prop['threshold'])
                     
                     if l5 >= 5 and l10 >= 9 and l20 >= 19:
+                        # 100-game Monte Carlo simulation
                         mean_v = sum(vals) / len(vals)
+                        std_v = (sum((v - mean_v) ** 2 for v in vals) / len(vals)) ** 0.5
+                        simulations = [max(0, random.gauss(mean_v, std_v * 0.5)) for _ in range(100)]
+                        ai_proj = sum(simulations) / len(simulations)
+                        
                         bline, bodds = get_bovada_line(pname, prop['key'])
                         results.append({
                             'team': team_name, 'player': pname, 'prop_type': prop['key'],
                             'prop_display': prop['display'], 'streak': l20, 'sample': 20,
                             'last_5': f"{l5}/5", 'last_10': f"{l10}/10", 'def_rank': opp_rank,
-                            'ai_proj': round(mean_v, 1), 'bovada_line': bline, 'bovada_odds': bodds,
+                            'ai_proj': round(ai_proj, 1), 'bovada_line': bline, 'bovada_odds': bodds,
                             'status': get_player_status(pname)
                         })
             except:
