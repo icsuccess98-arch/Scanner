@@ -7764,8 +7764,20 @@ def api_player_props():
             if not opp_def_rank or opp_def_rank < 21:
                 continue
             
-            # Check each prop type
+            # Check each prop type - ONLY if Bovada has a line
             for prop in prop_types:
+                # Skip props without Bovada market key
+                if not prop.get('market_key'):
+                    continue
+                
+                # Look up Bovada line for this player/prop
+                line_key = f"{player_name.lower()}_{prop['market_key']}"
+                bovada_line = bovada_lines.get(line_key)
+                
+                # ONLY process if Bovada has a line
+                if not bovada_line:
+                    continue
+                
                 try:
                     if 'stats' in prop:
                         values = logs_df[prop['stats']].sum(axis=1).tolist()
@@ -7809,10 +7821,6 @@ def api_player_props():
                 
                 # Include if found a valid streak
                 if best_streak >= 5 and best_threshold > 0:
-                    # Look up Bovada line if available
-                    line_key = f"{player_name.lower()}_{prop.get('market_key', '')}"
-                    bovada_line = bovada_lines.get(line_key)
-                    
                     prop_display = f"{int(best_threshold)}+ {prop['name']}"
                     
                     props_found.append({
