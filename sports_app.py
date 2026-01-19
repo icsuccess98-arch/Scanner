@@ -7760,7 +7760,11 @@ def api_player_props():
             opponent_id = team_opponents.get(team_id)
             opp_def_rank = get_def_rank(opponent_id) if opponent_id else None
             
-            # Check each prop type - show ALL streaks regardless of Bovada
+            # Skip if not facing bottom 10 defense (rank 21-30)
+            if not opp_def_rank or opp_def_rank < 21:
+                continue
+            
+            # Check each prop type
             for prop in prop_types:
                 try:
                     if 'stats' in prop:
@@ -7770,16 +7774,13 @@ def api_player_props():
                 except:
                     continue
                 
-                # Calculate AI projection (100-game simulation based on recent performance)
+                # Calculate AI projection with defense boost
                 recent_values = values[:min(20, len(values))]
                 mean_val = sum(recent_values) / len(recent_values) if len(recent_values) > 0 else 0
                 
-                # Apply defense boost if facing weak defense
-                if opp_def_rank and opp_def_rank >= 21:
-                    defense_boost = 1.0 + ((opp_def_rank - 20) * 0.01)
-                    ai_proj = mean_val * defense_boost
-                else:
-                    ai_proj = mean_val
+                # Boost for weak defense matchup (rank 21-30 = 1-10% boost)
+                defense_boost = 1.0 + ((opp_def_rank - 20) * 0.01)
+                ai_proj = mean_val * defense_boost
                 
                 # Find best streak using hit rate criteria:
                 # 100% last 5, 95% last 10, 90% last 20
