@@ -127,8 +127,12 @@
         .props-table tr:hover { background: rgba(255,255,255,0.02); }
         .team-name { font-weight: 600; color: var(--text); }
         .player-name { font-weight: 700; color: var(--text); }
-        .player-status { font-size: 0.7rem; color: var(--text-muted); }
-        .player-status.questionable { color: #FFA500; }
+        .player-status { font-size: 0.7rem; font-weight: 700; padding: 0.15rem 0.4rem; border-radius: 3px; display: inline-block; margin-top: 0.25rem; }
+        .player-status.out { background: rgba(220, 20, 60, 0.2); color: #FF4444; }
+        .player-status.gtd { background: rgba(255, 165, 0, 0.2); color: #FFA500; }
+        .player-status.doubtful { background: rgba(220, 20, 60, 0.15); color: #FF6666; }
+        .row-injured { background: rgba(220, 20, 60, 0.08) !important; }
+        .row-injured:hover { background: rgba(220, 20, 60, 0.12) !important; }
         .prop-type { 
             background: rgba(123, 44, 191, 0.2); 
             color: var(--accent); 
@@ -386,10 +390,12 @@
             tbody.innerHTML = props.map(p => {
                 const streakClass = p.streak >= 20 ? 'streak-perfect' : (p.streak >= 19 ? 'streak-good' : 'streak-warning');
                 const defClass = p.def_rank >= 25 ? 'elite' : (p.def_rank >= 21 ? 'good' : 'mid');
-                const statusClass = p.status === 'Questionable' ? 'questionable' : '';
+                const isInjured = p.status === 'OUT' || p.status === 'GTD' || p.status === 'DOUBTFUL';
+                const rowClass = isInjured ? 'row-injured' : '';
+                const statusClass = p.status === 'OUT' ? 'out' : (p.status === 'GTD' ? 'gtd' : (p.status === 'DOUBTFUL' ? 'doubtful' : ''));
                 
                 return `
-                    <tr data-prop-type="${p.prop_type}" data-streak="${p.streak}">
+                    <tr data-prop-type="${p.prop_type}" data-streak="${p.streak}" class="${rowClass}">
                         <td class="team-name">${p.team}</td>
                         <td>
                             <div class="player-name">${p.player}</div>

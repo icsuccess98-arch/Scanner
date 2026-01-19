@@ -7637,6 +7637,36 @@ def api_player_props():
             team_opponents[home_id] = away_id
             team_opponents[away_id] = home_id
         
+        # Fetch injury report for player status
+        player_injuries = {}
+        try:
+            injury_url = "https://cdn.nba.com/static/json/liveData/playbyplay/playbyplay_"
+            injury_resp = requests.get("https://www.rotowire.com/basketball/nba-lineups.php", timeout=10)
+            if injury_resp.status_code == 200:
+                import re
+                html = injury_resp.text
+                out_matches = re.findall(r'class="lineup__player[^"]*is-out[^"]*"[^>]*data-player="([^"]+)"', html, re.IGNORECASE)
+                gtd_matches = re.findall(r'class="lineup__player[^"]*is-gtd[^"]*"[^>]*data-player="([^"]+)"', html, re.IGNORECASE)
+                doubtful_matches = re.findall(r'class="lineup__player[^"]*is-doubtful[^"]*"[^>]*data-player="([^"]+)"', html, re.IGNORECASE)
+                for name in out_matches:
+                    player_injuries[name.lower().strip()] = 'OUT'
+                for name in gtd_matches:
+                    player_injuries[name.lower().strip()] = 'GTD'
+                for name in doubtful_matches:
+                    player_injuries[name.lower().strip()] = 'DOUBTFUL'
+                logger.info(f"Loaded {len(player_injuries)} player injury statuses")
+        except Exception as e:
+            logger.warning(f"Could not fetch injury data: {e}")
+        
+        def get_player_status(player_name):
+            name_lower = player_name.lower().strip()
+            if name_lower in player_injuries:
+                return player_injuries[name_lower]
+            for key, status in player_injuries.items():
+                if key in name_lower or name_lower in key:
+                    return status
+            return None
+        
         # Process each player
         for _, player in active_players.iterrows():
             player_id = player['PLAYER_ID']
@@ -7705,7 +7735,7 @@ def api_player_props():
                         'last_10': f"{last_10_hits}/10",
                         'def_rank': opp_def_rank,
                         'ai_proj': round(ai_proj, 1),
-                        'status': None
+                        'status': get_player_status(player_name)
                     })
                         
             except Exception as e:
