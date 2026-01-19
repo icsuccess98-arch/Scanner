@@ -227,15 +227,97 @@
             text-transform: uppercase;
         }
         @media (max-width: 768px) {
-            .props-table-container { overflow-x: auto; }
-            .props-table { min-width: 700px; }
-            .hero-section { padding: 1.5rem 0; }
-            .hero-title { font-size: 1.25rem; }
+            .header {
+                flex-wrap: nowrap;
+                gap: 0.5rem;
+            }
+            .brand {
+                font-size: 0.9rem;
+                white-space: nowrap;
+            }
+            .nav-links {
+                flex-wrap: nowrap;
+                gap: 0.25rem;
+            }
+            .nav-links a {
+                font-size: 0.65rem;
+                padding: 0.3rem 0.5rem;
+                white-space: nowrap;
+            }
+            .hero-section { 
+                padding: 1rem 0; 
+            }
+            .hero-section .d-flex {
+                flex-direction: column;
+                align-items: flex-start !important;
+                gap: 1rem !important;
+            }
+            .hero-title { 
+                font-size: 1.1rem; 
+            }
+            .hero-title i {
+                font-size: 0.9rem;
+            }
+            .btn-fetch {
+                width: 100%;
+                justify-content: center;
+                padding: 0.6rem 1rem;
+                font-size: 0.85rem;
+            }
+            .props-table-container { 
+                overflow-x: auto; 
+                -webkit-overflow-scrolling: touch;
+            }
+            .props-table { 
+                min-width: 800px; 
+            }
+            .props-table th,
+            .props-table td {
+                padding: 0.5rem 0.6rem;
+                font-size: 0.75rem;
+                white-space: nowrap;
+            }
+            .stat-pills { 
+                flex-wrap: nowrap;
+                gap: 0.5rem;
+                overflow-x: auto;
+            }
+            .stat-pill { 
+                flex: 0 0 auto;
+                min-width: 90px;
+                padding: 0.5rem 0.75rem;
+            }
+            .stat-pill .value {
+                font-size: 1.2rem;
+            }
+            .stat-pill .label {
+                font-size: 0.6rem;
+            }
+            .filter-bar {
+                flex-wrap: nowrap;
+                overflow-x: auto;
+            }
+            .filter-select {
+                flex: 0 0 auto;
+                font-size: 0.75rem;
+                padding: 0.4rem 0.6rem;
+            }
+            .container {
+                padding-left: 0.75rem;
+                padding-right: 0.75rem;
+            }
         }
-        @media (max-width: 480px) {
-            .nav-links a { font-size: 0.7rem; padding: 0.35rem 0.6rem; }
-            .stat-pills { flex-wrap: wrap; }
-            .stat-pill { flex: 1; min-width: 100px; }
+        @media (max-width: 400px) {
+            .brand {
+                font-size: 0.8rem;
+            }
+            .nav-links a { 
+                font-size: 0.6rem; 
+                padding: 0.25rem 0.4rem; 
+            }
+            .hero-title { 
+                font-size: 1rem; 
+            }
         }
     </style>
 </head>
