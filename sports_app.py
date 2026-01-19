@@ -7734,8 +7734,8 @@ def api_player_props():
                         else:
                             break
                     
-                    # Only include if streak >= 10 games
-                    if streak >= 10:
+                    # Only include if streak >= 10 games AND facing bottom 10 defense (rank 21-30)
+                    if streak >= 10 and opp_def_rank and opp_def_rank >= 21:
                         # Run 100-game simulation for AI projection
                         mean_val = sum(values[:streak]) / streak if streak > 0 else 0
                         std_val = (sum((v - mean_val) ** 2 for v in values[:streak]) / streak) ** 0.5 if streak > 0 else 0

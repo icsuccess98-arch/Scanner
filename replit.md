@@ -79,6 +79,8 @@ This project develops and manages trading systems including a Sports Betting Cal
 -   **Injury Filtering**: Automatically excludes injured, questionable, doubtful, and day-to-day players
     -   Fetches ESPN injury report before processing
     -   Only shows active, healthy players
+-   **Bottom 10 Defense Filter**: Only shows picks against weak defenses (rank 21-30)
+    -   Higher rank = worse defense = easier matchup for player props
 -   **Bulk Fetching**: Single API call for all player game logs (15-30 seconds vs 5+ minutes)
 -   **NBA API Integration**: Uses nba_api for player game logs and team stats
 -   **Streak Tracking**: Finds consecutive hits on props (10+ games in a row)
