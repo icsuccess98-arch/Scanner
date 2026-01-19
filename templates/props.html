@@ -155,6 +155,18 @@
             color: var(--green);
             font-size: 0.9rem;
         }
+        .bovada-line {
+            font-weight: 600;
+            color: var(--gold);
+        }
+        .bovada-odds {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-left: 0.25rem;
+        }
+        .no-line {
+            color: var(--text-muted);
+        }
         .loading-state {
             text-align: center;
             padding: 3rem;
@@ -315,6 +327,7 @@
                         <th>Team</th>
                         <th>Player</th>
                         <th>Prop</th>
+                        <th>Bovada Line</th>
                         <th>L5</th>
                         <th>L10</th>
                         <th>L20</th>
@@ -394,6 +407,10 @@
                 const rowClass = isInjured ? 'row-injured' : '';
                 const statusClass = p.status === 'OUT' ? 'out' : (p.status === 'GTD' ? 'gtd' : (p.status === 'DOUBTFUL' ? 'doubtful' : ''));
                 
+                const bovadaDisplay = p.bovada_line !== null 
+                    ? `O ${p.bovada_line} <span class="bovada-odds">(${p.bovada_odds > 0 ? '+' : ''}${p.bovada_odds})</span>`
+                    : '<span class="no-line">--</span>';
+                
                 return `
                     <tr data-prop-type="${p.prop_type}" data-streak="${p.streak}" class="${rowClass}">
                         <td class="team-name">${p.team}</td>
@@ -402,6 +419,7 @@
                             ${p.status ? `<div class="player-status ${statusClass}">${p.status}</div>` : ''}
                         </td>
                         <td><span class="prop-type">${p.prop_display}</span></td>
+                        <td class="bovada-line">${bovadaDisplay}</td>
                         <td class="streak-cell streak-perfect">${p.last_5 || '5/5'}</td>
                         <td class="streak-cell ${p.last_10 === '10/10' ? 'streak-perfect' : 'streak-good'}">${p.last_10 || '9/10'}</td>
                         <td class="streak-cell ${streakClass}">${p.streak}/20</td>

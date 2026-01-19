@@ -7667,6 +7667,81 @@ def api_player_props():
                     return status
             return None
         
+        # Fetch Bovada player prop lines from The Odds API
+        bovada_props = {}
+        api_key = os.environ.get("ODDS_API_KEY") or os.environ.get("API_KEY")
+        if api_key:
+            try:
+                props_url = "https://api.the-odds-api.com/v4/sports/basketball_nba/events"
+                props_resp = requests.get(props_url, params={
+                    'apiKey': api_key,
+                    'regions': 'us',
+                    'dateFormat': 'iso'
+                }, timeout=15)
+                if props_resp.status_code == 200:
+                    events = props_resp.json()
+                    for event in events:
+                        event_id = event.get('id')
+                        if not event_id:
+                            continue
+                        try:
+                            prop_url = f"https://api.the-odds-api.com/v4/sports/basketball_nba/events/{event_id}/odds"
+                            prop_resp = requests.get(prop_url, params={
+                                'apiKey': api_key,
+                                'regions': 'us',
+                                'markets': 'player_points,player_rebounds,player_assists,player_threes,player_points_rebounds_assists',
+                                'oddsFormat': 'american',
+                                'bookmakers': 'bovada'
+                            }, timeout=15)
+                            if prop_resp.status_code == 200:
+                                prop_data = prop_resp.json()
+                                for bookmaker in prop_data.get('bookmakers', []):
+                                    if bookmaker.get('key') != 'bovada':
+                                        continue
+                                    for market in bookmaker.get('markets', []):
+                                        market_key = market.get('key', '')
+                                        for outcome in market.get('outcomes', []):
+                                            player_name_key = outcome.get('description', '').lower().strip()
+                                            line = outcome.get('point')
+                                            price = outcome.get('price', 0)
+                                            name_type = outcome.get('name', '')
+                                            if player_name_key and line is not None and abs(price) <= 190:
+                                                prop_key = f"{player_name_key}_{market_key}_{name_type.lower()}"
+                                                if prop_key not in bovada_props or abs(bovada_props[prop_key]['odds']) > abs(price):
+                                                    bovada_props[prop_key] = {
+                                                        'line': line,
+                                                        'odds': price,
+                                                        'market': market_key,
+                                                        'direction': name_type
+                                                    }
+                        except Exception as e:
+                            logger.warning(f"Error fetching props for event {event_id}: {e}")
+                            continue
+                    logger.info(f"Loaded {len(bovada_props)} Bovada player prop lines")
+            except Exception as e:
+                logger.warning(f"Could not fetch Bovada props: {e}")
+        
+        def get_bovada_line(player_name, prop_key):
+            name_lower = player_name.lower().strip()
+            market_map = {
+                'points': 'player_points',
+                'rebounds': 'player_rebounds', 
+                'assists': 'player_assists',
+                'threes': 'player_threes',
+                'pts_reb_ast': 'player_points_rebounds_assists'
+            }
+            market = market_map.get(prop_key)
+            if not market:
+                return None, None
+            for direction in ['over', 'under']:
+                key = f"{name_lower}_{market}_{direction}"
+                if key in bovada_props:
+                    return bovada_props[key]['line'], bovada_props[key]['odds']
+            for stored_key, data in bovada_props.items():
+                if name_lower in stored_key and market in stored_key:
+                    return data['line'], data['odds']
+            return None, None
+        
         # Process each player
         for _, player in active_players.iterrows():
             player_id = player['PLAYER_ID']
@@ -7724,6 +7799,9 @@ def api_player_props():
                     simulations = [max(0, random.gauss(mean_val, std_val * 0.5)) for _ in range(100)]
                     ai_proj = sum(simulations) / len(simulations)
                     
+                    # Get Bovada line for this prop (alt lines up to -190)
+                    bovada_line, bovada_odds = get_bovada_line(player_name, prop['key'])
+                    
                     props_found.append({
                         'team': team_name,
                         'player': player_name,
@@ -7735,6 +7813,8 @@ def api_player_props():
                         'last_10': f"{last_10_hits}/10",
                         'def_rank': opp_def_rank,
                         'ai_proj': round(ai_proj, 1),
+                        'bovada_line': bovada_line,
+                        'bovada_odds': bovada_odds,
                         'status': get_player_status(player_name)
                     })
                         
