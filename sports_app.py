@@ -7542,6 +7542,7 @@ def api_player_props():
     Uses bulk game log fetch for efficiency.
     Analyzes last 20 games for each player to find hot streaks.
     Uses 100-game simulation for AI projections.
+    Filters out injured and questionable players.
     """
     try:
         from nba_api.stats.endpoints import playergamelogs, leaguedashplayerstats, scoreboardv2
@@ -7553,6 +7554,26 @@ def api_player_props():
         today = datetime.now(et).strftime('%Y-%m-%d')
         
         logger.info("Starting player props fetch...")
+        
+        # Fetch injury report to exclude injured/questionable players
+        injured_players = set()
+        try:
+            injury_url = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/injuries"
+            injury_resp = requests.get(injury_url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
+            if injury_resp.status_code == 200:
+                injury_data = injury_resp.json()
+                teams_data = injury_data.get('injuries', [])
+                for team in teams_data:
+                    players = team.get('injuries', [])
+                    for player in players:
+                        status = player.get('status', '').lower()
+                        if status in ['out', 'doubtful', 'questionable', 'day-to-day']:
+                            player_name = player.get('athlete', {}).get('displayName', '')
+                            if player_name:
+                                injured_players.add(player_name.lower())
+                logger.info(f"Found {len(injured_players)} injured/questionable players to exclude")
+        except Exception as e:
+            logger.warning(f"Could not fetch injury report: {e}")
         
         # Team ID to name mapping
         team_id_to_name = {t['id']: t['full_name'] for t in nba_teams.get_teams()}
@@ -7668,11 +7689,17 @@ def api_player_props():
         
         # Process each player using pre-fetched data
         player_count = 0
+        skipped_injured = 0
         for _, player in active_players.iterrows():
             player_id = player['PLAYER_ID']
             player_name = player['PLAYER_NAME']
             team_id = player['TEAM_ID']
             team_full_name = team_id_to_name.get(team_id, 'Unknown')
+            
+            # Skip injured/questionable players
+            if player_name.lower() in injured_players:
+                skipped_injured += 1
+                continue
             
             # Get pre-fetched game logs
             if player_id not in all_game_logs:
@@ -7737,13 +7764,24 @@ def api_player_props():
         # Sort by streak (desc), then by def_rank (desc for weaker defenses)
         props_found.sort(key=lambda x: (-x['streak'], -(x['def_rank'] or 0), -x['ai_proj']))
         
-        logger.info(f"Found {len(props_found)} player props with 10+ streaks from {player_count} players")
+        # Get Elite 10 - top 10 picks by streak, picking unique players where possible
+        elite_picks = []
+        seen_players = set()
+        for prop in props_found:
+            if len(elite_picks) >= 10:
+                break
+            if prop['player'] not in seen_players:
+                elite_picks.append(prop)
+                seen_players.add(prop['player'])
+        
+        logger.info(f"Found {len(props_found)} player props with 10+ streaks from {player_count} players (skipped {skipped_injured} injured)")
         
         return jsonify({
             'success': True,
             'props': props_found,
+            'elite': elite_picks,
             'count': len(props_found),
-            'message': f'Found {len(props_found)} hot streaks from {player_count} players'
+            'message': f'Found {len(props_found)} hot streaks from {player_count} active players'
         })
         
     except Exception as e:

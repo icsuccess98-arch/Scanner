@@ -72,6 +72,14 @@ This project develops and manages trading systems including a Sports Betting Cal
 
 ### Player Props Streak Tracker (Jan 2026)
 -   **Separate Tab**: /props route with dedicated "Fetch Player Stats" button
+-   **Elite 10 Section**: Premium tab showing top 10 unique players with highest streaks
+    -   Golden glow styling with trophy badge
+    -   Card-based layout with rank numbers 1-10
+    -   Shows streak, defensive rank, and AI projection
+-   **Injury Filtering**: Automatically excludes injured, questionable, doubtful, and day-to-day players
+    -   Fetches ESPN injury report before processing
+    -   Only shows active, healthy players
+-   **Bulk Fetching**: Single API call for all player game logs (15-30 seconds vs 5+ minutes)
 -   **NBA API Integration**: Uses nba_api for player game logs and team stats
 -   **Streak Tracking**: Finds consecutive hits on props (10+ games in a row)
 -   **Multiple Thresholds**: Dynamically checks various thresholds per prop (e.g., 8+, 10+, 12+ points)
@@ -81,6 +89,7 @@ This project develops and manages trading systems including a Sports Betting Cal
 -   **AI Projection**: 100-game Monte Carlo simulation based on player's recent performance
 -   **Columns**: Team, Player, Prop, Streak, Def Rank, AI Proj
 -   **Mobile Layout**: Card-based responsive design with 3-column stat grid
+-   **Tab Navigation**: Elite 10 tab (default) and All Props tab with filters
 
 ### Feature Specifications
 -   **Sports Scanner**: Fetches NBA, CBB, NFL, CFB, NHL games, stats, and odds to identify qualified TOTALS picks.
