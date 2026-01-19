@@ -281,6 +281,25 @@
             color: var(--green);
         }
         .elite-stat-value.streak { color: var(--gold); }
+        .elite-bovada {
+            font-size: 0.75rem;
+            color: #FF6B35;
+            font-weight: 600;
+            margin-bottom: 0.4rem;
+            text-align: center;
+        }
+        .elite-bovada .bovada-label {
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+        .bovada-cell {
+            font-weight: 600;
+            font-size: 0.75rem;
+            color: #FF6B35;
+        }
+        .bovada-cell.no-line {
+            color: var(--text-muted);
+        }
         
         .props-table-container {
             background: var(--bg-card);
@@ -655,6 +674,7 @@
                             <th>Team</th>
                             <th>Player</th>
                             <th>Prop</th>
+                            <th>Bovada</th>
                             <th>Streak</th>
                             <th>Def Rank</th>
                             <th>AI Proj</th>
@@ -732,6 +752,7 @@
             
             const eliteHTML = props.slice(0, 10).map((p, idx) => {
                 const defDisplay = p.def_rank ? `${p.def_rank}${getOrdinalSuffix(p.def_rank)}` : 'N/A';
+                const bovadaDisplay = p.bovada_line ? p.bovada_line.toFixed(1) : '--';
                 
                 return `
                     <div class="elite-card">
@@ -742,6 +763,7 @@
                             <i class="bi bi-fire" style="color: #FF6B35;"></i>
                             ${p.prop_display}
                         </div>
+                        ${p.bovada_line ? `<div class="elite-bovada"><span class="bovada-label">Bovada:</span> O ${bovadaDisplay}</div>` : ''}
                         <div class="elite-card-stats">
                             <div class="elite-stat">
                                 <div class="elite-stat-label">Streak</div>
@@ -781,12 +803,15 @@
                 const streakClass = p.streak >= 20 ? 'streak-perfect' : (p.streak >= 15 ? 'streak-good' : 'streak-warning');
                 const defClass = p.def_rank >= 25 ? 'elite' : (p.def_rank >= 20 ? 'good' : 'mid');
                 const defDisplay = p.def_rank ? `${p.def_rank}${getOrdinalSuffix(p.def_rank)}` : 'N/A';
+                const bovadaDisplay = p.bovada_line ? `O ${p.bovada_line.toFixed(1)}` : '--';
+                const bovadaClass = p.bovada_line ? '' : 'no-line';
                 
                 return `
                     <tr data-prop-type="${p.prop_type}" data-streak="${p.streak}">
                         <td class="team-name">${p.team}</td>
                         <td class="player-name">${p.player}</td>
                         <td class="prop-display">${p.prop_display}</td>
+                        <td class="bovada-cell ${bovadaClass}">${bovadaDisplay}</td>
                         <td class="streak-cell ${streakClass}">${p.streak_display || p.streak + ' / L' + p.sample}</td>
                         <td class="def-rank ${defClass}">${defDisplay}</td>
                         <td class="ai-proj">${p.ai_proj.toFixed(1)}</td>
@@ -798,6 +823,7 @@
                 const streakClass = p.streak >= 20 ? 'streak-perfect' : (p.streak >= 15 ? 'streak-good' : 'streak-warning');
                 const defClass = p.def_rank >= 25 ? 'elite' : (p.def_rank >= 20 ? 'good' : 'mid');
                 const defDisplay = p.def_rank ? `${p.def_rank}${getOrdinalSuffix(p.def_rank)}` : 'N/A';
+                const bovadaDisplay = p.bovada_line ? `O ${p.bovada_line.toFixed(1)}` : '--';
                 
                 return `
                     <div class="mobile-card">
@@ -806,6 +832,7 @@
                                 <div class="mobile-card-team">${p.team}</div>
                                 <div class="mobile-card-player">${p.player}</div>
                                 <div class="mobile-card-prop">${p.prop_display}</div>
+                                ${p.bovada_line ? `<div style="color: #FF6B35; font-weight: 600; font-size: 0.75rem; margin-top: 0.25rem;">Bovada: ${bovadaDisplay}</div>` : ''}
                             </div>
                         </div>
                         <div class="mobile-card-stats">

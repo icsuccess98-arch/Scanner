@@ -7575,6 +7575,32 @@ def api_player_props():
         except Exception as e:
             logger.warning(f"Could not fetch injury report: {e}")
         
+        # Fetch Bovada player prop lines from The Odds API
+        bovada_lines = {}
+        try:
+            odds_api_key = os.environ.get('ODDS_API_KEY')
+            if odds_api_key:
+                props_markets = ['player_points', 'player_rebounds', 'player_assists', 'player_threes']
+                props_url = f"https://api.the-odds-api.com/v4/sports/basketball_nba/events?apiKey={odds_api_key}&regions=us&markets={','.join(props_markets)}&bookmakers=bovada"
+                resp = requests.get(props_url, timeout=15)
+                if resp.status_code == 200:
+                    events = resp.json()
+                    for event in events:
+                        bookmakers = event.get('bookmakers', [])
+                        for bm in bookmakers:
+                            if bm.get('key') == 'bovada':
+                                for market in bm.get('markets', []):
+                                    market_key = market.get('key', '').replace('player_', '')
+                                    for outcome in market.get('outcomes', []):
+                                        player_name = outcome.get('description', '')
+                                        line = outcome.get('point')
+                                        if player_name and line:
+                                            key = f"{player_name.lower()}_{market_key}"
+                                            bovada_lines[key] = line
+                    logger.info(f"Fetched {len(bovada_lines)} Bovada prop lines")
+        except Exception as e:
+            logger.warning(f"Could not fetch Bovada lines: {e}")
+        
         # Team ID to name mapping
         team_id_to_name = {t['id']: t['full_name'] for t in nba_teams.get_teams()}
         team_id_to_abbrev = {t['id']: t['abbreviation'] for t in nba_teams.get_teams()}
@@ -7652,19 +7678,19 @@ def api_player_props():
         
         props_found = []
         
-        # Define prop types to check with multiple thresholds
+        # Define prop types to check with multiple thresholds (market_key for Bovada lookup)
         prop_types = [
-            {'key': 'points', 'name': 'Points', 'thresholds': [8, 10, 12, 15, 20], 'stat': 'PTS'},
-            {'key': 'rebounds', 'name': 'Rebounds', 'thresholds': [2, 3, 4, 5, 7], 'stat': 'REB'},
-            {'key': 'assists', 'name': 'Assists', 'thresholds': [2, 3, 4, 5, 6], 'stat': 'AST'},
-            {'key': 'pts_reb', 'name': 'Points + Rebounds', 'thresholds': [10, 12, 15, 18, 20], 'stats': ['PTS', 'REB']},
-            {'key': 'pts_ast', 'name': 'Points + Assists', 'thresholds': [10, 12, 15, 18, 20], 'stats': ['PTS', 'AST']},
-            {'key': 'reb_ast', 'name': 'Rebounds + Assists', 'thresholds': [6, 8, 10, 12], 'stats': ['REB', 'AST']},
-            {'key': 'pts_reb_ast', 'name': 'Points + Assists + Rebounds', 'thresholds': [12, 15, 18, 20, 25], 'stats': ['PTS', 'REB', 'AST']},
-            {'key': 'threes', 'name': 'Three-Pointers Made', 'thresholds': [1, 2, 3], 'stat': 'FG3M'},
-            {'key': 'steals', 'name': 'Steal', 'thresholds': [1, 2], 'stat': 'STL'},
-            {'key': 'blocks', 'name': 'Block', 'thresholds': [1, 2], 'stat': 'BLK'},
-            {'key': 'stl_blk', 'name': 'Steal + Block', 'thresholds': [1, 2, 3], 'stats': ['STL', 'BLK']},
+            {'key': 'points', 'name': 'Points', 'thresholds': [8, 10, 12, 15, 20], 'stat': 'PTS', 'market_key': 'points'},
+            {'key': 'rebounds', 'name': 'Rebounds', 'thresholds': [2, 3, 4, 5, 7], 'stat': 'REB', 'market_key': 'rebounds'},
+            {'key': 'assists', 'name': 'Assists', 'thresholds': [2, 3, 4, 5, 6], 'stat': 'AST', 'market_key': 'assists'},
+            {'key': 'pts_reb', 'name': 'Points + Rebounds', 'thresholds': [10, 12, 15, 18, 20], 'stats': ['PTS', 'REB'], 'market_key': None},
+            {'key': 'pts_ast', 'name': 'Points + Assists', 'thresholds': [10, 12, 15, 18, 20], 'stats': ['PTS', 'AST'], 'market_key': None},
+            {'key': 'reb_ast', 'name': 'Rebounds + Assists', 'thresholds': [6, 8, 10, 12], 'stats': ['REB', 'AST'], 'market_key': None},
+            {'key': 'pts_reb_ast', 'name': 'Points + Assists + Rebounds', 'thresholds': [12, 15, 18, 20, 25], 'stats': ['PTS', 'REB', 'AST'], 'market_key': None},
+            {'key': 'threes', 'name': 'Three-Pointers Made', 'thresholds': [1, 2, 3], 'stat': 'FG3M', 'market_key': 'threes'},
+            {'key': 'steals', 'name': 'Steal', 'thresholds': [1, 2], 'stat': 'STL', 'market_key': None},
+            {'key': 'blocks', 'name': 'Block', 'thresholds': [1, 2], 'stat': 'BLK', 'market_key': None},
+            {'key': 'stl_blk', 'name': 'Steal + Block', 'thresholds': [1, 2, 3], 'stats': ['STL', 'BLK'], 'market_key': None},
         ]
         
         # Fetch real defensive rankings
@@ -7742,6 +7768,12 @@ def api_player_props():
                         simulations = [max(0, random.gauss(mean_val, std_val * 0.5)) for _ in range(100)]
                         ai_proj = sum(simulations) / len(simulations)
                         
+                        # Look up Bovada line if available
+                        bovada_line = None
+                        if prop.get('market_key'):
+                            line_key = f"{player_name.lower()}_{prop['market_key']}"
+                            bovada_line = bovada_lines.get(line_key)
+                        
                         prop_display = f"{threshold}+ {prop['name']}"
                         
                         props_found.append({
@@ -7754,7 +7786,7 @@ def api_player_props():
                             'streak_display': f"{streak} / L{min(streak, games_available)}",
                             'def_rank': opp_def_rank,
                             'ai_proj': round(ai_proj, 1),
-                            'bovada_line': None,
+                            'bovada_line': bovada_line,
                             'status': None
                         })
                         break  # Only add best threshold for this prop type
