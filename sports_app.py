@@ -7740,8 +7740,20 @@ def api_player_props():
             opponent_id = team_opponents.get(team_id)
             opp_def_rank = get_def_rank(opponent_id) if opponent_id else None
             
-            # Check each prop type with multiple thresholds
+            # Check each prop type - ONLY if Bovada has a line for it
             for prop in prop_types:
+                # Skip props without Bovada market key
+                if not prop.get('market_key'):
+                    continue
+                
+                # Look up Bovada line for this player/prop
+                line_key = f"{player_name.lower()}_{prop['market_key']}"
+                bovada_line = bovada_lines.get(line_key)
+                
+                # ONLY process if Bovada has a line
+                if not bovada_line:
+                    continue
+                
                 try:
                     if 'stats' in prop:
                         values = logs_df[prop['stats']].sum(axis=1).tolist()
@@ -7750,46 +7762,40 @@ def api_player_props():
                 except:
                     continue
                 
-                # Try each threshold to find best streak
-                for threshold in prop['thresholds']:
-                    # Count consecutive hits from most recent
-                    streak = 0
-                    for v in values:
-                        if v >= threshold:
-                            streak += 1
-                        else:
-                            break
+                # Use Bovada line as the threshold
+                threshold = bovada_line
+                
+                # Count consecutive hits from most recent using Bovada line
+                streak = 0
+                for v in values:
+                    if v >= threshold:
+                        streak += 1
+                    else:
+                        break
+                
+                # Only include if streak >= 10 games AND facing bottom 10 defense (rank 21-30)
+                if streak >= 10 and opp_def_rank and opp_def_rank >= 21:
+                    # Run 100-game simulation for AI projection
+                    mean_val = sum(values[:min(20, len(values))]) / min(20, len(values)) if len(values) > 0 else 0
+                    std_val = (sum((v - mean_val) ** 2 for v in values[:min(20, len(values))]) / min(20, len(values))) ** 0.5 if len(values) > 0 else 0
+                    simulations = [max(0, random.gauss(mean_val, std_val * 0.5)) for _ in range(100)]
+                    ai_proj = sum(simulations) / len(simulations)
                     
-                    # Only include if streak >= 10 games AND facing bottom 10 defense (rank 21-30)
-                    if streak >= 10 and opp_def_rank and opp_def_rank >= 21:
-                        # Run 100-game simulation for AI projection
-                        mean_val = sum(values[:streak]) / streak if streak > 0 else 0
-                        std_val = (sum((v - mean_val) ** 2 for v in values[:streak]) / streak) ** 0.5 if streak > 0 else 0
-                        simulations = [max(0, random.gauss(mean_val, std_val * 0.5)) for _ in range(100)]
-                        ai_proj = sum(simulations) / len(simulations)
-                        
-                        # Look up Bovada line if available
-                        bovada_line = None
-                        if prop.get('market_key'):
-                            line_key = f"{player_name.lower()}_{prop['market_key']}"
-                            bovada_line = bovada_lines.get(line_key)
-                        
-                        prop_display = f"{threshold}+ {prop['name']}"
-                        
-                        props_found.append({
-                            'team': team_full_name,
-                            'player': player_name,
-                            'prop_type': prop['key'],
-                            'prop_display': prop_display,
-                            'streak': streak,
-                            'sample': min(streak, games_available),
-                            'streak_display': f"{streak} / L{min(streak, games_available)}",
-                            'def_rank': opp_def_rank,
-                            'ai_proj': round(ai_proj, 1),
-                            'bovada_line': bovada_line,
-                            'status': None
-                        })
-                        break  # Only add best threshold for this prop type
+                    prop_display = f"O {threshold} {prop['name']}"
+                    
+                    props_found.append({
+                        'team': team_full_name,
+                        'player': player_name,
+                        'prop_type': prop['key'],
+                        'prop_display': prop_display,
+                        'streak': streak,
+                        'sample': min(20, games_available),
+                        'streak_display': f"{streak} / L{min(20, games_available)}",
+                        'def_rank': opp_def_rank,
+                        'ai_proj': round(ai_proj, 1),
+                        'bovada_line': bovada_line,
+                        'status': None
+                    })
             
             player_count += 1
         
