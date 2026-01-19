@@ -7541,6 +7541,7 @@ def api_player_props():
     Fetch NBA player props with streak data.
     Analyzes last 20 games for each player to find hot streaks.
     Uses 100-game simulation for AI projections.
+    Fetches Bovada lines from The Odds API.
     """
     try:
         from nba_api.stats.endpoints import playergamelogs, leaguedashplayerstats, scoreboardv2
@@ -7549,6 +7550,32 @@ def api_player_props():
         
         et = pytz.timezone('America/New_York')
         today = datetime.now(et).strftime('%Y-%m-%d')
+        
+        # Fetch Bovada player prop lines from The Odds API
+        bovada_lines = {}
+        try:
+            odds_api_key = os.environ.get('ODDS_API_KEY')
+            if odds_api_key:
+                props_url = f"https://api.the-odds-api.com/v4/sports/basketball_nba/events?apiKey={odds_api_key}&regions=us&markets=player_points,player_rebounds,player_assists,player_threes&bookmakers=bovada"
+                resp = requests.get(props_url, timeout=15)
+                if resp.status_code == 200:
+                    events = resp.json()
+                    for event in events:
+                        bookmakers = event.get('bookmakers', [])
+                        for bm in bookmakers:
+                            if bm.get('key') == 'bovada':
+                                for market in bm.get('markets', []):
+                                    market_key = market.get('key', '')
+                                    for outcome in market.get('outcomes', []):
+                                        player_name = outcome.get('description', '')
+                                        line = outcome.get('point')
+                                        if player_name and line:
+                                            prop_key = market_key.replace('player_', '')
+                                            key = f"{player_name.lower()}_{prop_key}"
+                                            bovada_lines[key] = line
+                    logger.info(f"Fetched {len(bovada_lines)} Bovada prop lines")
+        except Exception as e:
+            logger.warning(f"Could not fetch Bovada lines: {e}")
         
         # Get today's games to find active players
         try:
@@ -7596,18 +7623,18 @@ def api_player_props():
         
         props_found = []
         
-        # Define prop types to check
+        # Define prop types to check (market_key maps to Bovada API keys)
         prop_types = [
-            {'key': 'points', 'display': '10+ Points', 'threshold': 10, 'stat': 'PTS'},
-            {'key': 'rebounds', 'display': '5+ Rebounds', 'threshold': 5, 'stat': 'REB'},
-            {'key': 'assists', 'display': '5+ Assists', 'threshold': 5, 'stat': 'AST'},
-            {'key': 'pts_reb', 'display': '15+ Points + Rebounds', 'threshold': 15, 'stats': ['PTS', 'REB']},
-            {'key': 'pts_ast', 'display': '15+ Points + Assists', 'threshold': 15, 'stats': ['PTS', 'AST']},
-            {'key': 'reb_ast', 'display': '10+ Rebounds + Assists', 'threshold': 10, 'stats': ['REB', 'AST']},
-            {'key': 'pts_reb_ast', 'display': '25+ P+R+A', 'threshold': 25, 'stats': ['PTS', 'REB', 'AST']},
-            {'key': 'threes', 'display': '2+ Three-Pointers', 'threshold': 2, 'stat': 'FG3M'},
-            {'key': 'steals', 'display': '1+ Steal', 'threshold': 1, 'stat': 'STL'},
-            {'key': 'blocks', 'display': '1+ Block', 'threshold': 1, 'stat': 'BLK'},
+            {'key': 'points', 'display': 'Points', 'threshold': 10, 'stat': 'PTS', 'market_key': 'points'},
+            {'key': 'rebounds', 'display': 'Rebounds', 'threshold': 5, 'stat': 'REB', 'market_key': 'rebounds'},
+            {'key': 'assists', 'display': 'Assists', 'threshold': 5, 'stat': 'AST', 'market_key': 'assists'},
+            {'key': 'pts_reb', 'display': 'Pts+Reb', 'threshold': 15, 'stats': ['PTS', 'REB'], 'market_key': None},
+            {'key': 'pts_ast', 'display': 'Pts+Ast', 'threshold': 15, 'stats': ['PTS', 'AST'], 'market_key': None},
+            {'key': 'reb_ast', 'display': 'Reb+Ast', 'threshold': 10, 'stats': ['REB', 'AST'], 'market_key': None},
+            {'key': 'pts_reb_ast', 'display': 'P+R+A', 'threshold': 25, 'stats': ['PTS', 'REB', 'AST'], 'market_key': None},
+            {'key': 'threes', 'display': '3PM', 'threshold': 2, 'stat': 'FG3M', 'market_key': 'threes'},
+            {'key': 'steals', 'display': 'Steals', 'threshold': 1, 'stat': 'STL', 'market_key': None},
+            {'key': 'blocks', 'display': 'Blocks', 'threshold': 1, 'stat': 'BLK', 'market_key': None},
         ]
         
         # Fetch real defensive rankings from NBA API
@@ -7694,6 +7721,12 @@ def api_player_props():
                     simulations = [max(0, random.gauss(mean_val, std_val * 0.5)) for _ in range(100)]
                     ai_proj = sum(simulations) / len(simulations)
                     
+                    # Get Bovada line if available
+                    bovada_line = None
+                    if prop.get('market_key'):
+                        line_key = f"{player_name.lower()}_{prop['market_key']}"
+                        bovada_line = bovada_lines.get(line_key)
+                    
                     props_found.append({
                         'team': team_name,
                         'player': player_name,
@@ -7705,6 +7738,7 @@ def api_player_props():
                         'last_10': f"{last_10_hits}/10",
                         'def_rank': opp_def_rank,
                         'ai_proj': round(ai_proj, 1),
+                        'bovada_line': bovada_line,
                         'status': None
                     })
                         

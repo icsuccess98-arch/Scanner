@@ -130,14 +130,16 @@
             border-bottom: 1px solid var(--border);
             font-size: 0.8rem;
         }
-        .props-table th:nth-child(1), .props-table td:nth-child(1) { width: 50px; text-align: left; }
-        .props-table th:nth-child(2), .props-table td:nth-child(2) { width: 120px; text-align: left; }
-        .props-table th:nth-child(3), .props-table td:nth-child(3) { width: 65px; }
+        .props-table th:nth-child(1), .props-table td:nth-child(1) { width: 45px; text-align: left; }
+        .props-table th:nth-child(2), .props-table td:nth-child(2) { width: 110px; text-align: left; }
+        .props-table th:nth-child(3), .props-table td:nth-child(3) { width: 55px; }
         .props-table th:nth-child(4), .props-table td:nth-child(4) { width: 45px; }
-        .props-table th:nth-child(5), .props-table td:nth-child(5) { width: 50px; }
-        .props-table th:nth-child(6), .props-table td:nth-child(6) { width: 50px; }
-        .props-table th:nth-child(7), .props-table td:nth-child(7) { width: 55px; }
-        .props-table th:nth-child(8), .props-table td:nth-child(8) { width: 55px; }
+        .props-table th:nth-child(5), .props-table td:nth-child(5) { width: 40px; }
+        .props-table th:nth-child(6), .props-table td:nth-child(6) { width: 45px; }
+        .props-table th:nth-child(7), .props-table td:nth-child(7) { width: 45px; }
+        .props-table th:nth-child(8), .props-table td:nth-child(8) { width: 40px; }
+        .props-table th:nth-child(9), .props-table td:nth-child(9) { width: 45px; }
+        .bovada-line { font-weight: 600; color: var(--gold); font-size: 0.8rem; }
         .props-table tr:last-child td { border-bottom: none; }
         .props-table tr:hover { background: rgba(255,255,255,0.02); }
         .team-name { font-weight: 600; color: var(--text); font-size: 0.75rem; }
@@ -380,6 +382,7 @@
                         <th>Team</th>
                         <th>Player</th>
                         <th>Prop</th>
+                        <th>Line</th>
                         <th>L5</th>
                         <th>L10</th>
                         <th>L20</th>
@@ -460,6 +463,7 @@
                 const streakClass = p.streak >= 20 ? 'streak-perfect' : (p.streak >= 19 ? 'streak-good' : 'streak-warning');
                 const defClass = p.def_rank >= 25 ? 'elite' : (p.def_rank >= 21 ? 'good' : 'mid');
                 const statusClass = p.status === 'Questionable' ? 'questionable' : '';
+                const lineDisplay = p.bovada_line ? p.bovada_line.toFixed(1) : '-';
                 
                 return `
                     <tr data-prop-type="${p.prop_type}" data-streak="${p.streak}">
@@ -469,6 +473,7 @@
                             ${p.status ? `<div class="player-status ${statusClass}">${p.status}</div>` : ''}
                         </td>
                         <td><span class="prop-type">${p.prop_display}</span></td>
+                        <td class="bovada-line">${lineDisplay}</td>
                         <td class="streak-cell streak-perfect">${p.last_5 || '5/5'}</td>
                         <td class="streak-cell ${p.last_10 === '10/10' ? 'streak-perfect' : 'streak-good'}">${p.last_10 || '9/10'}</td>
                         <td class="streak-cell ${streakClass}">${p.streak}/20</td>
@@ -481,13 +486,14 @@
             mobileCards.innerHTML = props.map(p => {
                 const streakClass = p.streak >= 20 ? 'streak-perfect' : 'streak-good';
                 const defClass = p.def_rank >= 25 ? 'elite' : 'good';
+                const lineDisplay = p.bovada_line ? p.bovada_line.toFixed(1) : '-';
                 
                 return `
                     <div class="mobile-card">
                         <div class="mobile-card-header">
                             <div>
                                 <div class="mobile-card-player">${p.player}</div>
-                                <div class="mobile-card-team">${p.team} · <span class="prop-type">${p.prop_display}</span></div>
+                                <div class="mobile-card-team">${p.team} · <span class="prop-type">${p.prop_display}</span> · <span class="bovada-line">O ${lineDisplay}</span></div>
                             </div>
                             <div class="ai-proj" style="font-size: 1.1rem;">${p.ai_proj.toFixed(1)}</div>
                         </div>
