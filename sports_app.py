@@ -8163,8 +8163,17 @@ def api_player_props():
             
             player_count += 1
         
-        # Sort by streak length (longest trend at top)
-        props_found.sort(key=lambda x: (-x['streak'], -x['edge_pct'], -(x['def_rank'] or 0)))
+        # Sort by streak length (longest trend at top), then edge, then AI proj
+        props_found.sort(key=lambda x: (-x['streak'], -x['edge_pct'], -x['ai_proj']))
+        
+        # Deduplicate: keep only best prop per player (highest streak, then edge, then AI proj)
+        unique_props = []
+        seen_players = set()
+        for prop in props_found:
+            if prop['player'] not in seen_players:
+                unique_props.append(prop)
+                seen_players.add(prop['player'])
+        props_found = unique_props
         
         # Get Elite 10 - must have 10+ consecutive hits, picking unique players where possible
         elite_picks = []
