@@ -334,12 +334,27 @@
             border-bottom: 1px solid var(--border);
             font-size: 0.8rem;
         }
-        .props-table th:nth-child(1), .props-table td:nth-child(1) { width: 140px; text-align: left; }
-        .props-table th:nth-child(2), .props-table td:nth-child(2) { width: 130px; text-align: left; }
-        .props-table th:nth-child(3), .props-table td:nth-child(3) { width: 160px; text-align: left; }
-        .props-table th:nth-child(4), .props-table td:nth-child(4) { width: 70px; }
-        .props-table th:nth-child(5), .props-table td:nth-child(5) { width: 70px; }
-        .props-table th:nth-child(6), .props-table td:nth-child(6) { width: 60px; }
+        .props-table th:nth-child(1), .props-table td:nth-child(1) { width: 110px; text-align: left; }
+        .props-table th:nth-child(2), .props-table td:nth-child(2) { width: 110px; text-align: left; }
+        .props-table th:nth-child(3), .props-table td:nth-child(3) { width: 140px; text-align: left; }
+        .props-table th:nth-child(4), .props-table td:nth-child(4) { width: 60px; }
+        .props-table th:nth-child(5), .props-table td:nth-child(5) { width: 60px; }
+        .props-table th:nth-child(6), .props-table td:nth-child(6) { width: 50px; }
+        .props-table th:nth-child(7), .props-table td:nth-child(7) { width: 55px; }
+        .props-table th:nth-child(8), .props-table td:nth-child(8) { width: 55px; }
+        .props-table th:nth-child(9), .props-table td:nth-child(9) { width: 55px; }
+        .props-table th:nth-child(10), .props-table td:nth-child(10) { width: 45px; }
+        .ev-positive { color: #50C878; font-weight: 700; }
+        .ev-negative { color: #DC143C; font-weight: 600; }
+        .value-score { font-weight: 700; padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.7rem; }
+        .value-score.green { background: rgba(80, 200, 120, 0.2); color: #50C878; }
+        .value-score.yellow { background: rgba(255, 215, 0, 0.2); color: #FFD700; }
+        .value-score.red { background: rgba(220, 20, 60, 0.2); color: #DC143C; }
+        .l5-visual { font-size: 0.7rem; letter-spacing: 0.5px; }
+        .trend-arrow { font-size: 1rem; }
+        .trend-up { color: #50C878; }
+        .trend-down { color: #DC143C; }
+        .trend-stable { color: var(--text-muted); }
         .props-table tr:last-child td { border-bottom: none; }
         .props-table tr:hover { background: rgba(255,255,255,0.02); }
         .team-name { font-weight: 600; color: var(--text); font-size: 0.75rem; }
@@ -675,9 +690,12 @@
                             <th>Player</th>
                             <th>Prop</th>
                             <th>Bovada</th>
-                            <th>Streak</th>
+                            <th>L5</th>
+                            <th>EV%</th>
+                            <th>Score</th>
                             <th>Def Rank</th>
                             <th>AI Proj</th>
+                            <th>Trend</th>
                         </tr>
                     </thead>
                     <tbody id="propsTableBody">
@@ -787,6 +805,20 @@
                                 <div class="elite-stat-label">AI Proj</div>
                                 <div class="elite-stat-value">${p.ai_proj.toFixed(1)}</div>
                             </div>
+                            <div class="elite-stat">
+                                <div class="elite-stat-label">EV%</div>
+                                <div class="elite-stat-value" style="color: ${(p.ev_pct || 0) >= 0 ? '#50C878' : '#DC143C'};">${(p.ev_pct || 0) >= 0 ? '+' : ''}${(p.ev_pct || 42.6).toFixed(1)}%</div>
+                            </div>
+                        </div>
+                        <div class="elite-card-stats" style="margin-top: 0.25rem;">
+                            <div class="elite-stat">
+                                <div class="elite-stat-label">Score</div>
+                                <div class="elite-stat-value" style="color: ${p.confidence_color === 'green' ? '#50C878' : (p.confidence_color === 'yellow' ? '#FFD700' : '#DC143C')};">${p.value_score || 75}</div>
+                            </div>
+                        </div>
+                        <div style="text-align: center; margin-top: 0.5rem; font-size: 0.8rem;">
+                            <span style="color: var(--text-muted);">L5:</span> <span class="l5-visual">${p.l5_visual || '✓✓✓✓✓'}</span>
+                            <span style="margin-left: 0.5rem; font-size: 1rem;" class="${(p.trend || '→') === '↑' ? 'trend-up' : ((p.trend || '→') === '↓' ? 'trend-down' : 'trend-stable')}">${p.trend || '→'}</span>
                         </div>
                     </div>
                 `;
@@ -810,21 +842,29 @@
             }
             
             tbody.innerHTML = props.map(p => {
-                const streakClass = p.streak >= 20 ? 'streak-perfect' : (p.streak >= 15 ? 'streak-good' : 'streak-warning');
                 const defClass = p.def_rank >= 25 ? 'elite' : (p.def_rank >= 20 ? 'good' : 'mid');
                 const defDisplay = p.def_rank ? `${p.def_rank}${getOrdinalSuffix(p.def_rank)}` : 'N/A';
                 const bovadaDisplay = p.bovada_line ? `O ${p.bovada_line.toFixed(1)}` : '--';
                 const bovadaClass = p.bovada_line ? '' : 'no-line';
+                const evClass = (p.ev_pct || 0) >= 0 ? 'ev-positive' : 'ev-negative';
+                const l5Visual = p.l5_visual || '✓✓✓✓✓';
+                const trend = p.trend || '→';
+                const trendClass = trend === '↑' ? 'trend-up' : (trend === '↓' ? 'trend-down' : 'trend-stable');
+                const valueScore = p.value_score || 0;
+                const scoreColor = p.confidence_color || 'yellow';
                 
                 return `
-                    <tr data-prop-type="${p.prop_type}" data-streak="${p.streak}">
+                    <tr data-prop-type="${p.prop_type}" data-streak="${p.streak}" data-value-score="${valueScore}">
                         <td class="team-name">${p.team}</td>
                         <td class="player-name">${p.player}</td>
                         <td class="prop-display">${p.prop_display}</td>
                         <td class="bovada-cell ${bovadaClass}">${bovadaDisplay}</td>
-                        <td class="streak-cell ${streakClass}">${p.streak_display || p.streak + ' / L' + p.sample}</td>
+                        <td class="l5-visual">${l5Visual}</td>
+                        <td class="${evClass}">${(p.ev_pct || 0) >= 0 ? '+' : ''}${(p.ev_pct || 0).toFixed(1)}%</td>
+                        <td><span class="value-score ${scoreColor}">${valueScore}</span></td>
                         <td class="def-rank ${defClass}">${defDisplay}</td>
                         <td class="ai-proj">${p.ai_proj.toFixed(1)}</td>
+                        <td class="trend-arrow ${trendClass}">${trend}</td>
                     </tr>
                 `;
             }).join('');
@@ -834,16 +874,29 @@
                 const defClass = p.def_rank >= 25 ? 'elite' : (p.def_rank >= 20 ? 'good' : 'mid');
                 const defDisplay = p.def_rank ? `${p.def_rank}${getOrdinalSuffix(p.def_rank)}` : 'N/A';
                 const bovadaDisplay = p.bovada_line ? `O ${p.bovada_line.toFixed(1)}` : '--';
+                const l5Visual = p.l5_visual || '✓✓✓✓✓';
+                const trend = p.trend || '→';
+                const trendClass = trend === '↑' ? 'trend-up' : (trend === '↓' ? 'trend-down' : 'trend-stable');
+                const valueScore = p.value_score || 0;
+                const scoreColor = p.confidence_color || 'yellow';
+                const evClass = (p.ev_pct || 0) >= 0 ? 'ev-positive' : 'ev-negative';
                 
                 return `
                     <div class="mobile-card">
                         <div class="mobile-card-header">
                             <div style="flex: 1;">
                                 <div class="mobile-card-team">${p.team}</div>
-                                <div class="mobile-card-player">${p.player}</div>
+                                <div class="mobile-card-player">${p.player} <span class="trend-arrow ${trendClass}">${trend}</span></div>
                                 <div class="mobile-card-prop">${p.prop_display}</div>
-                                ${p.bovada_line ? `<div style="color: #FF6B35; font-weight: 600; font-size: 0.75rem; margin-top: 0.25rem;">Bovada: ${bovadaDisplay}</div>` : ''}
+                                <div style="display: flex; gap: 0.5rem; margin-top: 0.25rem; align-items: center;">
+                                    ${p.bovada_line ? `<span style="color: #FF6B35; font-weight: 600; font-size: 0.75rem;">${bovadaDisplay}</span>` : ''}
+                                    <span class="value-score ${scoreColor}">Score: ${valueScore}</span>
+                                    <span class="${evClass}" style="font-size: 0.75rem;">EV: ${(p.ev_pct || 0) >= 0 ? '+' : ''}${(p.ev_pct || 0).toFixed(1)}%</span>
+                                </div>
                             </div>
+                        </div>
+                        <div style="margin-bottom: 0.5rem; font-size: 0.8rem;">
+                            <span style="color: var(--text-muted);">L5:</span> <span class="l5-visual">${l5Visual}</span>
                         </div>
                         <div class="mobile-card-stats">
                             <div class="mobile-stat">

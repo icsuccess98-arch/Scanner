@@ -7974,6 +7974,76 @@ def api_player_props():
                 prop_display = f"{bovada_line}+ {prop['name']}"
                 hit_rates = f"L5: {l5_hits}/5 | L10: {l10_hits}/10 | L20: {l20_hits}/20"
                 
+                # Calculate implied probability from standard over odds (-110)
+                # Formula: If odds negative: implied = |odds| / (|odds| + 100) * 100
+                # Standard -110 = 110 / 210 * 100 = 52.38%
+                # We use standard -110 since prop markets typically have -110/-110 juice
+                standard_odds = -110
+                implied_prob = abs(standard_odds) / (abs(standard_odds) + 100) * 100
+                
+                # Calculate model probability from hit rate
+                model_prob = (l20_hits / 20) * 100
+                
+                # Calculate EV% (model probability - implied probability)
+                ev_pct = round(model_prob - implied_prob, 1)
+                ev_positive = ev_pct >= 0
+                
+                # Last 5 results visual (✓/✗)
+                l5_visual = ''.join(['✓' if v >= threshold else '✗' for v in l5_values])
+                
+                # Trend arrow based on L5 vs L10 average
+                l5_avg = sum(l5_values) / len(l5_values) if l5_values else 0
+                l10_avg = sum(l10_values) / len(l10_values) if l10_values else 0
+                if l5_avg > l10_avg * 1.05:
+                    trend = '↑'  # Trending up (5%+ better recently)
+                elif l5_avg < l10_avg * 0.95:
+                    trend = '↓'  # Trending down
+                else:
+                    trend = '→'  # Stable
+                
+                # VALUE SCORE (0-100 points) - from user spec
+                value_score = 0
+                
+                # Streak component (0-30 points)
+                l20_rate = l20_hits / 20
+                if l20_rate >= 0.95:
+                    value_score += 30
+                elif l20_rate >= 0.90:
+                    value_score += 20
+                elif l20_rate >= 0.80:
+                    value_score += 10
+                
+                # Matchup component (0-25 points) - Bottom 6 = max
+                if opp_def_rank and opp_def_rank >= 25:
+                    value_score += 25
+                elif opp_def_rank and opp_def_rank >= 21:
+                    value_score += 15
+                
+                # Expected value component (0-25 points)
+                if ev_pct >= 15:
+                    value_score += 25
+                elif ev_pct >= 10:
+                    value_score += 15
+                elif ev_pct >= 5:
+                    value_score += 10
+                
+                # Projection component (0-20 points)
+                line_diff = ai_proj - bovada_line
+                if line_diff >= 3:
+                    value_score += 20
+                elif line_diff >= 2:
+                    value_score += 15
+                elif line_diff >= 1:
+                    value_score += 10
+                
+                # Confidence color based on value score
+                if value_score >= 80:
+                    confidence_color = 'green'
+                elif value_score >= 65:
+                    confidence_color = 'yellow'
+                else:
+                    confidence_color = 'red'
+                
                 props_found.append({
                     'team': team_full_name,
                     'player': player_name,
@@ -7986,6 +8056,14 @@ def api_player_props():
                     'l5': f"{l5_hits}/5",
                     'l10': f"{l10_hits}/10",
                     'l20': f"{l20_hits}/20",
+                    'l5_visual': l5_visual,
+                    'trend': trend,
+                    'implied_prob': round(implied_prob, 1),
+                    'model_prob': round(model_prob, 1),
+                    'ev_pct': ev_pct,
+                    'ev_positive': ev_positive,
+                    'value_score': value_score,
+                    'confidence_color': confidence_color,
                     'def_rank': opp_def_rank,
                     'ai_proj': round(ai_proj, 1),
                     'bovada_line': bovada_line,

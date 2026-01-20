@@ -1,0 +1,239 @@
+Here’s the comprehensive prompt I would use:
+
+PROMPT FOR BUILDING ELITE SPORTS BETTING PROPS ANALYSIS APP
+You are an expert sports betting data analyst and full-stack developer with 20 years of prop betting experience and 15 years in app development. Build a comprehensive player props analysis application with the following specifications:
+Core Functionality Requirements
+1. Data Integration Layer
+Create API integrations or web scraping modules for:
+	∙	Real-time odds from major sportsbooks (DraftKings, FanDuel, BetMGM)
+	∙	Player statistics from NBA/NHL official APIs
+	∙	Injury reports and lineup data
+	∙	Team defensive rankings by position/category
+	∙	Historical prop performance data
+2. Database Schema
+Design a PostgreSQL/MongoDB database with tables/collections for:
+	∙	Players: ID, name, team, position, active status
+	∙	Props: player_id, prop_type, line, odds, timestamp, sportsbook
+	∙	Games: game_id, home_team, away_team, date, time, completed
+	∙	Performance_History: player_id, game_id, stat_type, actual_value, prop_line, hit/miss
+	∙	Defensive_Rankings: team_id, stat_category, rank, date
+	∙	Streaks: player_id, prop_type, current_streak, L5, L10, L20, L30
+	∙	Projections: player_id, game_id, prop_type, projected_value, confidence_score
+3. Statistical Analysis Engine
+Build calculation modules for:
+Streak Analytics:
+
+- Calculate hit rates over L5, L10, L20, L30, season
+- Track consecutive hits/misses
+- Calculate streak sustainability score (regression probability)
+- Identify break patterns after long streaks
+
+
+Implied Probability Calculator:
+
+- Convert American odds to implied probability
+- Calculate true probability from model
+- Compute expected value (EV)
+- Identify value threshold (model prob > implied prob + margin)
+
+
+AI Projection System:
+
+- Monte Carlo simulation (100+ iterations per prop)
+- Inputs: season avg, recent form (L10), opponent ranking, pace, home/away splits, rest days, injury impact
+- Output: projected value, confidence interval (min/max), standard deviation
+- Model accuracy tracking (projected vs actual)
+
+
+Matchup Intelligence:
+
+- Pull opponent defensive ranking for specific stat category
+- Calculate historical performance vs this opponent
+- Factor in pace of play adjustments
+- Home/away splits with statistical significance
+
+
+Contextual Factors:
+
+- Rest days calculation (0, 1, 2, 3+)
+- Back-to-back game detector
+- Minutes projection based on recent rotation
+- Injury status integration (questionable/probable/out)
+- Lineup change impact analysis
+
+
+4. User Interface Components
+Main Dashboard View:
+
+- Today's date with game count
+- Quick filters: Sport (NBA/NHL), Minimum streak (L10, L20), Minimum confidence (%), Defensive rank threshold, Hide questionable players
+- Sort options: EV, Confidence, Streak length, Line value
+- Export to CSV functionality
+
+
+Props Table with Columns:
+
+1. Player (with team logo/colors)
+2. Opponent & Location (@/vs)
+3. Prop Type & Line
+4. Current Odds
+5. Implied Probability %
+6. Model Projection
+7. Confidence Score (color-coded: green 80%+, yellow 65-79%, red <65%)
+8. Streak Display: "L20: 18/20 (90%)" with visual indicator
+9. L10 Hit Rate
+10. Opponent Def Rank (with color coding: bottom 10 = green)
+11. Expected Value (EV) %
+12. Trend Arrow (↑↓→ based on recent trajectory)
+13. Last 5 Results (visual: ✓✓✓✓✗)
+14. Quick Action: "Add to Betslip" button
+
+
+Expandable Row Details:
+
+- Full season statistics
+- Last 10 games actual results table
+- Head-to-head history vs today's opponent
+- Home/away splits comparison
+- Ceiling/floor analysis (95th/5th percentile)
+- Correlation warnings if applicable
+- Line movement chart (if available)
+- Sharp money indicators
+- Model confidence breakdown
+
+
+Advanced Filters Panel:
+
+- Prop type: Points, Rebounds, Assists, 3PM, PRA, Stocks, etc.
+- Team selection (multi-select)
+- Player search autocomplete
+- Minimum odds / Maximum odds
+- Value plays only (EV > X%)
+- Streak length minimum
+- Projection vs line differential
+
+
+Visual Analytics:
+
+- Distribution curve: projected outcome probabilities
+- Hit rate by line value chart
+- Consistency score visualization
+- Matchup heat map (player stats vs opponent defense)
+
+
+5. Alert System
+Build notification system for:
+
+- Line movement alerts (when line moves 0.5+ in your favor)
+- Injury report updates affecting your tracked players
+- New props meeting your filter criteria
+- Sharp money indicators on your plays
+- Value threshold triggers (when EV exceeds your minimum)
+- Questionable players ruled in/out
+
+
+6. Bankroll Management Module
+
+- Unit size calculator based on confidence level
+- Kelly Criterion implementation
+- Bet tracking: Date, Player, Prop, Odds, Result, Units, ROI
+- Performance analytics: Win rate by prop type, by confidence tier, by sport
+- Variance tracking and risk metrics
+- Profit/loss charts over time
+- Longest winning/losing streaks
+- Expected value vs actual results
+
+
+7. Historical Performance Tracking
+
+- Model accuracy: Projected vs actual results
+- Hit rate by confidence bucket (80%+, 70-79%, 60-69%)
+- ROI by prop category
+- Best/worst performing prop types
+- Time-based analysis (day of week, home/away, rest scenarios)
+- Identification of profitable patterns
+
+
+Technical Stack Recommendations
+Backend:
+	∙	Python (FastAPI or Django) for API and data processing
+	∙	Pandas/NumPy for statistical calculations
+	∙	Scikit-learn for ML components
+	∙	Celery for scheduled tasks (odds updates, data refreshes)
+	∙	Redis for caching frequently accessed data
+Frontend:
+	∙	React or Next.js for responsive UI
+	∙	TailwindCSS for styling
+	∙	Chart.js or Recharts for visualizations
+	∙	React Query for data fetching
+	∙	Socket.io for real-time updates
+Database:
+	∙	PostgreSQL for relational data
+	∙	Redis for caching and session management
+Deployment:
+	∙	Docker containers
+	∙	AWS/GCP for hosting
+	∙	GitHub Actions for CI/CD
+Critical Business Logic
+Value Identification Algorithm:
+
+def calculate_value_score(player_prop):
+    score = 0
+    
+    # Streak component (0-30 points)
+    if L20_hit_rate >= 90:
+        score += 30
+    elif L20_hit_rate >= 80:
+        score += 20
+    elif L20_hit_rate >= 70:
+        score += 10
+    
+    # Matchup component (0-25 points)
+    if opp_def_rank >= 25:  # Bottom 6
+        score += 25
+    elif opp_def_rank >= 20:  # Bottom 11
+        score += 15
+    
+    # Expected value component (0-25 points)
+    ev_percentage = (model_prob - implied_prob) * 100
+    if ev_percentage >= 15:
+        score += 25
+    elif ev_percentage >= 10:
+        score += 15
+    elif ev_percentage >= 5:
+        score += 10
+    
+    # Projection component (0-20 points)
+    line_differential = projection - prop_line
+    if line_differential >= 3:
+        score += 20
+    elif line_differential >= 2:
+        score += 15
+    elif line_differential >= 1:
+        score += 10
+    
+    return score  # Max 100 points
+
+
+Risk Flags System:
+
+- Yellow flag: Player questionable, back-to-back game, opponent rank 11-19
+- Red flag: Model confidence <60%, negative EV, player probable but limited minutes expected
+- Correlation warning: Multiple props from same game/team
+
+
+Output Requirements
+Provide:
+	1.	Complete database schema with relationships
+	2.	API endpoint documentation
+	3.	Data flow diagrams
+	4.	Component architecture
+	5.	Sample API responses
+	6.	Testing strategy for projection accuracy
+	7.	Mobile-responsive design considerations
+	8.	Rate limiting for external API calls
+	9.	Error handling for missing data
+	10.	Fallback logic when APIs are unavailable
+Priority: Focus on accuracy, reliability, and making the user’s edge immediately visible at a glance. Every feature should answer: “Does this help me make better betting decisions?”
+
+This prompt gives a developer everything needed to build your elite props analysis tool with all the features we discussed, using your proven methodology as the foundation.​​​​​​​​​​​​​​​​

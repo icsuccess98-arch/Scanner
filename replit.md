@@ -80,7 +80,13 @@ This project develops and manages trading systems including a Sports Betting Cal
 -   **Elite 10 Section**: Premium tab showing top 10 unique players with highest streaks
     -   Golden glow styling with trophy badge
     -   Card-based layout with rank numbers 1-10
-    -   Shows L5, L10, L20 hit rates, defensive rank, and AI projection
+    -   Shows L5, L10, L20 hit rates, defensive rank, EV%, Value Score, AI projection
+-   **Enhanced Props Table**: New columns for comprehensive analysis
+    -   L5 Visual Results: Checkmarks/X showing last 5 outcomes (✓✓✓✓✓)
+    -   EV%: Expected Value percentage (model probability - implied probability)
+    -   Value Score: 0-100 composite score (streak + matchup + EV + projection)
+    -   Trend Arrow: ↑↓→ based on L5 vs L10 average performance
+    -   Color-coded confidence: Green (80+), Yellow (65-79), Red (<65)
 -   **Injury Filtering**: Automatically excludes injured, questionable, doubtful, and day-to-day players
     -   Fetches ESPN injury report before processing
     -   Only shows active, healthy players
