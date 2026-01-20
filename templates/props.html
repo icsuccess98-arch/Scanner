@@ -254,10 +254,12 @@
         @keyframes spin { to { transform: rotate(360deg); } }
         
         .mobile-cards { display: none; }
+        .data-loaded .table-container { display: block; }
+        .data-loaded .mobile-cards { display: none; }
         
         @media (max-width: 992px) {
-            .table-container { display: none; }
-            .mobile-cards { display: block; margin: 1rem; }
+            .data-loaded .table-container { display: none !important; }
+            .data-loaded .mobile-cards { display: block !important; margin: 1rem; }
             .mobile-card {
                 background: var(--bg-card);
                 border: 1px solid var(--border);
@@ -487,7 +489,7 @@
             btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Loading...';
             loading.style.display = 'block';
             empty.style.display = 'none';
-            tableContainer.style.display = 'none';
+            document.body.classList.remove('data-loaded');
             statsBar.style.display = 'none';
             
             const league = document.getElementById('leagueSelect').value;
@@ -506,7 +508,7 @@
                     renderTable(allProps);
                     renderMobileCards(allProps);
                     updateStats(allProps);
-                    tableContainer.style.display = 'block';
+                    document.body.classList.add('data-loaded');
                     statsBar.style.display = 'flex';
                 } else {
                     empty.innerHTML = `
