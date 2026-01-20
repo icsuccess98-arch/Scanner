@@ -8089,8 +8089,8 @@ def api_player_props():
                         else:
                             break
                     
-                    # Take the FIRST (lowest) line that has 10+ streak
-                    if test_streak >= 10:
+                    # Take the FIRST (lowest) line that has 5+ streak (PLAY threshold)
+                    if test_streak >= 5:
                         best_streak_for_line = test_streak
                         best_line_data = line_data
                         break
@@ -8131,18 +8131,15 @@ def api_player_props():
                     logger.info(f"DEBUG FILTER {player_name} {prop['name']} line={bovada_line}: streak={consecutive_streak}, L5={l5_hits}/5, L20={l20_hits}/{len(l20_values)} ({l20_pct_debug:.0f}%)")
                 
                 # MANDATORY FILTERS:
-                # 1. Must have at least 10 consecutive hits
-                if consecutive_streak < 10:
+                # 1. Must have at least 5 consecutive hits (PLAY threshold)
+                if consecutive_streak < 5:
                     continue
                 
-                # 2. Must be 100% L5 (5/5)
+                # 2. Must be 100% L5 (5/5) - ensures recent consistency
                 if l5_hits < 5:
                     continue
                 
-                # 3. Must be 90%+ L20 (18/20 or better)
-                l20_pct = (l20_hits / len(l20_values)) * 100 if l20_values else 0
-                if l20_pct < 90:
-                    continue
+                # L20 filter removed - streak requirement is primary
                 
                 # Track the streak length
                 best_streak = consecutive_streak
