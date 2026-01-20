@@ -8067,7 +8067,7 @@ def api_player_props():
                     logger.info(f"STREAK CHECK {player_name} {prop['name']}:")
                     for line_data in available_lines[:5]:  # Check first 5 lines
                         test_line = line_data['line']
-                        # For .5 lines: O3.5 means need 4+ to hit (MORE than 3.5)
+                        # For .5 lines: O0.5 needs 1+, O3.5 needs 4+ (ceiling)
                         threshold_check = int(test_line) + 1 if test_line == int(test_line) + 0.5 else int(test_line) + 1
                         test_streak = 0
                         for v in values:
@@ -8079,7 +8079,7 @@ def api_player_props():
                 
                 for line_data in available_lines:
                     test_line = line_data['line']
-                    # For .5 lines: O3.5 means need 4+ to hit (MORE than 3.5)
+                    # For .5 lines: O0.5 needs 1+, O3.5 needs 4+ (ceiling)
                     threshold_check = int(test_line) + 1 if test_line == int(test_line) + 0.5 else int(test_line) + 1
                     # Calculate streak for this line
                     test_streak = 0
@@ -8099,7 +8099,7 @@ def api_player_props():
                     continue
                 
                 bovada_line = best_line_data['line']
-                # For .5 lines: O3.5 means need 4+ to hit (MORE than 3.5)
+                # For .5 lines: O0.5 needs 1+, O3.5 needs 4+ (ceiling)
                 threshold = int(bovada_line) + 1 if bovada_line == int(bovada_line) + 0.5 else int(bovada_line) + 1
                 
                 # Log when we find a good match
@@ -8190,7 +8190,9 @@ def api_player_props():
                 def_rank_display = get_ordinal(opp_def_rank) if opp_def_rank else "N/A"
                 
                 # Create display with hit rates
-                prop_display = f"{bovada_line}+ {prop['name']}"
+                # Display as ceiling value (5.5 → "6+", 0.5 → "1+")
+                display_threshold = int(bovada_line) + 1 if bovada_line == int(bovada_line) + 0.5 else int(bovada_line)
+                prop_display = f"{display_threshold}+ {prop['name']}"
                 hit_rates = f"L5: {l5_hits}/5 | L10: {l10_hits}/10 | L20: {l20_hits}/20"
                 
                 # Calculate implied probability from standard over odds (-110)
