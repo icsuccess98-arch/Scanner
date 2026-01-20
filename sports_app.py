@@ -5738,10 +5738,10 @@ def dashboard():
                     def_mismatch_count += 1
     
     # MANDATORY FILTERS FOR TOTALS:
-    # 1. L5 100% (5/5), L10 mandatory, L20 85%+
-    # 2. Bottom 10 defense for OVER picks (NBA/CBB)
-    # 3. Top 10 defense for UNDER picks (NBA/CBB)
-    filtered_qualified = []
+    # SUPERMAX/Lock: L5 100% (5/5) AND L20 85%+
+    # TOP 5: Edge threshold AND L20 85%+ (L5 not required)
+    filtered_qualified = []  # Strict: L5 100% + L20 85%
+    top5_eligible = []       # Relaxed: L20 85% only (for TOP 5 display)
     logger.info(f"Starting mandatory filters on {len(qualified)} qualified games")
     for g in qualified:
         game_name = f"{g.away_team}@{g.home_team}"
@@ -5774,31 +5774,32 @@ def dashboard():
             except:
                 pass
         
-        logger.info(f"  {game_name}: L5={g.ou_l5} ({l5_hits}), L20={g.ou_l20} ({l20_hits}/{l20_total}), def_mismatch={g.def_mismatch}, dir={g.direction}")
-        
-        # Filter 1: L5 100% (5/5)
-        if l5_hits < 5:
-            logger.info(f"    -> FAILED L5 100% (need 5, got {l5_hits})")
-            continue
-        
-        # Filter 2: L20 85%+ (17/20 or better)
+        # Calculate L20 percentage
         l20_pct = (l20_hits / l20_total * 100) if l20_total > 0 else 0
+        
+        logger.info(f"  {game_name}: L5={g.ou_l5} ({l5_hits}), L20={g.ou_l20} ({l20_hits}/{l20_total}={l20_pct:.1f}%), def_mismatch={g.def_mismatch}, dir={g.direction}")
+        
+        # Check L20 85%+ (required for both TOP 5 and SUPERMAX)
         if l20_pct < 85:
             logger.info(f"    -> FAILED L20 85% (need 85%, got {l20_pct:.1f}%)")
             continue
         
-        # DEF EDGE is a BADGE only (not a qualifying filter)
-        # Bottom 10 def for OVER = stronger confidence
-        # Top 10 def for UNDER = stronger confidence
-        def_badge = "DEF EDGE" if g.def_mismatch else ""
+        # L20 85%+ passed - eligible for TOP 5
+        top5_eligible.append(g)
         
-        # Passed all filters
-        logger.info(f"    -> PASSED (L5 100%, L20 85%+) {def_badge}")
+        # Check L5 100% (required only for SUPERMAX/Lock)
+        if l5_hits < 5:
+            logger.info(f"    -> TOP 5 ONLY (L20 passed, L5 {l5_hits}/5)")
+            continue
+        
+        # Passed all filters - fully qualified for SUPERMAX
+        def_badge = "DEF EDGE" if g.def_mismatch else ""
+        logger.info(f"    -> SUPERMAX QUALIFIED (L5 100%, L20 85%+) {def_badge}")
         filtered_qualified.append(g)
     
-    # Replace qualified with filtered list
+    # Replace qualified with filtered list (strict: L5 100% + L20 85%)
     qualified = filtered_qualified
-    logger.info(f"TOTALS after mandatory filters: {len(qualified)} qualified (L5 100%, L20 85%)")
+    logger.info(f"TOTALS after mandatory filters: {len(qualified)} SUPERMAX qualified, {len(top5_eligible)} TOP 5 eligible")
     
     # Sort qualified totals by effective edge (alt if available, else main)
     qualified.sort(key=lambda x: x.alt_edge or x.edge or 0, reverse=True)
@@ -5869,9 +5870,11 @@ def dashboard():
     # No weighted scores, no model bonuses, no confidence tiers
     # Pure formula: Difference = Projected_Total - Bovada_Line
     
-    # TOTALS ONLY: Top picks by BEST edge (alt line if available, else main line)
+    # TOP 5: Games with edge threshold + L20 85%+ (L5 not required)
+    # Sort by edge before taking top 5
+    top5_eligible.sort(key=lambda x: x.alt_edge or x.edge or 0, reverse=True)
     top_picks = []
-    for g in qualified[:5]:
+    for g in top5_eligible[:5]:
         # Use alt edge if available (better line), else main edge
         best_edge = g.alt_edge or g.edge or 0
         best_line = g.alt_total_line or g.line
