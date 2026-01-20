@@ -71,46 +71,11 @@ This project develops and manages trading systems including a Sports Betting Cal
     -   OVER picks: Shows when facing bottom 10 defense (worst defenses = more points allowed)
     -   UNDER picks: Shows when facing top 10 defense (best defenses = fewer points allowed)
     -   NBA/CBB only (basketball games) - badge adds confidence, not required for qualification
--   **File Size**: Reduced to 8,048 lines
+-   **File Size**: Reduced to 8,311 lines
 -   **Focus**: Pure TOTALS (Over/Under) functionality only with confidence badges:
     1. **Totals Model**: Standard O/U picks with edge thresholds
     2. **Away Favorite Badge**: Games where away team is favorite AND meets O/U threshold (orange badge)
     3. **Defense Edge Badge**: Games where pick direction aligns with defensive matchup (blue badge)
-
-### Player Props Analysis Protocol (Jan 2026)
--   **Separate Tab**: /props route with dedicated "Fetch Player Stats" button
--   **Multi-League Support**: League selector dropdown for NBA, EuroLeague, and EuroCup
-    -   NBA: Uses nba_api for player game logs with Bovada lines
-    -   EuroLeague/EuroCup: Uses euroleague-api package for European basketball
--   **EDGE CALCULATION**:
-    -   `Edge% = (AI_Projection - Prop_Line) / Prop_Line × 100`
-    -   AI Projection = 20-game average with defensive adjustment
-    -   Sorted by Edge% (highest edge = best pick)
--   **CONSECUTIVE HIT STREAK METHODOLOGY** (Updated Jan 2026):
-    -   Counts consecutive games hitting the prop line (from most recent)
-    -   Example: 36/L36 means 36 games in a row at or above the line
-    -   Only players with 5+ consecutive hits qualify
--   **PLAY CLASSIFICATION** (Based on consecutive streak length):
-    -   **PREMIUM PLAY**: 15+ consecutive hits (gold glow)
-    -   **STRONG PLAY**: 10-14 consecutive hits (green)
-    -   **PLAY**: 5-9 consecutive hits (purple)
--   **MANDATORY FILTERS (ALL must pass)**:
-    -   Injury Status = Clear (not questionable/out)
-    -   5+ consecutive hits on the prop
-    -   Bovada line exists for the prop
--   **DISQUALIFICATION RULES (Auto-AVOID)**:
-    -   Injury Status = Questionable or Out
-    -   Fewer than 5 consecutive hits
-    -   No Bovada line available
--   **Defensive Rank Display**: Shows "Xth vs [Stat Type]" - higher rank = worse defense (informational only)
--   **Stat-Specific Defensive Rankings**: Shows "Xth vs [Stat Type]" (e.g., "21st vs Points")
--   **Elite 10 Section**: Top 10 picks by consecutive streak length
-    -   Golden glow for PREMIUM PLAY, green for STRONG PLAY, purple for PLAY
-    -   Shows streak display (e.g., "36 / L36"), L5/L10/L20 hit rates, Edge%, Classification, Def Rank vs Stat
--   **Display Columns**: Team, Player, Prop, Bovada, Streak, Edge%, Class, Def Rank vs Stat, AI Proj, Trend
--   **Prop Types**: Points, Rebounds, Assists, P+R, P+A, R+A, P+R+A, 3PM, Steals, Blocks, Steal+Block
--   **Mobile Layout**: Card-based responsive design with Edge% and Classification badges
--   **UI Theme**: Royal gold theme with dark background matching dashboard aesthetics
 
 ### Feature Specifications
 -   **Sports Scanner**: Fetches NBA, CBB, NFL, CFB, NHL games, stats, and odds to identify qualified TOTALS picks.
