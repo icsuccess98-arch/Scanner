@@ -391,6 +391,19 @@
                 <span id="currentDate"></span>
             </div>
             <div class="d-flex gap-2 align-items-center flex-wrap">
+                <select id="propTypeFilter" class="league-select" onchange="filterProps()">
+                    <option value="all">All Prop Types</option>
+                    <option value="points">Points</option>
+                    <option value="rebounds">Rebounds</option>
+                    <option value="assists">Assists</option>
+                    <option value="pts_reb">Points + Rebounds</option>
+                    <option value="pts_ast">Points + Assists</option>
+                    <option value="reb_ast">Rebounds + Assists</option>
+                    <option value="pts_reb_ast">Points + Rebounds + Assists</option>
+                    <option value="threes">3-Pointers Made</option>
+                    <option value="steals">Steals</option>
+                    <option value="blocks">Blocks</option>
+                </select>
                 <select id="leagueSelect" class="league-select">
                     <option value="nba">🏀 NBA</option>
                     <option value="euroleague">🇪🇺 EuroLeague</option>
@@ -615,6 +628,19 @@
                 ? (props.reduce((sum, p) => sum + (p.edge_pct || 0), 0) / props.length).toFixed(1)
                 : '0';
             document.getElementById('avgEdge').textContent = `+${avgEdge}%`;
+        }
+        
+        function filterProps() {
+            const filter = document.getElementById('propTypeFilter').value;
+            let filtered = allProps;
+            
+            if (filter !== 'all') {
+                filtered = allProps.filter(p => p.prop_type === filter);
+            }
+            
+            renderTable(filtered);
+            renderMobileCards(filtered);
+            updateStats(filtered);
         }
     </script>
 </body>

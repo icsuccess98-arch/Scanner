@@ -1,6 +1,7 @@
 import os
 import logging
 import time
+import statistics
 from datetime import datetime, date, timedelta
 from typing import Tuple, Optional, List
 from dataclasses import dataclass
@@ -7842,8 +7843,8 @@ def api_player_props():
             logger.info("Fetching bulk player game logs...")
             bulk_logs = playergamelogs.PlayerGameLogs(
                 season_nullable='2025-26',
-                last_n_games_nullable=50,  # Increased to support longer streaks
-                timeout=60
+                last_n_games_nullable=100,  # 100 games for simulation
+                timeout=90
             )
             logs_df = bulk_logs.get_data_frames()[0]
             
@@ -7949,20 +7950,9 @@ def api_player_props():
             opponent_id = team_opponents.get(team_id)
             opp_def_rank = get_def_rank(opponent_id) if opponent_id else None
             
-            # Check each prop type - ONLY if Bovada has a line
+            # Check ALL prop types through 100-game simulation
             for prop in prop_types:
-                # Skip props without Bovada market key
-                if not prop.get('market_key'):
-                    continue
-                
-                # Look up Bovada line for this player/prop
-                line_key = f"{player_name.lower()}_{prop['market_key']}"
-                bovada_line = bovada_lines.get(line_key)
-                
-                # ONLY process if Bovada has a line
-                if not bovada_line:
-                    continue
-                
+                # Get stat values from game logs
                 try:
                     if 'stats' in prop:
                         values = logs_df[prop['stats']].sum(axis=1).tolist()
@@ -7971,21 +7961,59 @@ def api_player_props():
                 except:
                     continue
                 
-                # Calculate AI projection with defense adjustment
-                recent_values = values[:min(20, len(values))]
-                mean_val = sum(recent_values) / len(recent_values) if len(recent_values) > 0 else 0
+                # Need at least 10 games for analysis
+                if len(values) < 10:
+                    continue
                 
-                # Adjust for defense matchup (rank 16-30 = boost, rank 1-15 = penalty)
+                # === 100-GAME SIMULATION MODEL ===
+                # Use all available games (up to 100) for projection
+                simulation_values = values[:min(100, len(values))]
+                
+                # Calculate base projection from weighted average (recent games weighted more)
+                weights = []
+                for i, v in enumerate(simulation_values):
+                    # Exponential decay: most recent = 1.0, older games = less weight
+                    weight = 0.95 ** i
+                    weights.append(weight)
+                
+                weighted_sum = sum(v * w for v, w in zip(simulation_values, weights))
+                total_weight = sum(weights)
+                base_projection = weighted_sum / total_weight if total_weight > 0 else 0
+                
+                # Calculate standard deviation for variance modeling
+                if len(simulation_values) >= 2:
+                    std_dev = statistics.stdev(simulation_values)
+                else:
+                    std_dev = 0
+                
+                # Defense adjustment (rank 16-30 = boost, rank 1-15 = penalty)
                 if opp_def_rank:
                     if opp_def_rank > 15:
-                        defense_boost = 1.0 + ((opp_def_rank - 15) * 0.01)  # Up to 15% boost
+                        defense_boost = 1.0 + ((opp_def_rank - 15) * 0.012)  # Up to 18% boost
                     else:
-                        defense_boost = 1.0 - ((15 - opp_def_rank) * 0.005)  # Up to 7% penalty
+                        defense_boost = 1.0 - ((15 - opp_def_rank) * 0.008)  # Up to 12% penalty
                 else:
                     defense_boost = 1.0
-                ai_proj = mean_val * defense_boost
                 
-                threshold = bovada_line  # Need to hit/exceed the line
+                ai_proj = base_projection * defense_boost
+                
+                # Look up Bovada line for this player/prop (if available)
+                line_key = f"{player_name.lower()}_{prop.get('market_key', prop['key'])}"
+                bovada_line = bovada_lines.get(line_key)
+                
+                # If no Bovada line, try to find a matching threshold
+                if not bovada_line:
+                    # Use the threshold closest to but below our projection
+                    for t in sorted(prop['thresholds'], reverse=True):
+                        if ai_proj > t:
+                            bovada_line = float(t)
+                            break
+                
+                # ONLY process if we have a valid line
+                if not bovada_line:
+                    continue
+                
+                threshold = bovada_line
                 
                 # Need at least 10 games for streak calculation
                 if len(values) < 10:
@@ -8011,7 +8039,7 @@ def api_player_props():
                 
                 # Debug: Log top streaks found
                 if consecutive_streak >= 5:
-                    logger.info(f"Found streak: {player_name} - {prop['name']} - {consecutive_streak} consecutive (line: {bovada_line}, avg: {mean_val:.1f})")
+                    logger.info(f"Found streak: {player_name} - {prop['name']} - {consecutive_streak} consecutive (line: {bovada_line}, avg: {base_projection:.1f})")
                 
                 # FILTER: Must have at least 5 consecutive hits (relaxed for more picks)
                 if consecutive_streak < 5:
