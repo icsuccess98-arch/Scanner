@@ -596,9 +596,16 @@
                     </h1>
                     <p class="text-muted mb-0" style="font-size: 0.85rem;">Bovada lines: 100% L5, 90% L20</p>
                 </div>
-                <button class="btn-fetch" id="fetchBtn" onclick="fetchPlayerStats()">
-                    <i class="bi bi-arrow-repeat"></i> Fetch Player Stats
-                </button>
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                    <select id="leagueSelect" class="filter-select" style="min-width: 140px;">
+                        <option value="nba">🏀 NBA</option>
+                        <option value="euroleague">🇪🇺 EuroLeague</option>
+                        <option value="eurocup">🏆 EuroCup</option>
+                    </select>
+                    <button class="btn-fetch" id="fetchBtn" onclick="fetchPlayerStats()">
+                        <i class="bi bi-arrow-repeat"></i> Fetch Player Stats
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -717,6 +724,8 @@
             const empty = document.getElementById('emptyState');
             const table = document.getElementById('propsTable');
             const eliteSection = document.getElementById('eliteSection');
+            const leagueSelect = document.getElementById('leagueSelect');
+            const selectedLeague = leagueSelect.value;
             
             btn.disabled = true;
             btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Fetching...';
@@ -726,7 +735,15 @@
             eliteSection.style.display = 'none';
 
             try {
-                const response = await fetch('/api/player_props');
+                // Call different API based on selected league
+                let apiUrl = '/api/player_props';  // Default NBA
+                if (selectedLeague === 'euroleague') {
+                    apiUrl = '/api/euroleague_props?competition=E';
+                } else if (selectedLeague === 'eurocup') {
+                    apiUrl = '/api/euroleague_props?competition=U';
+                }
+                
+                const response = await fetch(apiUrl);
                 const data = await response.json();
                 
                 if (data.success && data.props && data.props.length > 0) {

@@ -11,3 +11,4 @@ beautifulsoup4
 lxml
 cachetools
 flask-compress
+euroleague-api

@@ -77,6 +77,10 @@ This project develops and manages trading systems including a Sports Betting Cal
 
 ### Player Props Streak Tracker (Jan 2026)
 -   **Separate Tab**: /props route with dedicated "Fetch Player Stats" button
+-   **Multi-League Support**: League selector dropdown for NBA, EuroLeague, and EuroCup
+    -   NBA: Uses nba_api for player game logs with Bovada lines
+    -   EuroLeague: Uses euroleague-api package for European basketball
+    -   EuroCup: Second-tier European competition support
 -   **Elite 10 Section**: Premium tab showing top 10 unique players with highest streaks
     -   Golden glow styling with trophy badge
     -   Card-based layout with rank numbers 1-10
