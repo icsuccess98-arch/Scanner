@@ -1934,49 +1934,58 @@ def calculate_ou_hit_rate_espn(team_name: str, league: str, direction: str, curr
     """
     Calculate O/U hit rate using ESPN game data vs current line.
     
-    MANDATORY FILTERS (ALL must pass):
+    MANDATORY FILTERS for qualification (ALL must pass with 20+ games):
     - 100% in Last 5 (5/5)
     - 90%+ in Last 10 (9/10 or 10/10)
     - 95%+ in Last 20 (19/20 or 20/20)
     
-    Returns qualified=True only if ALL filters pass.
+    For teams with <20 games, still returns hit rates but qualified=False
     """
     games = fetch_team_last_10_games(team_name, league)
     
-    if len(games) < 20:
+    # Need at least 5 games to show any data
+    if len(games) < 5:
         return {'qualified': False, 'reason': 'insufficient_games', 'l5': None, 'l10': None, 'l20': None}
     
     # Get totals from recent games (most recent first)
-    totals = [g.get('total', 0) for g in games[:20]]
+    totals = [g.get('total', 0) for g in games]
+    num_games = len(totals)
     
     # Check if games went OVER or UNDER the current line
     if direction == 'O':
         l5_hits = sum(1 for t in totals[:5] if t > current_line)
-        l10_hits = sum(1 for t in totals[:10] if t > current_line)
-        l20_hits = sum(1 for t in totals[:20] if t > current_line)
+        l10_hits = sum(1 for t in totals[:min(10, num_games)] if t > current_line)
+        l20_hits = sum(1 for t in totals[:min(20, num_games)] if t > current_line)
     else:  # UNDER
         l5_hits = sum(1 for t in totals[:5] if t < current_line)
-        l10_hits = sum(1 for t in totals[:10] if t < current_line)
-        l20_hits = sum(1 for t in totals[:20] if t < current_line)
+        l10_hits = sum(1 for t in totals[:min(10, num_games)] if t < current_line)
+        l20_hits = sum(1 for t in totals[:min(20, num_games)] if t < current_line)
     
-    # MANDATORY FILTERS - ALL must pass
+    # Actual sample sizes
+    l5_total = min(5, num_games)
+    l10_total = min(10, num_games)
+    l20_total = min(20, num_games)
+    
+    # MANDATORY FILTERS - ALL must pass (need 20 games for full qualification)
     l5_pass = l5_hits >= 5      # 100% L5 (5/5)
-    l10_pass = l10_hits >= 9    # 90%+ L10 (9/10 or 10/10)
+    l10_pass = l10_hits >= 9    # 90%+ L10 (9/10 or 10/10) 
     l20_pass = l20_hits >= 19   # 95%+ L20 (19/20 or 20/20)
     
-    all_pass = l5_pass and l10_pass and l20_pass
+    # Only qualified if 20+ games AND all filters pass
+    all_pass = (num_games >= 20) and l5_pass and l10_pass and l20_pass
     
     return {
         'qualified': all_pass,
-        'l5': f"{l5_hits}/5",
-        'l10': f"{l10_hits}/10", 
-        'l20': f"{l20_hits}/20",
+        'l5': f"{l5_hits}/{l5_total}",
+        'l10': f"{l10_hits}/{l10_total}", 
+        'l20': f"{l20_hits}/{l20_total}",
         'l5_hits': l5_hits,
         'l10_hits': l10_hits,
         'l20_hits': l20_hits,
         'l5_pass': l5_pass,
         'l10_pass': l10_pass,
-        'l20_pass': l20_pass
+        'l20_pass': l20_pass,
+        'num_games': num_games
     }
 
 def api_request_with_retry(url: str, timeout: int = 30, max_retries: int = 2, **kwargs) -> requests.Response:
@@ -5605,8 +5614,8 @@ def dashboard():
             g.is_away_favorite = False
     
     # O/U HIT RATE TRACKING using ESPN data
-    # MANDATORY FILTERS: 100% L5, 90%+ L10, 95%+ L20
-    # Check if team games tend to go OVER/UNDER vs current line
+    # Show hit rates for ALL qualified games, mark as "qualified" if strict filters pass
+    # STRICT FILTERS: 100% L5, 90%+ L10, 95%+ L20 (requires 20+ games)
     ou_hit_rate_count = 0
     for g in qualified:
         g.ou_hit_rate = None
@@ -5623,33 +5632,30 @@ def dashboard():
             away_result = calculate_ou_hit_rate_espn(g.away_team, g.league, direction, current_line)
             home_result = calculate_ou_hit_rate_espn(g.home_team, g.league, direction, current_line)
             
-            # Either team qualifies = show badge
-            if away_result.get('qualified') or home_result.get('qualified'):
-                g.ou_hit_rate_qualified = True
-                ou_hit_rate_count += 1
-                
-                # Use the better qualifying result for display
-                if away_result.get('qualified') and home_result.get('qualified'):
-                    # Both qualify - use higher L20 hits
-                    if away_result.get('l20_hits', 0) >= home_result.get('l20_hits', 0):
-                        g.ou_l5 = away_result.get('l5')
-                        g.ou_l10 = away_result.get('l10')
-                        g.ou_l20 = away_result.get('l20')
-                    else:
-                        g.ou_l5 = home_result.get('l5')
-                        g.ou_l10 = home_result.get('l10')
-                        g.ou_l20 = home_result.get('l20')
-                elif away_result.get('qualified'):
-                    g.ou_l5 = away_result.get('l5')
-                    g.ou_l10 = away_result.get('l10')
-                    g.ou_l20 = away_result.get('l20')
+            # ALWAYS set hit rates if we have data (for display purposes)
+            # Use the team with more games/better hit rate
+            best_result = None
+            if away_result.get('l5') and home_result.get('l5'):
+                # Both have data - use team with higher L20 hits
+                if away_result.get('l20_hits', 0) >= home_result.get('l20_hits', 0):
+                    best_result = away_result
                 else:
-                    g.ou_l5 = home_result.get('l5')
-                    g.ou_l10 = home_result.get('l10')
-                    g.ou_l20 = home_result.get('l20')
-                
-                # Combined display for badge
+                    best_result = home_result
+            elif away_result.get('l5'):
+                best_result = away_result
+            elif home_result.get('l5'):
+                best_result = home_result
+            
+            if best_result:
+                g.ou_l5 = best_result.get('l5')
+                g.ou_l10 = best_result.get('l10')
+                g.ou_l20 = best_result.get('l20')
                 g.ou_hit_rate = g.ou_l20
+                
+                # Mark as "qualified" only if strict filters pass
+                if away_result.get('qualified') or home_result.get('qualified'):
+                    g.ou_hit_rate_qualified = True
+                    ou_hit_rate_count += 1
     
     # DEFENSE MISMATCH BOOST: Bottom 10 def for OVERS, Top 10 def for UNDERS
     # Use opponent PPG as defensive ranking proxy (higher = worse defense)
