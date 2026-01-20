@@ -82,28 +82,33 @@ This project develops and manages trading systems including a Sports Betting Cal
     -   EuroLeague/EuroCup: Uses euroleague-api package for European basketball
 -   **EDGE CALCULATION**:
     -   `Edge% = (AI_Projection - Prop_Line) / Prop_Line × 100`
+    -   AI Projection = 20-game average with defensive adjustment
     -   Sorted by Edge% (highest edge = best pick)
--   **PLAY CLASSIFICATION**:
-    -   **PREMIUM PLAY**: Streak 100% (20/L20+) + Def Rank 21-30 (worst defenses)
-    -   **STRONG PLAY**: Streak 95%+ OR Def Rank 21-30
-    -   **PLAY**: All others meeting basic criteria
+-   **CONSECUTIVE HIT STREAK METHODOLOGY** (Updated Jan 2026):
+    -   Counts consecutive games hitting the prop line (from most recent)
+    -   Example: 36/L36 means 36 games in a row at or above the line
+    -   Only players with 5+ consecutive hits qualify
+-   **PLAY CLASSIFICATION** (Based on consecutive streak length):
+    -   **PREMIUM PLAY**: 15+ consecutive hits (gold glow)
+    -   **STRONG PLAY**: 10-14 consecutive hits (green)
+    -   **PLAY**: 5-9 consecutive hits (purple)
 -   **MANDATORY FILTERS (ALL must pass)**:
     -   Injury Status = Clear (not questionable/out)
-    -   AI Projection > Prop Line (any positive amount)
-    -   100% in Last 5 (5/5 must hit)
-    -   90%+ in Last 20 (18/20 minimum)
+    -   5+ consecutive hits on the prop
+    -   Bovada line exists for the prop
 -   **DISQUALIFICATION RULES (Auto-AVOID)**:
     -   Injury Status = Questionable or Out
-    -   AI Projection ≤ Prop Line
-    -   Streak < 90% (less than 18/L20)
--   **Defensive Rank Display**: Shows "Xth vs [Stat Type]" - higher rank = worse defense
+    -   Fewer than 5 consecutive hits
+    -   No Bovada line available
+-   **Defensive Rank Display**: Shows "Xth vs [Stat Type]" - higher rank = worse defense (informational only)
 -   **Stat-Specific Defensive Rankings**: Shows "Xth vs [Stat Type]" (e.g., "21st vs Points")
--   **Elite 10 Section**: Top 10 picks by Edge%, unique players preferred
+-   **Elite 10 Section**: Top 10 picks by consecutive streak length
     -   Golden glow for PREMIUM PLAY, green for STRONG PLAY, purple for PLAY
-    -   Shows L5/L10/L20 hit rates, Edge%, Classification, Def Rank vs Stat, AI Proj
--   **Display Columns**: Team, Player, Prop, Bovada, L5, Edge%, Class, Def Rank vs Stat, AI Proj, Trend
+    -   Shows streak display (e.g., "36 / L36"), L5/L10/L20 hit rates, Edge%, Classification, Def Rank vs Stat
+-   **Display Columns**: Team, Player, Prop, Bovada, Streak, Edge%, Class, Def Rank vs Stat, AI Proj, Trend
 -   **Prop Types**: Points, Rebounds, Assists, P+R, P+A, R+A, P+R+A, 3PM, Steals, Blocks, Steal+Block
 -   **Mobile Layout**: Card-based responsive design with Edge% and Classification badges
+-   **UI Theme**: Royal gold theme with dark background matching dashboard aesthetics
 
 ### Feature Specifications
 -   **Sports Scanner**: Fetches NBA, CBB, NFL, CFB, NHL games, stats, and odds to identify qualified TOTALS picks.

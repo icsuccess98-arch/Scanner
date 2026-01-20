@@ -7985,43 +7985,41 @@ def api_player_props():
                     defense_boost = 1.0
                 ai_proj = mean_val * defense_boost
                 
-                # === PROTOCOL FILTERS (STRICT) ===
-                # 1. AI Projection > Prop Line (any positive amount)
-                if ai_proj <= bovada_line:
-                    continue
-                
-                # Defense Rank - display only (no strict filtering)
-                # Higher rank = worse defense. Rank 30 = worst defense, Rank 1 = best defense
-                # Note: Def rank is informational - main filters are streak and AI projection
-                
                 threshold = bovada_line  # Need to hit/exceed the line
                 
-                # Need at least 20 games for proper streak calculation
-                if len(values) < 20:
+                # Need at least 10 games for streak calculation
+                if len(values) < 10:
                     continue
                 
-                # Calculate hit rates
+                # Calculate CONSECUTIVE hit streak (how many games in a row they've hit)
+                consecutive_streak = 0
+                for v in values:
+                    if v >= threshold:
+                        consecutive_streak += 1
+                    else:
+                        break
+                
+                # Calculate hit rates for display
                 l5_values = values[:5]
                 l5_hits = sum(1 for v in l5_values if v >= threshold)
                 
                 l10_values = values[:10]
                 l10_hits = sum(1 for v in l10_values if v >= threshold)
                 
-                l20_values = values[:20]
+                l20_values = values[:min(20, len(values))]
                 l20_hits = sum(1 for v in l20_values if v >= threshold)
-                l20_pct = l20_hits / 20 * 100
                 
-                # 3. Filter: 100% in Last 5 (5/5 must hit) - STRICT
-                if l5_hits < 5:
+                # Debug: Log top streaks found
+                if consecutive_streak >= 5:
+                    logger.info(f"Found streak: {player_name} - {prop['name']} - {consecutive_streak} consecutive (line: {bovada_line}, avg: {mean_val:.1f})")
+                
+                # FILTER: Must have at least 5 consecutive hits (relaxed for more picks)
+                if consecutive_streak < 5:
                     continue
                 
-                # 4. Filter: 90%+ in Last 20 (18/20+) - PROTOCOL MINIMUM
-                if l20_hits < 18:
-                    continue
-                
-                # All filters passed - this is a qualified pick
-                best_streak = l20_hits
-                best_sample = len(l20_values)
+                # Track the streak length
+                best_streak = consecutive_streak
+                best_sample = consecutive_streak
                 
                 # === EDGE CALCULATION ===
                 # Edge = (AI_Projection - Prop_Line) / Prop_Line × 100
@@ -8033,15 +8031,15 @@ def api_player_props():
                 # === STREAK PERCENTAGE ===
                 streak_pct = (l20_hits / len(l20_values)) * 100 if l20_values else 0
                 
-                # === CLASSIFICATION (based on streak and defense) ===
-                # PREMIUM PLAY: Streak 100% (20/L20+) + Def Rank 21-30 (worst defenses)
-                # STRONG PLAY: Streak 95%+ OR Def Rank 21-30
-                # PLAY: All others meeting basic criteria
+                # === CLASSIFICATION (based on consecutive streak length) ===
+                # PREMIUM PLAY: 15+ consecutive hits
+                # STRONG PLAY: 10-14 consecutive hits
+                # PLAY: 5-9 consecutive hits
                 
-                if streak_pct >= 100 and opp_def_rank and opp_def_rank >= 21:
+                if consecutive_streak >= 15:
                     play_classification = 'PREMIUM PLAY'
                     confidence_color = 'gold'
-                elif streak_pct >= 95 or (opp_def_rank and opp_def_rank >= 21):
+                elif consecutive_streak >= 10:
                     play_classification = 'STRONG PLAY'
                     confidence_color = 'green'
                 else:
