@@ -7812,6 +7812,10 @@ def api_player_props():
                                                 line = outcome.get('point')
                                                 odds = outcome.get('price', -110)
                                                 if player_name and line:
+                                                    # Odds API returns DECIMAL odds (1.5 = -200, 2.0 = +100)
+                                                    # MANDATORY: Skip lines with odds worse than -200 (decimal < 1.5)
+                                                    if odds < 1.5:
+                                                        continue
                                                     key = f"{player_name.lower()}_{market_key}_{line}"
                                                     # Store line with odds for later selection
                                                     if key not in bovada_lines:
