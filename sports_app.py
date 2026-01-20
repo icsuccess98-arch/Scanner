@@ -5737,6 +5737,82 @@ def dashboard():
                     g.def_mismatch = True
                     def_mismatch_count += 1
     
+    # MANDATORY FILTERS FOR TOTALS:
+    # 1. L5 100% (5/5), L10 mandatory, L20 85%+
+    # 2. Bottom 10 defense for OVER picks (NBA/CBB)
+    # 3. Top 10 defense for UNDER picks (NBA/CBB)
+    filtered_qualified = []
+    logger.info(f"Starting mandatory filters on {len(qualified)} qualified games")
+    for g in qualified:
+        game_name = f"{g.away_team}@{g.home_team}"
+        
+        # Parse L5/L10/L20 hit rates (format: "X/Y" e.g., "5/5")
+        l5_hits = 0
+        l10_hits = 0
+        l20_hits = 0
+        l20_total = 0
+        
+        if g.ou_l5:
+            try:
+                parts = g.ou_l5.split('/')
+                l5_hits = int(parts[0])
+            except:
+                pass
+        
+        if g.ou_l10:
+            try:
+                parts = g.ou_l10.split('/')
+                l10_hits = int(parts[0])
+            except:
+                pass
+        
+        if g.ou_l20:
+            try:
+                parts = g.ou_l20.split('/')
+                l20_hits = int(parts[0])
+                l20_total = int(parts[1]) if len(parts) > 1 else 20
+            except:
+                pass
+        
+        logger.info(f"  {game_name}: L5={g.ou_l5} ({l5_hits}), L10={g.ou_l10} ({l10_hits}), L20={g.ou_l20} ({l20_hits}/{l20_total}), def_mismatch={g.def_mismatch}, dir={g.direction}")
+        
+        # Filter 1: L5 100% (5/5)
+        if l5_hits < 5:
+            logger.info(f"    -> FAILED L5 100% (need 5, got {l5_hits})")
+            continue
+        
+        # Filter 2: L10 mandatory (10/10)
+        if l10_hits < 10:
+            logger.info(f"    -> FAILED L10 100% (need 10, got {l10_hits})")
+            continue
+        
+        # Filter 3: L20 85%+ (17/20 or better)
+        l20_pct = (l20_hits / l20_total * 100) if l20_total > 0 else 0
+        if l20_pct < 85:
+            logger.info(f"    -> FAILED L20 85% (need 85%, got {l20_pct:.1f}%)")
+            continue
+        
+        # Filter 4/5: Defensive matchup filter (NBA/CBB only)
+        if g.league in ['NBA', 'CBB']:
+            if g.direction == 'O':
+                # OVER pick requires facing bottom 10 defense
+                if not g.def_mismatch:
+                    logger.info(f"    -> FAILED DEF MISMATCH (OVER needs bottom 10 def)")
+                    continue
+            elif g.direction == 'U':
+                # UNDER pick requires facing top 10 defense
+                if not g.def_mismatch:
+                    logger.info(f"    -> FAILED DEF MISMATCH (UNDER needs top 10 def)")
+                    continue
+        
+        # Passed all filters
+        logger.info(f"    -> PASSED ALL FILTERS")
+        filtered_qualified.append(g)
+    
+    # Replace qualified with filtered list
+    qualified = filtered_qualified
+    logger.info(f"TOTALS after mandatory filters: {len(qualified)} qualified (L5 100%, L10 mandatory, L20 85%, def matchup)")
+    
     # Sort qualified totals by effective edge (alt if available, else main)
     qualified.sort(key=lambda x: x.alt_edge or x.edge or 0, reverse=True)
     
