@@ -8135,11 +8135,18 @@ def api_player_props():
                 if consecutive_streak < 5:
                     continue
                 
-                # 2. Must be 100% L5 (5/5) - ensures recent consistency
+                # 2. Must be 100% L5 (5/5)
                 if l5_hits < 5:
                     continue
                 
-                # L20 filter removed - streak requirement is primary
+                # 3. L10 is mandatory (100%)
+                if l10_hits < 10:
+                    continue
+                
+                # 4. Must be 85%+ L20 (17/20 or better)
+                l20_pct = (l20_hits / len(l20_values)) * 100 if l20_values else 0
+                if l20_pct < 85:
+                    continue
                 
                 # Track the streak length
                 best_streak = consecutive_streak
