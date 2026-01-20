@@ -65,10 +65,15 @@ This project develops and manages trading systems including a Sports Betting Cal
 -   **RotoWire/Injury Code Removed**: All injury scraping and checking removed for speed
 -   **Units Logic Removed**: No units displayed - confidence based purely on edge thresholds
 -   **Away Favorite Badge**: Orange (#FFA500) ⭐ AWAY FAV badge on game cards and TOP 5 picks
+-   **Defense Mismatch Badge**: Blue (#00BFFF) 🛡️ DEF EDGE badge for favorable defensive matchups
+    -   OVER picks: Shows when facing bottom 10 defense (weak defense = more points)
+    -   UNDER picks: Shows when facing top 10 defense (strong defense = fewer points)
+    -   NBA/CBB only (basketball games)
 -   **File Size**: Reduced to 8,048 lines
--   **Focus**: Pure TOTALS (Over/Under) functionality only with two models:
+-   **Focus**: Pure TOTALS (Over/Under) functionality only with confidence badges:
     1. **Totals Model**: Standard O/U picks with edge thresholds
-    2. **Away Favorite O/U Model**: Games where away team is favorite AND meets O/U threshold (shows orange badge)
+    2. **Away Favorite Badge**: Games where away team is favorite AND meets O/U threshold (orange badge)
+    3. **Defense Edge Badge**: Games where pick direction aligns with defensive matchup (blue badge)
 
 ### Player Props Streak Tracker (Jan 2026)
 -   **Separate Tab**: /props route with dedicated "Fetch Player Stats" button

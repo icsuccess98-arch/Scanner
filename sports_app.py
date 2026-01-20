@@ -5555,6 +5555,38 @@ def dashboard():
         else:
             g.is_away_favorite = False
     
+    # DEFENSE MISMATCH BOOST: Bottom 10 def for OVERS, Top 10 def for UNDERS
+    # Use opponent PPG as defensive ranking proxy (higher = worse defense)
+    def_mismatch_count = 0
+    for g in all_games:
+        g.def_mismatch = False
+        # Only apply to NBA and CBB (basketball)
+        if g.league not in ['NBA', 'CBB']:
+            continue
+        
+        # Get opponent PPG (defense proxy) - higher = worse defense
+        away_opp_ppg = g.away_opp_ppg or 0
+        home_opp_ppg = g.home_opp_ppg or 0
+        
+        # For OVER picks: Check if either team faces weak defense (high opp PPG)
+        # For UNDER picks: Check if either team faces strong defense (low opp PPG)
+        if g.is_qualified and g.direction:
+            # NBA averages ~115 PPG, CBB averages ~75 PPG
+            weak_def_threshold = 118 if g.league == 'NBA' else 78  # Bottom 10 defense
+            strong_def_threshold = 108 if g.league == 'NBA' else 68  # Top 10 defense
+            
+            if g.direction == 'O':
+                # OVER pick - boost if facing weak defense
+                if away_opp_ppg >= weak_def_threshold or home_opp_ppg >= weak_def_threshold:
+                    g.def_mismatch = True
+                    def_mismatch_count += 1
+            elif g.direction == 'U':
+                # UNDER pick - boost if facing strong defense
+                if (away_opp_ppg > 0 and away_opp_ppg <= strong_def_threshold) or \
+                   (home_opp_ppg > 0 and home_opp_ppg <= strong_def_threshold):
+                    g.def_mismatch = True
+                    def_mismatch_count += 1
+    
     # Sort qualified totals by effective edge (alt if available, else main)
     qualified.sort(key=lambda x: x.alt_edge or x.edge or 0, reverse=True)
     
@@ -5582,7 +5614,8 @@ def dashboard():
         'under_count': 0,
         'top_picks': [],
         'history_qualified': len(history_qualified),
-        'away_favorite_count': away_favorite_count
+        'away_favorite_count': away_favorite_count,
+        'def_mismatch_count': def_mismatch_count
     }
     
     # League breakdown (TOTALS ONLY)
@@ -5636,7 +5669,8 @@ def dashboard():
             'alt_line': g.alt_total_line,  # Track if using alt line
             'projected_total': g.projected_total,
             'pick_type': 'total',  # Required for auto_save_qualified_picks
-            'is_away_favorite': getattr(g, 'is_away_favorite', False)
+            'is_away_favorite': getattr(g, 'is_away_favorite', False),
+            'def_mismatch': getattr(g, 'def_mismatch', False)
         })
     analytics['top_picks'] = top_picks
     

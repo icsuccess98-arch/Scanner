@@ -836,6 +836,7 @@
                             <div style="display: flex; align-items: center; gap: 0.5rem;">
                                 <span style="font-size: 0.8rem; font-weight: 600; color: var(--text);">{{ pick.game.away_team }} @ {{ pick.game.home_team }}</span>
                                 {% if pick.is_away_favorite %}<span class="badge" style="background: rgba(255, 165, 0, 0.2); color: #FFA500; font-size: 0.5rem; padding: 0.1rem 0.3rem;">⭐ AWAY FAV</span>{% endif %}
+                                {% if pick.def_mismatch %}<span class="badge" style="background: rgba(0, 191, 255, 0.2); color: #00BFFF; font-size: 0.5rem; padding: 0.1rem 0.3rem;">🛡️ DEF EDGE</span>{% endif %}
                             </div>
                             <div style="display: grid; grid-template-columns: 90px 75px 50px 60px; align-items: center; gap: 0.5rem;">
                                 <span class="direction-chip {% if pick.direction == 'O' %}over{% else %}under{% endif %}" style="font-size: 0.7rem; padding: 0.2rem 0.4rem; font-weight: 600; text-align: center;">
@@ -903,6 +904,7 @@
                                 {{ game.away_team }} @ {{ game.home_team }}
                                 {% if game.is_back_to_back_away or game.is_back_to_back_home %}<span class="b2b-badge" title="Back-to-back game">B2B</span>{% endif %}
                                 {% if game.is_away_favorite %}<span class="badge" style="background: rgba(255, 165, 0, 0.2); color: #FFA500; font-size: 0.55rem; padding: 0.1rem 0.3rem; margin-left: 0.25rem;">⭐ AWAY FAV</span>{% endif %}
+                                {% if game.def_mismatch %}<span class="badge" style="background: rgba(0, 191, 255, 0.2); color: #00BFFF; font-size: 0.55rem; padding: 0.1rem 0.3rem; margin-left: 0.25rem;">🛡️ DEF EDGE</span>{% endif %}
                             </div>
                             <div class="game-time">{{ game.game_time }}</div>
                             <div class="live-score" style="display:none; margin-top:0.5rem; font-size:0.875rem; color:#21C55D;"></div>
@@ -988,6 +990,7 @@
                                 {{ game.away_team }} @ {{ game.home_team }}
                                 {% if game.is_back_to_back_away or game.is_back_to_back_home %}<span class="b2b-badge" title="Back-to-back game">B2B</span>{% endif %}
                                 {% if game.is_away_favorite %}<span class="badge" style="background: rgba(255, 165, 0, 0.2); color: #FFA500; font-size: 0.55rem; padding: 0.1rem 0.3rem; margin-left: 0.25rem;">⭐ AWAY FAV</span>{% endif %}
+                                {% if game.def_mismatch %}<span class="badge" style="background: rgba(0, 191, 255, 0.2); color: #00BFFF; font-size: 0.55rem; padding: 0.1rem 0.3rem; margin-left: 0.25rem;">🛡️ DEF EDGE</span>{% endif %}
                             </div>
                             <div class="game-time">{{ game.game_time }}</div>
                             <div class="live-score" style="display:none; margin-top:0.5rem; font-size:0.875rem; color:#21C55D;"></div>
