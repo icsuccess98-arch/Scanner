@@ -7925,7 +7925,6 @@ def api_player_props():
             {'key': 'pts_reb', 'name': 'Pts+Reb', 'thresholds': [10, 12, 15, 18, 20], 'stats': ['PTS', 'REB'], 'market_key': 'points_rebounds'},
             {'key': 'pts_ast', 'name': 'Pts+Ast', 'thresholds': [10, 12, 15, 18, 20], 'stats': ['PTS', 'AST'], 'market_key': 'points_assists'},
             {'key': 'reb_ast', 'name': 'Reb+Ast', 'thresholds': [6, 8, 10, 12], 'stats': ['REB', 'AST'], 'market_key': 'rebounds_assists'},
-            {'key': 'stl_blk', 'name': 'Stl+Blk', 'thresholds': [1, 2, 3], 'stats': ['STL', 'BLK'], 'market_key': 'steals_blocks'},
         ]
         
         # Fetch real defensive rankings
