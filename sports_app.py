@@ -5658,34 +5658,81 @@ def dashboard():
                     ou_hit_rate_count += 1
     
     # DEFENSE MISMATCH BOOST: Bottom 10 def for OVERS, Top 10 def for UNDERS
-    # Use opponent PPG as defensive ranking proxy (higher = worse defense)
+    # Calculate actual defensive rankings based on opponent PPG from all teams in today's games
     def_mismatch_count = 0
+    
+    # Build defensive rankings per league from today's games
+    # Higher Opp PPG = worse defense = higher rank number (rank 30 = worst, rank 1 = best)
+    league_def_rankings = {}
+    for league in ['NBA', 'CBB']:
+        league_games = [g for g in all_games if g.league == league]
+        if not league_games:
+            continue
+        
+        # Collect all unique teams and their Opp PPG (defense rating)
+        team_defense = {}
+        for g in league_games:
+            if g.away_opp_ppg and g.away_opp_ppg > 0:
+                team_defense[g.away_team] = g.away_opp_ppg
+            if g.home_opp_ppg and g.home_opp_ppg > 0:
+                team_defense[g.home_team] = g.home_opp_ppg
+        
+        if not team_defense:
+            continue
+        
+        # Sort by Opp PPG descending (worst defense first = highest Opp PPG)
+        sorted_teams = sorted(team_defense.items(), key=lambda x: x[1], reverse=True)
+        
+        # Assign ranks: rank 1 = worst defense (highest Opp PPG), higher rank = better defense
+        # For Bottom 10: teams with ranks 1-10 (worst defenses)
+        # For Top 10: teams with ranks (total-9) to total (best defenses)
+        total_teams = len(sorted_teams)
+        rankings = {}
+        for i, (team, opp_ppg) in enumerate(sorted_teams):
+            rank = i + 1  # 1 = worst defense, N = best defense
+            rankings[team] = {
+                'rank': rank,
+                'opp_ppg': opp_ppg,
+                'is_bottom_10': rank <= 10,  # Worst 10 defenses (ranks 1-10)
+                'is_top_10': rank > (total_teams - 10)  # Best 10 defenses
+            }
+        
+        league_def_rankings[league] = rankings
+        logger.info(f"{league} defensive rankings: {total_teams} teams, bottom 10 threshold = rank 1-10")
+    
+    # Apply DEF EDGE badges based on actual rankings
     for g in all_games:
         g.def_mismatch = False
+        g.def_rank_away = None
+        g.def_rank_home = None
+        
         # Only apply to NBA and CBB (basketball)
         if g.league not in ['NBA', 'CBB']:
             continue
         
-        # Get opponent PPG (defense proxy) - higher = worse defense
-        away_opp_ppg = g.away_opp_ppg or 0
-        home_opp_ppg = g.home_opp_ppg or 0
+        rankings = league_def_rankings.get(g.league, {})
+        if not rankings:
+            continue
         
-        # For OVER picks: Check if either team faces weak defense (high opp PPG)
-        # For UNDER picks: Check if either team faces strong defense (low opp PPG)
+        # Get defensive rankings for each team's opponent
+        # Away team faces Home team's defense, Home team faces Away team's defense
+        away_faces = rankings.get(g.home_team, {})  # Away team faces home defense
+        home_faces = rankings.get(g.away_team, {})  # Home team faces away defense
+        
+        g.def_rank_away = away_faces.get('rank')
+        g.def_rank_home = home_faces.get('rank')
+        
+        # For OVER picks: DEF EDGE if facing bottom 10 defense (ranks 1-10 = worst)
+        # For UNDER picks: DEF EDGE if facing top 10 defense (best defenses)
         if g.is_qualified and g.direction:
-            # NBA averages ~115 PPG, CBB averages ~75 PPG
-            weak_def_threshold = 118 if g.league == 'NBA' else 78  # Bottom 10 defense
-            strong_def_threshold = 108 if g.league == 'NBA' else 68  # Top 10 defense
-            
             if g.direction == 'O':
-                # OVER pick - boost if facing weak defense
-                if away_opp_ppg >= weak_def_threshold or home_opp_ppg >= weak_def_threshold:
+                # OVER pick - boost if facing bottom 10 defense (worst = high Opp PPG)
+                if away_faces.get('is_bottom_10') or home_faces.get('is_bottom_10'):
                     g.def_mismatch = True
                     def_mismatch_count += 1
             elif g.direction == 'U':
-                # UNDER pick - boost if facing strong defense
-                if (away_opp_ppg > 0 and away_opp_ppg <= strong_def_threshold) or \
-                   (home_opp_ppg > 0 and home_opp_ppg <= strong_def_threshold):
+                # UNDER pick - boost if facing top 10 defense (best = low Opp PPG)
+                if away_faces.get('is_top_10') or home_faces.get('is_top_10'):
                     g.def_mismatch = True
                     def_mismatch_count += 1
     
