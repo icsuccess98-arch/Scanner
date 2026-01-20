@@ -698,8 +698,8 @@
                             <th>Prop</th>
                             <th>Bovada</th>
                             <th>L5</th>
-                            <th>EV%</th>
-                            <th>Score</th>
+                            <th>Edge%</th>
+                            <th>Class</th>
                             <th>Def Rank</th>
                             <th>AI Proj</th>
                             <th>Trend</th>
@@ -829,9 +829,12 @@
                         </div>
                         <div class="elite-card-stats" style="margin-top: 0.25rem;">
                             <div class="elite-stat">
-                                <div class="elite-stat-label">Score</div>
-                                <div class="elite-stat-value" style="color: ${p.confidence_color === 'green' ? '#50C878' : (p.confidence_color === 'yellow' ? '#FFD700' : '#DC143C')};">${p.value_score || 75}</div>
+                                <div class="elite-stat-label">Edge%</div>
+                                <div class="elite-stat-value" style="color: ${(p.edge_pct || 0) >= 25 ? '#50C878' : '#FFD700'};">+${(p.edge_pct || 15).toFixed(1)}%</div>
                             </div>
+                        </div>
+                        <div style="text-align: center; margin-top: 0.4rem;">
+                            <span style="background: ${p.play_classification === 'PREMIUM PLAY' ? 'linear-gradient(135deg, #FFD700, #FFA500)' : (p.play_classification === 'STRONG PLAY' ? '#50C878' : '#7B2CBF')}; color: ${p.play_classification === 'PREMIUM PLAY' ? '#000' : '#fff'}; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.7rem; font-weight: 700;">${p.play_classification || 'PLAY'}</span>
                         </div>
                         <div style="text-align: center; margin-top: 0.5rem; font-size: 0.8rem;">
                             <span style="color: var(--text-muted);">L5:</span> <span class="l5-visual">${p.l5_visual || '✓✓✓✓✓'}</span>
@@ -870,15 +873,20 @@
                 const valueScore = p.value_score || 0;
                 const scoreColor = p.confidence_color || 'yellow';
                 
+                const edgePct = p.edge_pct || 0;
+                const edgeColor = edgePct >= 35 ? '#FFD700' : (edgePct >= 25 ? '#50C878' : '#7B2CBF');
+                const classification = p.play_classification || 'PLAY';
+                const classColor = classification === 'PREMIUM PLAY' ? '#FFD700' : (classification === 'STRONG PLAY' ? '#50C878' : '#7B2CBF');
+                
                 return `
-                    <tr data-prop-type="${p.prop_type}" data-streak="${p.streak}" data-value-score="${valueScore}">
+                    <tr data-prop-type="${p.prop_type}" data-streak="${p.streak}" data-edge-pct="${edgePct}">
                         <td class="team-name">${p.team}</td>
                         <td class="player-name">${p.player}</td>
                         <td class="prop-display">${p.prop_display}</td>
                         <td class="bovada-cell ${bovadaClass}">${bovadaDisplay}</td>
                         <td class="l5-visual">${l5Visual}</td>
-                        <td class="${evClass}">${(p.ev_pct || 0) >= 0 ? '+' : ''}${(p.ev_pct || 0).toFixed(1)}%</td>
-                        <td><span class="value-score ${scoreColor}">${valueScore}</span></td>
+                        <td style="color: ${edgeColor}; font-weight: 700;">+${edgePct.toFixed(1)}%</td>
+                        <td><span style="background: ${classColor}; color: ${classification === 'PREMIUM PLAY' ? '#000' : '#fff'}; padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600;">${classification}</span></td>
                         <td class="def-rank ${defClass}">${defDisplay}</td>
                         <td class="ai-proj">${p.ai_proj.toFixed(1)}</td>
                         <td class="trend-arrow ${trendClass}">${trend}</td>
@@ -898,6 +906,10 @@
                 const scoreColor = p.confidence_color || 'yellow';
                 const evClass = (p.ev_pct || 0) >= 0 ? 'ev-positive' : 'ev-negative';
                 
+                const edgePct = p.edge_pct || 0;
+                const classification = p.play_classification || 'PLAY';
+                const classColor = classification === 'PREMIUM PLAY' ? '#FFD700' : (classification === 'STRONG PLAY' ? '#50C878' : '#7B2CBF');
+                
                 return `
                     <div class="mobile-card">
                         <div class="mobile-card-header">
@@ -905,10 +917,10 @@
                                 <div class="mobile-card-team">${p.team}</div>
                                 <div class="mobile-card-player">${p.player} <span class="trend-arrow ${trendClass}">${trend}</span></div>
                                 <div class="mobile-card-prop">${p.prop_display}</div>
-                                <div style="display: flex; gap: 0.5rem; margin-top: 0.25rem; align-items: center;">
+                                <div style="display: flex; gap: 0.5rem; margin-top: 0.25rem; align-items: center; flex-wrap: wrap;">
                                     ${p.bovada_line ? `<span style="color: #FF6B35; font-weight: 600; font-size: 0.75rem;">${bovadaDisplay}</span>` : ''}
-                                    <span class="value-score ${scoreColor}">Score: ${valueScore}</span>
-                                    <span class="${evClass}" style="font-size: 0.75rem;">EV: ${(p.ev_pct || 0) >= 0 ? '+' : ''}${(p.ev_pct || 0).toFixed(1)}%</span>
+                                    <span style="color: ${edgePct >= 25 ? '#50C878' : '#FFD700'}; font-weight: 700; font-size: 0.75rem;">Edge: +${edgePct.toFixed(1)}%</span>
+                                    <span style="background: ${classColor}; color: ${classification === 'PREMIUM PLAY' ? '#000' : '#fff'}; padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.65rem; font-weight: 700;">${classification}</span>
                                 </div>
                             </div>
                         </div>

@@ -8023,14 +8023,37 @@ def api_player_props():
                 best_streak = l20_hits
                 best_sample = 20
                 
+                # === NEW PROTOCOL: EDGE CALCULATION ===
+                # Edge = (AI_Projection - Prop_Line) / Prop_Line × 100
+                edge_pct = ((ai_proj - bovada_line) / bovada_line) * 100 if bovada_line > 0 else 0
+                
+                # Filter: Minimum 15%+ Edge required
+                if edge_pct < 15:
+                    continue
+                
+                # === STREAK PERCENTAGE ===
+                streak_pct = (l20_hits / 20) * 100
+                
+                # === CLASSIFICATION (PLAY / STRONG PLAY / PREMIUM PLAY) ===
+                # Edge 25%+ + Streak 100% (20/L20) + Def Rank 26-30 = PREMIUM PLAY
+                # Edge 25%+ + Streak 95%+ (19-20/L20) + Def Rank 21-25 = STRONG PLAY
+                # Edge 15-24% + Streak 90-94% (18-19/L20) + Def Rank 21-25 = PLAY
+                
+                if edge_pct >= 25 and streak_pct == 100 and opp_def_rank >= 26:
+                    play_classification = 'PREMIUM PLAY'
+                    confidence_color = 'gold'  # Golden glow for premium
+                elif edge_pct >= 25 and streak_pct >= 95:
+                    play_classification = 'STRONG PLAY'
+                    confidence_color = 'green'
+                else:
+                    play_classification = 'PLAY'
+                    confidence_color = 'yellow' if edge_pct >= 20 else 'lime'
+                
                 # Create display with hit rates
                 prop_display = f"{bovada_line}+ {prop['name']}"
                 hit_rates = f"L5: {l5_hits}/5 | L10: {l10_hits}/10 | L20: {l20_hits}/20"
                 
                 # Calculate implied probability from standard over odds (-110)
-                # Formula: If odds negative: implied = |odds| / (|odds| + 100) * 100
-                # Standard -110 = 110 / 210 * 100 = 52.38%
-                # We use standard -110 since prop markets typically have -110/-110 juice
                 standard_odds = -110
                 implied_prob = abs(standard_odds) / (abs(standard_odds) + 100) * 100
                 
@@ -8048,54 +8071,22 @@ def api_player_props():
                 l5_avg = sum(l5_values) / len(l5_values) if l5_values else 0
                 l10_avg = sum(l10_values) / len(l10_values) if l10_values else 0
                 if l5_avg > l10_avg * 1.05:
-                    trend = '↑'  # Trending up (5%+ better recently)
+                    trend = '↑'  # Trending up
                 elif l5_avg < l10_avg * 0.95:
                     trend = '↓'  # Trending down
                 else:
                     trend = '→'  # Stable
                 
-                # VALUE SCORE (0-100 points) - from user spec
-                value_score = 0
-                
-                # Streak component (0-30 points)
-                l20_rate = l20_hits / 20
-                if l20_rate >= 0.95:
-                    value_score += 30
-                elif l20_rate >= 0.90:
-                    value_score += 20
-                elif l20_rate >= 0.80:
-                    value_score += 10
-                
-                # Matchup component (0-25 points) - Bottom 6 = max
-                if opp_def_rank and opp_def_rank >= 25:
-                    value_score += 25
-                elif opp_def_rank and opp_def_rank >= 21:
-                    value_score += 15
-                
-                # Expected value component (0-25 points)
-                if ev_pct >= 15:
-                    value_score += 25
-                elif ev_pct >= 10:
-                    value_score += 15
-                elif ev_pct >= 5:
-                    value_score += 10
-                
-                # Projection component (0-20 points)
-                line_diff = ai_proj - bovada_line
-                if line_diff >= 3:
-                    value_score += 20
-                elif line_diff >= 2:
-                    value_score += 15
-                elif line_diff >= 1:
-                    value_score += 10
-                
-                # Confidence color based on value score
-                if value_score >= 80:
-                    confidence_color = 'green'
-                elif value_score >= 65:
-                    confidence_color = 'yellow'
+                # VALUE SCORE based on edge thresholds
+                # 35%+ Edge = 100 points (Premium)
+                # 25-34% Edge = 80 points (Strong)
+                # 15-24% Edge = 60 points (Standard)
+                if edge_pct >= 35:
+                    value_score = 100
+                elif edge_pct >= 25:
+                    value_score = 80 + int((edge_pct - 25) * 2)  # 80-99
                 else:
-                    confidence_color = 'red'
+                    value_score = 60 + int((edge_pct - 15) * 2)  # 60-79
                 
                 props_found.append({
                     'team': team_full_name,
@@ -8105,6 +8096,7 @@ def api_player_props():
                     'streak': best_streak,
                     'sample': best_sample,
                     'streak_display': f"{best_streak} / L{best_sample}",
+                    'streak_pct': round(streak_pct, 0),
                     'hit_rates': hit_rates,
                     'l5': f"{l5_hits}/5",
                     'l10': f"{l10_hits}/10",
@@ -8115,8 +8107,10 @@ def api_player_props():
                     'model_prob': round(model_prob, 1),
                     'ev_pct': ev_pct,
                     'ev_positive': ev_positive,
+                    'edge_pct': round(edge_pct, 1),
                     'value_score': value_score,
                     'confidence_color': confidence_color,
+                    'play_classification': play_classification,
                     'def_rank': opp_def_rank,
                     'ai_proj': round(ai_proj, 1),
                     'bovada_line': bovada_line,
@@ -8126,8 +8120,8 @@ def api_player_props():
             
             player_count += 1
         
-        # Sort by streak (desc), then by def_rank (desc for weaker defenses)
-        props_found.sort(key=lambda x: (-x['streak'], -(x['def_rank'] or 0), -x['ai_proj']))
+        # Sort by edge_pct (highest edge = best pick per protocol)
+        props_found.sort(key=lambda x: (-x['edge_pct'], -x['streak'], -(x['def_rank'] or 0)))
         
         # Get Elite 10 - top 10 picks by streak, picking unique players where possible
         elite_picks = []
@@ -8238,40 +8232,41 @@ def api_euroleague_props():
                 ai_proj = round(season_avg, 1)
                 edge = round(season_avg - best_threshold, 1)
                 
-                # Assume 80%+ hit rate for players significantly above threshold
-                hit_rate = min(95, 60 + (edge * 5))  # Higher edge = higher assumed hit rate
+                # === NEW PROTOCOL: EDGE CALCULATION ===
+                # Edge = (AI_Projection - Prop_Line) / Prop_Line × 100
+                edge_pct = ((ai_proj - best_threshold) / best_threshold) * 100 if best_threshold > 0 else 0
+                
+                # Filter: Minimum 15%+ Edge required
+                if edge_pct < 15:
+                    continue
+                
+                # Assume 90%+ hit rate for EuroLeague (less variance)
+                hit_rate = min(98, 75 + (edge_pct * 0.5))
+                streak_pct = hit_rate
+                
+                # === CLASSIFICATION (PLAY / STRONG PLAY / PREMIUM PLAY) ===
+                if edge_pct >= 25 and hit_rate >= 95:
+                    play_classification = 'STRONG PLAY'
+                    confidence_color = 'green'
+                elif edge_pct >= 35:
+                    play_classification = 'PREMIUM PLAY'
+                    confidence_color = 'gold'
+                else:
+                    play_classification = 'PLAY'
+                    confidence_color = 'yellow' if edge_pct >= 20 else 'lime'
                 
                 # Calculate EV and value score
                 implied_prob = 52.38
                 model_prob = hit_rate
                 ev_pct = round(model_prob - implied_prob, 1)
                 
-                # Value Score calculation
-                value_score = 0
-                if hit_rate >= 95:
-                    value_score += 30
-                elif hit_rate >= 80:
-                    value_score += 20
-                elif hit_rate >= 70:
-                    value_score += 10
-                
-                value_score += 15  # Matchup points (no defensive data available)
-                
-                if ev_pct >= 15:
-                    value_score += 25
-                elif ev_pct >= 10:
-                    value_score += 15
-                elif ev_pct >= 5:
-                    value_score += 10
-                
-                if edge >= 3:
-                    value_score += 20
-                elif edge >= 2:
-                    value_score += 15
-                elif edge >= 1:
-                    value_score += 10
-                
-                confidence_color = 'green' if value_score >= 80 else ('yellow' if value_score >= 65 else 'red')
+                # VALUE SCORE based on edge thresholds
+                if edge_pct >= 35:
+                    value_score = 100
+                elif edge_pct >= 25:
+                    value_score = 80 + int((edge_pct - 25) * 2)
+                else:
+                    value_score = 60 + int((edge_pct - 15) * 2)
                 
                 props_found.append({
                     'team': str(team_name),
@@ -8281,6 +8276,7 @@ def api_euroleague_props():
                     'streak': int(hit_rate),
                     'sample': 20,
                     'streak_display': f"{int(hit_rate)}% season",
+                    'streak_pct': round(streak_pct, 0),
                     'hit_rates': f"Season avg: {season_avg:.1f}",
                     'l5': "N/A",
                     'l10': "N/A",
@@ -8291,8 +8287,10 @@ def api_euroleague_props():
                     'model_prob': round(model_prob, 1),
                     'ev_pct': ev_pct,
                     'ev_positive': ev_pct >= 0,
+                    'edge_pct': round(edge_pct, 1),
                     'value_score': value_score,
                     'confidence_color': confidence_color,
+                    'play_classification': play_classification,
                     'def_rank': None,
                     'ai_proj': ai_proj,
                     'bovada_line': best_threshold,
@@ -8301,8 +8299,8 @@ def api_euroleague_props():
                     'league': 'EURO' if competition == 'E' else 'EUROCUP'
                 })
         
-        # Sort by value score
-        props_found.sort(key=lambda x: (-x['value_score'], -x['ai_proj']))
+        # Sort by edge_pct (highest edge = best pick per protocol)
+        props_found.sort(key=lambda x: (-x['edge_pct'], -x['value_score'], -x['ai_proj']))
         
         # Get Elite 10
         elite_picks = []

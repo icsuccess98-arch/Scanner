@@ -75,41 +75,36 @@ This project develops and manages trading systems including a Sports Betting Cal
     2. **Away Favorite Badge**: Games where away team is favorite AND meets O/U threshold (orange badge)
     3. **Defense Edge Badge**: Games where pick direction aligns with defensive matchup (blue badge)
 
-### Player Props Streak Tracker (Jan 2026)
+### Player Props Analysis Protocol (Jan 2026)
 -   **Separate Tab**: /props route with dedicated "Fetch Player Stats" button
 -   **Multi-League Support**: League selector dropdown for NBA, EuroLeague, and EuroCup
     -   NBA: Uses nba_api for player game logs with Bovada lines
-    -   EuroLeague: Uses euroleague-api package for European basketball
-    -   EuroCup: Second-tier European competition support
--   **Elite 10 Section**: Premium tab showing top 10 unique players with highest streaks
-    -   Golden glow styling with trophy badge
-    -   Card-based layout with rank numbers 1-10
-    -   Shows L5, L10, L20 hit rates, defensive rank, EV%, Value Score, AI projection
--   **Enhanced Props Table**: New columns for comprehensive analysis
-    -   L5 Visual Results: Checkmarks/X showing last 5 outcomes (✓✓✓✓✓)
-    -   EV%: Expected Value percentage (model probability - implied probability)
-    -   Value Score: 0-100 composite score (streak + matchup + EV + projection)
-    -   Trend Arrow: ↑↓→ based on L5 vs L10 average performance
-    -   Color-coded confidence: Green (80+), Yellow (65-79), Red (<65)
--   **Injury Filtering**: Automatically excludes injured, questionable, doubtful, and day-to-day players
-    -   Fetches ESPN injury report before processing
-    -   Only shows active, healthy players
+    -   EuroLeague/EuroCup: Uses euroleague-api package for European basketball
+-   **EDGE CALCULATION (Primary Filter)**:
+    -   `Edge% = (AI_Projection - Prop_Line) / Prop_Line × 100`
+    -   **Minimum 15%+ Edge** required for any play
+    -   Sorted by Edge% (highest edge = best pick)
+-   **PLAY CLASSIFICATION**:
+    -   **PREMIUM PLAY**: Edge 25%+ AND Streak 100% (20/L20) AND Def Rank 26-30
+    -   **STRONG PLAY**: Edge 25%+ AND Streak 95%+ (19-20/L20)
+    -   **PLAY**: Edge 15-24% AND Streak 90%+ (18/L20+)
 -   **MANDATORY FILTERS (ALL must pass)**:
-    -   Bottom 10 Defense ONLY (ranks 21-30) - favorable matchup required
-    -   100% in Last 5 (5/5 games must hit)
-    -   90%+ in Last 10 (9/10 or 10/10)
-    -   95%+ in Last 20 (19/20 or 20/20)
--   **Bulk Fetching**: Single API call for all player game logs (15-30 seconds vs 5+ minutes)
--   **NBA API Integration**: Uses nba_api for player game logs and team stats
--   **Streak Tracking**: Finds consecutive hits on props (10+ games in a row)
--   **Multiple Thresholds**: Dynamically checks various thresholds per prop (e.g., 8+, 10+, 12+ points)
+    -   Injury Status = Clear (not questionable/out)
+    -   AI Projection > Prop Line by 15%+
+    -   Streak ≥ 90% (18/L20 minimum)
+    -   Def Rank 21-30 (Bottom 10 defenses ONLY)
+-   **DISQUALIFICATION RULES (Auto-AVOID)**:
+    -   Injury Status = Questionable or Out
+    -   AI Projection ≤ Prop Line
+    -   Edge < 15%
+    -   Streak < 90%
+    -   Def Rank NOT in 21-30
+-   **Elite 10 Section**: Top 10 picks by Edge%, unique players preferred
+    -   Golden glow for PREMIUM PLAY, green for STRONG PLAY, purple for PLAY
+    -   Shows L5/L10/L20 hit rates, Edge%, Classification, Def Rank, AI Proj
+-   **Display Columns**: Team, Player, Prop, Bovada, L5, Edge%, Class, Def Rank, AI Proj, Trend
 -   **Prop Types**: Points, Rebounds, Assists, P+R, P+A, R+A, P+R+A, 3PM, Steals, Blocks, Steal+Block
--   **Format**: Full team names, streak as "X / LY" (e.g., "20 / L20")
--   **Defensive Rankings**: Real opponent defensive rankings from NBA API (higher rank = worse defense = easier matchup)
--   **AI Projection**: 100-game Monte Carlo simulation based on player's recent performance
--   **Columns**: Team, Player, Prop, Streak, Def Rank, AI Proj
--   **Mobile Layout**: Card-based responsive design with 3-column stat grid
--   **Tab Navigation**: Elite 10 tab (default) and All Props tab with filters
+-   **Mobile Layout**: Card-based responsive design with Edge% and Classification badges
 
 ### Feature Specifications
 -   **Sports Scanner**: Fetches NBA, CBB, NFL, CFB, NHL games, stats, and odds to identify qualified TOTALS picks.
