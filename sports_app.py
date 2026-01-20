@@ -8067,8 +8067,8 @@ def api_player_props():
                     logger.info(f"STREAK CHECK {player_name} {prop['name']}:")
                     for line_data in available_lines[:5]:  # Check first 5 lines
                         test_line = line_data['line']
-                        # Round down .5 lines (3.5 -> 3, so 3+ hits)
-                        threshold_check = int(test_line) if test_line == int(test_line) + 0.5 else test_line
+                        # For .5 lines: O3.5 means need 4+ to hit (MORE than 3.5)
+                        threshold_check = int(test_line) + 1 if test_line == int(test_line) + 0.5 else int(test_line) + 1
                         test_streak = 0
                         for v in values:
                             if v >= threshold_check:
@@ -8079,8 +8079,8 @@ def api_player_props():
                 
                 for line_data in available_lines:
                     test_line = line_data['line']
-                    # Round down .5 lines (3.5 -> 3, so 3+ hits the line)
-                    threshold_check = int(test_line) if test_line == int(test_line) + 0.5 else test_line
+                    # For .5 lines: O3.5 means need 4+ to hit (MORE than 3.5)
+                    threshold_check = int(test_line) + 1 if test_line == int(test_line) + 0.5 else int(test_line) + 1
                     # Calculate streak for this line
                     test_streak = 0
                     for v in values:
@@ -8099,8 +8099,8 @@ def api_player_props():
                     continue
                 
                 bovada_line = best_line_data['line']
-                # Round down .5 lines for threshold (3.5 -> 3, so 3+ hits)
-                threshold = int(bovada_line) if bovada_line == int(bovada_line) + 0.5 else bovada_line
+                # For .5 lines: O3.5 means need 4+ to hit (MORE than 3.5)
+                threshold = int(bovada_line) + 1 if bovada_line == int(bovada_line) + 0.5 else int(bovada_line) + 1
                 
                 # Log when we find a good match
                 if player_count <= 10:
