@@ -8123,38 +8123,43 @@ def api_euroleague_props():
         season = 2024
         
         try:
-            # Fetch player stats for the season
-            stats_df = player_stats_api.get_player_stats(season)
+            # Fetch player stats for the season (2024-25 = season 2024)
+            stats_df = player_stats_api.get_player_stats_single_season(
+                endpoint='traditional',
+                season=season,
+                phase_type_code='RS',  # Regular season
+                statistic_mode='PerGame'
+            )
             logger.info(f"Fetched stats for {len(stats_df)} EuroLeague players")
         except Exception as e:
             logger.error(f"Could not fetch EuroLeague player stats: {e}")
             return jsonify({'success': False, 'message': f'Error fetching EuroLeague stats: {str(e)}', 'props': []})
         
         # Filter to players with meaningful minutes (15+ min avg, 10+ games)
-        if 'Minutes' in stats_df.columns and 'GP' in stats_df.columns:
+        if 'minutesPlayed' in stats_df.columns and 'gamesPlayed' in stats_df.columns:
             active_players = stats_df[
-                (stats_df['Minutes'] >= 15) &
-                (stats_df['GP'] >= 10)
+                (stats_df['minutesPlayed'] >= 15) &
+                (stats_df['gamesPlayed'] >= 10)
             ]
         else:
-            # Fallback if columns named differently
+            # Fallback
             active_players = stats_df.head(100)
         
         logger.info(f"Processing {len(active_players)} active EuroLeague players")
         
         props_found = []
         
-        # Define prop types to check
+        # Define prop types to check (EuroLeague column names)
         prop_types = [
-            {'key': 'points', 'name': 'Points', 'thresholds': [8, 10, 12, 15, 20], 'stat': 'PTS'},
-            {'key': 'rebounds', 'name': 'Rebounds', 'thresholds': [2, 3, 4, 5, 7], 'stat': 'REB'},
-            {'key': 'assists', 'name': 'Assists', 'thresholds': [2, 3, 4, 5, 6], 'stat': 'AST'},
+            {'key': 'points', 'name': 'Points', 'thresholds': [8, 10, 12, 15, 20], 'stat': 'pointsScored'},
+            {'key': 'rebounds', 'name': 'Rebounds', 'thresholds': [2, 3, 4, 5, 7], 'stat': 'totalRebounds'},
+            {'key': 'assists', 'name': 'Assists', 'thresholds': [2, 3, 4, 5, 6], 'stat': 'assists'},
         ]
         
         # Process each player
         for _, player in active_players.iterrows():
-            player_name = player.get('Player', player.get('PLAYER', 'Unknown'))
-            team_name = player.get('Team', player.get('TEAM', 'Unknown'))
+            player_name = player.get('player.name', 'Unknown')
+            team_name = player.get('player.team.name', 'Unknown')
             
             # Get season averages as proxy for streaks (EuroLeague API doesn't have game logs per player easily)
             for prop in prop_types:
