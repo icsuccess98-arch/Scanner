@@ -7783,7 +7783,13 @@ def api_player_props():
                         if not event_id:
                             continue
                         
-                        props_markets = ['player_points', 'player_rebounds', 'player_assists', 'player_threes']
+                        # All prop markets including combos
+                        props_markets = [
+                            'player_points', 'player_rebounds', 'player_assists', 'player_threes',
+                            'player_steals', 'player_blocks',
+                            'player_points_rebounds', 'player_points_assists', 'player_rebounds_assists',
+                            'player_points_rebounds_assists'
+                        ]
                         props_url = f"https://api.the-odds-api.com/v4/sports/basketball_nba/events/{event_id}/odds?apiKey={odds_api_key}&regions=us&markets={','.join(props_markets)}&bookmakers=bovada"
                         
                         try:
@@ -7997,19 +8003,11 @@ def api_player_props():
                 
                 ai_proj = base_projection * defense_boost
                 
-                # Look up Bovada line for this player/prop (if available)
+                # Look up Bovada line for this player/prop (MUST have actual Bovada line)
                 line_key = f"{player_name.lower()}_{prop.get('market_key', prop['key'])}"
                 bovada_line = bovada_lines.get(line_key)
                 
-                # If no Bovada line, try to find a matching threshold
-                if not bovada_line:
-                    # Use the threshold closest to but below our projection
-                    for t in sorted(prop['thresholds'], reverse=True):
-                        if ai_proj > t:
-                            bovada_line = float(t)
-                            break
-                
-                # ONLY process if we have a valid line
+                # ONLY process if we have an actual Bovada line - no fallbacks
                 if not bovada_line:
                     continue
                 
