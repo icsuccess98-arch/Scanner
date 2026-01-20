@@ -431,10 +431,6 @@
             <div class="value" id="strongCount">0</div>
             <div class="label">Strong</div>
         </div>
-        <div class="stat-pill">
-            <div class="value" id="avgEdge">0%</div>
-            <div class="label">Avg Edge</div>
-        </div>
     </div>
 
     <div class="empty-state" id="emptyState">
@@ -626,10 +622,6 @@
             document.getElementById('premiumCount').textContent = props.filter(p => p.play_classification === 'PREMIUM PLAY').length;
             document.getElementById('strongCount').textContent = props.filter(p => p.play_classification === 'STRONG PLAY').length;
             
-            const avgEdge = props.length > 0 
-                ? (props.reduce((sum, p) => sum + (p.edge_pct || 0), 0) / props.length).toFixed(1)
-                : '0';
-            document.getElementById('avgEdge').textContent = `+${avgEdge}%`;
         }
         
         function filterProps() {
