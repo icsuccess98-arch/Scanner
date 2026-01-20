@@ -84,17 +84,25 @@ This project develops and manages trading systems including a Sports Betting Cal
     -   `Edge% = (AI_Projection - Prop_Line) / Prop_Line × 100`
     -   Sorted by Edge% (highest edge = best pick)
 -   **PLAY CLASSIFICATION**:
-    -   **PREMIUM PLAY**: Streak 100% + Def Rank 26-30 (bottom 5 defense)
-    -   **STRONG PLAY**: Streak 90%+ + Def Rank 21-30 (bottom 10 defense)
-    -   **PLAY**: All others passing filters
--   **FILTERS (Relaxed for more picks)**:
+    -   **PREMIUM PLAY**: Streak 100% (20/L20+) + Def Rank 26-30 (bottom 5 defense)
+    -   **STRONG PLAY**: Streak 95%+ (19/L20) + Def Rank 21-30 (bottom 10 defense)
+    -   **PLAY**: Streak 90-94% (18/L20) + Def Rank 21-25
+-   **MANDATORY FILTERS (ALL must pass)**:
     -   Injury Status = Clear (not questionable/out)
-    -   60%+ hit rate in last 20 games minimum
-    -   AI Projection based on 20-game average with defense adjustment
+    -   AI Projection > Prop Line (any positive amount)
+    -   100% in Last 5 (5/5 must hit)
+    -   90%+ in Last 20 (18/20 minimum)
+    -   Def Rank 21-30 (Bottom 10 defenses ONLY)
+-   **DISQUALIFICATION RULES (Auto-AVOID)**:
+    -   Injury Status = Questionable or Out
+    -   AI Projection ≤ Prop Line
+    -   Streak < 90% (less than 18/L20)
+    -   Def Rank NOT in 21-30
+-   **Stat-Specific Defensive Rankings**: Shows "Xth vs [Stat Type]" (e.g., "21st vs Points")
 -   **Elite 10 Section**: Top 10 picks by Edge%, unique players preferred
     -   Golden glow for PREMIUM PLAY, green for STRONG PLAY, purple for PLAY
-    -   Shows L5/L10/L20 hit rates, Edge%, Classification, Def Rank, AI Proj
--   **Display Columns**: Team, Player, Prop, Bovada, L5, Edge%, Class, Def Rank, AI Proj, Trend
+    -   Shows L5/L10/L20 hit rates, Edge%, Classification, Def Rank vs Stat, AI Proj
+-   **Display Columns**: Team, Player, Prop, Bovada, L5, Edge%, Class, Def Rank vs Stat, AI Proj, Trend
 -   **Prop Types**: Points, Rebounds, Assists, P+R, P+A, R+A, P+R+A, 3PM, Steals, Blocks, Steal+Block
 -   **Mobile Layout**: Card-based responsive design with Edge% and Classification badges
 

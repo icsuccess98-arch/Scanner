@@ -7985,26 +7985,38 @@ def api_player_props():
                     defense_boost = 1.0
                 ai_proj = mean_val * defense_boost
                 
-                # MINIMAL FILTERS - just show all props with Bovada lines
-                threshold = bovada_line  # Just need to hit the line
-                
-                # Need at least 5 games
-                if len(values) < 5:
+                # === PROTOCOL FILTERS (STRICT) ===
+                # 1. AI Projection > Prop Line (any positive amount)
+                if ai_proj <= bovada_line:
                     continue
                 
-                # Calculate hit rates without filtering
+                # 2. Defense Rank 21-30 (Bottom 10 defenses ONLY) - REQUIRED
+                if not opp_def_rank or opp_def_rank < 21:
+                    continue
+                
+                threshold = bovada_line  # Need to hit/exceed the line
+                
+                # Need at least 20 games for proper streak calculation
+                if len(values) < 20:
+                    continue
+                
+                # Calculate hit rates
                 l5_values = values[:5]
                 l5_hits = sum(1 for v in l5_values if v >= threshold)
                 
-                l10_values = values[:min(10, len(values))]
+                l10_values = values[:10]
                 l10_hits = sum(1 for v in l10_values if v >= threshold)
                 
-                l20_values = values[:min(20, len(values))]
+                l20_values = values[:20]
                 l20_hits = sum(1 for v in l20_values if v >= threshold)
-                l20_pct = l20_hits / len(l20_values) * 100
+                l20_pct = l20_hits / 20 * 100
                 
-                # Only require 60%+ hit rate to show (very relaxed)
-                if l20_pct < 60:
+                # 3. Filter: 100% in Last 5 (5/5 must hit) - STRICT
+                if l5_hits < 5:
+                    continue
+                
+                # 4. Filter: 90%+ in Last 20 (18/20+) - PROTOCOL MINIMUM
+                if l20_hits < 18:
                     continue
                 
                 # All filters passed - this is a qualified pick
@@ -8021,20 +8033,24 @@ def api_player_props():
                 # === STREAK PERCENTAGE ===
                 streak_pct = (l20_hits / len(l20_values)) * 100 if l20_values else 0
                 
-                # === CLASSIFICATION (based on streak and defense) ===
-                # PREMIUM PLAY: Streak 100% + Def Rank 26-30 (bottom 5 defense)
-                # STRONG PLAY: Streak 90%+ + Def Rank 21-30 (bottom 10 defense)
-                # PLAY: All others that pass filters
+                # === CLASSIFICATION (per corrected protocol) ===
+                # PREMIUM PLAY: AI above line + Streak 100% (20/L20+) + Def Rank 26-30
+                # STRONG PLAY: AI above line + Streak 95-99% (19/L20) + Def Rank 21-30
+                # PLAY: AI above line + Streak 90-94% (18/L20) + Def Rank 21-25
                 
                 if streak_pct >= 100 and opp_def_rank >= 26:
                     play_classification = 'PREMIUM PLAY'
                     confidence_color = 'gold'
-                elif streak_pct >= 90 and opp_def_rank >= 21:
+                elif streak_pct >= 95 and opp_def_rank >= 21:
                     play_classification = 'STRONG PLAY'
                     confidence_color = 'green'
                 else:
                     play_classification = 'PLAY'
                     confidence_color = 'purple'
+                
+                # Create stat-specific defensive rank display
+                stat_name = prop['name']
+                def_rank_display = f"{opp_def_rank}th vs {stat_name}"
                 
                 # Create display with hit rates
                 prop_display = f"{bovada_line}+ {prop['name']}"
@@ -8099,6 +8115,8 @@ def api_player_props():
                     'confidence_color': confidence_color,
                     'play_classification': play_classification,
                     'def_rank': opp_def_rank,
+                    'def_rank_display': def_rank_display,
+                    'stat_name': stat_name,
                     'ai_proj': round(ai_proj, 1),
                     'bovada_line': bovada_line,
                     'edge': round(ai_proj - bovada_line, 1) if bovada_line else None,

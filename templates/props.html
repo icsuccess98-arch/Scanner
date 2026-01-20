@@ -814,17 +814,13 @@
                             </div>
                         </div>
                         <div class="elite-card-stats" style="margin-top: 0.5rem;">
-                            <div class="elite-stat">
+                            <div class="elite-stat" style="flex: 2;">
                                 <div class="elite-stat-label">Def Rank</div>
-                                <div class="elite-stat-value">${defDisplay}</div>
+                                <div class="elite-stat-value" style="font-size: 0.7rem;">${p.def_rank_display || defDisplay}</div>
                             </div>
                             <div class="elite-stat">
                                 <div class="elite-stat-label">AI Proj</div>
                                 <div class="elite-stat-value">${p.ai_proj.toFixed(1)}</div>
-                            </div>
-                            <div class="elite-stat">
-                                <div class="elite-stat-label">EV%</div>
-                                <div class="elite-stat-value" style="color: ${(p.ev_pct || 0) >= 0 ? '#50C878' : '#DC143C'};">${(p.ev_pct || 0) >= 0 ? '+' : ''}${(p.ev_pct || 42.6).toFixed(1)}%</div>
                             </div>
                         </div>
                         <div class="elite-card-stats" style="margin-top: 0.25rem;">
@@ -887,7 +883,7 @@
                         <td class="l5-visual">${l5Visual}</td>
                         <td style="color: ${edgeColor}; font-weight: 700;">+${edgePct.toFixed(1)}%</td>
                         <td><span style="background: ${classColor}; color: ${classification === 'PREMIUM PLAY' ? '#000' : '#fff'}; padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600;">${classification}</span></td>
-                        <td class="def-rank ${defClass}">${defDisplay}</td>
+                        <td class="def-rank ${defClass}" title="${p.def_rank_display || ''}">${p.def_rank_display || defDisplay}</td>
                         <td class="ai-proj">${p.ai_proj.toFixed(1)}</td>
                         <td class="trend-arrow ${trendClass}">${trend}</td>
                     </tr>
@@ -942,9 +938,9 @@
                             </div>
                         </div>
                         <div class="mobile-card-stats" style="margin-top: 0.25rem;">
-                            <div class="mobile-stat">
+                            <div class="mobile-stat" style="flex: 2;">
                                 <div class="mobile-stat-label">Def Rank</div>
-                                <div class="mobile-stat-value def-rank ${defClass}">${defDisplay}</div>
+                                <div class="mobile-stat-value def-rank ${defClass}" style="font-size: 0.65rem;">${p.def_rank_display || defDisplay}</div>
                             </div>
                             <div class="mobile-stat">
                                 <div class="mobile-stat-label">AI Proj</div>
