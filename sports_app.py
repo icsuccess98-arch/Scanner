@@ -7812,9 +7812,6 @@ def api_player_props():
                                                 line = outcome.get('point')
                                                 odds = outcome.get('price', -110)
                                                 if player_name and line:
-                                                    # Skip alt lines with odds worse than -180
-                                                    if '_alternate' in market.get('key', '') and odds < -180:
-                                                        continue
                                                     key = f"{player_name.lower()}_{market_key}_{line}"
                                                     # Store line with odds for later selection
                                                     if key not in bovada_lines:
@@ -8031,10 +8028,10 @@ def api_player_props():
                     if key.startswith(player_key_prefix):
                         available_lines.append(val)
                 
-                # Debug: Log first few lookups
-                if player_count <= 3 and prop == prop_types[0]:
-                    sample_keys = list(bovada_lines.keys())[:5]
-                    logger.info(f"Looking for prefix: '{player_key_prefix}' - found {len(available_lines)} lines")
+                # Debug: Log lookups for specific players
+                if 'jones' in player_name.lower() or 'derozan' in player_name.lower() or 'fox' in player_name.lower():
+                    all_lines_sorted = sorted([l['line'] for l in available_lines], reverse=True)
+                    logger.info(f"DEBUG {player_name} {prop['name']}: {len(available_lines)} lines available: {all_lines_sorted[:10]}")
                 
                 # ONLY process if we have actual Bovada lines
                 if not available_lines:
@@ -8044,10 +8041,10 @@ def api_player_props():
                 if len(values) < 10:
                     continue
                 
-                # Sort by line value (lowest first) to find best streak opportunities
-                available_lines.sort(key=lambda x: x['line'])
+                # Sort by line value (HIGHEST first) to find the highest viable line
+                available_lines.sort(key=lambda x: x['line'], reverse=True)
                 
-                # Test each line from lowest to highest, pick the one with best streak
+                # Test each line from highest to lowest, pick HIGHEST with 10+ streak
                 best_line_data = None
                 best_streak_for_line = 0
                 
@@ -8061,10 +8058,11 @@ def api_player_props():
                         else:
                             break
                     
-                    # Keep the line with longest streak that meets minimum (10+)
-                    if test_streak >= 10 and test_streak > best_streak_for_line:
+                    # Take the FIRST (highest) line that has 10+ streak
+                    if test_streak >= 10:
                         best_streak_for_line = test_streak
                         best_line_data = line_data
+                        break
                 
                 if not best_line_data:
                     continue
