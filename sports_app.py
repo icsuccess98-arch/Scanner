@@ -8063,7 +8063,7 @@ def api_player_props():
                 best_streak_for_line = 0
                 
                 # Debug DeRozan and Raynaud streak at each line
-                if 'derozan' in player_name.lower() or 'raynaud' in player_name.lower():
+                if 'derozan' in player_name.lower() or 'raynaud' in player_name.lower() or 'lebron' in player_name.lower() or 'james' in player_name.lower():
                     logger.info(f"STREAK CHECK {player_name} {prop['name']}:")
                     for line_data in available_lines[:5]:  # Check first 5 lines
                         test_line = line_data['line']
@@ -8126,7 +8126,7 @@ def api_player_props():
                     logger.info(f"  -> L5: {l5_hits}/5, L20: {l20_hits}/{len(l20_values)} ({l20_pct:.0f}%)")
                 
                 # Debug key players even without 10+ streak
-                if 'derozan' in player_name.lower() or 'raynaud' in player_name.lower():
+                if 'derozan' in player_name.lower() or 'raynaud' in player_name.lower() or 'lebron' in player_name.lower() or 'james' in player_name.lower():
                     l20_pct_debug = (l20_hits / len(l20_values)) * 100 if l20_values else 0
                     logger.info(f"DEBUG FILTER {player_name} {prop['name']} line={bovada_line}: streak={consecutive_streak}, L5={l5_hits}/5, L20={l20_hits}/{len(l20_values)} ({l20_pct_debug:.0f}%)")
                 
