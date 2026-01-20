@@ -766,9 +766,19 @@
                         ${p.bovada_line ? `<div class="elite-bovada"><span class="bovada-label">Bovada:</span> O ${bovadaDisplay}</div>` : ''}
                         <div class="elite-card-stats">
                             <div class="elite-stat">
-                                <div class="elite-stat-label">Streak</div>
-                                <div class="elite-stat-value streak">${p.streak_display}</div>
+                                <div class="elite-stat-label">L5</div>
+                                <div class="elite-stat-value streak">${p.l5 || '5/5'}</div>
                             </div>
+                            <div class="elite-stat">
+                                <div class="elite-stat-label">L10</div>
+                                <div class="elite-stat-value streak">${p.l10 || p.streak_display}</div>
+                            </div>
+                            <div class="elite-stat">
+                                <div class="elite-stat-label">L20</div>
+                                <div class="elite-stat-value streak">${p.l20 || p.streak_display}</div>
+                            </div>
+                        </div>
+                        <div class="elite-card-stats" style="margin-top: 0.5rem;">
                             <div class="elite-stat">
                                 <div class="elite-stat-label">Def Rank</div>
                                 <div class="elite-stat-value">${defDisplay}</div>
@@ -837,9 +847,19 @@
                         </div>
                         <div class="mobile-card-stats">
                             <div class="mobile-stat">
-                                <div class="mobile-stat-label">Streak</div>
-                                <div class="mobile-stat-value ${streakClass}">${p.streak_display || p.streak + '/L' + p.sample}</div>
+                                <div class="mobile-stat-label">L5</div>
+                                <div class="mobile-stat-value ${streakClass}">${p.l5 || '5/5'}</div>
                             </div>
+                            <div class="mobile-stat">
+                                <div class="mobile-stat-label">L10</div>
+                                <div class="mobile-stat-value ${streakClass}">${p.l10 || p.streak + '/10'}</div>
+                            </div>
+                            <div class="mobile-stat">
+                                <div class="mobile-stat-label">L20</div>
+                                <div class="mobile-stat-value ${streakClass}">${p.l20 || p.streak + '/20'}</div>
+                            </div>
+                        </div>
+                        <div class="mobile-card-stats" style="margin-top: 0.25rem;">
                             <div class="mobile-stat">
                                 <div class="mobile-stat-label">Def Rank</div>
                                 <div class="mobile-stat-value def-rank ${defClass}">${defDisplay}</div>

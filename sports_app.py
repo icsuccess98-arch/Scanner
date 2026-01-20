@@ -7914,47 +7914,66 @@ def api_player_props():
                     defense_boost = 1.0
                 ai_proj = mean_val * defense_boost
                 
-                # Check streak against BOVADA'S EXACT LINE
-                # 100% L5, 90% L20 (gradient in between)
+                # MANDATORY FILTERS (ALL must pass):
+                # 1. Bottom 10 Defense ONLY (ranks 21-30)
+                # 2. 100% in Last 5 (5/5)
+                # 3. 90%+ in Last 10 (9/10 or 10/10)
+                # 4. 95%+ in Last 20 (19/20 or 20/20)
+                
+                # Filter 1: Bottom 10 Defense ONLY (ranks 21-30)
+                if not opp_def_rank or opp_def_rank < 21:
+                    continue
+                
                 threshold = bovada_line + 0.5  # Over the line (e.g., 6.5 -> need 7+)
-                best_streak = 0
-                best_sample = 0
                 
-                # Check sample sizes L10, L11, L12, L14, L15, L17, L20
-                for sample_size in [20, 17, 15, 14, 12, 11, 10]:
-                    if len(values) < sample_size:
-                        continue
-                    
-                    sample_values = values[:sample_size]
-                    hits = sum(1 for v in sample_values if v >= threshold)
-                    hit_rate = hits / sample_size
-                    
-                    # Required hit rate: 100% for L5, 90% for L20
-                    required_rate = 1.0 - ((sample_size - 5) * 0.00667)
-                    required_rate = max(0.90, min(1.0, required_rate))
-                    
-                    if hit_rate >= required_rate and hits > best_streak:
-                        best_streak = hits
-                        best_sample = sample_size
+                # Need at least 20 games for all filters
+                if len(values) < 20:
+                    continue
                 
-                # Include if meets hit rate threshold
-                if best_streak > 0:
-                    prop_display = f"{bovada_line}+ {prop['name']}"
-                    
-                    props_found.append({
-                        'team': team_full_name,
-                        'player': player_name,
-                        'prop_type': prop['key'],
-                        'prop_display': prop_display,
-                        'streak': best_streak,
-                        'sample': best_sample,
-                        'streak_display': f"{best_streak} / L{best_sample}",
-                        'def_rank': opp_def_rank,
-                        'ai_proj': round(ai_proj, 1),
-                        'bovada_line': bovada_line,
-                        'edge': round(ai_proj - bovada_line, 1) if bovada_line else None,
-                        'status': None
-                    })
+                # Filter 2: 100% in Last 5 (5/5 must hit)
+                l5_values = values[:5]
+                l5_hits = sum(1 for v in l5_values if v >= threshold)
+                if l5_hits < 5:  # Must be 5/5
+                    continue
+                
+                # Filter 3: 90%+ in Last 10 (9/10 or 10/10)
+                l10_values = values[:10]
+                l10_hits = sum(1 for v in l10_values if v >= threshold)
+                if l10_hits < 9:  # Must be 9+ out of 10
+                    continue
+                
+                # Filter 4: 95%+ in Last 20 (19/20 or 20/20)
+                l20_values = values[:20]
+                l20_hits = sum(1 for v in l20_values if v >= threshold)
+                if l20_hits < 19:  # Must be 19+ out of 20
+                    continue
+                
+                # All filters passed - this is a qualified pick
+                best_streak = l20_hits
+                best_sample = 20
+                
+                # Create display with hit rates
+                prop_display = f"{bovada_line}+ {prop['name']}"
+                hit_rates = f"L5: {l5_hits}/5 | L10: {l10_hits}/10 | L20: {l20_hits}/20"
+                
+                props_found.append({
+                    'team': team_full_name,
+                    'player': player_name,
+                    'prop_type': prop['key'],
+                    'prop_display': prop_display,
+                    'streak': best_streak,
+                    'sample': best_sample,
+                    'streak_display': f"{best_streak} / L{best_sample}",
+                    'hit_rates': hit_rates,
+                    'l5': f"{l5_hits}/5",
+                    'l10': f"{l10_hits}/10",
+                    'l20': f"{l20_hits}/20",
+                    'def_rank': opp_def_rank,
+                    'ai_proj': round(ai_proj, 1),
+                    'bovada_line': bovada_line,
+                    'edge': round(ai_proj - bovada_line, 1) if bovada_line else None,
+                    'status': None
+                })
             
             player_count += 1
         

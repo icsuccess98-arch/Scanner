@@ -80,12 +80,15 @@ This project develops and manages trading systems including a Sports Betting Cal
 -   **Elite 10 Section**: Premium tab showing top 10 unique players with highest streaks
     -   Golden glow styling with trophy badge
     -   Card-based layout with rank numbers 1-10
-    -   Shows streak, defensive rank, and AI projection
+    -   Shows L5, L10, L20 hit rates, defensive rank, and AI projection
 -   **Injury Filtering**: Automatically excludes injured, questionable, doubtful, and day-to-day players
     -   Fetches ESPN injury report before processing
     -   Only shows active, healthy players
--   **Bottom 10 Defense Filter**: Only shows picks against weak defenses (rank 21-30)
-    -   Higher rank = worse defense = easier matchup for player props
+-   **MANDATORY FILTERS (ALL must pass)**:
+    -   Bottom 10 Defense ONLY (ranks 21-30) - favorable matchup required
+    -   100% in Last 5 (5/5 games must hit)
+    -   90%+ in Last 10 (9/10 or 10/10)
+    -   95%+ in Last 20 (19/20 or 20/20)
 -   **Bulk Fetching**: Single API call for all player game logs (15-30 seconds vs 5+ minutes)
 -   **NBA API Integration**: Uses nba_api for player game logs and team stats
 -   **Streak Tracking**: Finds consecutive hits on props (10+ games in a row)
