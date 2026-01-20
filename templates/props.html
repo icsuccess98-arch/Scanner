@@ -9,29 +9,30 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-dark: #0a0a12;
-            --bg-card: #12101a;
-            --bg-input: #1a1825;
-            --border: #2d2640;
-            --text: #F8F8FF;
-            --text-muted: #9990B0;
-            --accent: #7B2CBF;
-            --green: #50C878;
+            --bg-dark: #1a1f2e;
+            --bg-card: #242938;
+            --header-green: #4a7c59;
+            --header-green-dark: #3d6b4a;
+            --row-light: #e8f5e9;
+            --row-white: #ffffff;
+            --text-dark: #1a1a1a;
+            --text-light: #f8f8f8;
             --gold: #FFD700;
-            --gold-light: #FFEC8B;
-            --red: #DC143C;
-            --nba: #C9082A;
-            --elite-glow: rgba(255, 215, 0, 0.4);
+            --green: #50C878;
+            --premium-gold: #ffd700;
+            --strong-green: #28a745;
+            --play-purple: #9b59b6;
+            --border: #3a4155;
         }
-        * { box-sizing: border-box; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             background: var(--bg-dark);
-            color: var(--text);
+            color: var(--text-light);
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             min-height: 100vh;
         }
         .header {
-            background: linear-gradient(180deg, #16131f 0%, var(--bg-dark) 100%);
+            background: linear-gradient(180deg, #252b3d 0%, var(--bg-dark) 100%);
             padding: 0.75rem 1rem;
             border-bottom: 1px solid var(--border);
             display: flex;
@@ -40,535 +41,276 @@
             position: sticky;
             top: 0;
             z-index: 100;
-            gap: 0.5rem;
         }
         .brand {
             font-size: 1rem;
             font-weight: 700;
-            background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%);
+            background: linear-gradient(135deg, var(--gold) 0%, #ffec8b 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
             display: flex;
             align-items: center;
-            gap: 0.25rem;
+            gap: 0.4rem;
             text-decoration: none;
-            white-space: nowrap;
-            flex-shrink: 0;
         }
         .brand i { -webkit-text-fill-color: var(--gold); }
-        .nav-links { display: flex; gap: 0.25rem; flex-wrap: nowrap; }
+        .nav-links { display: flex; gap: 0.5rem; }
         .nav-links a {
-            color: var(--text-muted);
+            color: #9ca3af;
             text-decoration: none;
             font-weight: 600;
-            font-size: 0.75rem;
-            padding: 0.35rem 0.5rem;
-            border-radius: 12px;
+            font-size: 0.8rem;
+            padding: 0.4rem 0.75rem;
+            border-radius: 8px;
             transition: all 0.2s;
-            white-space: nowrap;
         }
-        .nav-links a:hover { color: var(--text); background: rgba(255,255,255,0.05); }
-        .nav-links a.active { 
-            color: var(--gold); 
-            background: linear-gradient(135deg, rgba(255, 215, 0, 0.15) 0%, rgba(218, 165, 32, 0.08) 100%);
-        }
-        .hero-section {
-            background: linear-gradient(135deg, #0d0b12 0%, #14101c 100%);
-            padding: 2rem 0;
+        .nav-links a:hover { color: #fff; background: rgba(255,255,255,0.08); }
+        .nav-links a.active { color: var(--gold); background: rgba(255, 215, 0, 0.12); }
+        
+        .controls-section {
+            background: var(--bg-card);
+            padding: 1rem 1.5rem;
             border-bottom: 1px solid var(--border);
         }
-        .hero-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--gold);
+        .controls-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        .date-badge {
+            background: linear-gradient(135deg, var(--header-green) 0%, var(--header-green-dark) 100%);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
             display: flex;
             align-items: center;
             gap: 0.5rem;
+        }
+        .date-badge i { font-size: 1rem; }
+        .league-select {
+            background: var(--bg-dark);
+            color: var(--text-light);
+            border: 1px solid var(--border);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            cursor: pointer;
         }
         .btn-fetch {
-            background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%);
+            background: linear-gradient(135deg, var(--gold) 0%, #ffcc00 100%);
             color: #000;
             border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 10px;
+            padding: 0.6rem 1.25rem;
+            border-radius: 8px;
             font-weight: 700;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             cursor: pointer;
             display: flex;
             align-items: center;
             gap: 0.5rem;
             transition: all 0.2s;
         }
-        .btn-fetch:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3); }
+        .btn-fetch:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3); }
         .btn-fetch:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
         
-        .tab-container {
-            display: flex;
-            gap: 0.5rem;
-            margin-bottom: 1.5rem;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 0.5rem;
-        }
-        .tab-btn {
-            background: transparent;
-            border: none;
-            color: var(--text-muted);
-            font-weight: 600;
-            font-size: 0.85rem;
-            padding: 0.6rem 1rem;
-            border-radius: 8px 8px 0 0;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-        }
-        .tab-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
-        .tab-btn.active { 
-            color: var(--gold); 
-            background: linear-gradient(135deg, rgba(255, 215, 0, 0.15) 0%, rgba(218, 165, 32, 0.08) 100%);
-            border-bottom: 2px solid var(--gold);
-        }
-        .tab-btn.elite-tab {
-            background: linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 165, 0, 0.05) 100%);
-        }
-        .tab-btn.elite-tab.active {
-            background: linear-gradient(135deg, rgba(255, 215, 0, 0.25) 0%, rgba(255, 165, 0, 0.15) 100%);
-        }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-        
-        .elite-section {
-            background: linear-gradient(135deg, rgba(255, 215, 0, 0.08) 0%, rgba(255, 165, 0, 0.03) 100%);
-            border: 1px solid rgba(255, 215, 0, 0.3);
-            border-radius: 16px;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            position: relative;
-            overflow: hidden;
-        }
-        .elite-section::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(255, 215, 0, 0.05) 0%, transparent 50%);
-            animation: elite-pulse 4s ease-in-out infinite;
-        }
-        @keyframes elite-pulse {
-            0%, 100% { opacity: 0.5; transform: scale(1); }
-            50% { opacity: 1; transform: scale(1.1); }
-        }
-        .elite-header {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            margin-bottom: 1.25rem;
-            position: relative;
-            z-index: 1;
-        }
-        .elite-badge {
-            background: linear-gradient(135deg, var(--gold) 0%, #FFA500 100%);
-            color: #000;
-            font-size: 0.7rem;
-            font-weight: 800;
-            padding: 0.3rem 0.6rem;
-            border-radius: 6px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            display: flex;
-            align-items: center;
-            gap: 0.3rem;
-            box-shadow: 0 2px 8px rgba(255, 215, 0, 0.4);
-        }
-        .elite-title {
-            font-size: 1.2rem;
-            font-weight: 700;
-            color: var(--gold);
-        }
-        .elite-subtitle {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-        }
-        .elite-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 1rem;
-            position: relative;
-            z-index: 1;
-        }
-        .elite-card {
-            background: linear-gradient(145deg, var(--bg-card) 0%, #1a1528 100%);
-            border: 1px solid rgba(255, 215, 0, 0.2);
+        .table-container {
+            background: var(--row-white);
             border-radius: 12px;
-            padding: 1rem;
-            transition: all 0.3s;
-            position: relative;
             overflow: hidden;
-        }
-        .elite-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: linear-gradient(90deg, var(--gold), #FFA500, var(--gold));
-        }
-        .elite-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(255, 215, 0, 0.15);
-            border-color: rgba(255, 215, 0, 0.4);
-        }
-        .elite-card-rank {
-            position: absolute;
-            top: 0.5rem;
-            right: 0.5rem;
-            background: linear-gradient(135deg, var(--gold), #FFA500);
-            color: #000;
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 800;
-            font-size: 0.7rem;
-        }
-        .elite-card-player {
-            font-size: 1rem;
-            font-weight: 700;
-            color: var(--text);
-            margin-bottom: 0.15rem;
-        }
-        .elite-card-team {
-            font-size: 0.7rem;
-            color: var(--text-muted);
-            margin-bottom: 0.5rem;
-        }
-        .elite-card-prop {
-            font-size: 0.85rem;
-            color: var(--gold);
-            font-weight: 600;
-            margin-bottom: 0.75rem;
-            display: flex;
-            align-items: center;
-            gap: 0.35rem;
-        }
-        .elite-card-stats {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 0.5rem;
-        }
-        .elite-stat {
-            background: var(--bg-input);
-            padding: 0.4rem;
-            border-radius: 6px;
-            text-align: center;
-        }
-        .elite-stat-label {
-            font-size: 0.55rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-        }
-        .elite-stat-value {
-            font-size: 0.85rem;
-            font-weight: 700;
-            color: var(--green);
-        }
-        .elite-stat-value.streak { color: var(--gold); }
-        .elite-bovada {
-            font-size: 0.75rem;
-            color: #FF6B35;
-            font-weight: 600;
-            margin-bottom: 0.4rem;
-            text-align: center;
-        }
-        .elite-bovada .bovada-label {
-            color: var(--text-muted);
-            font-weight: 400;
-        }
-        .bovada-cell {
-            font-weight: 600;
-            font-size: 0.75rem;
-            color: #FF6B35;
-        }
-        .bovada-cell.no-line {
-            color: var(--text-muted);
-        }
-        
-        .props-table-container {
-            background: var(--bg-card);
-            border-radius: 12px;
-            border: 1px solid var(--border);
-            overflow-x: auto;
-            margin-top: 1.5rem;
-            -webkit-overflow-scrolling: touch;
+            margin: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
         }
         .props-table {
             width: 100%;
             border-collapse: collapse;
-            table-layout: fixed;
+            font-size: 0.85rem;
         }
-        .props-table th,
-        .props-table td {
-            white-space: nowrap;
-            text-align: center;
-            vertical-align: middle;
+        .props-table thead {
+            background: linear-gradient(135deg, var(--header-green) 0%, var(--header-green-dark) 100%);
+            color: white;
         }
         .props-table th {
-            background: var(--bg-input);
-            color: var(--text-muted);
-            font-size: 0.7rem;
+            padding: 0.75rem 1rem;
+            text-align: left;
             font-weight: 600;
+            font-size: 0.8rem;
             text-transform: uppercase;
-            padding: 0.6rem 0.5rem;
-            border-bottom: 1px solid var(--border);
+            letter-spacing: 0.5px;
+            border-right: 1px solid rgba(255,255,255,0.1);
+            white-space: nowrap;
         }
+        .props-table th:last-child { border-right: none; }
+        .props-table th i { margin-right: 0.3rem; }
+        .props-table tbody tr {
+            border-bottom: 1px solid #e0e0e0;
+            transition: background 0.15s;
+        }
+        .props-table tbody tr:nth-child(odd) { background: var(--row-light); }
+        .props-table tbody tr:nth-child(even) { background: var(--row-white); }
+        .props-table tbody tr:hover { background: #d4edda !important; }
         .props-table td {
-            padding: 0.6rem 0.5rem;
-            border-bottom: 1px solid var(--border);
-            font-size: 0.8rem;
+            padding: 0.6rem 1rem;
+            color: var(--text-dark);
+            vertical-align: middle;
+            border-right: 1px solid #e8e8e8;
         }
-        .props-table th:nth-child(1), .props-table td:nth-child(1) { width: 110px; text-align: left; }
-        .props-table th:nth-child(2), .props-table td:nth-child(2) { width: 110px; text-align: left; }
-        .props-table th:nth-child(3), .props-table td:nth-child(3) { width: 140px; text-align: left; }
-        .props-table th:nth-child(4), .props-table td:nth-child(4) { width: 60px; }
-        .props-table th:nth-child(5), .props-table td:nth-child(5) { width: 60px; }
-        .props-table th:nth-child(6), .props-table td:nth-child(6) { width: 50px; }
-        .props-table th:nth-child(7), .props-table td:nth-child(7) { width: 55px; }
-        .props-table th:nth-child(8), .props-table td:nth-child(8) { width: 55px; }
-        .props-table th:nth-child(9), .props-table td:nth-child(9) { width: 55px; }
-        .props-table th:nth-child(10), .props-table td:nth-child(10) { width: 45px; }
-        .ev-positive { color: #50C878; font-weight: 700; }
-        .ev-negative { color: #DC143C; font-weight: 600; }
-        .value-score { font-weight: 700; padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.7rem; }
-        .value-score.green { background: rgba(80, 200, 120, 0.2); color: #50C878; }
-        .value-score.yellow { background: rgba(255, 215, 0, 0.2); color: #FFD700; }
-        .value-score.red { background: rgba(220, 20, 60, 0.2); color: #DC143C; }
-        .l5-visual { font-size: 0.7rem; letter-spacing: 0.5px; }
-        .trend-arrow { font-size: 1rem; }
-        .trend-up { color: #50C878; }
-        .trend-down { color: #DC143C; }
-        .trend-stable { color: var(--text-muted); }
-        .props-table tr:last-child td { border-bottom: none; }
-        .props-table tr:hover { background: rgba(255,255,255,0.02); }
-        .team-name { font-weight: 600; color: var(--text); font-size: 0.75rem; }
-        .player-name { font-weight: 700; color: var(--text); font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; }
-        .player-status { font-size: 0.65rem; color: var(--text-muted); }
-        .player-status.questionable { color: #FFA500; }
-        .prop-type { 
-            background: rgba(123, 44, 191, 0.2); 
-            color: var(--accent); 
-            padding: 0.2rem 0.4rem; 
-            border-radius: 4px; 
+        .props-table td:last-child { border-right: none; }
+        
+        .team-cell { font-weight: 600; color: #2d3748; }
+        .player-cell { font-weight: 500; }
+        .prop-cell { 
+            font-weight: 600; 
+            color: #1e40af;
+            white-space: nowrap;
+        }
+        .streak-cell {
+            font-weight: 700;
+            color: #059669;
+            text-align: center;
+        }
+        .streak-perfect { color: #16a34a; background: #dcfce7 !important; }
+        .def-rank-cell {
+            text-align: center;
             font-weight: 600;
-            font-size: 0.65rem;
+        }
+        .def-rank-elite { color: #dc2626; font-weight: 700; }
+        .def-rank-good { color: #ea580c; }
+        .def-rank-avg { color: #65a30d; }
+        .ai-proj-cell {
+            text-align: right;
+            font-weight: 600;
+            color: #7c3aed;
+        }
+        
+        .class-badge {
             display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            white-space: nowrap;
         }
-        .streak-cell { font-weight: 700; font-size: 0.75rem; }
-        .streak-perfect { color: var(--green); }
-        .streak-good { color: var(--gold); }
-        .streak-warning { color: #FFA500; }
-        .def-rank { font-weight: 600; font-size: 0.75rem; }
-        .def-rank.elite { color: var(--green); }
-        .def-rank.good { color: var(--gold); }
-        .def-rank.mid { color: var(--text-muted); }
-        .def-rank.bad { color: var(--red); }
-        .ai-proj { 
-            font-weight: 700; 
-            color: var(--green);
-            font-size: 0.8rem;
+        .class-premium { background: linear-gradient(135deg, #ffd700 0%, #ffb800 100%); color: #000; }
+        .class-strong { background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: #fff; }
+        .class-play { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: #fff; }
+        
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: #9ca3af;
         }
+        .empty-state i { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
+        .empty-state h5 { color: #e5e7eb; margin-bottom: 0.5rem; }
+        
         .loading-state {
             text-align: center;
-            padding: 3rem;
-            color: var(--text-muted);
+            padding: 4rem 2rem;
+            color: #9ca3af;
         }
         .loading-spinner {
-            width: 40px;
-            height: 40px;
-            border: 3px solid var(--border);
+            width: 48px;
+            height: 48px;
+            border: 4px solid rgba(255, 215, 0, 0.2);
             border-top-color: var(--gold);
             border-radius: 50%;
             animation: spin 1s linear infinite;
             margin: 0 auto 1rem;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .empty-state {
-            text-align: center;
-            padding: 3rem;
-            color: var(--text-muted);
-        }
-        .empty-state i { font-size: 3rem; margin-bottom: 1rem; display: block; }
-        .filter-bar {
+        
+        .stats-bar {
             display: flex;
-            gap: 0.75rem;
-            margin-bottom: 1rem;
+            gap: 1.5rem;
+            padding: 1rem 1.5rem;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
             flex-wrap: wrap;
+        }
+        .stat-item {
+            display: flex;
             align-items: center;
+            gap: 0.5rem;
         }
-        .filter-select {
-            background: var(--bg-input);
-            border: 1px solid var(--border);
-            color: var(--text);
-            padding: 0.5rem 0.75rem;
-            border-radius: 8px;
-            font-size: 0.8rem;
-            font-weight: 600;
-        }
-        .stat-pills {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-        .stat-pill {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            padding: 0.75rem 1.25rem;
-            border-radius: 10px;
-            text-align: center;
-        }
-        .stat-pill .value {
-            font-size: 1.5rem;
-            font-weight: 800;
+        .stat-value {
+            font-size: 1.25rem;
+            font-weight: 700;
             color: var(--gold);
         }
-        .stat-pill .label {
-            font-size: 0.7rem;
-            color: var(--text-muted);
+        .stat-label {
+            font-size: 0.75rem;
+            color: #9ca3af;
             text-transform: uppercase;
         }
+        
         .mobile-cards { display: none; }
-        .mobile-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 1rem;
-            margin-bottom: 0.75rem;
-        }
-        .mobile-card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 0.75rem;
-            gap: 0.5rem;
-        }
-        .mobile-card-player {
-            font-weight: 700;
-            font-size: 0.95rem;
-            color: var(--text);
-        }
-        .mobile-card-team {
-            font-size: 0.7rem;
-            color: var(--text-muted);
-            margin-bottom: 0.15rem;
-        }
-        .mobile-card-prop {
-            font-size: 0.75rem;
-            color: var(--gold);
-            font-weight: 600;
-            margin-top: 0.25rem;
-        }
-        .prop-display {
-            font-size: 0.75rem;
-            color: var(--gold);
-        }
-        .mobile-card-stats {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 0.5rem;
-            text-align: center;
-        }
-        .mobile-stat {
-            background: var(--bg-input);
-            padding: 0.5rem 0.25rem;
-            border-radius: 6px;
-        }
-        .mobile-stat-label {
-            font-size: 0.6rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            margin-bottom: 0.15rem;
-        }
-        .mobile-stat-value {
-            font-weight: 700;
-            font-size: 0.8rem;
-        }
-        .elite-mobile-grid {
-            display: none;
-        }
+        
         @media (max-width: 768px) {
-            .props-table-container { display: block; overflow-x: auto; }
-            .props-table { min-width: 550px; }
-            .hero-section { padding: 1rem 0; }
-            .hero-title { font-size: 1rem; }
-            .btn-fetch { padding: 0.5rem 0.75rem; font-size: 0.75rem; }
-            .header { padding: 0.5rem 0.75rem; }
-            .brand { font-size: 0.9rem; }
-            .nav-links a { font-size: 0.65rem; padding: 0.3rem 0.4rem; }
-            .elite-grid { grid-template-columns: repeat(2, 1fr); }
-        }
-        @media (max-width: 480px) {
-            .header { padding: 0.5rem; }
-            .brand { font-size: 0.85rem; gap: 0.15rem; }
-            .nav-links { gap: 0.15rem; }
-            .nav-links a { font-size: 0.6rem; padding: 0.25rem 0.35rem; border-radius: 8px; }
-            .stat-pills { flex-wrap: wrap; gap: 0.5rem; }
-            .stat-pill { flex: 1; min-width: 80px; padding: 0.4rem; }
-            .stat-pill .value { font-size: 1rem; }
-            .stat-pill .label { font-size: 0.55rem; }
-            .props-table-container { display: none; }
-            .mobile-cards { display: block; margin-top: 1rem; }
-            .hero-section { padding: 0.75rem 0; }
-            .hero-title { font-size: 0.9rem; gap: 0.35rem; }
-            .hero-title i { font-size: 0.85rem; }
-            .btn-fetch { padding: 0.4rem 0.6rem; font-size: 0.7rem; gap: 0.3rem; }
-            .filter-bar { gap: 0.4rem; }
-            .filter-select { font-size: 0.7rem; padding: 0.35rem 0.5rem; }
-            .container { padding-left: 0.75rem; padding-right: 0.75rem; }
-            .elite-grid { display: none; }
-            .elite-mobile-grid { display: block; }
-            .elite-section { padding: 0.75rem; border-radius: 12px; }
-            .elite-header { 
-                flex-direction: row; 
-                align-items: center; 
-                gap: 0.5rem;
-                margin-bottom: 1rem;
+            .table-container { display: none; }
+            .mobile-cards { display: block; margin: 1rem; }
+            .mobile-card {
+                background: var(--row-white);
+                border-radius: 10px;
+                padding: 1rem;
+                margin-bottom: 0.75rem;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.15);
             }
-            .elite-badge { 
-                font-size: 0.6rem; 
-                padding: 0.35rem 0.5rem;
-                flex-direction: column;
-                gap: 0.1rem;
-                min-width: 42px;
+            .mobile-card-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                margin-bottom: 0.75rem;
+            }
+            .mobile-card-player {
+                font-weight: 700;
+                font-size: 1rem;
+                color: var(--text-dark);
+            }
+            .mobile-card-team {
+                font-size: 0.75rem;
+                color: #6b7280;
+            }
+            .mobile-card-prop {
+                font-weight: 600;
+                font-size: 0.9rem;
+                color: #1e40af;
+                margin-bottom: 0.75rem;
+                padding: 0.5rem;
+                background: #eff6ff;
+                border-radius: 6px;
                 text-align: center;
             }
-            .elite-badge i { font-size: 0.9rem; }
-            .elite-title { font-size: 0.95rem; line-height: 1.2; }
-            .elite-subtitle { font-size: 0.65rem; line-height: 1.3; }
-            .elite-card { padding: 0.75rem; margin-bottom: 0.5rem; }
-            .elite-card-rank { width: 20px; height: 20px; font-size: 0.6rem; top: 0.4rem; right: 0.4rem; }
-            .elite-card-player { font-size: 0.9rem; }
-            .elite-card-team { font-size: 0.65rem; }
-            .elite-card-prop { font-size: 0.75rem; margin-bottom: 0.5rem; }
-            .elite-card-stats { gap: 0.35rem; }
-            .elite-stat { padding: 0.35rem 0.25rem; }
-            .elite-stat-label { font-size: 0.5rem; }
-            .elite-stat-value { font-size: 0.75rem; }
-            .tab-btn { font-size: 0.75rem; padding: 0.5rem 0.75rem; }
-        }
-        @media (max-width: 360px) {
-            .brand { font-size: 0.75rem; }
-            .nav-links a { font-size: 0.55rem; padding: 0.2rem 0.3rem; }
-            .hero-title { font-size: 0.8rem; }
-            .elite-title { font-size: 0.85rem; }
-            .elite-subtitle { font-size: 0.6rem; }
-            .elite-badge { font-size: 0.55rem; min-width: 38px; }
+            .mobile-card-stats {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 0.5rem;
+                text-align: center;
+            }
+            .mobile-stat {
+                background: #f3f4f6;
+                padding: 0.5rem;
+                border-radius: 6px;
+            }
+            .mobile-stat-label {
+                font-size: 0.6rem;
+                color: #6b7280;
+                text-transform: uppercase;
+            }
+            .mobile-stat-value {
+                font-size: 0.85rem;
+                font-weight: 700;
+                color: var(--text-dark);
+            }
+            .controls-row { flex-direction: column; align-items: stretch; }
+            .date-badge { justify-content: center; }
+            .btn-fetch { width: 100%; justify-content: center; }
+            .stats-bar { justify-content: center; }
+            .nav-links a { font-size: 0.7rem; padding: 0.3rem 0.5rem; }
         }
     </style>
 </head>
@@ -586,418 +328,240 @@
         </nav>
     </header>
 
-    <div class="hero-section">
-        <div class="container">
-            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
-                <div>
-                    <h1 class="hero-title">
-                        <i class="bi bi-person-fill"></i>
-                        Player Props Streak Tracker
-                    </h1>
-                    <p class="text-muted mb-0" style="font-size: 0.85rem;">Bovada lines: 100% L5, 90% L20</p>
-                </div>
-                <div class="d-flex gap-2 align-items-center flex-wrap">
-                    <select id="leagueSelect" class="filter-select" style="min-width: 140px;">
-                        <option value="nba">🏀 NBA</option>
-                        <option value="euroleague">🇪🇺 EuroLeague</option>
-                        <option value="eurocup">🏆 EuroCup</option>
-                    </select>
-                    <button class="btn-fetch" id="fetchBtn" onclick="fetchPlayerStats()">
-                        <i class="bi bi-arrow-repeat"></i> Fetch Player Stats
-                    </button>
-                </div>
+    <div class="controls-section">
+        <div class="controls-row">
+            <div class="date-badge">
+                <i class="bi bi-calendar3"></i>
+                <span id="currentDate"></span>
+            </div>
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+                <select id="leagueSelect" class="league-select">
+                    <option value="nba">🏀 NBA</option>
+                    <option value="euroleague">🇪🇺 EuroLeague</option>
+                    <option value="eurocup">🏆 EuroCup</option>
+                </select>
+                <button class="btn-fetch" id="fetchBtn" onclick="fetchPlayerStats()">
+                    <i class="bi bi-arrow-repeat"></i> Fetch Player Stats
+                </button>
             </div>
         </div>
     </div>
 
-    <div class="container py-4">
-        <div class="tab-container" id="tabContainer" style="display: none;">
-            <button class="tab-btn elite-tab active" onclick="switchTab('elite')">
-                <i class="bi bi-trophy-fill" style="color: var(--gold);"></i>
-                Elite 10
-            </button>
-            <button class="tab-btn" onclick="switchTab('all')">
-                <i class="bi bi-list-ul"></i>
-                All Props
-            </button>
+    <div class="stats-bar" id="statsBar" style="display: none;">
+        <div class="stat-item">
+            <div class="stat-value" id="totalProps">0</div>
+            <div class="stat-label">Qualified Props</div>
         </div>
-
-        <div class="stat-pills" id="statPills" style="display: none;">
-            <div class="stat-pill">
-                <div class="value" id="totalPlayers">0</div>
-                <div class="label">Hot Streaks</div>
-            </div>
-            <div class="stat-pill">
-                <div class="value" id="perfectStreaks">0</div>
-                <div class="label">15+ Streaks</div>
-            </div>
-            <div class="stat-pill">
-                <div class="value" id="avgProjection">0</div>
-                <div class="label">Avg AI Proj</div>
-            </div>
+        <div class="stat-item">
+            <div class="stat-value" id="premiumCount">0</div>
+            <div class="stat-label">Premium Plays</div>
         </div>
-
-        <div id="eliteTab" class="tab-content active">
-            <div class="elite-section" id="eliteSection" style="display: none;">
-                <div class="elite-header">
-                    <span class="elite-badge">
-                        <i class="bi bi-trophy-fill"></i>
-                        ELITE 10
-                    </span>
-                    <div>
-                        <div class="elite-title">Top Picks by Streak</div>
-                        <div class="elite-subtitle">Highest consecutive hit streaks - Active players only</div>
-                    </div>
-                </div>
-                <div class="elite-grid" id="eliteGrid"></div>
-                <div class="elite-mobile-grid" id="eliteMobileGrid"></div>
-            </div>
+        <div class="stat-item">
+            <div class="stat-value" id="strongCount">0</div>
+            <div class="stat-label">Strong Plays</div>
         </div>
-
-        <div id="allTab" class="tab-content">
-            <div class="filter-bar" id="filterBar" style="display: none;">
-                <select class="filter-select" id="propFilter" onchange="filterProps()">
-                    <option value="all">All Prop Types</option>
-                    <option value="points">Points</option>
-                    <option value="rebounds">Rebounds</option>
-                    <option value="assists">Assists</option>
-                    <option value="pts_reb">Points + Rebounds</option>
-                    <option value="pts_ast">Points + Assists</option>
-                    <option value="reb_ast">Rebounds + Assists</option>
-                    <option value="pts_reb_ast">Points + Rebounds + Assists</option>
-                    <option value="threes">3-Pointers Made</option>
-                    <option value="steals">Steals</option>
-                    <option value="blocks">Blocks</option>
-                </select>
-                <select class="filter-select" id="streakFilter" onchange="filterProps()">
-                    <option value="all">All Streaks</option>
-                    <option value="20">20+ Streak</option>
-                    <option value="15">15+ Streak</option>
-                    <option value="10">10+ Streak</option>
-                </select>
-            </div>
-
-            <div class="props-table-container">
-                <div class="empty-state" id="emptyState">
-                    <i class="bi bi-person-bounding-box"></i>
-                    <h5>No Player Props Loaded</h5>
-                    <p>Click "Fetch Player Stats" to find players with hot streaks</p>
-                </div>
-                
-                <div class="loading-state" id="loadingState" style="display: none;">
-                    <div class="loading-spinner"></div>
-                    <p>Analyzing player stats...</p>
-                    <p style="font-size: 0.75rem;">This may take 15-30 seconds</p>
-                </div>
-
-                <table class="props-table" id="propsTable" style="display: none;">
-                    <thead>
-                        <tr>
-                            <th>Team</th>
-                            <th>Player</th>
-                            <th>Prop</th>
-                            <th>Bovada</th>
-                            <th>L5</th>
-                            <th>Edge%</th>
-                            <th>Class</th>
-                            <th>Def Rank</th>
-                            <th>AI Proj</th>
-                            <th>Trend</th>
-                        </tr>
-                    </thead>
-                    <tbody id="propsTableBody">
-                    </tbody>
-                </table>
-            </div>
-            
-            <div class="mobile-cards" id="mobileCards"></div>
+        <div class="stat-item">
+            <div class="stat-value" id="avgEdge">0%</div>
+            <div class="stat-label">Avg Edge</div>
         </div>
     </div>
+
+    <div class="table-container" id="tableContainer">
+        <div class="empty-state" id="emptyState">
+            <i class="bi bi-person-bounding-box"></i>
+            <h5>No Player Props Loaded</h5>
+            <p>Click "Fetch Player Stats" to find qualified plays</p>
+            <p style="font-size: 0.75rem; margin-top: 0.5rem; opacity: 0.7;">Filters: 100% L5 | 90%+ L20 | Def Rank 21-30</p>
+        </div>
+        
+        <div class="loading-state" id="loadingState" style="display: none;">
+            <div class="loading-spinner"></div>
+            <p>Analyzing player stats...</p>
+            <p style="font-size: 0.75rem;">This may take 15-30 seconds</p>
+        </div>
+
+        <table class="props-table" id="propsTable" style="display: none;">
+            <thead>
+                <tr>
+                    <th><i class="bi bi-building"></i> Team</th>
+                    <th><i class="bi bi-person-fill"></i> Player</th>
+                    <th><i class="bi bi-bullseye"></i> Prop</th>
+                    <th><i class="bi bi-fire"></i> Streak</th>
+                    <th><i class="bi bi-shield-fill"></i> Def Rank</th>
+                    <th><i class="bi bi-robot"></i> AI Proj</th>
+                </tr>
+            </thead>
+            <tbody id="propsTableBody">
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="mobile-cards" id="mobileCards"></div>
 
     <script>
         let allProps = [];
-        let eliteProps = [];
+
+        // Set current date
+        document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        });
 
         async function fetchPlayerStats() {
             const btn = document.getElementById('fetchBtn');
             const loading = document.getElementById('loadingState');
             const empty = document.getElementById('emptyState');
             const table = document.getElementById('propsTable');
-            const eliteSection = document.getElementById('eliteSection');
-            const leagueSelect = document.getElementById('leagueSelect');
-            const selectedLeague = leagueSelect.value;
+            const statsBar = document.getElementById('statsBar');
             
             btn.disabled = true;
-            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Fetching...';
+            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Loading...';
             loading.style.display = 'block';
             empty.style.display = 'none';
             table.style.display = 'none';
-            eliteSection.style.display = 'none';
-
+            statsBar.style.display = 'none';
+            
+            const league = document.getElementById('leagueSelect').value;
+            let apiUrl = '/api/player_props';
+            if (league === 'euroleague') apiUrl = '/api/euroleague_props';
+            else if (league === 'eurocup') apiUrl = '/api/eurocup_props';
+            
             try {
-                // Call different API based on selected league
-                let apiUrl = '/api/player_props';  // Default NBA
-                if (selectedLeague === 'euroleague') {
-                    apiUrl = '/api/euroleague_props?competition=E';
-                } else if (selectedLeague === 'eurocup') {
-                    apiUrl = '/api/euroleague_props?competition=U';
-                }
-                
                 const response = await fetch(apiUrl);
                 const data = await response.json();
                 
+                loading.style.display = 'none';
+                
                 if (data.success && data.props && data.props.length > 0) {
                     allProps = data.props;
-                    eliteProps = data.elite || allProps.slice(0, 10);
-                    
-                    renderElite(eliteProps);
-                    renderProps(allProps);
+                    renderTable(allProps);
+                    renderMobileCards(allProps);
                     updateStats(allProps);
-                    
-                    document.getElementById('tabContainer').style.display = 'flex';
-                    document.getElementById('filterBar').style.display = 'flex';
-                    document.getElementById('statPills').style.display = 'flex';
-                    eliteSection.style.display = 'block';
+                    table.style.display = 'table';
+                    statsBar.style.display = 'flex';
                 } else {
                     empty.innerHTML = `
-                        <i class="bi bi-emoji-frown"></i>
-                        <h5>No Qualifying Streaks Found</h5>
-                        <p>${data.message || 'No players with 10+ streaks today'}</p>
+                        <i class="bi bi-search"></i>
+                        <h5>No Qualified Props Found</h5>
+                        <p>No players met all criteria today</p>
+                        <p style="font-size: 0.75rem; margin-top: 0.5rem; opacity: 0.7;">Requirements: 100% L5 | 90%+ L20 | AI > Line | Def Rank 21-30</p>
                     `;
                     empty.style.display = 'block';
                 }
             } catch (error) {
-                console.error('Error fetching props:', error);
+                loading.style.display = 'none';
                 empty.innerHTML = `
                     <i class="bi bi-exclamation-triangle"></i>
-                    <h5>Error Loading Data</h5>
-                    <p>Please try again later</p>
+                    <h5>Error Loading Props</h5>
+                    <p>${error.message}</p>
                 `;
                 empty.style.display = 'block';
-            } finally {
-                loading.style.display = 'none';
-                btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Fetch Player Stats';
             }
+            
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Fetch Player Stats';
         }
 
-        function renderElite(props) {
-            const grid = document.getElementById('eliteGrid');
-            const mobileGrid = document.getElementById('eliteMobileGrid');
-            
-            const eliteHTML = props.slice(0, 10).map((p, idx) => {
-                const defDisplay = p.def_rank ? `${p.def_rank}${getOrdinalSuffix(p.def_rank)}` : 'N/A';
-                const bovadaDisplay = p.bovada_line ? p.bovada_line.toFixed(1) : '--';
-                
-                return `
-                    <div class="elite-card">
-                        <div class="elite-card-rank">${idx + 1}</div>
-                        <div class="elite-card-player">${p.player}</div>
-                        <div class="elite-card-team">${p.team}</div>
-                        <div class="elite-card-prop">
-                            <i class="bi bi-fire" style="color: #FF6B35;"></i>
-                            ${p.prop_display}
-                        </div>
-                        ${p.bovada_line ? `<div class="elite-bovada"><span class="bovada-label">Bovada:</span> O ${bovadaDisplay}</div>` : ''}
-                        <div class="elite-card-stats">
-                            <div class="elite-stat">
-                                <div class="elite-stat-label">L5</div>
-                                <div class="elite-stat-value streak">${p.l5 || '5/5'}</div>
-                            </div>
-                            <div class="elite-stat">
-                                <div class="elite-stat-label">L10</div>
-                                <div class="elite-stat-value streak">${p.l10 || p.streak_display}</div>
-                            </div>
-                            <div class="elite-stat">
-                                <div class="elite-stat-label">L20</div>
-                                <div class="elite-stat-value streak">${p.l20 || p.streak_display}</div>
-                            </div>
-                        </div>
-                        <div class="elite-card-stats" style="margin-top: 0.5rem;">
-                            <div class="elite-stat" style="flex: 2;">
-                                <div class="elite-stat-label">Def Rank</div>
-                                <div class="elite-stat-value" style="font-size: 0.7rem;">${p.def_rank_display || defDisplay}</div>
-                            </div>
-                            <div class="elite-stat">
-                                <div class="elite-stat-label">AI Proj</div>
-                                <div class="elite-stat-value">${p.ai_proj.toFixed(1)}</div>
-                            </div>
-                        </div>
-                        <div class="elite-card-stats" style="margin-top: 0.25rem;">
-                            <div class="elite-stat">
-                                <div class="elite-stat-label">Edge%</div>
-                                <div class="elite-stat-value" style="color: ${(p.edge_pct || 0) >= 25 ? '#50C878' : '#FFD700'};">+${(p.edge_pct || 15).toFixed(1)}%</div>
-                            </div>
-                        </div>
-                        <div style="text-align: center; margin-top: 0.4rem;">
-                            <span style="background: ${p.play_classification === 'PREMIUM PLAY' ? 'linear-gradient(135deg, #FFD700, #FFA500)' : (p.play_classification === 'STRONG PLAY' ? '#50C878' : '#7B2CBF')}; color: ${p.play_classification === 'PREMIUM PLAY' ? '#000' : '#fff'}; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.7rem; font-weight: 700;">${p.play_classification || 'PLAY'}</span>
-                        </div>
-                        <div style="text-align: center; margin-top: 0.5rem; font-size: 0.8rem;">
-                            <span style="color: var(--text-muted);">L5:</span> <span class="l5-visual">${p.l5_visual || '✓✓✓✓✓'}</span>
-                            <span style="margin-left: 0.5rem; font-size: 1rem;" class="${(p.trend || '→') === '↑' ? 'trend-up' : ((p.trend || '→') === '↓' ? 'trend-down' : 'trend-stable')}">${p.trend || '→'}</span>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-            
-            grid.innerHTML = eliteHTML;
-            mobileGrid.innerHTML = eliteHTML;
+        function getOrdinal(n) {
+            const s = ["th", "st", "nd", "rd"];
+            const v = n % 100;
+            return n + (s[(v - 20) % 10] || s[v] || s[0]);
         }
 
-        function renderProps(props) {
+        function renderTable(props) {
             const tbody = document.getElementById('propsTableBody');
-            const table = document.getElementById('propsTable');
-            const empty = document.getElementById('emptyState');
-            const mobileCards = document.getElementById('mobileCards');
+            tbody.innerHTML = '';
             
-            if (props.length === 0) {
-                table.style.display = 'none';
-                mobileCards.innerHTML = '';
-                empty.style.display = 'block';
-                return;
-            }
-            
-            tbody.innerHTML = props.map(p => {
-                const defClass = p.def_rank >= 25 ? 'elite' : (p.def_rank >= 20 ? 'good' : 'mid');
-                const defDisplay = p.def_rank ? `${p.def_rank}${getOrdinalSuffix(p.def_rank)}` : 'N/A';
-                const bovadaDisplay = p.bovada_line ? `O ${p.bovada_line.toFixed(1)}` : '--';
-                const bovadaClass = p.bovada_line ? '' : 'no-line';
-                const evClass = (p.ev_pct || 0) >= 0 ? 'ev-positive' : 'ev-negative';
-                const l5Visual = p.l5_visual || '✓✓✓✓✓';
-                const trend = p.trend || '→';
-                const trendClass = trend === '↑' ? 'trend-up' : (trend === '↓' ? 'trend-down' : 'trend-stable');
-                const valueScore = p.value_score || 0;
-                const scoreColor = p.confidence_color || 'yellow';
+            props.forEach((p, idx) => {
+                const streak = p.streak || 20;
+                const sample = p.sample || 20;
+                const streakDisplay = `${streak}/L${sample}`;
+                const streakClass = streak >= 20 ? 'streak-perfect' : '';
                 
-                const edgePct = p.edge_pct || 0;
-                const edgeColor = edgePct >= 35 ? '#FFD700' : (edgePct >= 25 ? '#50C878' : '#7B2CBF');
+                const defRank = p.def_rank || 25;
+                const defDisplay = p.def_rank_display || `${getOrdinal(defRank)} vs ${p.stat_name || 'Stat'}`;
+                let defClass = 'def-rank-avg';
+                if (defRank >= 28) defClass = 'def-rank-elite';
+                else if (defRank >= 24) defClass = 'def-rank-good';
+                
                 const classification = p.play_classification || 'PLAY';
-                const classColor = classification === 'PREMIUM PLAY' ? '#FFD700' : (classification === 'STRONG PLAY' ? '#50C878' : '#7B2CBF');
+                let classStyle = 'class-play';
+                if (classification === 'PREMIUM PLAY') classStyle = 'class-premium';
+                else if (classification === 'STRONG PLAY') classStyle = 'class-strong';
                 
-                return `
-                    <tr data-prop-type="${p.prop_type}" data-streak="${p.streak}" data-edge-pct="${edgePct}">
-                        <td class="team-name">${p.team}</td>
-                        <td class="player-name">${p.player}</td>
-                        <td class="prop-display">${p.prop_display}</td>
-                        <td class="bovada-cell ${bovadaClass}">${bovadaDisplay}</td>
-                        <td class="l5-visual">${l5Visual}</td>
-                        <td style="color: ${edgeColor}; font-weight: 700;">+${edgePct.toFixed(1)}%</td>
-                        <td><span style="background: ${classColor}; color: ${classification === 'PREMIUM PLAY' ? '#000' : '#fff'}; padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600;">${classification}</span></td>
-                        <td class="def-rank ${defClass}" title="${p.def_rank_display || ''}">${p.def_rank_display || defDisplay}</td>
-                        <td class="ai-proj">${p.ai_proj.toFixed(1)}</td>
-                        <td class="trend-arrow ${trendClass}">${trend}</td>
-                    </tr>
+                const aiProj = p.ai_proj || 0;
+                
+                const row = document.createElement('tr');
+                row.className = streakClass;
+                row.innerHTML = `
+                    <td class="team-cell">${p.team}</td>
+                    <td class="player-cell">${p.player}</td>
+                    <td class="prop-cell">
+                        ${p.prop_display}
+                        <span class="class-badge ${classStyle}" style="margin-left: 0.5rem;">${classification}</span>
+                    </td>
+                    <td class="streak-cell">${streakDisplay}</td>
+                    <td class="def-rank-cell ${defClass}">${defDisplay}</td>
+                    <td class="ai-proj-cell">${aiProj.toFixed(1)}</td>
                 `;
-            }).join('');
+                tbody.appendChild(row);
+            });
+        }
+
+        function renderMobileCards(props) {
+            const container = document.getElementById('mobileCards');
+            container.innerHTML = '';
             
-            mobileCards.innerHTML = props.map(p => {
-                const streakClass = p.streak >= 20 ? 'streak-perfect' : (p.streak >= 15 ? 'streak-good' : 'streak-warning');
-                const defClass = p.def_rank >= 25 ? 'elite' : (p.def_rank >= 20 ? 'good' : 'mid');
-                const defDisplay = p.def_rank ? `${p.def_rank}${getOrdinalSuffix(p.def_rank)}` : 'N/A';
-                const bovadaDisplay = p.bovada_line ? `O ${p.bovada_line.toFixed(1)}` : '--';
-                const l5Visual = p.l5_visual || '✓✓✓✓✓';
-                const trend = p.trend || '→';
-                const trendClass = trend === '↑' ? 'trend-up' : (trend === '↓' ? 'trend-down' : 'trend-stable');
-                const valueScore = p.value_score || 0;
-                const scoreColor = p.confidence_color || 'yellow';
-                const evClass = (p.ev_pct || 0) >= 0 ? 'ev-positive' : 'ev-negative';
-                
-                const edgePct = p.edge_pct || 0;
+            props.forEach((p, idx) => {
+                const streak = p.streak || 20;
+                const sample = p.sample || 20;
+                const defRank = p.def_rank || 25;
+                const defDisplay = p.def_rank_display || `${getOrdinal(defRank)} vs ${p.stat_name || 'Stat'}`;
                 const classification = p.play_classification || 'PLAY';
-                const classColor = classification === 'PREMIUM PLAY' ? '#FFD700' : (classification === 'STRONG PLAY' ? '#50C878' : '#7B2CBF');
+                let classStyle = 'class-play';
+                if (classification === 'PREMIUM PLAY') classStyle = 'class-premium';
+                else if (classification === 'STRONG PLAY') classStyle = 'class-strong';
                 
-                return `
-                    <div class="mobile-card">
-                        <div class="mobile-card-header">
-                            <div style="flex: 1;">
-                                <div class="mobile-card-team">${p.team}</div>
-                                <div class="mobile-card-player">${p.player} <span class="trend-arrow ${trendClass}">${trend}</span></div>
-                                <div class="mobile-card-prop">${p.prop_display}</div>
-                                <div style="display: flex; gap: 0.5rem; margin-top: 0.25rem; align-items: center; flex-wrap: wrap;">
-                                    ${p.bovada_line ? `<span style="color: #FF6B35; font-weight: 600; font-size: 0.75rem;">${bovadaDisplay}</span>` : ''}
-                                    <span style="color: ${edgePct >= 25 ? '#50C878' : '#FFD700'}; font-weight: 700; font-size: 0.75rem;">Edge: +${edgePct.toFixed(1)}%</span>
-                                    <span style="background: ${classColor}; color: ${classification === 'PREMIUM PLAY' ? '#000' : '#fff'}; padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.65rem; font-weight: 700;">${classification}</span>
-                                </div>
-                            </div>
+                const card = document.createElement('div');
+                card.className = 'mobile-card';
+                card.innerHTML = `
+                    <div class="mobile-card-header">
+                        <div>
+                            <div class="mobile-card-player">${p.player}</div>
+                            <div class="mobile-card-team">${p.team}</div>
                         </div>
-                        <div style="margin-bottom: 0.5rem; font-size: 0.8rem;">
-                            <span style="color: var(--text-muted);">L5:</span> <span class="l5-visual">${l5Visual}</span>
+                        <span class="class-badge ${classStyle}">${classification}</span>
+                    </div>
+                    <div class="mobile-card-prop">${p.prop_display}</div>
+                    <div class="mobile-card-stats">
+                        <div class="mobile-stat">
+                            <div class="mobile-stat-label">Streak</div>
+                            <div class="mobile-stat-value" style="color: #059669;">${streak}/L${sample}</div>
                         </div>
-                        <div class="mobile-card-stats">
-                            <div class="mobile-stat">
-                                <div class="mobile-stat-label">L5</div>
-                                <div class="mobile-stat-value ${streakClass}">${p.l5 || '5/5'}</div>
-                            </div>
-                            <div class="mobile-stat">
-                                <div class="mobile-stat-label">L10</div>
-                                <div class="mobile-stat-value ${streakClass}">${p.l10 || p.streak + '/10'}</div>
-                            </div>
-                            <div class="mobile-stat">
-                                <div class="mobile-stat-label">L20</div>
-                                <div class="mobile-stat-value ${streakClass}">${p.l20 || p.streak + '/20'}</div>
-                            </div>
+                        <div class="mobile-stat">
+                            <div class="mobile-stat-label">Def Rank</div>
+                            <div class="mobile-stat-value" style="font-size: 0.7rem;">${defDisplay}</div>
                         </div>
-                        <div class="mobile-card-stats" style="margin-top: 0.25rem;">
-                            <div class="mobile-stat" style="flex: 2;">
-                                <div class="mobile-stat-label">Def Rank</div>
-                                <div class="mobile-stat-value def-rank ${defClass}" style="font-size: 0.65rem;">${p.def_rank_display || defDisplay}</div>
-                            </div>
-                            <div class="mobile-stat">
-                                <div class="mobile-stat-label">AI Proj</div>
-                                <div class="mobile-stat-value ai-proj">${p.ai_proj.toFixed(1)}</div>
-                            </div>
+                        <div class="mobile-stat">
+                            <div class="mobile-stat-label">AI Proj</div>
+                            <div class="mobile-stat-value" style="color: #7c3aed;">${(p.ai_proj || 0).toFixed(1)}</div>
                         </div>
                     </div>
                 `;
-            }).join('');
-            
-            table.style.display = 'table';
-            empty.style.display = 'none';
+                container.appendChild(card);
+            });
         }
 
         function updateStats(props) {
-            document.getElementById('totalPlayers').textContent = props.length;
-            document.getElementById('perfectStreaks').textContent = props.filter(p => p.streak >= 15).length;
-            const avgProj = props.length > 0 ? props.reduce((sum, p) => sum + p.ai_proj, 0) / props.length : 0;
-            document.getElementById('avgProjection').textContent = avgProj.toFixed(1);
-        }
-
-        function filterProps() {
-            const propType = document.getElementById('propFilter').value;
-            const streakMin = document.getElementById('streakFilter').value;
+            document.getElementById('totalProps').textContent = props.length;
+            document.getElementById('premiumCount').textContent = props.filter(p => p.play_classification === 'PREMIUM PLAY').length;
+            document.getElementById('strongCount').textContent = props.filter(p => p.play_classification === 'STRONG PLAY').length;
             
-            let filtered = allProps;
-            
-            if (propType !== 'all') {
-                filtered = filtered.filter(p => p.prop_type === propType);
-            }
-            
-            if (streakMin !== 'all') {
-                const min = parseInt(streakMin);
-                filtered = filtered.filter(p => p.streak >= min);
-            }
-            
-            renderProps(filtered);
-            updateStats(filtered);
-        }
-
-        function switchTab(tab) {
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-            
-            if (tab === 'elite') {
-                document.querySelector('.elite-tab').classList.add('active');
-                document.getElementById('eliteTab').classList.add('active');
-            } else {
-                document.querySelectorAll('.tab-btn')[1].classList.add('active');
-                document.getElementById('allTab').classList.add('active');
-            }
-        }
-
-        function getOrdinalSuffix(n) {
-            const s = ['th', 'st', 'nd', 'rd'];
-            const v = n % 100;
-            return s[(v - 20) % 10] || s[v] || s[0];
+            const avgEdge = props.length > 0 
+                ? (props.reduce((sum, p) => sum + (p.edge_pct || 0), 0) / props.length).toFixed(1)
+                : '0';
+            document.getElementById('avgEdge').textContent = `+${avgEdge}%`;
         }
     </script>
 </body>
