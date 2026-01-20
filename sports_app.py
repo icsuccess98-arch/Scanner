@@ -8038,11 +8038,21 @@ def api_player_props():
                 l20_hits = sum(1 for v in l20_values if v >= threshold)
                 
                 # Debug: Log top streaks found
-                if consecutive_streak >= 5:
+                if consecutive_streak >= 10:
                     logger.info(f"Found streak: {player_name} - {prop['name']} - {consecutive_streak} consecutive (line: {bovada_line}, avg: {base_projection:.1f})")
                 
-                # FILTER: Must have at least 5 consecutive hits (relaxed for more picks)
-                if consecutive_streak < 5:
+                # MANDATORY FILTERS:
+                # 1. Must have at least 10 consecutive hits
+                if consecutive_streak < 10:
+                    continue
+                
+                # 2. Must be 100% L5 (5/5)
+                if l5_hits < 5:
+                    continue
+                
+                # 3. Must be 95%+ L20 (19/20 or better)
+                l20_pct = (l20_hits / len(l20_values)) * 100 if l20_values else 0
+                if l20_pct < 95:
                     continue
                 
                 # Track the streak length
@@ -8062,17 +8072,13 @@ def api_player_props():
                 # === CLASSIFICATION (based on consecutive streak length) ===
                 # PREMIUM PLAY: 15+ consecutive hits
                 # STRONG PLAY: 10-14 consecutive hits
-                # PLAY: 5-9 consecutive hits
                 
                 if consecutive_streak >= 15:
                     play_classification = 'PREMIUM PLAY'
                     confidence_color = 'gold'
-                elif consecutive_streak >= 10:
+                else:
                     play_classification = 'STRONG PLAY'
                     confidence_color = 'green'
-                else:
-                    play_classification = 'PLAY'
-                    confidence_color = 'purple'
                 
                 # Create defensive rank display with proper ordinal (just the rank number)
                 stat_name = prop['name']
