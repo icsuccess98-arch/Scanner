@@ -8041,10 +8041,10 @@ def api_player_props():
                 if len(values) < 10:
                     continue
                 
-                # Sort by line value (HIGHEST first) to find the highest viable line
-                available_lines.sort(key=lambda x: x['line'], reverse=True)
+                # Sort by line value (LOWEST first) to find the lowest viable line
+                available_lines.sort(key=lambda x: x['line'])
                 
-                # Test each line from highest to lowest, pick HIGHEST with 10+ streak
+                # Test each line from lowest to highest, pick LOWEST with 10+ streak
                 best_line_data = None
                 best_streak_for_line = 0
                 
@@ -8058,7 +8058,7 @@ def api_player_props():
                         else:
                             break
                     
-                    # Take the FIRST (highest) line that has 10+ streak
+                    # Take the FIRST (lowest) line that has 10+ streak
                     if test_streak >= 10:
                         best_streak_for_line = test_streak
                         best_line_data = line_data
