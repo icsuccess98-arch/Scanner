@@ -7990,8 +7990,9 @@ def api_player_props():
                 if ai_proj <= bovada_line:
                     continue
                 
-                # 2. Defense Rank 21-30 (Bottom 10 defenses ONLY) - REQUIRED
-                if not opp_def_rank or opp_def_rank < 21:
+                # 2. Defense Rank 1-10 (Bottom 10 = WORST defenses = BEST matchups) - REQUIRED
+                # Lower rank = worse defense. Rank 1 = worst defense, Rank 30 = best defense
+                if not opp_def_rank or opp_def_rank > 10:
                     continue
                 
                 threshold = bovada_line  # Need to hit/exceed the line
@@ -8034,23 +8035,32 @@ def api_player_props():
                 streak_pct = (l20_hits / len(l20_values)) * 100 if l20_values else 0
                 
                 # === CLASSIFICATION (per corrected protocol) ===
-                # PREMIUM PLAY: AI above line + Streak 100% (20/L20+) + Def Rank 26-30
-                # STRONG PLAY: AI above line + Streak 95-99% (19/L20) + Def Rank 21-30
-                # PLAY: AI above line + Streak 90-94% (18/L20) + Def Rank 21-25
+                # PREMIUM PLAY: AI above line + Streak 100% (20/L20+) + Def Rank 1-5 (worst 5 defenses)
+                # STRONG PLAY: AI above line + Streak 95-99% (19/L20) + Def Rank 1-10
+                # PLAY: AI above line + Streak 90-94% (18/L20) + Def Rank 1-10
                 
-                if streak_pct >= 100 and opp_def_rank >= 26:
+                if streak_pct >= 100 and opp_def_rank <= 5:
                     play_classification = 'PREMIUM PLAY'
                     confidence_color = 'gold'
-                elif streak_pct >= 95 and opp_def_rank >= 21:
+                elif streak_pct >= 95 and opp_def_rank <= 10:
                     play_classification = 'STRONG PLAY'
                     confidence_color = 'green'
                 else:
                     play_classification = 'PLAY'
                     confidence_color = 'purple'
                 
-                # Create stat-specific defensive rank display
+                # Create stat-specific defensive rank display with proper ordinal
                 stat_name = prop['name']
-                def_rank_display = f"{opp_def_rank}th vs {stat_name}"
+                # Get ordinal suffix
+                if opp_def_rank == 1:
+                    ordinal = "1st"
+                elif opp_def_rank == 2:
+                    ordinal = "2nd"
+                elif opp_def_rank == 3:
+                    ordinal = "3rd"
+                else:
+                    ordinal = f"{opp_def_rank}th"
+                def_rank_display = f"{ordinal} vs {stat_name}"
                 
                 # Create display with hit rates
                 prop_display = f"{bovada_line}+ {prop['name']}"
