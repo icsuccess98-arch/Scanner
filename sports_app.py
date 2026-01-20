@@ -8067,20 +8067,24 @@ def api_player_props():
                     logger.info(f"STREAK CHECK {player_name} {prop['name']}:")
                     for line_data in available_lines[:5]:  # Check first 5 lines
                         test_line = line_data['line']
+                        # Round down .5 lines (3.5 -> 3, so 3+ hits)
+                        threshold_check = int(test_line) if test_line == int(test_line) + 0.5 else test_line
                         test_streak = 0
                         for v in values:
-                            if v >= test_line:
+                            if v >= threshold_check:
                                 test_streak += 1
                             else:
                                 break
-                        logger.info(f"  Line {test_line}: {test_streak} consecutive (L5: {values[:5]})")
+                        logger.info(f"  Line {test_line} (threshold {threshold_check}): {test_streak} consecutive (L5: {values[:5]})")
                 
                 for line_data in available_lines:
                     test_line = line_data['line']
+                    # Round down .5 lines (3.5 -> 3, so 3+ hits the line)
+                    threshold_check = int(test_line) if test_line == int(test_line) + 0.5 else test_line
                     # Calculate streak for this line
                     test_streak = 0
                     for v in values:
-                        if v >= test_line:
+                        if v >= threshold_check:
                             test_streak += 1
                         else:
                             break
@@ -8095,11 +8099,12 @@ def api_player_props():
                     continue
                 
                 bovada_line = best_line_data['line']
-                threshold = bovada_line
+                # Round down .5 lines for threshold (3.5 -> 3, so 3+ hits)
+                threshold = int(bovada_line) if bovada_line == int(bovada_line) + 0.5 else bovada_line
                 
                 # Log when we find a good match
                 if player_count <= 10:
-                    logger.info(f"MATCH: {player_name} - {prop['name']} - line: {bovada_line} (streak: {best_streak_for_line})")
+                    logger.info(f"MATCH: {player_name} - {prop['name']} - line: {bovada_line} (threshold: {threshold}, streak: {best_streak_for_line})")
                 
                 # Calculate CONSECUTIVE hit streak
                 consecutive_streak = best_streak_for_line
