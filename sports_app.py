@@ -1930,55 +1930,54 @@ class HistoricalBettingLinesService:
 
 historical_lines_service = HistoricalBettingLinesService()
 
-def calculate_ou_hit_rate_samples(team_name: str, league: str, direction: str) -> dict:
+def calculate_ou_hit_rate_espn(team_name: str, league: str, direction: str, current_line: float) -> dict:
     """
-    Calculate O/U hit rate for multiple sample sizes (L10, L15, L20).
-    Returns best sample with highest hit rate meeting thresholds.
+    Calculate O/U hit rate using ESPN game data vs current line.
     
-    Thresholds: 80%+ L20, 85%+ L15, 90%+ L10
+    MANDATORY FILTERS (ALL must pass):
+    - 100% in Last 5 (5/5)
+    - 90%+ in Last 10 (9/10 or 10/10)
+    - 95%+ in Last 20 (19/20 or 20/20)
+    
+    Returns qualified=True only if ALL filters pass.
     """
-    games = historical_lines_service.fetch_historical_games_with_lines(team_name, league, 'total', 20)
+    games = fetch_team_last_10_games(team_name, league)
     
-    if len(games) < 10:
-        return {'hit_rate': None, 'sample': None, 'hits': 0, 'qualified': False}
+    if len(games) < 20:
+        return {'qualified': False, 'reason': 'insufficient_games', 'l5': None, 'l10': None, 'l20': None}
     
-    non_push = [g for g in games if not g.get('is_push', False)]
+    # Get totals from recent games (most recent first)
+    totals = [g.get('total', 0) for g in games[:20]]
     
-    # Check sample sizes with different thresholds
-    samples = [
-        (20, 0.80),  # 80% for L20 (16/20)
-        (15, 0.80),  # 80% for L15 (12/15)
-        (10, 0.80),  # 80% for L10 (8/10)
-    ]
+    # Check if games went OVER or UNDER the current line
+    if direction == 'O':
+        l5_hits = sum(1 for t in totals[:5] if t > current_line)
+        l10_hits = sum(1 for t in totals[:10] if t > current_line)
+        l20_hits = sum(1 for t in totals[:20] if t > current_line)
+    else:  # UNDER
+        l5_hits = sum(1 for t in totals[:5] if t < current_line)
+        l10_hits = sum(1 for t in totals[:10] if t < current_line)
+        l20_hits = sum(1 for t in totals[:20] if t < current_line)
     
-    best_result = {'hit_rate': None, 'sample': None, 'hits': 0, 'qualified': False}
+    # MANDATORY FILTERS - ALL must pass
+    l5_pass = l5_hits >= 5      # 100% L5 (5/5)
+    l10_pass = l10_hits >= 9    # 90%+ L10 (9/10 or 10/10)
+    l20_pass = l20_hits >= 19   # 95%+ L20 (19/20 or 20/20)
     
-    for sample_size, threshold in samples:
-        if len(non_push) < sample_size:
-            continue
-        
-        sample_games = non_push[:sample_size]
-        if direction == 'O':
-            hits = sum(1 for g in sample_games if g.get('went_over'))
-        else:
-            hits = sum(1 for g in sample_games if g.get('went_under'))
-        
-        hit_rate = hits / sample_size
-        
-        if hit_rate >= threshold:
-            # Prefer larger samples with high rates
-            if best_result['sample'] is None or \
-               (sample_size > best_result['sample'] and hit_rate >= threshold) or \
-               (hit_rate > best_result.get('hit_rate_pct', 0) and sample_size >= best_result.get('sample', 0)):
-                best_result = {
-                    'hit_rate': f"{hits}/L{sample_size}",
-                    'hit_rate_pct': hit_rate,
-                    'sample': sample_size,
-                    'hits': hits,
-                    'qualified': True
-                }
+    all_pass = l5_pass and l10_pass and l20_pass
     
-    return best_result
+    return {
+        'qualified': all_pass,
+        'l5': f"{l5_hits}/5",
+        'l10': f"{l10_hits}/10", 
+        'l20': f"{l20_hits}/20",
+        'l5_hits': l5_hits,
+        'l10_hits': l10_hits,
+        'l20_hits': l20_hits,
+        'l5_pass': l5_pass,
+        'l10_pass': l10_pass,
+        'l20_pass': l20_pass
+    }
 
 def api_request_with_retry(url: str, timeout: int = 30, max_retries: int = 2, **kwargs) -> requests.Response:
     """Make API request with simple retry logic for transient failures.
@@ -5605,37 +5604,52 @@ def dashboard():
         else:
             g.is_away_favorite = False
     
-    # O/U HIT RATE TRACKING: Show historical hit rates (e.g., "16/L20")
-    # Calculate for qualified games only to minimize API calls
+    # O/U HIT RATE TRACKING using ESPN data
+    # MANDATORY FILTERS: 100% L5, 90%+ L10, 95%+ L20
+    # Check if team games tend to go OVER/UNDER vs current line
     ou_hit_rate_count = 0
     for g in qualified:
         g.ou_hit_rate = None
         g.ou_hit_rate_qualified = False
+        g.ou_l5 = None
+        g.ou_l10 = None
+        g.ou_l20 = None
         
-        if g.direction:
+        if g.direction and g.line:
             direction = 'O' if g.direction == 'O' else 'U'
-            # Check both teams' hit rates, use the stronger one
-            away_result = calculate_ou_hit_rate_samples(g.away_team, g.league, direction)
-            home_result = calculate_ou_hit_rate_samples(g.home_team, g.league, direction)
+            current_line = g.alt_total_line or g.line
             
-            # Use the team with stronger hit rate
-            if away_result.get('qualified') and home_result.get('qualified'):
-                # Both qualify - use higher hit rate
-                if away_result.get('hit_rate_pct', 0) >= home_result.get('hit_rate_pct', 0):
-                    g.ou_hit_rate = away_result.get('hit_rate')
-                    g.ou_hit_rate_qualified = True
-                else:
-                    g.ou_hit_rate = home_result.get('hit_rate')
-                    g.ou_hit_rate_qualified = True
-            elif away_result.get('qualified'):
-                g.ou_hit_rate = away_result.get('hit_rate')
-                g.ou_hit_rate_qualified = True
-            elif home_result.get('qualified'):
-                g.ou_hit_rate = home_result.get('hit_rate')
-                g.ou_hit_rate_qualified = True
+            # Check both teams' hit rates
+            away_result = calculate_ou_hit_rate_espn(g.away_team, g.league, direction, current_line)
+            home_result = calculate_ou_hit_rate_espn(g.home_team, g.league, direction, current_line)
             
-            if g.ou_hit_rate_qualified:
+            # Either team qualifies = show badge
+            if away_result.get('qualified') or home_result.get('qualified'):
+                g.ou_hit_rate_qualified = True
                 ou_hit_rate_count += 1
+                
+                # Use the better qualifying result for display
+                if away_result.get('qualified') and home_result.get('qualified'):
+                    # Both qualify - use higher L20 hits
+                    if away_result.get('l20_hits', 0) >= home_result.get('l20_hits', 0):
+                        g.ou_l5 = away_result.get('l5')
+                        g.ou_l10 = away_result.get('l10')
+                        g.ou_l20 = away_result.get('l20')
+                    else:
+                        g.ou_l5 = home_result.get('l5')
+                        g.ou_l10 = home_result.get('l10')
+                        g.ou_l20 = home_result.get('l20')
+                elif away_result.get('qualified'):
+                    g.ou_l5 = away_result.get('l5')
+                    g.ou_l10 = away_result.get('l10')
+                    g.ou_l20 = away_result.get('l20')
+                else:
+                    g.ou_l5 = home_result.get('l5')
+                    g.ou_l10 = home_result.get('l10')
+                    g.ou_l20 = home_result.get('l20')
+                
+                # Combined display for badge
+                g.ou_hit_rate = g.ou_l20
     
     # DEFENSE MISMATCH BOOST: Bottom 10 def for OVERS, Top 10 def for UNDERS
     # Use opponent PPG as defensive ranking proxy (higher = worse defense)
@@ -5754,7 +5768,11 @@ def dashboard():
             'pick_type': 'total',  # Required for auto_save_qualified_picks
             'is_away_favorite': getattr(g, 'is_away_favorite', False),
             'def_mismatch': getattr(g, 'def_mismatch', False),
-            'ou_hit_rate': getattr(g, 'ou_hit_rate', None)
+            'ou_hit_rate': getattr(g, 'ou_hit_rate', None),
+            'ou_hit_rate_qualified': getattr(g, 'ou_hit_rate_qualified', False),
+            'ou_l5': getattr(g, 'ou_l5', None),
+            'ou_l10': getattr(g, 'ou_l10', None),
+            'ou_l20': getattr(g, 'ou_l20', None)
         })
     analytics['top_picks'] = top_picks
     

@@ -44,7 +44,7 @@ This project develops and manages trading systems including a Sports Betting Cal
         -   OVER: If `Projected_Total >= Bovada_Line + Threshold`
         -   UNDER: If `Bovada_Line >= Projected_Total + Threshold`
     -   **Qualification Requirements**: Edge threshold + Direction set
-    -   **Historical O/U Performance**: Uses last 15 games O/U hit rate to strengthen picks
+    -   **Historical O/U Performance**: ESPN-based hit rate tracking with MANDATORY filters (100% L5, 90%+ L10, 95%+ L20)
     -   **Confidence Tiers**: SUPERMAX (≥12 edge), HIGH (≥10), STANDARD (≥8), LOW (<8) - no units displayed
     -   **SUPERMAX**: Highest absolute edge across all qualified TOTALS picks
     -   **TOP 5 Ranking**: Sorted by EDGE only (highest edge = best pick)
