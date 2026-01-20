@@ -5774,22 +5774,17 @@ def dashboard():
             except:
                 pass
         
-        logger.info(f"  {game_name}: L5={g.ou_l5} ({l5_hits}), L10={g.ou_l10} ({l10_hits}), L20={g.ou_l20} ({l20_hits}/{l20_total}), def_mismatch={g.def_mismatch}, dir={g.direction}")
+        logger.info(f"  {game_name}: L5={g.ou_l5} ({l5_hits}), L20={g.ou_l20} ({l20_hits}/{l20_total}), def_mismatch={g.def_mismatch}, dir={g.direction}")
         
         # Filter 1: L5 100% (5/5)
         if l5_hits < 5:
             logger.info(f"    -> FAILED L5 100% (need 5, got {l5_hits})")
             continue
         
-        # Filter 2: L10 mandatory (10/10)
-        if l10_hits < 10:
-            logger.info(f"    -> FAILED L10 100% (need 10, got {l10_hits})")
-            continue
-        
-        # Filter 3: L20 85%+ (17/20 or better)
+        # Filter 2: L20 90%+ (18/20 or better)
         l20_pct = (l20_hits / l20_total * 100) if l20_total > 0 else 0
-        if l20_pct < 85:
-            logger.info(f"    -> FAILED L20 85% (need 85%, got {l20_pct:.1f}%)")
+        if l20_pct < 90:
+            logger.info(f"    -> FAILED L20 90% (need 90%, got {l20_pct:.1f}%)")
             continue
         
         # Filter 4/5: Defensive matchup filter (NBA/CBB only)
@@ -5811,7 +5806,7 @@ def dashboard():
     
     # Replace qualified with filtered list
     qualified = filtered_qualified
-    logger.info(f"TOTALS after mandatory filters: {len(qualified)} qualified (L5 100%, L10 mandatory, L20 85%, def matchup)")
+    logger.info(f"TOTALS after mandatory filters: {len(qualified)} qualified (L5 100%, L20 90%, def matchup)")
     
     # Sort qualified totals by effective edge (alt if available, else main)
     qualified.sort(key=lambda x: x.alt_edge or x.edge or 0, reverse=True)
