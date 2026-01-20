@@ -84,20 +84,19 @@ This project develops and manages trading systems including a Sports Betting Cal
     -   `Edge% = (AI_Projection - Prop_Line) / Prop_Line × 100`
     -   Sorted by Edge% (highest edge = best pick)
 -   **PLAY CLASSIFICATION**:
-    -   **PREMIUM PLAY**: Streak 100% (20/L20+) + Def Rank 1-5 (worst 5 defenses)
-    -   **STRONG PLAY**: Streak 95%+ (19/L20) + Def Rank 1-10 (worst 10 defenses)
-    -   **PLAY**: Streak 90-94% (18/L20) + Def Rank 1-10
+    -   **PREMIUM PLAY**: Streak 100% (20/L20+) + Def Rank 21-30 (worst defenses)
+    -   **STRONG PLAY**: Streak 95%+ OR Def Rank 21-30
+    -   **PLAY**: All others meeting basic criteria
 -   **MANDATORY FILTERS (ALL must pass)**:
     -   Injury Status = Clear (not questionable/out)
     -   AI Projection > Prop Line (any positive amount)
     -   100% in Last 5 (5/5 must hit)
     -   90%+ in Last 20 (18/20 minimum)
-    -   Def Rank 1-10 (Bottom 10 = WORST defenses = BEST matchups)
 -   **DISQUALIFICATION RULES (Auto-AVOID)**:
     -   Injury Status = Questionable or Out
     -   AI Projection ≤ Prop Line
     -   Streak < 90% (less than 18/L20)
-    -   Def Rank > 10 (higher rank = better defense = avoid)
+-   **Defensive Rank Display**: Shows "Xth vs [Stat Type]" - higher rank = worse defense
 -   **Stat-Specific Defensive Rankings**: Shows "Xth vs [Stat Type]" (e.g., "21st vs Points")
 -   **Elite 10 Section**: Top 10 picks by Edge%, unique players preferred
     -   Golden glow for PREMIUM PLAY, green for STRONG PLAY, purple for PLAY

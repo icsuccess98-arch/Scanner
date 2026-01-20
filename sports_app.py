@@ -7990,10 +7990,9 @@ def api_player_props():
                 if ai_proj <= bovada_line:
                     continue
                 
-                # 2. Defense Rank 1-10 (Bottom 10 = WORST defenses = BEST matchups) - REQUIRED
-                # Lower rank = worse defense. Rank 1 = worst defense, Rank 30 = best defense
-                if not opp_def_rank or opp_def_rank > 10:
-                    continue
+                # Defense Rank - display only (no strict filtering)
+                # Higher rank = worse defense. Rank 30 = worst defense, Rank 1 = best defense
+                # Note: Def rank is informational - main filters are streak and AI projection
                 
                 threshold = bovada_line  # Need to hit/exceed the line
                 
@@ -8034,15 +8033,15 @@ def api_player_props():
                 # === STREAK PERCENTAGE ===
                 streak_pct = (l20_hits / len(l20_values)) * 100 if l20_values else 0
                 
-                # === CLASSIFICATION (per corrected protocol) ===
-                # PREMIUM PLAY: AI above line + Streak 100% (20/L20+) + Def Rank 1-5 (worst 5 defenses)
-                # STRONG PLAY: AI above line + Streak 95-99% (19/L20) + Def Rank 1-10
-                # PLAY: AI above line + Streak 90-94% (18/L20) + Def Rank 1-10
+                # === CLASSIFICATION (based on streak and defense) ===
+                # PREMIUM PLAY: Streak 100% (20/L20+) + Def Rank 21-30 (worst defenses)
+                # STRONG PLAY: Streak 95%+ OR Def Rank 21-30
+                # PLAY: All others meeting basic criteria
                 
-                if streak_pct >= 100 and opp_def_rank <= 5:
+                if streak_pct >= 100 and opp_def_rank and opp_def_rank >= 21:
                     play_classification = 'PREMIUM PLAY'
                     confidence_color = 'gold'
-                elif streak_pct >= 95 and opp_def_rank <= 10:
+                elif streak_pct >= 95 or (opp_def_rank and opp_def_rank >= 21):
                     play_classification = 'STRONG PLAY'
                     confidence_color = 'green'
                 else:
