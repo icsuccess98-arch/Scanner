@@ -26,11 +26,13 @@
             --purple: #7B2CBF;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
+        html, body {
             background: var(--bg-dark);
             color: var(--text);
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             min-height: 100vh;
+            overflow-x: hidden;
+            max-width: 100vw;
         }
         .header {
             background: linear-gradient(180deg, #16131f 0%, var(--bg-dark) 100%);
@@ -532,7 +534,7 @@
                 const streakDisplay = `${streak}/L${sample}`;
                 
                 const defRank = p.def_rank || 5;
-                const defDisplay = p.def_rank_display || `${getOrdinal(defRank)} vs ${p.stat_name || 'Stat'}`;
+                const defDisplay = p.def_rank_display || getOrdinal(defRank);
                 let defClass = '';
                 if (defRank <= 3) defClass = 'def-rank-elite';
                 else if (defRank <= 7) defClass = 'def-rank-good';
@@ -568,7 +570,7 @@
                 const streak = p.streak || 20;
                 const sample = p.sample || 20;
                 const defRank = p.def_rank || 5;
-                const defDisplay = p.def_rank_display || `${getOrdinal(defRank)} vs ${p.stat_name || 'Stat'}`;
+                const defDisplay = p.def_rank_display || getOrdinal(defRank);
                 const classification = p.play_classification || 'PLAY';
                 let classStyle = 'class-play';
                 if (classification === 'PREMIUM PLAY') classStyle = 'class-premium';
@@ -592,7 +594,7 @@
                         </div>
                         <div class="mobile-stat">
                             <div class="mobile-stat-label">Def Rank</div>
-                            <div class="mobile-stat-value" style="font-size: 0.7rem;">${defDisplay}</div>
+                            <div class="mobile-stat-value">${defDisplay}</div>
                         </div>
                         <div class="mobile-stat">
                             <div class="mobile-stat-label">AI Proj</div>

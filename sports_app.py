@@ -7842,7 +7842,7 @@ def api_player_props():
             logger.info("Fetching bulk player game logs...")
             bulk_logs = playergamelogs.PlayerGameLogs(
                 season_nullable='2025-26',
-                last_n_games_nullable=20,
+                last_n_games_nullable=50,  # Increased to support longer streaks
                 timeout=60
             )
             logs_df = bulk_logs.get_data_frames()[0]
@@ -7892,14 +7892,14 @@ def api_player_props():
             {'key': 'points', 'name': 'Points', 'thresholds': [8, 10, 12, 15, 20], 'stat': 'PTS', 'market_key': 'points'},
             {'key': 'rebounds', 'name': 'Rebounds', 'thresholds': [2, 3, 4, 5, 7], 'stat': 'REB', 'market_key': 'rebounds'},
             {'key': 'assists', 'name': 'Assists', 'thresholds': [2, 3, 4, 5, 6], 'stat': 'AST', 'market_key': 'assists'},
-            {'key': 'pts_reb', 'name': 'Points + Rebounds', 'thresholds': [10, 12, 15, 18, 20], 'stats': ['PTS', 'REB'], 'market_key': None},
-            {'key': 'pts_ast', 'name': 'Points + Assists', 'thresholds': [10, 12, 15, 18, 20], 'stats': ['PTS', 'AST'], 'market_key': None},
-            {'key': 'reb_ast', 'name': 'Rebounds + Assists', 'thresholds': [6, 8, 10, 12], 'stats': ['REB', 'AST'], 'market_key': None},
-            {'key': 'pts_reb_ast', 'name': 'Points + Assists + Rebounds', 'thresholds': [12, 15, 18, 20, 25], 'stats': ['PTS', 'REB', 'AST'], 'market_key': None},
-            {'key': 'threes', 'name': 'Three-Pointers Made', 'thresholds': [1, 2, 3], 'stat': 'FG3M', 'market_key': 'threes'},
-            {'key': 'steals', 'name': 'Steal', 'thresholds': [1, 2], 'stat': 'STL', 'market_key': None},
-            {'key': 'blocks', 'name': 'Block', 'thresholds': [1, 2], 'stat': 'BLK', 'market_key': None},
-            {'key': 'stl_blk', 'name': 'Steal + Block', 'thresholds': [1, 2, 3], 'stats': ['STL', 'BLK'], 'market_key': None},
+            {'key': 'pts_reb', 'name': 'PTS+REB', 'thresholds': [10, 12, 15, 18, 20], 'stats': ['PTS', 'REB'], 'market_key': 'player_points_rebounds'},
+            {'key': 'pts_ast', 'name': 'PTS+AST', 'thresholds': [10, 12, 15, 18, 20], 'stats': ['PTS', 'AST'], 'market_key': 'player_points_assists'},
+            {'key': 'reb_ast', 'name': 'REB+AST', 'thresholds': [6, 8, 10, 12], 'stats': ['REB', 'AST'], 'market_key': 'player_rebounds_assists'},
+            {'key': 'pts_reb_ast', 'name': 'PTS+AST+REB', 'thresholds': [12, 15, 18, 20, 25], 'stats': ['PTS', 'REB', 'AST'], 'market_key': 'player_points_rebounds_assists'},
+            {'key': 'threes', 'name': '3 Point Made', 'thresholds': [1, 2, 3], 'stat': 'FG3M', 'market_key': 'threes'},
+            {'key': 'steals', 'name': 'Steals', 'thresholds': [1, 2], 'stat': 'STL', 'market_key': 'player_steals'},
+            {'key': 'blocks', 'name': 'Blocks', 'thresholds': [1, 2], 'stat': 'BLK', 'market_key': 'player_blocks'},
+            {'key': 'stl_blk', 'name': 'Steals+Blocks', 'thresholds': [1, 2, 3], 'stats': ['STL', 'BLK'], 'market_key': 'player_steals_blocks'},
         ]
         
         # Fetch real defensive rankings
@@ -8046,18 +8046,21 @@ def api_player_props():
                     play_classification = 'PLAY'
                     confidence_color = 'purple'
                 
-                # Create stat-specific defensive rank display with proper ordinal
+                # Create defensive rank display with proper ordinal (just the rank number)
                 stat_name = prop['name']
-                # Get ordinal suffix
-                if opp_def_rank == 1:
-                    ordinal = "1st"
-                elif opp_def_rank == 2:
-                    ordinal = "2nd"
-                elif opp_def_rank == 3:
-                    ordinal = "3rd"
-                else:
-                    ordinal = f"{opp_def_rank}th"
-                def_rank_display = f"{ordinal} vs {stat_name}"
+                # Get ordinal suffix (handles 11th, 12th, 13th, 21st, 22nd, 23rd, etc.)
+                def get_ordinal(n):
+                    if 11 <= n % 100 <= 13:
+                        return f"{n}th"
+                    elif n % 10 == 1:
+                        return f"{n}st"
+                    elif n % 10 == 2:
+                        return f"{n}nd"
+                    elif n % 10 == 3:
+                        return f"{n}rd"
+                    else:
+                        return f"{n}th"
+                def_rank_display = get_ordinal(opp_def_rank) if opp_def_rank else "N/A"
                 
                 # Create display with hit rates
                 prop_display = f"{bovada_line}+ {prop['name']}"
