@@ -7783,12 +7783,17 @@ def api_player_props():
                         if not event_id:
                             continue
                         
-                        # All prop markets including combos
+                        # All prop markets including combos AND alternate lines
                         props_markets = [
                             'player_points', 'player_rebounds', 'player_assists', 'player_threes',
                             'player_steals', 'player_blocks',
                             'player_points_rebounds', 'player_points_assists', 'player_rebounds_assists',
-                            'player_points_rebounds_assists'
+                            'player_points_rebounds_assists',
+                            # Alternate lines (lower/higher thresholds)
+                            'player_points_alternate', 'player_rebounds_alternate', 'player_assists_alternate',
+                            'player_threes_alternate', 'player_steals_alternate', 'player_blocks_alternate',
+                            'player_points_rebounds_alternate', 'player_points_assists_alternate',
+                            'player_rebounds_assists_alternate', 'player_points_rebounds_assists_alternate'
                         ]
                         props_url = f"https://api.the-odds-api.com/v4/sports/basketball_nba/events/{event_id}/odds?apiKey={odds_api_key}&regions=us&markets={','.join(props_markets)}&bookmakers=bovada"
                         
@@ -7800,13 +7805,20 @@ def api_player_props():
                                 for bm in bookmakers:
                                     if bm.get('key') == 'bovada':
                                         for market in bm.get('markets', []):
-                                            market_key = market.get('key', '').replace('player_', '')
+                                            # Normalize market key (remove player_ prefix and _alternate suffix)
+                                            market_key = market.get('key', '').replace('player_', '').replace('_alternate', '')
                                             for outcome in market.get('outcomes', []):
                                                 player_name = outcome.get('description', '')
                                                 line = outcome.get('point')
+                                                odds = outcome.get('price', -110)
                                                 if player_name and line:
-                                                    key = f"{player_name.lower()}_{market_key}"
-                                                    bovada_lines[key] = line
+                                                    # Skip alt lines with odds worse than -180
+                                                    if '_alternate' in market.get('key', '') and odds < -180:
+                                                        continue
+                                                    key = f"{player_name.lower()}_{market_key}_{line}"
+                                                    # Store line with odds for later selection
+                                                    if key not in bovada_lines:
+                                                        bovada_lines[key] = {'line': line, 'odds': odds}
                         except Exception as e:
                             logger.warning(f"Error fetching props for event {event_id}: {e}")
                             continue
@@ -8010,37 +8022,63 @@ def api_player_props():
                 
                 ai_proj = base_projection * defense_boost
                 
-                # Look up Bovada line for this player/prop (MUST have actual Bovada line)
+                # Look up ALL Bovada lines for this player/prop (including alternates)
                 market_key = prop.get('market_key', prop['key'])
-                line_key = f"{player_name.lower()}_{market_key}"
-                bovada_line = bovada_lines.get(line_key)
+                player_key_prefix = f"{player_name.lower()}_{market_key}_"
                 
-                # Debug: Log first few lookups to see key format
+                # Find all lines for this player/prop (main + alternates)
+                available_lines = []
+                for key, val in bovada_lines.items():
+                    if key.startswith(player_key_prefix):
+                        available_lines.append(val)
+                
+                # Debug: Log first few lookups
                 if player_count <= 3 and prop == prop_types[0]:
                     sample_keys = list(bovada_lines.keys())[:5]
-                    logger.info(f"Looking for key: '{line_key}' in bovada_lines. Sample keys: {sample_keys}")
+                    logger.info(f"Looking for prefix: '{player_key_prefix}' - found {len(available_lines)} lines")
                 
-                # ONLY process if we have an actual Bovada line - no fallbacks
-                if not bovada_line:
+                # ONLY process if we have actual Bovada lines
+                if not available_lines:
                     continue
                 
-                # Log when we find a match
-                if player_count <= 10:
-                    logger.info(f"MATCH: {player_name} - {prop['name']} - line: {bovada_line}")
-                
-                threshold = bovada_line
-                
-                # Need at least 10 games for streak calculation
+                # Need at least 10 games for analysis
                 if len(values) < 10:
                     continue
                 
-                # Calculate CONSECUTIVE hit streak (how many games in a row they've hit)
-                consecutive_streak = 0
-                for v in values:
-                    if v >= threshold:
-                        consecutive_streak += 1
-                    else:
-                        break
+                # Sort by line value (lowest first) to find best streak opportunities
+                available_lines.sort(key=lambda x: x['line'])
+                
+                # Test each line from lowest to highest, pick the one with best streak
+                best_line_data = None
+                best_streak_for_line = 0
+                
+                for line_data in available_lines:
+                    test_line = line_data['line']
+                    # Calculate streak for this line
+                    test_streak = 0
+                    for v in values:
+                        if v >= test_line:
+                            test_streak += 1
+                        else:
+                            break
+                    
+                    # Keep the line with longest streak that meets minimum (10+)
+                    if test_streak >= 10 and test_streak > best_streak_for_line:
+                        best_streak_for_line = test_streak
+                        best_line_data = line_data
+                
+                if not best_line_data:
+                    continue
+                
+                bovada_line = best_line_data['line']
+                threshold = bovada_line
+                
+                # Log when we find a good match
+                if player_count <= 10:
+                    logger.info(f"MATCH: {player_name} - {prop['name']} - line: {bovada_line} (streak: {best_streak_for_line})")
+                
+                # Calculate CONSECUTIVE hit streak
+                consecutive_streak = best_streak_for_line
                 
                 # Calculate hit rates for display
                 l5_values = values[:5]
@@ -8057,17 +8095,17 @@ def api_player_props():
                     logger.info(f"Found streak: {player_name} - {prop['name']} - {consecutive_streak} consecutive (line: {bovada_line}, avg: {base_projection:.1f})")
                 
                 # MANDATORY FILTERS:
-                # 1. Must have at least 5 consecutive hits (relaxed from 10)
-                if consecutive_streak < 5:
+                # 1. Must have at least 10 consecutive hits
+                if consecutive_streak < 10:
                     continue
                 
                 # 2. Must be 100% L5 (5/5)
                 if l5_hits < 5:
                     continue
                 
-                # 3. Must be 80%+ L20 (16/20 or better - relaxed from 95%)
+                # 3. Must be 95%+ L20 (19/20 or better)
                 l20_pct = (l20_hits / len(l20_values)) * 100 if l20_values else 0
-                if l20_pct < 80:
+                if l20_pct < 95:
                     continue
                 
                 # Track the streak length
