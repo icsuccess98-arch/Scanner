@@ -5832,10 +5832,10 @@ def dashboard():
         'ou_hit_rate_count': ou_hit_rate_count
     }
     
-    # League breakdown (TOTALS ONLY)
+    # League breakdown (TOTALS ONLY) - use post-filter qualified list
     for league in ['NBA', 'CBB', 'NFL', 'CFB', 'NHL']:
         league_games = [g for g in all_games if g.league == league]
-        league_qualified = [g for g in league_games if g.is_qualified]
+        league_qualified = [g for g in qualified if g.league == league]
         analytics['league_breakdown'][league] = {
             'total': len(league_games),
             'qualified': len(league_qualified)
