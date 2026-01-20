@@ -290,7 +290,7 @@
         .league-nhl .game-card::before { background: linear-gradient(180deg, #000000, #A2AAAD); }
         .league-cbb .game-card::before { background: linear-gradient(180deg, #1e40af, #7c3aed); }
         .league-cfb .game-card::before { background: linear-gradient(180deg, #7c3aed, #dc2626); }
-        .matchup { font-weight: 600; font-size: 1rem; }
+        .matchup { font-weight: 600; font-size: 1rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }
         .game-time { color: var(--text-muted); font-size: 0.8rem; }
         .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin: 0.75rem 0; }
         .stat-item { text-align: center; }
@@ -561,7 +561,8 @@
             .game-card { padding: 1rem; }
             .game-card .row { gap: 0.5rem; flex-direction: column; }
             .game-card .col-md-3, .game-card .col-md-4 { width: 100%; }
-            .matchup { font-size: 0.9rem; }
+            .matchup { font-size: 0.9rem; row-gap: 0.3rem; }
+            .matchup .badge { font-size: 0.45rem !important; padding: 0.1rem 0.2rem !important; white-space: nowrap; }
             .header-buttons { display: none; }
             .mobile-action-bar { display: flex; }
             body { padding-bottom: 80px; }

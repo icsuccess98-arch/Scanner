@@ -5787,26 +5787,18 @@ def dashboard():
             logger.info(f"    -> FAILED L20 85% (need 85%, got {l20_pct:.1f}%)")
             continue
         
-        # Filter 4/5: Defensive matchup filter (NBA/CBB only)
-        if g.league in ['NBA', 'CBB']:
-            if g.direction == 'O':
-                # OVER pick requires facing bottom 10 defense
-                if not g.def_mismatch:
-                    logger.info(f"    -> FAILED DEF MISMATCH (OVER needs bottom 10 def)")
-                    continue
-            elif g.direction == 'U':
-                # UNDER pick requires facing top 10 defense
-                if not g.def_mismatch:
-                    logger.info(f"    -> FAILED DEF MISMATCH (UNDER needs top 10 def)")
-                    continue
+        # DEF EDGE is a BADGE only (not a qualifying filter)
+        # Bottom 10 def for OVER = stronger confidence
+        # Top 10 def for UNDER = stronger confidence
+        def_badge = "DEF EDGE" if g.def_mismatch else ""
         
         # Passed all filters
-        logger.info(f"    -> PASSED ALL FILTERS")
+        logger.info(f"    -> PASSED (L5 100%, L20 85%+) {def_badge}")
         filtered_qualified.append(g)
     
     # Replace qualified with filtered list
     qualified = filtered_qualified
-    logger.info(f"TOTALS after mandatory filters: {len(qualified)} qualified (L5 100%, L20 85%, def matchup)")
+    logger.info(f"TOTALS after mandatory filters: {len(qualified)} qualified (L5 100%, L20 85%)")
     
     # Sort qualified totals by effective edge (alt if available, else main)
     qualified.sort(key=lambda x: x.alt_edge or x.edge or 0, reverse=True)

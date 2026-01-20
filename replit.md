@@ -43,8 +43,10 @@ This project develops and manages trading systems including a Sports Betting Cal
     -   **Bet Direction (BINARY)**:
         -   OVER: If `Projected_Total >= Bovada_Line + Threshold`
         -   UNDER: If `Bovada_Line >= Projected_Total + Threshold`
-    -   **Qualification Requirements**: Edge threshold + Direction set
-    -   **Historical O/U Performance**: ESPN-based hit rate tracking with MANDATORY filters (100% L5, 90%+ L10, 95%+ L20)
+    -   **Qualification Requirements**: Edge threshold + Direction set + O/U hit rate filters
+    -   **Historical O/U Performance**: ESPN-based hit rate tracking with MANDATORY filters:
+        -   L5 100% (5/5 games must hit)
+        -   L20 85%+ (17/20 or better)
     -   **Confidence Tiers**: SUPERMAX (≥12 edge), HIGH (≥10), STANDARD (≥8), LOW (<8) - no units displayed
     -   **SUPERMAX**: Highest absolute edge across all qualified TOTALS picks
     -   **TOP 5 Ranking**: Sorted by EDGE only (highest edge = best pick)
@@ -65,10 +67,10 @@ This project develops and manages trading systems including a Sports Betting Cal
 -   **RotoWire/Injury Code Removed**: All injury scraping and checking removed for speed
 -   **Units Logic Removed**: No units displayed - confidence based purely on edge thresholds
 -   **Away Favorite Badge**: Orange (#FFA500) ⭐ AWAY FAV badge on game cards and TOP 5 picks
--   **Defense Mismatch Badge**: Blue (#00BFFF) 🛡️ DEF EDGE badge for favorable defensive matchups
-    -   OVER picks: Shows when facing bottom 10 defense (weak defense = more points)
-    -   UNDER picks: Shows when facing top 10 defense (strong defense = fewer points)
-    -   NBA/CBB only (basketball games)
+-   **Defense Edge Badge**: Blue (#00BFFF) 🛡️ DEF EDGE badge for favorable defensive matchups (confidence indicator, not a filter)
+    -   OVER picks: Shows when facing bottom 10 defense (worst defenses = more points allowed)
+    -   UNDER picks: Shows when facing top 10 defense (best defenses = fewer points allowed)
+    -   NBA/CBB only (basketball games) - badge adds confidence, not required for qualification
 -   **File Size**: Reduced to 8,048 lines
 -   **Focus**: Pure TOTALS (Over/Under) functionality only with confidence badges:
     1. **Totals Model**: Standard O/U picks with edge thresholds
