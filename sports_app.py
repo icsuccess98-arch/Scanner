@@ -7812,6 +7812,13 @@ def api_player_props():
                             continue
                     
                     logger.info(f"Fetched {len(bovada_lines)} Bovada prop lines")
+                    # Log sample of different market types
+                    sample_by_type = {}
+                    for k in bovada_lines.keys():
+                        mtype = k.split('_')[-1] if '_' in k else 'unknown'
+                        if mtype not in sample_by_type:
+                            sample_by_type[mtype] = k
+                    logger.info(f"Bovada market types found: {list(sample_by_type.keys())}")
                 else:
                     logger.warning(f"Events API returned status {events_resp.status_code}")
         except Exception as e:
@@ -7899,14 +7906,14 @@ def api_player_props():
             {'key': 'points', 'name': 'Points', 'thresholds': [8, 10, 12, 15, 20], 'stat': 'PTS', 'market_key': 'points'},
             {'key': 'rebounds', 'name': 'Rebounds', 'thresholds': [2, 3, 4, 5, 7], 'stat': 'REB', 'market_key': 'rebounds'},
             {'key': 'assists', 'name': 'Assists', 'thresholds': [2, 3, 4, 5, 6], 'stat': 'AST', 'market_key': 'assists'},
-            {'key': 'pts_reb', 'name': 'PTS+REB', 'thresholds': [10, 12, 15, 18, 20], 'stats': ['PTS', 'REB'], 'market_key': 'player_points_rebounds'},
-            {'key': 'pts_ast', 'name': 'PTS+AST', 'thresholds': [10, 12, 15, 18, 20], 'stats': ['PTS', 'AST'], 'market_key': 'player_points_assists'},
-            {'key': 'reb_ast', 'name': 'REB+AST', 'thresholds': [6, 8, 10, 12], 'stats': ['REB', 'AST'], 'market_key': 'player_rebounds_assists'},
-            {'key': 'pts_reb_ast', 'name': 'PTS+AST+REB', 'thresholds': [12, 15, 18, 20, 25], 'stats': ['PTS', 'REB', 'AST'], 'market_key': 'player_points_rebounds_assists'},
+            {'key': 'pts_reb', 'name': 'PTS+REB', 'thresholds': [10, 12, 15, 18, 20], 'stats': ['PTS', 'REB'], 'market_key': 'points_rebounds'},
+            {'key': 'pts_ast', 'name': 'PTS+AST', 'thresholds': [10, 12, 15, 18, 20], 'stats': ['PTS', 'AST'], 'market_key': 'points_assists'},
+            {'key': 'reb_ast', 'name': 'REB+AST', 'thresholds': [6, 8, 10, 12], 'stats': ['REB', 'AST'], 'market_key': 'rebounds_assists'},
+            {'key': 'pts_reb_ast', 'name': 'PTS+AST+REB', 'thresholds': [12, 15, 18, 20, 25], 'stats': ['PTS', 'REB', 'AST'], 'market_key': 'points_rebounds_assists'},
             {'key': 'threes', 'name': '3 Point Made', 'thresholds': [1, 2, 3], 'stat': 'FG3M', 'market_key': 'threes'},
-            {'key': 'steals', 'name': 'Steals', 'thresholds': [1, 2], 'stat': 'STL', 'market_key': 'player_steals'},
-            {'key': 'blocks', 'name': 'Blocks', 'thresholds': [1, 2], 'stat': 'BLK', 'market_key': 'player_blocks'},
-            {'key': 'stl_blk', 'name': 'Steals+Blocks', 'thresholds': [1, 2, 3], 'stats': ['STL', 'BLK'], 'market_key': 'player_steals_blocks'},
+            {'key': 'steals', 'name': 'Steals', 'thresholds': [1, 2], 'stat': 'STL', 'market_key': 'steals'},
+            {'key': 'blocks', 'name': 'Blocks', 'thresholds': [1, 2], 'stat': 'BLK', 'market_key': 'blocks'},
+            {'key': 'stl_blk', 'name': 'Steals+Blocks', 'thresholds': [1, 2, 3], 'stats': ['STL', 'BLK'], 'market_key': 'steals_blocks'},
         ]
         
         # Fetch real defensive rankings
@@ -8004,12 +8011,22 @@ def api_player_props():
                 ai_proj = base_projection * defense_boost
                 
                 # Look up Bovada line for this player/prop (MUST have actual Bovada line)
-                line_key = f"{player_name.lower()}_{prop.get('market_key', prop['key'])}"
+                market_key = prop.get('market_key', prop['key'])
+                line_key = f"{player_name.lower()}_{market_key}"
                 bovada_line = bovada_lines.get(line_key)
+                
+                # Debug: Log first few lookups to see key format
+                if player_count <= 3 and prop == prop_types[0]:
+                    sample_keys = list(bovada_lines.keys())[:5]
+                    logger.info(f"Looking for key: '{line_key}' in bovada_lines. Sample keys: {sample_keys}")
                 
                 # ONLY process if we have an actual Bovada line - no fallbacks
                 if not bovada_line:
                     continue
+                
+                # Log when we find a match
+                if player_count <= 10:
+                    logger.info(f"MATCH: {player_name} - {prop['name']} - line: {bovada_line}")
                 
                 threshold = bovada_line
                 
@@ -8040,17 +8057,17 @@ def api_player_props():
                     logger.info(f"Found streak: {player_name} - {prop['name']} - {consecutive_streak} consecutive (line: {bovada_line}, avg: {base_projection:.1f})")
                 
                 # MANDATORY FILTERS:
-                # 1. Must have at least 10 consecutive hits
-                if consecutive_streak < 10:
+                # 1. Must have at least 5 consecutive hits (relaxed from 10)
+                if consecutive_streak < 5:
                     continue
                 
                 # 2. Must be 100% L5 (5/5)
                 if l5_hits < 5:
                     continue
                 
-                # 3. Must be 95%+ L20 (19/20 or better)
+                # 3. Must be 80%+ L20 (16/20 or better - relaxed from 95%)
                 l20_pct = (l20_hits / len(l20_values)) * 100 if l20_values else 0
-                if l20_pct < 95:
+                if l20_pct < 80:
                     continue
                 
                 # Track the streak length
@@ -8070,13 +8087,17 @@ def api_player_props():
                 # === CLASSIFICATION (based on consecutive streak length) ===
                 # PREMIUM PLAY: 15+ consecutive hits
                 # STRONG PLAY: 10-14 consecutive hits
+                # PLAY: 5-9 consecutive hits
                 
                 if consecutive_streak >= 15:
                     play_classification = 'PREMIUM PLAY'
                     confidence_color = 'gold'
-                else:
+                elif consecutive_streak >= 10:
                     play_classification = 'STRONG PLAY'
                     confidence_color = 'green'
+                else:
+                    play_classification = 'PLAY'
+                    confidence_color = 'purple'
                 
                 # Create defensive rank display with proper ordinal (just the rank number)
                 stat_name = prop['name']
