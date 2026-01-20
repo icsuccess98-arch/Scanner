@@ -7985,69 +7985,56 @@ def api_player_props():
                     defense_boost = 1.0
                 ai_proj = mean_val * defense_boost
                 
-                # MANDATORY FILTERS (ALL must pass):
-                # 1. Bottom 10 Defense ONLY (ranks 21-30)
-                # 2. 100% in Last 5 (5/5)
-                # 3. 90%+ in Last 10 (9/10 or 10/10)
-                # 4. 95%+ in Last 20 (19/20 or 20/20)
+                # MINIMAL FILTERS - just show all props with Bovada lines
+                threshold = bovada_line  # Just need to hit the line
                 
-                # Filter 1: Bottom 10 Defense ONLY (ranks 21-30)
-                if not opp_def_rank or opp_def_rank < 21:
+                # Need at least 5 games
+                if len(values) < 5:
                     continue
                 
-                threshold = bovada_line + 0.5  # Over the line (e.g., 6.5 -> need 7+)
-                
-                # Need at least 20 games for all filters
-                if len(values) < 20:
-                    continue
-                
-                # Filter 2: 100% in Last 5 (5/5 must hit)
+                # Calculate hit rates without filtering
                 l5_values = values[:5]
                 l5_hits = sum(1 for v in l5_values if v >= threshold)
-                if l5_hits < 5:  # Must be 5/5
-                    continue
                 
-                # Filter 3: 90%+ in Last 10 (9/10 or 10/10)
-                l10_values = values[:10]
+                l10_values = values[:min(10, len(values))]
                 l10_hits = sum(1 for v in l10_values if v >= threshold)
-                if l10_hits < 9:  # Must be 9+ out of 10
-                    continue
                 
-                # Filter 4: 95%+ in Last 20 (19/20 or 20/20)
-                l20_values = values[:20]
+                l20_values = values[:min(20, len(values))]
                 l20_hits = sum(1 for v in l20_values if v >= threshold)
-                if l20_hits < 19:  # Must be 19+ out of 20
+                l20_pct = l20_hits / len(l20_values) * 100
+                
+                # Only require 60%+ hit rate to show (very relaxed)
+                if l20_pct < 60:
                     continue
                 
                 # All filters passed - this is a qualified pick
                 best_streak = l20_hits
-                best_sample = 20
+                best_sample = len(l20_values)
                 
-                # === NEW PROTOCOL: EDGE CALCULATION ===
+                # === EDGE CALCULATION ===
                 # Edge = (AI_Projection - Prop_Line) / Prop_Line × 100
                 edge_pct = ((ai_proj - bovada_line) / bovada_line) * 100 if bovada_line > 0 else 0
                 
-                # Filter: Minimum 15%+ Edge required
-                if edge_pct < 15:
-                    continue
+                # Show all props with positive edge (AI projection > line)
+                # Edge is for display/sorting, not filtering
                 
                 # === STREAK PERCENTAGE ===
-                streak_pct = (l20_hits / 20) * 100
+                streak_pct = (l20_hits / len(l20_values)) * 100 if l20_values else 0
                 
-                # === CLASSIFICATION (PLAY / STRONG PLAY / PREMIUM PLAY) ===
-                # Edge 25%+ + Streak 100% (20/L20) + Def Rank 26-30 = PREMIUM PLAY
-                # Edge 25%+ + Streak 95%+ (19-20/L20) + Def Rank 21-25 = STRONG PLAY
-                # Edge 15-24% + Streak 90-94% (18-19/L20) + Def Rank 21-25 = PLAY
+                # === CLASSIFICATION (based on streak and defense) ===
+                # PREMIUM PLAY: Streak 100% + Def Rank 26-30 (bottom 5 defense)
+                # STRONG PLAY: Streak 90%+ + Def Rank 21-30 (bottom 10 defense)
+                # PLAY: All others that pass filters
                 
-                if edge_pct >= 25 and streak_pct == 100 and opp_def_rank >= 26:
+                if streak_pct >= 100 and opp_def_rank >= 26:
                     play_classification = 'PREMIUM PLAY'
-                    confidence_color = 'gold'  # Golden glow for premium
-                elif edge_pct >= 25 and streak_pct >= 95:
+                    confidence_color = 'gold'
+                elif streak_pct >= 90 and opp_def_rank >= 21:
                     play_classification = 'STRONG PLAY'
                     confidence_color = 'green'
                 else:
                     play_classification = 'PLAY'
-                    confidence_color = 'yellow' if edge_pct >= 20 else 'lime'
+                    confidence_color = 'purple'
                 
                 # Create display with hit rates
                 prop_display = f"{bovada_line}+ {prop['name']}"

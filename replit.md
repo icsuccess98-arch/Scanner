@@ -80,25 +80,17 @@ This project develops and manages trading systems including a Sports Betting Cal
 -   **Multi-League Support**: League selector dropdown for NBA, EuroLeague, and EuroCup
     -   NBA: Uses nba_api for player game logs with Bovada lines
     -   EuroLeague/EuroCup: Uses euroleague-api package for European basketball
--   **EDGE CALCULATION (Primary Filter)**:
+-   **EDGE CALCULATION**:
     -   `Edge% = (AI_Projection - Prop_Line) / Prop_Line × 100`
-    -   **Minimum 15%+ Edge** required for any play
     -   Sorted by Edge% (highest edge = best pick)
 -   **PLAY CLASSIFICATION**:
-    -   **PREMIUM PLAY**: Edge 25%+ AND Streak 100% (20/L20) AND Def Rank 26-30
-    -   **STRONG PLAY**: Edge 25%+ AND Streak 95%+ (19-20/L20)
-    -   **PLAY**: Edge 15-24% AND Streak 90%+ (18/L20+)
--   **MANDATORY FILTERS (ALL must pass)**:
+    -   **PREMIUM PLAY**: Streak 100% + Def Rank 26-30 (bottom 5 defense)
+    -   **STRONG PLAY**: Streak 90%+ + Def Rank 21-30 (bottom 10 defense)
+    -   **PLAY**: All others passing filters
+-   **FILTERS (Relaxed for more picks)**:
     -   Injury Status = Clear (not questionable/out)
-    -   AI Projection > Prop Line by 15%+
-    -   Streak ≥ 90% (18/L20 minimum)
-    -   Def Rank 21-30 (Bottom 10 defenses ONLY)
--   **DISQUALIFICATION RULES (Auto-AVOID)**:
-    -   Injury Status = Questionable or Out
-    -   AI Projection ≤ Prop Line
-    -   Edge < 15%
-    -   Streak < 90%
-    -   Def Rank NOT in 21-30
+    -   60%+ hit rate in last 20 games minimum
+    -   AI Projection based on 20-game average with defense adjustment
 -   **Elite 10 Section**: Top 10 picks by Edge%, unique players preferred
     -   Golden glow for PREMIUM PLAY, green for STRONG PLAY, purple for PLAY
     -   Shows L5/L10/L20 hit rates, Edge%, Classification, Def Rank, AI Proj
