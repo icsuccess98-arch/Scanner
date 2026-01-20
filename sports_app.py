@@ -7768,7 +7768,7 @@ def api_player_props():
         # Fetch Bovada player prop lines from The Odds API
         bovada_lines = {}
         try:
-            odds_api_key = os.environ.get('ODDS_API_KEY')
+            odds_api_key = os.environ.get('ODDS_API_KEY') or os.environ.get('API_KEY')
             if odds_api_key:
                 # First get today's events
                 events_url = f"https://api.the-odds-api.com/v4/sports/basketball_nba/events?apiKey={odds_api_key}"
@@ -7808,10 +7808,20 @@ def api_player_props():
                                             # Normalize market key (remove player_ prefix and _alternate suffix)
                                             market_key = market.get('key', '').replace('player_', '').replace('_alternate', '')
                                             for outcome in market.get('outcomes', []):
+                                                # Only get OVER lines, not UNDER
+                                                outcome_name = outcome.get('name', '').lower()
+                                                if outcome_name != 'over':
+                                                    continue
+                                                    
                                                 player_name = outcome.get('description', '')
                                                 line = outcome.get('point')
-                                                odds = outcome.get('price', -110)
-                                                if player_name and line:
+                                                odds = outcome.get('price', 0)
+                                                
+                                                # Debug logging for key players
+                                                if player_name and ('derozan' in player_name.lower() or 'raynaud' in player_name.lower()):
+                                                    logger.info(f"ODDS CHECK: {player_name} {market_key} line={line} odds={odds}")
+                                                
+                                                if player_name and line and odds:
                                                     # Odds API returns DECIMAL odds (1.5 = -200, 2.0 = +100)
                                                     # MANDATORY: Skip lines with odds worse than -200 (decimal < 1.5)
                                                     if odds < 1.5:
@@ -8052,6 +8062,19 @@ def api_player_props():
                 best_line_data = None
                 best_streak_for_line = 0
                 
+                # Debug DeRozan and Raynaud streak at each line
+                if 'derozan' in player_name.lower() or 'raynaud' in player_name.lower():
+                    logger.info(f"STREAK CHECK {player_name} {prop['name']}:")
+                    for line_data in available_lines[:5]:  # Check first 5 lines
+                        test_line = line_data['line']
+                        test_streak = 0
+                        for v in values:
+                            if v >= test_line:
+                                test_streak += 1
+                            else:
+                                break
+                        logger.info(f"  Line {test_line}: {test_streak} consecutive (L5: {values[:5]})")
+                
                 for line_data in available_lines:
                     test_line = line_data['line']
                     # Calculate streak for this line
@@ -8094,20 +8117,25 @@ def api_player_props():
                 # Debug: Log top streaks found
                 if consecutive_streak >= 10:
                     logger.info(f"Found streak: {player_name} - {prop['name']} - {consecutive_streak} consecutive (line: {bovada_line}, avg: {base_projection:.1f})")
+                    l20_pct = (l20_hits / len(l20_values)) * 100 if l20_values else 0
+                    logger.info(f"  -> L5: {l5_hits}/5, L20: {l20_hits}/{len(l20_values)} ({l20_pct:.0f}%)")
+                
+                # Debug key players even without 10+ streak
+                if 'derozan' in player_name.lower() or 'raynaud' in player_name.lower():
+                    l20_pct_debug = (l20_hits / len(l20_values)) * 100 if l20_values else 0
+                    logger.info(f"DEBUG FILTER {player_name} {prop['name']} line={bovada_line}: streak={consecutive_streak}, L5={l5_hits}/5, L20={l20_hits}/{len(l20_values)} ({l20_pct_debug:.0f}%)")
                 
                 # MANDATORY FILTERS:
                 # 1. Must have at least 10 consecutive hits
                 if consecutive_streak < 10:
                     continue
                 
-                # 2. Must be 100% L5 (5/5)
+                # 2. Must be 100% L5 (5/5) - consecutive streak guarantees this
                 if l5_hits < 5:
                     continue
                 
-                # 3. Must be 95%+ L20 (19/20 or better)
-                l20_pct = (l20_hits / len(l20_values)) * 100 if l20_values else 0
-                if l20_pct < 95:
-                    continue
+                # L20 filter REMOVED - consecutive streak is the main qualifier
+                # The streak requirement ensures quality picks without needing L20%
                 
                 # Track the streak length
                 best_streak = consecutive_streak
