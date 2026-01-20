@@ -8380,6 +8380,16 @@ def download_codebase_structure():
     from flask import send_file
     return send_file('sports_app_structure.csv', as_attachment=True, download_name='sports_app_structure.csv')
 
+@app.route('/download/app')
+def download_app():
+    """Download the sports app zip file."""
+    from flask import send_file
+    import os
+    zip_path = os.path.join(os.path.dirname(__file__), 'static', 'downloads', 'sports_app_latest.zip')
+    if os.path.exists(zip_path):
+        return send_file(zip_path, as_attachment=True, download_name='sports_app_latest.zip')
+    return jsonify({'error': 'File not found'}), 404
+
 @app.route('/update_result/<int:pick_id>', methods=['POST'])
 def update_result(pick_id):
     pick = Pick.query.get_or_404(pick_id)
