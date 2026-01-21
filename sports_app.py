@@ -8199,9 +8199,9 @@ def api_player_props():
                 # Calculate L20 percentage for filtering
                 l20_pct = (l20_hits / len(l20_values)) * 100 if l20_values else 0
                 
-                # MANDATORY FILTER: L20 hit rate 90%+ (18/20 or better)
+                # MANDATORY FILTER: L20 hit rate 85%+ (17/20 or better)
                 # This matches Joe's methodology - consistent performance over 20 games
-                if l20_pct < 90 or len(l20_values) < 20:
+                if l20_pct < 85 or len(l20_values) < 20:
                     continue
                 
                 # Track the streak - use consecutive if higher than L20 hits, otherwise use L20 hits

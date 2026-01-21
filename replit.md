@@ -94,10 +94,10 @@ This project develops and manages trading systems including a Sports Betting Cal
     -   **PREMIUM PLAY**: 100% L20 (20/20) - gold glow
     -   **STRONG PLAY**: 95%+ L20 (19/20) - green
     -   **PLAY**: 85%+ L20 (17-18/20) - purple
--   **MANDATORY FILTER**: L20 hit rate 90%+ (18/20 minimum)
+-   **MANDATORY FILTER**: L20 hit rate 85%+ (17/20 minimum) - matches Joe's methodology
     -   Players must have 20+ games of data
     -   Line exists from Bovada (priority) or backup books (betonlineag, lowvig)
-    -   No classification badges - only ELITE star for favorable defense matchups
+    -   Line selection: Pick line with LONGEST consecutive streak (higher line wins ties)
 -   **ELITE PICKS**: Bottom 10 defenses (ranks 21-30) = favorable matchups
     -   Picks against worst defenses prioritized at top
     -   Golden ELITE badge for favorable defense matchups
