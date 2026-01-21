@@ -8057,9 +8057,13 @@ def api_player_props():
                         available_lines.append(val)
                 
                 # Debug: Log lookups for specific players
-                if 'jones' in player_name.lower() or 'derozan' in player_name.lower() or 'fox' in player_name.lower():
+                if 'derozan' in player_name.lower() or 'murphy' in player_name.lower():
                     all_lines_sorted = sorted([l['line'] for l in available_lines], reverse=True)
-                    logger.info(f"DEBUG {player_name} {prop['name']}: {len(available_lines)} lines available: {all_lines_sorted[:10]}")
+                    # Also find any keys that contain this player's name
+                    matching_keys = [k for k in bovada_lines.keys() if 'derozan' in k.lower() or 'murphy' in k.lower()][:5]
+                    logger.info(f"DEBUG {player_name} {prop['name']}: looking for '{player_key_prefix}', found {len(available_lines)} lines")
+                    if matching_keys:
+                        logger.info(f"DEBUG Sample matching keys in bovada_lines: {matching_keys}")
                 
                 # ONLY process if we have actual Bovada lines
                 if not available_lines:
