@@ -7820,12 +7820,21 @@ def api_player_props():
                         if not event_id:
                             continue
                         
-                        # All prop markets including combos AND alternate lines
+                        # All prop markets including combos AND alternate lines (Joe's full cheat sheet)
                         # Joe uses ALT LINES with lower thresholds (e.g., O8.5 points instead of O18.5)
                         props_markets = [
+                            # Single stat props
                             'player_points', 'player_points_alternate',
                             'player_rebounds', 'player_rebounds_alternate', 
-                            'player_assists', 'player_assists_alternate'
+                            'player_assists', 'player_assists_alternate',
+                            'player_threes', 'player_threes_alternate',
+                            'player_steals', 'player_steals_alternate',
+                            'player_blocks', 'player_blocks_alternate',
+                            # Combo props (PTS+REB, PTS+AST, REB+AST, PTS+REB+AST)
+                            'player_points_rebounds', 'player_points_rebounds_alternate',
+                            'player_points_assists', 'player_points_assists_alternate',
+                            'player_rebounds_assists', 'player_rebounds_assists_alternate',
+                            'player_points_rebounds_assists', 'player_points_rebounds_assists_alternate'
                         ]
                         props_url = f"https://api.the-odds-api.com/v4/sports/basketball_nba/events/{event_id}/odds?apiKey={odds_api_key}&regions=us&markets={','.join(props_markets)}&bookmakers=fanduel,draftkings,bet365_us,fanatics"
                         
@@ -7838,7 +7847,8 @@ def api_player_props():
                                 logger.info(f"Event {event_id}: Found {len(bookmakers)} bookmakers")
                                 for bm in bookmakers:
                                     # Accept all major sportsbooks (FanDuel, DraftKings, Bovada, etc.)
-                                    if bm.get('key') in ['fanduel', 'draftkings', 'bovada', 'betonlineag', 'lowvig']:
+                                    # Joe's preferred bookmakers: DraftKings, FanDuel, Fanatics, Bet365
+                                    if bm.get('key') in ['fanduel', 'draftkings', 'fanatics', 'bet365', 'bet365_us']:
                                         for market in bm.get('markets', []):
                                             # Normalize market key (remove player_ prefix and _alternate suffix)
                                             market_key = market.get('key', '').replace('player_', '').replace('_alternate', '')
@@ -7996,6 +8006,7 @@ def api_player_props():
         
         # Fetch STAT-SPECIFIC defensive rankings (Joe's methodology)
         # Each stat type has its own ranking (e.g., "16th most points allowed")
+        # Using NBA API's built-in rank columns for accuracy
         stat_def_rankings = {
             'PTS': {},      # Points allowed ranking
             'REB': {},      # Rebounds allowed ranking
@@ -8006,29 +8017,33 @@ def api_player_props():
         }
         try:
             from nba_api.stats.endpoints import leaguedashteamstats
+            # Use PerGame mode to match Joe's methodology (per-game averages, not totals)
             team_stats = leaguedashteamstats.LeagueDashTeamStats(
                 season='2025-26',
                 measure_type_detailed_defense='Opponent',
+                per_mode_detailed='PerGame',
                 timeout=30
             )
             team_df = team_stats.get_data_frames()[0]
             
-            # Create rankings for each stat category (higher rank = allows MORE of that stat = worse defense)
-            stat_columns = {
-                'PTS': 'OPP_PTS',
-                'REB': 'OPP_REB', 
-                'AST': 'OPP_AST',
-                'BLK': 'OPP_BLK',
-                'STL': 'OPP_STL',
-                'FG3M': 'OPP_FG3M',
+            # Use built-in rank columns from NBA API
+            # Higher rank number = allows MORE of that stat = worse defense = better for OVER bets
+            stat_rank_columns = {
+                'PTS': 'OPP_PTS_RANK',
+                'REB': 'OPP_REB_RANK', 
+                'AST': 'OPP_AST_RANK',
+                'BLK': 'OPP_BLK_RANK',
+                'STL': 'OPP_STL_RANK',
+                'FG3M': 'OPP_FG3M_RANK',
             }
             
-            for stat_key, column in stat_columns.items():
-                if column in team_df.columns:
-                    # Sort descending - rank 1 = allows MOST of that stat (worst defense = best for betting over)
-                    sorted_df = team_df.sort_values(column, ascending=False)
-                    for rank, (_, row) in enumerate(sorted_df.iterrows(), 1):
-                        stat_def_rankings[stat_key][row['TEAM_ID']] = rank
+            for stat_key, rank_column in stat_rank_columns.items():
+                if rank_column in team_df.columns:
+                    for _, row in team_df.iterrows():
+                        # NBA API rank: 1 = allows LEAST (best defense), 30 = allows MOST (worst defense)
+                        # Joe's format is the same: higher rank = worse defense = more favorable for OVER bets
+                        # Ranks 21-30 = bottom 10 defenses (worst) = favorable matchups
+                        stat_def_rankings[stat_key][row['TEAM_ID']] = int(row[rank_column])
             
             logger.info(f"Fetched stat-specific defensive rankings for {len(team_df)} teams")
         except Exception as e:
