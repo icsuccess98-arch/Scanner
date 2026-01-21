@@ -7771,8 +7771,29 @@ def api_player_props():
         except Exception as e:
             logger.warning(f"Could not fetch injury report: {e}")
         
+        # Helper function to normalize player names for matching
+        def normalize_name(name):
+            """Normalize player name for consistent matching between APIs."""
+            if not name:
+                return ''
+            # Lowercase and strip whitespace
+            n = name.lower().strip()
+            # Remove suffixes like Jr., III, IV, II
+            for suffix in [' jr.', ' jr', ' iii', ' iv', ' ii', ' sr.', ' sr']:
+                if n.endswith(suffix):
+                    n = n[:-len(suffix)]
+            # Common name variations
+            replacements = {
+                'demarr': 'demar',  # DeMar vs DeMarr
+                '\'': '',  # Remove apostrophes (O'Brien -> OBrien)
+            }
+            for old, new in replacements.items():
+                n = n.replace(old, new)
+            return n.strip()
+        
         # Fetch Bovada player prop lines from The Odds API
         bovada_lines = {}
+        bovada_lines_normalized = {}  # Secondary lookup with normalized names
         try:
             odds_api_key = os.environ.get('ODDS_API_KEY') or os.environ.get('API_KEY')
             if odds_api_key:
@@ -7833,10 +7854,14 @@ def api_player_props():
                                                     # MANDATORY: Skip lines with odds worse than -200 (decimal < 1.5)
                                                     if odds < 1.5:
                                                         continue
+                                                    # Store with both raw and normalized name keys
                                                     key = f"{player_name.lower()}_{market_key}_{line}"
-                                                    # Store line with odds for later selection
+                                                    norm_key = f"{normalize_name(player_name)}_{market_key}_{line}"
+                                                    line_data = {'line': line, 'odds': odds, 'player': player_name}
                                                     if key not in bovada_lines:
-                                                        bovada_lines[key] = {'line': line, 'odds': odds}
+                                                        bovada_lines[key] = line_data
+                                                    if norm_key not in bovada_lines_normalized:
+                                                        bovada_lines_normalized[norm_key] = line_data
                         except Exception as e:
                             logger.warning(f"Error fetching props for event {event_id}: {e}")
                             continue
@@ -7852,9 +7877,17 @@ def api_player_props():
                             if mtype not in sample_by_type:
                                 sample_by_type[mtype] = k
                     logger.info(f"Market types found: {list(sample_by_type.keys())}")
-                    # Log 3 sample keys for debugging
-                    sample_keys = list(bovada_lines.keys())[:3]
+                    # Log sample keys and unique player names for debugging
+                    sample_keys = list(bovada_lines.keys())[:5]
                     logger.info(f"Sample keys: {sample_keys}")
+                    # Extract unique player names from keys
+                    unique_players = set()
+                    for k in bovada_lines.keys():
+                        # Key format: player_name_market_line (e.g., 'lebron james_points_24.5')
+                        parts = k.rsplit('_', 2)  # Split off line and market
+                        if len(parts) >= 3:
+                            unique_players.add(parts[0])
+                    logger.info(f"Sample API players: {list(unique_players)[:10]}")
                 else:
                     logger.warning(f"Events API returned status {events_resp.status_code}")
         except Exception as e:
@@ -8046,24 +8079,29 @@ def api_player_props():
                 ai_proj = base_projection * defense_boost
                 
                 # Look up ALL Bovada lines for this player/prop (including alternates)
-                # API keys are normalized: 'player_points' -> 'points', 'player_threes' -> 'threes'
+                # Try both raw name and normalized name lookups
                 market_key = prop.get('market_key', prop['key'])
                 player_key_prefix = f"{player_name.lower()}_{market_key}_"
+                norm_player_key_prefix = f"{normalize_name(player_name)}_{market_key}_"
                 
-                # Find all lines for this player/prop (main + alternates)
+                # Find all lines for this player/prop - try raw first, then normalized
                 available_lines = []
                 for key, val in bovada_lines.items():
                     if key.startswith(player_key_prefix):
                         available_lines.append(val)
                 
+                # If no matches with raw name, try normalized lookup
+                if not available_lines:
+                    for key, val in bovada_lines_normalized.items():
+                        if key.startswith(norm_player_key_prefix):
+                            available_lines.append(val)
+                
                 # Debug: Log lookups for specific players
-                if 'derozan' in player_name.lower() or 'murphy' in player_name.lower():
-                    all_lines_sorted = sorted([l['line'] for l in available_lines], reverse=True)
-                    # Also find any keys that contain this player's name
-                    matching_keys = [k for k in bovada_lines.keys() if 'derozan' in k.lower() or 'murphy' in k.lower()][:5]
-                    logger.info(f"DEBUG {player_name} {prop['name']}: looking for '{player_key_prefix}', found {len(available_lines)} lines")
+                if 'derozan' in player_name.lower() or 'kornet' in player_name.lower():
+                    matching_keys = [k for k in bovada_lines.keys() if 'derozan' in k.lower() or 'kornet' in k.lower()][:5]
+                    logger.info(f"DEBUG {player_name} {prop['name']}: raw='{player_key_prefix}', norm='{norm_player_key_prefix}', found {len(available_lines)}")
                     if matching_keys:
-                        logger.info(f"DEBUG Sample matching keys in bovada_lines: {matching_keys}")
+                        logger.info(f"DEBUG API keys sample: {matching_keys}")
                 
                 # ONLY process if we have actual Bovada lines
                 if not available_lines:
@@ -8148,18 +8186,18 @@ def api_player_props():
                     l20_pct_debug = (l20_hits / len(l20_values)) * 100 if l20_values else 0
                     logger.info(f"DEBUG FILTER {player_name} {prop['name']} line={bovada_line}: streak={consecutive_streak}, L5={l5_hits}/5, L20={l20_hits}/{len(l20_values)} ({l20_pct_debug:.0f}%)")
                 
-                # MANDATORY FILTER: Must have 10+ consecutive hits
-                # If they've hit the prop 10+ games in a row, they qualify
-                # No additional L5/L10/L20 percentage filters needed - the streak IS the filter
-                if consecutive_streak < 10:
-                    continue
-                
-                # Calculate L20 percentage for display only (not filtering)
+                # Calculate L20 percentage for filtering
                 l20_pct = (l20_hits / len(l20_values)) * 100 if l20_values else 0
                 
-                # Track the streak length
-                best_streak = consecutive_streak
-                best_sample = consecutive_streak
+                # MANDATORY FILTER: L20 hit rate 85%+ (17/20 or better)
+                # This matches Joe's methodology - consistent performance over 20 games
+                if l20_pct < 85 or len(l20_values) < 20:
+                    continue
+                
+                # Track the streak - use consecutive if higher than L20 hits, otherwise use L20 hits
+                # This matches Joe's format where "36/L36" means 36 consecutive or "20/L20" means 20/20
+                best_streak = max(consecutive_streak, l20_hits)
+                best_sample = max(consecutive_streak, 20)
                 
                 # === EDGE CALCULATION ===
                 # Edge = (AI_Projection - Prop_Line) / Prop_Line × 100
@@ -8169,17 +8207,17 @@ def api_player_props():
                 # Edge is for display/sorting, not filtering
                 
                 # === STREAK PERCENTAGE ===
-                streak_pct = (l20_hits / len(l20_values)) * 100 if l20_values else 0
+                streak_pct = l20_pct
                 
-                # === CLASSIFICATION (based on consecutive streak length) ===
-                # PREMIUM PLAY: 15+ consecutive hits
-                # STRONG PLAY: 10-14 consecutive hits
-                # PLAY: 5-9 consecutive hits
+                # === CLASSIFICATION (based on L20 hit rate) ===
+                # PREMIUM PLAY: 100% L20 (20/20)
+                # STRONG PLAY: 95%+ L20 (19/20)
+                # PLAY: 85%+ L20 (17-18/20)
                 
-                if consecutive_streak >= 15:
+                if l20_pct >= 100:
                     play_classification = 'PREMIUM PLAY'
                     confidence_color = 'gold'
-                elif consecutive_streak >= 10:
+                elif l20_pct >= 95:
                     play_classification = 'STRONG PLAY'
                     confidence_color = 'green'
                 else:
@@ -8281,10 +8319,15 @@ def api_player_props():
             
             player_count += 1
         
-        # Sort by streak length (longest trend at top), then edge, then AI proj
-        props_found.sort(key=lambda x: (-x['streak'], -x['edge_pct'], -x['ai_proj']))
+        # Sort by: 1) Favorable defense (bottom 10 = ranks 21-30), 2) L20 hit rate, 3) Streak, 4) AI Proj
+        props_found.sort(key=lambda x: (
+            -1 if x.get('is_elite') else 0,  # Favorable defense matchups first
+            -x['streak_pct'],  # Then by L20 hit rate
+            -x['streak'],  # Then by streak length
+            -x['ai_proj']  # Then by AI projection
+        ))
         
-        # Limit to max 2 props per player (best 2 by streak)
+        # Limit to max 2 props per player (best 2 by L20 hit rate)
         player_prop_count = {}
         limited_props = []
         for prop in props_found:
@@ -8296,14 +8339,14 @@ def api_player_props():
                 player_prop_count[player] += 1
         props_found = limited_props
         
-        # Get Elite 10 - top 10 picks by streak (unique players preferred)
+        # Get Elite 10 - top picks with favorable defense AND L20 85%+ (unique players)
         elite_picks = []
         seen_players = set()
         for prop in props_found:
             if len(elite_picks) >= 10:
                 break
-            # Elite picks MUST have at least 10 consecutive hits
-            if prop['streak'] >= 10 and prop['player'] not in seen_players:
+            # All qualified props have L20 85%+, prioritize unique players
+            if prop['player'] not in seen_players:
                 elite_picks.append(prop)
                 seen_players.add(prop['player'])
         
