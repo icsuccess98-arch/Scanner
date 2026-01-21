@@ -7850,11 +7850,7 @@ def api_player_props():
                                                     logger.info(f"ODDS CHECK: {player_name} {market_key} line={line} odds={odds}")
                                                 
                                                 if player_name and line and odds:
-                                                    # Odds API returns DECIMAL odds (1.5 = -200, 2.0 = +100)
-                                                    # MANDATORY: Skip lines with odds worse than -200 (decimal < 1.5)
-                                                    if odds < 1.5:
-                                                        continue
-                                                    # Store with both raw and normalized name keys
+                                                    # Store with both raw and normalized name keys (no odds filter)
                                                     key = f"{player_name.lower()}_{market_key}_{line}"
                                                     norm_key = f"{normalize_name(player_name)}_{market_key}_{line}"
                                                     line_data = {'line': line, 'odds': odds, 'player': player_name}

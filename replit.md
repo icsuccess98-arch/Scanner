@@ -96,7 +96,7 @@ This project develops and manages trading systems including a Sports Betting Cal
     -   **PLAY**: 85%+ L20 (17-18/20) - purple
 -   **MANDATORY FILTER**: L20 hit rate 90%+ (18/20 minimum)
     -   Players must have 20+ games of data
-    -   Line exists from Bovada/FanDuel/DraftKings/BetMGM (max -200 odds)
+    -   Line exists from Bovada/FanDuel/DraftKings/BetMGM
     -   No classification badges - only ELITE star for favorable defense matchups
 -   **ELITE PICKS**: Bottom 10 defenses (ranks 21-30) = favorable matchups
     -   Picks against worst defenses prioritized at top
