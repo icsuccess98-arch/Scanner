@@ -7830,7 +7830,8 @@ def api_player_props():
                             'player_points_rebounds_alternate', 'player_points_assists_alternate',
                             'player_rebounds_assists_alternate', 'player_points_rebounds_assists_alternate'
                         ]
-                        props_url = f"https://api.the-odds-api.com/v4/sports/basketball_nba/events/{event_id}/odds?apiKey={odds_api_key}&regions=us&markets={','.join(props_markets)}&bookmakers=bovada,betonlineag,lowvig"
+                        # Include FanDuel, DraftKings, and Bovada
+                        props_url = f"https://api.the-odds-api.com/v4/sports/basketball_nba/events/{event_id}/odds?apiKey={odds_api_key}&regions=us&markets={','.join(props_markets)}&bookmakers=fanduel,draftkings,bovada,betonlineag"
                         
                         try:
                             props_resp = requests.get(props_url, timeout=10)
@@ -7838,8 +7839,9 @@ def api_player_props():
                                 props_data = props_resp.json()
                                 bookmakers = props_data.get('bookmakers', [])
                                 for bm in bookmakers:
-                                    # Prioritize Bovada, fallback to other books
-                                    if bm.get('key') in ['bovada', 'betonlineag', 'lowvig']:
+                                    book_key = bm.get('key', '')
+                                    # Use FanDuel, DraftKings, Bovada, BetOnline
+                                    if book_key in ['fanduel', 'draftkings', 'bovada', 'betonlineag']:
                                         for market in bm.get('markets', []):
                                             # Normalize market key (remove player_ prefix and _alternate suffix)
                                             market_key = market.get('key', '').replace('player_', '').replace('_alternate', '')
@@ -7861,10 +7863,12 @@ def api_player_props():
                                                     # Store with both raw and normalized name keys (no odds filter)
                                                     key = f"{player_name.lower()}_{market_key}_{line}"
                                                     norm_key = f"{normalize_name(player_name)}_{market_key}_{line}"
-                                                    line_data = {'line': line, 'odds': odds, 'player': player_name}
-                                                    if key not in bovada_lines:
+                                                    line_data = {'line': line, 'odds': odds, 'player': player_name, 'book': book_key}
+                                                    # Prefer FanDuel > DraftKings > Bovada > BetOnline
+                                                    book_priority = {'fanduel': 1, 'draftkings': 2, 'bovada': 3, 'betonlineag': 4}
+                                                    if key not in bovada_lines or book_priority.get(book_key, 5) < book_priority.get(bovada_lines.get(key, {}).get('book'), 5):
                                                         bovada_lines[key] = line_data
-                                                    if norm_key not in bovada_lines_normalized:
+                                                    if norm_key not in bovada_lines_normalized or book_priority.get(book_key, 5) < book_priority.get(bovada_lines_normalized.get(norm_key, {}).get('book'), 5):
                                                         bovada_lines_normalized[norm_key] = line_data
                         except Exception as e:
                             logger.warning(f"Error fetching props for event {event_id}: {e}")
@@ -8113,62 +8117,47 @@ def api_player_props():
                     if matching_keys:
                         logger.info(f"DEBUG API keys sample: {matching_keys}")
                 
-                # === JOE'S METHODOLOGY: Generate streaks from game logs ===
-                # When API lines available, use them; otherwise test our own thresholds
-                # This ensures we always show hot streaks regardless of API availability
+                # === USE ACTUAL BETTING LINES FROM FANDUEL/DRAFTKINGS/BOVADA ===
+                # Only show props that have real betting lines available
                 
                 # Need at least 10 games for analysis
                 if len(values) < 10:
                     continue
                 
+                # REQUIRE actual betting lines - skip if none available
+                if not available_lines:
+                    continue
+                
                 best_line_data = None
                 best_streak_for_line = 0
                 bovada_line = None
+                best_book = None
                 
-                if available_lines:
-                    # API lines available - use them
-                    available_lines.sort(key=lambda x: x['line'], reverse=True)
-                    
-                    for line_data in available_lines:
-                        test_line = line_data['line']
-                        threshold_check = int(test_line) + 1 if test_line == int(test_line) + 0.5 else int(test_line) + 1
-                        test_streak = 0
-                        for v in values:
-                            if v >= threshold_check:
-                                test_streak += 1
-                            else:
-                                break
-                        
-                        if test_streak > best_streak_for_line:
-                            best_streak_for_line = test_streak
-                            best_line_data = line_data
-                    
-                    if best_line_data:
-                        bovada_line = best_line_data['line']
-                else:
-                    # NO API lines - Joe's approach: test our thresholds from game logs
-                    # Find the HIGHEST threshold with 10+ consecutive game streak
-                    thresholds_to_test = prop.get('thresholds', [])
-                    # Sort descending - prefer higher thresholds (more impressive streaks)
-                    thresholds_to_test = sorted(thresholds_to_test, reverse=True)
-                    
-                    for test_threshold in thresholds_to_test:
-                        test_streak = 0
-                        for v in values:
-                            if v >= test_threshold:
-                                test_streak += 1
-                            else:
-                                break
-                        
-                        # Joe's sheets require 10+ game streaks minimum
-                        # Prefer higher thresholds when streaks are equal (tie-breaking)
-                        if test_streak >= 10:
-                            if test_streak > best_streak_for_line or (test_streak == best_streak_for_line and test_threshold > (bovada_line or 0)):
-                                best_streak_for_line = test_streak
-                                bovada_line = test_threshold
-                                best_line_data = {'line': test_threshold, 'odds': -110, 'player': player_name}
+                # Test each available betting line and find the one with the best streak
+                # Sort by line value (highest first) - prefer higher lines (more impressive streaks)
+                available_lines.sort(key=lambda x: x['line'], reverse=True)
                 
-                # Skip if no qualifying streak found
+                for line_data in available_lines:
+                    test_line = line_data['line']
+                    # For .5 lines: O0.5 needs 1+, O3.5 needs 4+ (ceiling)
+                    threshold_check = int(test_line) + 1 if test_line == int(test_line) + 0.5 else int(test_line) + 1
+                    
+                    # Calculate consecutive streak for this line
+                    test_streak = 0
+                    for v in values:
+                        if v >= threshold_check:
+                            test_streak += 1
+                        else:
+                            break
+                    
+                    # Prefer longer streaks; if equal, prefer higher line (more impressive)
+                    if test_streak > best_streak_for_line or (test_streak == best_streak_for_line and test_line > (bovada_line or 0)):
+                        best_streak_for_line = test_streak
+                        best_line_data = line_data
+                        bovada_line = test_line
+                        best_book = line_data.get('book', 'unknown')
+                
+                # Skip if no qualifying streak found (require 10+ consecutive)
                 if not bovada_line or best_streak_for_line < 10:
                     continue
                 # For .5 lines: O0.5 needs 1+, O3.5 needs 4+ (ceiling)
@@ -8316,6 +8305,7 @@ def api_player_props():
                     'stat_name': stat_name,
                     'ai_proj': round(ai_proj, 1),
                     'bovada_line': bovada_line,
+                    'book': best_book,
                     'edge': round(ai_proj - bovada_line, 1) if bovada_line else None,
                     'status': None
                 })
