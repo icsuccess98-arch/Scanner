@@ -7821,10 +7821,13 @@ def api_player_props():
                             continue
                         
                         # All prop markets including combos AND alternate lines
+                        # Joe uses ALT LINES with lower thresholds (e.g., O8.5 points instead of O18.5)
                         props_markets = [
-                            'player_points', 'player_rebounds', 'player_assists'
+                            'player_points', 'player_points_alternate',
+                            'player_rebounds', 'player_rebounds_alternate', 
+                            'player_assists', 'player_assists_alternate'
                         ]
-                        props_url = f"https://api.the-odds-api.com/v4/sports/basketball_nba/events/{event_id}/odds?apiKey={odds_api_key}&regions=us&markets={','.join(props_markets)}&bookmakers=fanduel,draftkings"
+                        props_url = f"https://api.the-odds-api.com/v4/sports/basketball_nba/events/{event_id}/odds?apiKey={odds_api_key}&regions=us&markets={','.join(props_markets)}&bookmakers=fanduel,draftkings,bet365_us,fanatics"
                         
                         try:
                             props_resp = requests.get(props_url, timeout=10)
@@ -8156,47 +8159,35 @@ def api_player_props():
                 best_streak_for_line = 0
                 bovada_line = None
                 
-                # STEP 1: Try API lines first
-                if available_lines:
-                    available_lines.sort(key=lambda x: x['line'], reverse=True)
-                    
-                    for line_data in available_lines:
-                        test_line = line_data['line']
-                        threshold_check = int(test_line) + 1 if test_line == int(test_line) + 0.5 else int(test_line) + 1
-                        test_streak = 0
-                        for v in values:
-                            if v >= threshold_check:
-                                test_streak += 1
-                            else:
-                                break
-                        
-                        if test_streak > best_streak_for_line:
-                            best_streak_for_line = test_streak
-                            best_line_data = line_data
-                    
-                    if best_line_data:
-                        bovada_line = best_line_data['line']
+                # JOE'S METHODOLOGY: ONLY use actual sportsbook lines (no generated thresholds)
+                # "I use DraftKings, FanDuel, Fanatics and Bet365 to make the wagers"
+                # Find the line with the LONGEST streak (10+ games)
+                if not available_lines:
+                    continue  # Skip if no sportsbook line available
                 
-                # STEP 2: ALWAYS also test generated thresholds (Joe's approach)
-                # This catches cases where API line is too high but lower thresholds have hot streaks
-                thresholds_to_test = prop.get('thresholds', [])
-                thresholds_to_test = sorted(thresholds_to_test, reverse=True)
-                
-                for test_threshold in thresholds_to_test:
+                # Test all available sportsbook lines, pick the one with longest streak
+                for line_data in available_lines:
+                    test_line = line_data['line']
+                    test_odds = line_data.get('odds', -110)
+                    
+                    # Joe's rule: keep odds at -500 or better (decimal 1.2 = -500)
+                    if test_odds < 1.2:
+                        continue
+                    
+                    # For O8.5 line, player needs 9+ to hit
+                    threshold_check = int(test_line) + 1
                     test_streak = 0
                     for v in values:
-                        if v >= test_threshold:
+                        if v >= threshold_check:
                             test_streak += 1
                         else:
                             break
                     
-                    # Joe's sheets require 10+ game streaks minimum
-                    # Pick the LONGEST streak (Joe shows 30/L30, not highest threshold)
-                    if test_streak >= 10:
-                        if test_streak > best_streak_for_line:
-                            best_streak_for_line = test_streak
-                            bovada_line = test_threshold
-                            best_line_data = {'line': test_threshold, 'odds': -110, 'player': player_name}
+                    # Joe's sheets: 10+ games in a row hitting that line
+                    if test_streak >= 10 and test_streak > best_streak_for_line:
+                        best_streak_for_line = test_streak
+                        best_line_data = line_data
+                        bovada_line = test_line
                 
                 # Skip if no qualifying streak found
                 if not bovada_line or best_streak_for_line < 10:
@@ -8362,13 +8353,26 @@ def api_player_props():
             
             player_count += 1
         
-        # Joe's methodology: Show ALL props per player (not just one)
-        # Sort by streak length (Joe's display order - longest streaks first)
+        # Joe's methodology: Max 2 props per player
+        # Sort by streak length first (longest streaks first)
         props_found.sort(key=lambda x: (
             -x['streak'],  # Longest streak first
             -x.get('bovada_line', 0),  # Then by threshold
             -x['ai_proj']  # Then by AI projection
         ))
+        
+        # Keep max 2 props per player (Joe's rule)
+        player_prop_counts = {}
+        filtered_props = []
+        for prop in props_found:
+            player = prop['player']
+            if player not in player_prop_counts:
+                player_prop_counts[player] = 0
+            if player_prop_counts[player] < 2:
+                filtered_props.append(prop)
+                player_prop_counts[player] += 1
+        
+        props_found = filtered_props
         
         # Get Elite 10 - top picks with favorable defense AND L20 85%+ (unique players)
         elite_picks = []
