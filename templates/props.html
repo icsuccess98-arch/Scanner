@@ -437,7 +437,7 @@
         <i class="bi bi-person-bounding-box"></i>
         <h5>No Player Props Loaded</h5>
         <p>Click "Fetch Player Stats" to find qualified plays</p>
-        <p style="font-size: 0.75rem; margin-top: 0.5rem; opacity: 0.7;">Sorted by defense matchup + L20 hit rate | Requires 90%+ L20 (18/20)</p>
+        <p style="font-size: 0.75rem; margin-top: 0.5rem; opacity: 0.7;">Sorted by defense matchup + streak | Requires 10+ consecutive games</p>
     </div>
     
     <div class="loading-state" id="loadingState" style="display: none;">
@@ -501,8 +501,14 @@
             return false;
         }
         
-        // Load on page init
+        // Load on page init - auto-fetch if no cache
         const hasCached = loadCachedProps();
+        if (!hasCached) {
+            // Auto-fetch on page load if no cached data
+            setTimeout(() => {
+                document.getElementById('fetchBtn').click();
+            }, 500);
+        }
 
         async function fetchPlayerStats() {
             const btn = document.getElementById('fetchBtn');

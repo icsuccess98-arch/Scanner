@@ -8113,28 +8113,24 @@ def api_player_props():
                     if matching_keys:
                         logger.info(f"DEBUG API keys sample: {matching_keys}")
                 
-                # ONLY process if we have actual Bovada lines
-                if not available_lines:
-                    continue
+                # === JOE'S METHODOLOGY: Generate streaks from game logs ===
+                # When API lines available, use them; otherwise test our own thresholds
+                # This ensures we always show hot streaks regardless of API availability
                 
                 # Need at least 10 games for analysis
                 if len(values) < 10:
                     continue
                 
-                # Sort by line value (HIGHEST first) - Joe's methodology prefers higher lines
-                # Higher lines = harder to hit = more valuable when streak is long
-                available_lines.sort(key=lambda x: x['line'], reverse=True)
-                
-                # Test each line from lowest to highest, pick LOWEST with 10+ streak
                 best_line_data = None
                 best_streak_for_line = 0
+                bovada_line = None
                 
-                # Debug DeRozan and Raynaud streak at each line
-                if 'derozan' in player_name.lower() or 'raynaud' in player_name.lower() or 'lebron' in player_name.lower() or 'james' in player_name.lower():
-                    logger.info(f"STREAK CHECK {player_name} {prop['name']}:")
-                    for line_data in available_lines[:5]:  # Check first 5 lines
+                if available_lines:
+                    # API lines available - use them
+                    available_lines.sort(key=lambda x: x['line'], reverse=True)
+                    
+                    for line_data in available_lines:
                         test_line = line_data['line']
-                        # For .5 lines: O0.5 needs 1+, O3.5 needs 4+ (ceiling)
                         threshold_check = int(test_line) + 1 if test_line == int(test_line) + 0.5 else int(test_line) + 1
                         test_streak = 0
                         for v in values:
@@ -8142,30 +8138,39 @@ def api_player_props():
                                 test_streak += 1
                             else:
                                 break
-                        logger.info(f"  Line {test_line} (threshold {threshold_check}): {test_streak} consecutive (L5: {values[:5]})")
-                
-                for line_data in available_lines:
-                    test_line = line_data['line']
-                    # For .5 lines: O0.5 needs 1+, O3.5 needs 4+ (ceiling)
-                    threshold_check = int(test_line) + 1 if test_line == int(test_line) + 0.5 else int(test_line) + 1
-                    # Calculate streak for this line
-                    test_streak = 0
-                    for v in values:
-                        if v >= threshold_check:
-                            test_streak += 1
-                        else:
-                            break
+                        
+                        if test_streak > best_streak_for_line:
+                            best_streak_for_line = test_streak
+                            best_line_data = line_data
                     
-                    # Joe's methodology: Pick the line with the LONGEST streak
-                    # This prioritizes consistency over lower lines
-                    if test_streak > best_streak_for_line:
-                        best_streak_for_line = test_streak
-                        best_line_data = line_data
+                    if best_line_data:
+                        bovada_line = best_line_data['line']
+                else:
+                    # NO API lines - Joe's approach: test our thresholds from game logs
+                    # Find the HIGHEST threshold with 10+ consecutive game streak
+                    thresholds_to_test = prop.get('thresholds', [])
+                    # Sort descending - prefer higher thresholds (more impressive streaks)
+                    thresholds_to_test = sorted(thresholds_to_test, reverse=True)
+                    
+                    for test_threshold in thresholds_to_test:
+                        test_streak = 0
+                        for v in values:
+                            if v >= test_threshold:
+                                test_streak += 1
+                            else:
+                                break
+                        
+                        # Joe's sheets require 10+ game streaks minimum
+                        # Prefer higher thresholds when streaks are equal (tie-breaking)
+                        if test_streak >= 10:
+                            if test_streak > best_streak_for_line or (test_streak == best_streak_for_line and test_threshold > (bovada_line or 0)):
+                                best_streak_for_line = test_streak
+                                bovada_line = test_threshold
+                                best_line_data = {'line': test_threshold, 'odds': -110, 'player': player_name}
                 
-                if not best_line_data:
+                # Skip if no qualifying streak found
+                if not bovada_line or best_streak_for_line < 10:
                     continue
-                
-                bovada_line = best_line_data['line']
                 # For .5 lines: O0.5 needs 1+, O3.5 needs 4+ (ceiling)
                 threshold = int(bovada_line) + 1 if bovada_line == int(bovada_line) + 0.5 else int(bovada_line) + 1
                 
@@ -8199,10 +8204,9 @@ def api_player_props():
                 # Calculate L20 percentage for filtering
                 l20_pct = (l20_hits / len(l20_values)) * 100 if l20_values else 0
                 
-                # MANDATORY FILTER: L20 hit rate 85%+ (17/20 or better)
-                # This matches Joe's methodology - consistent performance over 20 games
-                if l20_pct < 85 or len(l20_values) < 20:
-                    continue
+                # Joe's methodology: Focus on CONSECUTIVE STREAKS (10+ games hitting threshold)
+                # L20 hit rate is for reference, not a mandatory filter
+                # The streak requirement is handled above (10+ consecutive games)
                 
                 # Track the streak - Joe's format shows consecutive streak on both sides
                 # e.g., "30/L30" means 30 consecutive games hit, "25/L25" means 25 consecutive
