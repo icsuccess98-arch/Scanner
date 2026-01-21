@@ -7841,14 +7841,20 @@ def api_player_props():
                             logger.warning(f"Error fetching props for event {event_id}: {e}")
                             continue
                     
-                    logger.info(f"Fetched {len(bovada_lines)} Bovada prop lines")
-                    # Log sample of different market types
+                    logger.info(f"Fetched {len(bovada_lines)} prop lines from bookmakers")
+                    # Log sample of different market types (extract market key from key format: player_market_line)
                     sample_by_type = {}
                     for k in bovada_lines.keys():
-                        mtype = k.split('_')[-1] if '_' in k else 'unknown'
-                        if mtype not in sample_by_type:
-                            sample_by_type[mtype] = k
-                    logger.info(f"Bovada market types found: {list(sample_by_type.keys())}")
+                        parts = k.rsplit('_', 1)  # Split off line number
+                        if len(parts) >= 2:
+                            player_market = parts[0].rsplit('_', 1)  # Split off market from player
+                            mtype = player_market[-1] if len(player_market) > 1 else 'unknown'
+                            if mtype not in sample_by_type:
+                                sample_by_type[mtype] = k
+                    logger.info(f"Market types found: {list(sample_by_type.keys())}")
+                    # Log 3 sample keys for debugging
+                    sample_keys = list(bovada_lines.keys())[:3]
+                    logger.info(f"Sample keys: {sample_keys}")
                 else:
                     logger.warning(f"Events API returned status {events_resp.status_code}")
         except Exception as e:
@@ -8040,9 +8046,9 @@ def api_player_props():
                 ai_proj = base_projection * defense_boost
                 
                 # Look up ALL Bovada lines for this player/prop (including alternates)
-                # API uses 'player_points', 'player_assists' etc, so add 'player_' prefix
+                # API keys are normalized: 'player_points' -> 'points', 'player_threes' -> 'threes'
                 market_key = prop.get('market_key', prop['key'])
-                player_key_prefix = f"{player_name.lower()}_player_{market_key}_"
+                player_key_prefix = f"{player_name.lower()}_{market_key}_"
                 
                 # Find all lines for this player/prop (main + alternates)
                 available_lines = []
