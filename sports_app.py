@@ -7804,6 +7804,7 @@ def api_player_props():
         bovada_lines_normalized = {}  # Secondary lookup with normalized names
         try:
             odds_api_key = os.environ.get('ODDS_API_KEY') or os.environ.get('API_KEY')
+            logger.info(f"ODDS API KEY loaded: {'YES' if odds_api_key else 'NO'} (length: {len(odds_api_key) if odds_api_key else 0})")
             if odds_api_key:
                 # First get today's events
                 events_url = f"https://api.the-odds-api.com/v4/sports/basketball_nba/events?apiKey={odds_api_key}"
@@ -7820,26 +7821,20 @@ def api_player_props():
                         
                         # All prop markets including combos AND alternate lines
                         props_markets = [
-                            'player_points', 'player_rebounds', 'player_assists', 'player_threes',
-                            'player_steals', 'player_blocks',
-                            'player_points_rebounds', 'player_points_assists', 'player_rebounds_assists',
-                            'player_points_rebounds_assists',
-                            # Alternate lines (lower/higher thresholds)
-                            'player_points_alternate', 'player_rebounds_alternate', 'player_assists_alternate',
-                            'player_threes_alternate', 'player_steals_alternate', 'player_blocks_alternate',
-                            'player_points_rebounds_alternate', 'player_points_assists_alternate',
-                            'player_rebounds_assists_alternate', 'player_points_rebounds_assists_alternate'
+                            'player_points', 'player_rebounds', 'player_assists'
                         ]
-                        props_url = f"https://api.the-odds-api.com/v4/sports/basketball_nba/events/{event_id}/odds?apiKey={odds_api_key}&regions=us&markets={','.join(props_markets)}&bookmakers=bovada,betonlineag,lowvig"
+                        props_url = f"https://api.the-odds-api.com/v4/sports/basketball_nba/events/{event_id}/odds?apiKey={odds_api_key}&regions=us&markets={','.join(props_markets)}&bookmakers=fanduel,draftkings"
                         
                         try:
                             props_resp = requests.get(props_url, timeout=10)
+                            logger.info(f"Props API response status: {props_resp.status_code} for event {event_id}")
                             if props_resp.status_code == 200:
                                 props_data = props_resp.json()
                                 bookmakers = props_data.get('bookmakers', [])
+                                logger.info(f"Event {event_id}: Found {len(bookmakers)} bookmakers")
                                 for bm in bookmakers:
-                                    # Prioritize Bovada, fallback to other books
-                                    if bm.get('key') in ['bovada', 'betonlineag', 'lowvig']:
+                                    # Accept all major sportsbooks (FanDuel, DraftKings, Bovada, etc.)
+                                    if bm.get('key') in ['fanduel', 'draftkings', 'bovada', 'betonlineag', 'lowvig']:
                                         for market in bm.get('markets', []):
                                             # Normalize market key (remove player_ prefix and _alternate suffix)
                                             market_key = market.get('key', '').replace('player_', '').replace('_alternate', '')
