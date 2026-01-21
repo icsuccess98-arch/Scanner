@@ -8271,8 +8271,19 @@ def api_player_props():
             player_count += 1
         
         # Sort by streak length (longest trend at top), then edge, then AI proj
-        # Show ALL qualifying props per player (not deduplicated)
         props_found.sort(key=lambda x: (-x['streak'], -x['edge_pct'], -x['ai_proj']))
+        
+        # Limit to max 2 props per player (best 2 by streak)
+        player_prop_count = {}
+        limited_props = []
+        for prop in props_found:
+            player = prop['player']
+            if player not in player_prop_count:
+                player_prop_count[player] = 0
+            if player_prop_count[player] < 2:
+                limited_props.append(prop)
+                player_prop_count[player] += 1
+        props_found = limited_props
         
         # Get Elite 10 - top 10 picks by streak (unique players preferred)
         elite_picks = []
