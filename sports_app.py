@@ -72,6 +72,9 @@ last_game_count = {}
 
 _live_scores_cache = {"data": {}, "timestamp": 0}
 
+_props_lines_cache = {"data": {}, "normalized": {}, "timestamp": 0}
+PROPS_CACHE_TTL = 300
+
 DASHBOARD_CACHE_TTL = 30
 TEAM_STATS_CACHE_TTL = 86400
 HISTORICAL_CACHE_TTL = 21600
@@ -7799,109 +7802,111 @@ def api_player_props():
                 n = n.replace(old, new)
             return n.strip()
         
-        # Fetch Bovada player prop lines from The Odds API
+        # Fetch Bovada player prop lines from The Odds API (with caching)
+        global _props_lines_cache
+        current_time = time.time()
+        cache_age = current_time - _props_lines_cache.get("timestamp", 0)
+        
         bovada_lines = {}
-        bovada_lines_normalized = {}  # Secondary lookup with normalized names
-        try:
-            odds_api_key = os.environ.get('ODDS_API_KEY') or os.environ.get('API_KEY')
-            if odds_api_key:
-                # First get today's events
-                events_url = f"https://api.the-odds-api.com/v4/sports/basketball_nba/events?apiKey={odds_api_key}"
-                events_resp = requests.get(events_url, timeout=15)
-                if events_resp.status_code == 200:
-                    events = events_resp.json()
-                    logger.info(f"Found {len(events)} NBA events for props")
-                    
-                    # Fetch player props for each event
-                    for event in events[:12]:  # Limit to avoid API quota
-                        event_id = event.get('id')
-                        if not event_id:
-                            continue
+        bovada_lines_normalized = {}
+        
+        if cache_age < PROPS_CACHE_TTL and _props_lines_cache.get("data"):
+            bovada_lines = _props_lines_cache["data"]
+            bovada_lines_normalized = _props_lines_cache["normalized"]
+            logger.info(f"Using cached prop lines ({len(bovada_lines)} lines, {int(cache_age)}s old)")
+        else:
+            try:
+                odds_api_key = os.environ.get('ODDS_API_KEY') or os.environ.get('API_KEY')
+                if odds_api_key:
+                    # First get today's events
+                    events_url = f"https://api.the-odds-api.com/v4/sports/basketball_nba/events?apiKey={odds_api_key}"
+                    events_resp = requests.get(events_url, timeout=15)
+                    if events_resp.status_code == 200:
+                        events = events_resp.json()
+                        logger.info(f"Found {len(events)} NBA events for props")
                         
-                        # All prop markets including combos AND alternate lines
-                        props_markets = [
-                            'player_points', 'player_rebounds', 'player_assists', 'player_threes',
-                            'player_steals', 'player_blocks',
-                            'player_points_rebounds', 'player_points_assists', 'player_rebounds_assists',
-                            'player_points_rebounds_assists',
-                            # Alternate lines (lower/higher thresholds)
-                            'player_points_alternate', 'player_rebounds_alternate', 'player_assists_alternate',
-                            'player_threes_alternate', 'player_steals_alternate', 'player_blocks_alternate',
-                            'player_points_rebounds_alternate', 'player_points_assists_alternate',
-                            'player_rebounds_assists_alternate', 'player_points_rebounds_assists_alternate'
-                        ]
-                        props_url = f"https://api.the-odds-api.com/v4/sports/basketball_nba/events/{event_id}/odds?apiKey={odds_api_key}&regions=us&markets={','.join(props_markets)}&bookmakers=bovada,betonlineag,lowvig"
-                        
-                        try:
-                            props_resp = requests.get(props_url, timeout=10)
-                            if props_resp.status_code == 200:
-                                props_data = props_resp.json()
-                                bookmakers = props_data.get('bookmakers', [])
-                                for bm in bookmakers:
-                                    # Prioritize Bovada, fallback to other books
-                                    if bm.get('key') in ['bovada', 'betonlineag', 'lowvig']:
-                                        for market in bm.get('markets', []):
-                                            # Normalize market key (remove player_ prefix and _alternate suffix)
-                                            market_key = market.get('key', '').replace('player_', '').replace('_alternate', '')
-                                            for outcome in market.get('outcomes', []):
-                                                # Only get OVER lines, not UNDER
-                                                outcome_name = outcome.get('name', '').lower()
-                                                if outcome_name != 'over':
-                                                    continue
+                        for event in events[:12]:
+                            event_id = event.get('id')
+                            if not event_id:
+                                continue
+                            
+                            props_markets = [
+                                'player_points', 'player_rebounds', 'player_assists', 'player_threes',
+                                'player_steals', 'player_blocks',
+                                'player_points_rebounds', 'player_points_assists', 'player_rebounds_assists',
+                                'player_points_rebounds_assists',
+                                'player_points_alternate', 'player_rebounds_alternate', 'player_assists_alternate',
+                                'player_threes_alternate', 'player_steals_alternate', 'player_blocks_alternate',
+                                'player_points_rebounds_alternate', 'player_points_assists_alternate',
+                                'player_rebounds_assists_alternate', 'player_points_rebounds_assists_alternate'
+                            ]
+                            props_url = f"https://api.the-odds-api.com/v4/sports/basketball_nba/events/{event_id}/odds?apiKey={odds_api_key}&regions=us&markets={','.join(props_markets)}&bookmakers=bovada,betonlineag,lowvig"
+                            
+                            try:
+                                props_resp = requests.get(props_url, timeout=10)
+                                logger.info(f"Props API response for event: status={props_resp.status_code}, remaining={props_resp.headers.get('x-requests-remaining', 'N/A')}")
+                                if props_resp.status_code == 200:
+                                    props_data = props_resp.json()
+                                    bookmakers = props_data.get('bookmakers', [])
+                                    logger.info(f"Found {len(bookmakers)} bookmakers for event")
+                                    for bm in bookmakers:
+                                        if bm.get('key') in ['bovada', 'betonlineag', 'lowvig']:
+                                            for market in bm.get('markets', []):
+                                                market_key = market.get('key', '').replace('player_', '').replace('_alternate', '')
+                                                for outcome in market.get('outcomes', []):
+                                                    outcome_name = outcome.get('name', '').lower()
+                                                    if outcome_name != 'over':
+                                                        continue
+                                                        
+                                                    player_name = outcome.get('description', '')
+                                                    line = outcome.get('point')
+                                                    odds = outcome.get('price', 0)
                                                     
-                                                player_name = outcome.get('description', '')
-                                                line = outcome.get('point')
-                                                odds = outcome.get('price', 0)
-                                                
-                                                # Debug logging for key players
-                                                if player_name and ('derozan' in player_name.lower() or 'raynaud' in player_name.lower()):
-                                                    logger.info(f"ODDS CHECK: {player_name} {market_key} line={line} odds={odds}")
-                                                
-                                                if player_name and line and odds:
-                                                    # Store with both raw and normalized name keys (no odds filter)
-                                                    key = f"{player_name.lower()}_{market_key}_{line}"
-                                                    norm_key = f"{normalize_name(player_name)}_{market_key}_{line}"
-                                                    line_data = {'line': line, 'odds': odds, 'player': player_name}
-                                                    if key not in bovada_lines:
-                                                        bovada_lines[key] = line_data
-                                                    if norm_key not in bovada_lines_normalized:
-                                                        bovada_lines_normalized[norm_key] = line_data
-                        except Exception as e:
-                            logger.warning(f"Error fetching props for event {event_id}: {e}")
-                            continue
-                    
-                    logger.info(f"Fetched {len(bovada_lines)} prop lines from bookmakers")
-                    # Count market types - combo markets have underscores in the market key
-                    market_counts = {}
-                    combo_markets = ['points_rebounds', 'points_assists', 'rebounds_assists', 'points_rebounds_assists']
-                    for k in bovada_lines.keys():
-                        # Key format: playername_market_line
-                        for combo in combo_markets:
-                            if f"_{combo}_" in k:
-                                market_counts[combo] = market_counts.get(combo, 0) + 1
-                                break
-                        else:
-                            # Single stat market
-                            for single in ['points', 'rebounds', 'assists', 'threes', 'steals', 'blocks']:
-                                if f"_{single}_" in k and not any(f"_{c}_" in k for c in combo_markets):
-                                    market_counts[single] = market_counts.get(single, 0) + 1
+                                                    if player_name and ('derozan' in player_name.lower() or 'raynaud' in player_name.lower()):
+                                                        logger.info(f"ODDS CHECK: {player_name} {market_key} line={line} odds={odds}")
+                                                    
+                                                    if player_name and line and odds:
+                                                        key = f"{player_name.lower()}_{market_key}_{line}"
+                                                        norm_key = f"{normalize_name(player_name)}_{market_key}_{line}"
+                                                        line_data = {'line': line, 'odds': odds, 'player': player_name}
+                                                        if key not in bovada_lines:
+                                                            bovada_lines[key] = line_data
+                                                        if norm_key not in bovada_lines_normalized:
+                                                            bovada_lines_normalized[norm_key] = line_data
+                            except Exception as e:
+                                logger.warning(f"Error fetching props for event {event_id}: {e}")
+                                continue
+                        
+                        logger.info(f"Fetched {len(bovada_lines)} prop lines from bookmakers")
+                        market_counts = {}
+                        combo_markets = ['points_rebounds', 'points_assists', 'rebounds_assists', 'points_rebounds_assists']
+                        for k in bovada_lines.keys():
+                            for combo in combo_markets:
+                                if f"_{combo}_" in k:
+                                    market_counts[combo] = market_counts.get(combo, 0) + 1
                                     break
-                    logger.info(f"Market type counts: {market_counts}")
-                    # Log sample keys and unique player names for debugging
-                    sample_keys = list(bovada_lines.keys())[:5]
-                    logger.info(f"Sample keys: {sample_keys}")
-                    # Extract unique player names from keys
-                    unique_players = set()
-                    for k in bovada_lines.keys():
-                        # Key format: player_name_market_line (e.g., 'lebron james_points_24.5')
-                        parts = k.rsplit('_', 2)  # Split off line and market
-                        if len(parts) >= 3:
-                            unique_players.add(parts[0])
-                    logger.info(f"Sample API players: {list(unique_players)[:10]}")
-                else:
-                    logger.warning(f"Events API returned status {events_resp.status_code}")
-        except Exception as e:
-            logger.warning(f"Could not fetch Bovada lines: {e}")
+                            else:
+                                for single in ['points', 'rebounds', 'assists', 'threes', 'steals', 'blocks']:
+                                    if f"_{single}_" in k and not any(f"_{c}_" in k for c in combo_markets):
+                                        market_counts[single] = market_counts.get(single, 0) + 1
+                                        break
+                        logger.info(f"Market type counts: {market_counts}")
+                        sample_keys = list(bovada_lines.keys())[:5]
+                        logger.info(f"Sample keys: {sample_keys}")
+                        unique_players = set()
+                        for k in bovada_lines.keys():
+                            parts = k.rsplit('_', 2)
+                            if len(parts) >= 3:
+                                unique_players.add(parts[0])
+                        logger.info(f"Sample API players: {list(unique_players)[:10]}")
+                        
+                        _props_lines_cache["data"] = bovada_lines
+                        _props_lines_cache["normalized"] = bovada_lines_normalized
+                        _props_lines_cache["timestamp"] = time.time()
+                    else:
+                        logger.warning(f"Events API returned status {events_resp.status_code}")
+            except Exception as e:
+                logger.warning(f"Could not fetch Bovada lines: {e}")
         
         # Team ID to name mapping
         team_id_to_name = {t['id']: t['full_name'] for t in nba_teams.get_teams()}
