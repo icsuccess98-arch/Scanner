@@ -42,10 +42,10 @@
         }
         .header {
             background: linear-gradient(180deg, #16131f 0%, var(--bg-dark) 100%);
-            padding: 1rem;
+            padding: 1.5rem 1rem;
             border-bottom: 1px solid var(--border);
             display: flex;
-            justify-content: space-between;
+            justify-content: center;
             align-items: center;
             position: sticky;
             top: 0;
@@ -53,34 +53,21 @@
             backdrop-filter: blur(10px);
         }
         .brand {
-            font-size: 1.1rem;
-            font-weight: 700;
-            background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%);
+            font-size: 2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 50%, var(--gold) 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
             display: flex;
             align-items: center;
-            gap: 0.35rem;
+            justify-content: center;
+            gap: 0.5rem;
             text-decoration: none;
+            letter-spacing: 1px;
         }
-        .brand i { -webkit-text-fill-color: var(--gold); filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.5)); }
-        .nav-links { display: flex; gap: 0.5rem; }
-        .nav-links a {
-            color: var(--text-muted);
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 0.8rem;
-            padding: 0.4rem 0.75rem;
-            border-radius: 16px;
-            transition: all 0.2s;
-        }
-        .nav-links a:hover { color: var(--text); background: rgba(255,255,255,0.05); }
-        .nav-links a.active { 
-            color: var(--gold); 
-            background: linear-gradient(135deg, rgba(255, 215, 0, 0.15) 0%, rgba(218, 165, 32, 0.08) 100%);
-            box-shadow: 0 0 10px rgba(255, 215, 0, 0.2);
-        }
+        .brand i { -webkit-text-fill-color: var(--gold); filter: drop-shadow(0 0 12px rgba(255, 215, 0, 0.6)); font-size: 1.75rem; }
+        .nav-links { display: none; }
         
         .controls-section {
             background: linear-gradient(135deg, #0d0b12 0%, #14101c 100%);
@@ -429,21 +416,18 @@
             <i class="bi bi-lock-fill"></i>
             730's Locks
         </a>
-        <nav class="nav-links">
-            <a href="/">Dashboard</a>
-            <a href="/props" class="active">Player Props</a>
-            <a href="/bankroll">Bankroll</a>
-            <a href="/history">History</a>
-        </nav>
     </header>
 
     <div class="controls-section">
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
-            <div class="date-badge">
-                <i class="bi bi-calendar3"></i>
-                <span id="currentDate"></span>
+        <div class="container">
+            <div class="text-center mb-3">
+                <div class="date-badge d-inline-flex">
+                    <i class="bi bi-calendar3"></i>
+                    <span id="currentDate"></span>
+                </div>
             </div>
-            <div class="d-flex gap-2 align-items-center flex-wrap">
+            
+            <div class="d-flex justify-content-center gap-2 flex-wrap mb-3">
                 <select id="propTypeFilter" class="league-select" onchange="filterProps()">
                     <option value="all">All Prop Types</option>
                     <option value="points">Points</option>
@@ -462,6 +446,9 @@
                     <option value="euroleague">🇪🇺 EuroLeague</option>
                     <option value="eurocup">🏆 EuroCup</option>
                 </select>
+            </div>
+            
+            <div class="text-center">
                 <button class="btn-fetch" id="fetchBtn" onclick="fetchPlayerStats()">
                     <i class="bi bi-arrow-repeat"></i> Fetch Player Stats
                 </button>
