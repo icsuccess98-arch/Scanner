@@ -489,16 +489,20 @@
                         updateStats(allProps);
                         document.body.classList.add('data-loaded');
                         document.getElementById('statsBar').style.display = 'flex';
+                        document.getElementById('tableContainer').style.display = 'block';
                         document.getElementById('emptyState').style.display = 'none';
+                        document.getElementById('loadingState').style.display = 'none';
+                        return true;
                     }
                 } catch (e) {
                     console.log('Cache parse error');
                 }
             }
+            return false;
         }
         
         // Load on page init
-        loadCachedProps();
+        const hasCached = loadCachedProps();
 
         async function fetchPlayerStats() {
             const btn = document.getElementById('fetchBtn');
