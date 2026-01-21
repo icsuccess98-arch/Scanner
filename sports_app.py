@@ -8204,10 +8204,10 @@ def api_player_props():
                 if l20_pct < 85 or len(l20_values) < 20:
                     continue
                 
-                # Track the streak - use consecutive if higher than L20 hits, otherwise use L20 hits
-                # This matches Joe's format where "36/L36" means 36 consecutive or "20/L20" means 20/20
-                best_streak = max(consecutive_streak, l20_hits)
-                best_sample = max(consecutive_streak, 20)
+                # Track the streak - Joe's format shows consecutive streak on both sides
+                # e.g., "30/L30" means 30 consecutive games hit, "25/L25" means 25 consecutive
+                best_streak = consecutive_streak
+                best_sample = consecutive_streak
                 
                 # === EDGE CALCULATION ===
                 # Edge = (AI_Projection - Prop_Line) / Prop_Line × 100
