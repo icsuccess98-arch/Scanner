@@ -8156,8 +8156,8 @@ def api_player_props():
                 best_streak_for_line = 0
                 bovada_line = None
                 
+                # STEP 1: Try API lines first
                 if available_lines:
-                    # API lines available - use them
                     available_lines.sort(key=lambda x: x['line'], reverse=True)
                     
                     for line_data in available_lines:
@@ -8176,28 +8176,27 @@ def api_player_props():
                     
                     if best_line_data:
                         bovada_line = best_line_data['line']
-                else:
-                    # NO API lines - Joe's approach: test our thresholds from game logs
-                    # Find the HIGHEST threshold with 10+ consecutive game streak
-                    thresholds_to_test = prop.get('thresholds', [])
-                    # Sort descending - prefer higher thresholds (more impressive streaks)
-                    thresholds_to_test = sorted(thresholds_to_test, reverse=True)
+                
+                # STEP 2: ALWAYS also test generated thresholds (Joe's approach)
+                # This catches cases where API line is too high but lower thresholds have hot streaks
+                thresholds_to_test = prop.get('thresholds', [])
+                thresholds_to_test = sorted(thresholds_to_test, reverse=True)
+                
+                for test_threshold in thresholds_to_test:
+                    test_streak = 0
+                    for v in values:
+                        if v >= test_threshold:
+                            test_streak += 1
+                        else:
+                            break
                     
-                    for test_threshold in thresholds_to_test:
-                        test_streak = 0
-                        for v in values:
-                            if v >= test_threshold:
-                                test_streak += 1
-                            else:
-                                break
-                        
-                        # Joe's sheets require 10+ game streaks minimum
-                        # Prefer higher thresholds when streaks are equal (tie-breaking)
-                        if test_streak >= 10:
-                            if test_streak > best_streak_for_line or (test_streak == best_streak_for_line and test_threshold > (bovada_line or 0)):
-                                best_streak_for_line = test_streak
-                                bovada_line = test_threshold
-                                best_line_data = {'line': test_threshold, 'odds': -110, 'player': player_name}
+                    # Joe's sheets require 10+ game streaks minimum
+                    # Pick the LONGEST streak (Joe shows 30/L30, not highest threshold)
+                    if test_streak >= 10:
+                        if test_streak > best_streak_for_line:
+                            best_streak_for_line = test_streak
+                            bovada_line = test_threshold
+                            best_line_data = {'line': test_threshold, 'odds': -110, 'player': player_name}
                 
                 # Skip if no qualifying streak found
                 if not bovada_line or best_streak_for_line < 10:
@@ -8235,17 +8234,17 @@ def api_player_props():
                 # Calculate L20 percentage for filtering
                 l20_pct = (l20_hits / len(l20_values)) * 100 if l20_values else 0
                 
-                # === STRICT FILTERS (Joe's methodology) ===
-                # 1. Must have at least 20 games of data
-                if len(values) < 20:
+                # === JOE'S METHODOLOGY - STREAK ONLY ===
+                # Joe shows ANY prop with 10+ consecutive game streak
+                # No L10 100% or L20 85% requirement - just the streak matters
+                # The streak IS the filter (10+ games in a row hitting the line)
+                
+                # 1. Must have at least 10 games of data
+                if len(values) < 10:
                     continue
                 
-                # 2. Must hit 100% of last 10 games (10/10)
-                if l10_hits < 10:
-                    continue
-                
-                # 3. Must have 85%+ hit rate in last 20 games (17+/20)
-                if l20_pct < 85:
+                # 2. Must have 10+ consecutive game streak (already checked above)
+                if consecutive_streak < 10:
                     continue
                 
                 # Track the streak - Joe's format shows consecutive streak on both sides
@@ -8363,20 +8362,8 @@ def api_player_props():
             
             player_count += 1
         
-        # Joe's methodology: Sort by streak length, pick ONE prop per player
-        # First sort all props by streak length (longest first)
-        props_found.sort(key=lambda x: -x['streak'])
-        
-        # Keep only ONE prop per player (the one with longest streak)
-        player_best_props = {}
-        for prop in props_found:
-            player = prop['player']
-            if player not in player_best_props:
-                player_best_props[player] = prop
-        
-        props_found = list(player_best_props.values())
-        
-        # Final sort by streak length (Joe's display order - longest streaks first)
+        # Joe's methodology: Show ALL props per player (not just one)
+        # Sort by streak length (Joe's display order - longest streaks first)
         props_found.sort(key=lambda x: (
             -x['streak'],  # Longest streak first
             -x.get('bovada_line', 0),  # Then by threshold
