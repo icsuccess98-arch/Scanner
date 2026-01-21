@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Player Props - 730's Locks</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Royal Gold Theme - matching dashboard */
+            --bg-dark: #0a0a12;
+            --bg-card: #12101a;
+            --bg-input: #1a1825;
+            --border: #2d2640;
+            --text: #F8F8FF;
+            --text-muted: #9990B0;
+            --accent: #7B2CBF;
+            --emerald: #50C878;
+            --green: #50C878;
+            --gold: #FFD700;
+            --gold-light: #FFEC8B;
+            --gold-dark: #DAA520;
+            --crimson: #DC143C;
+            --purple: #7B2CBF;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            background: var(--bg-dark);
+            color: var(--text);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+            max-width: 100vw;
+        }
+        .header {
+            background: linear-gradient(180deg, #16131f 0%, var(--bg-dark) 100%);
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+        .brand {
+            font-size: 1.1rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            text-decoration: none;
+        }
+        .brand i { -webkit-text-fill-color: var(--gold); filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.5)); }
+        .nav-links { display: flex; gap: 0.5rem; }
+        .nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 0.4rem 0.75rem;
+            border-radius: 16px;
+            transition: all 0.2s;
+        }
+        .nav-links a:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+        .nav-links a.active { 
+            color: var(--gold); 
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.15) 0%, rgba(218, 165, 32, 0.08) 100%);
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.2);
+        }
+        
+        .controls-section {
+            background: linear-gradient(135deg, #0d0b12 0%, #14101c 100%);
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .date-badge {
+            background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%);
+            color: #000;
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 1rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+        }
+        .league-select {
+            background: var(--bg-input);
+            color: var(--text);
+            border: 1px solid var(--border);
+            padding: 0.6rem 1rem;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+        .btn-fetch {
+            background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%);
+            color: #000;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+        }
+        .btn-fetch:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255, 215, 0, 0.4); }
+        .btn-fetch:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        
+        .stats-bar {
+            display: flex;
+            gap: 1.5rem;
+            padding: 1rem 1.5rem;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+        .stat-pill {
+            background: linear-gradient(135deg, var(--bg-input) 0%, rgba(20, 16, 28, 0.9) 100%);
+            border: 1px solid var(--border);
+            border-radius: 50px;
+            padding: 0.5rem 1.25rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .stat-pill .value { font-weight: 700; font-size: 1.25rem; color: var(--gold); }
+        .stat-pill .label { color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; }
+        
+        .table-container {
+            margin: 1.5rem;
+        }
+        .props-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--bg-card);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        .props-table thead {
+            background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%);
+        }
+        .props-table th {
+            padding: 1rem;
+            text-align: left;
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #000;
+            white-space: nowrap;
+        }
+        .props-table th i { margin-right: 0.3rem; }
+        .props-table tbody tr {
+            border-bottom: 1px solid var(--border);
+            transition: background 0.15s;
+        }
+        .props-table tbody tr:hover { background: rgba(255, 215, 0, 0.05); }
+        .props-table td {
+            padding: 0.75rem 1rem;
+            color: var(--text);
+            vertical-align: middle;
+            font-size: 0.85rem;
+        }
+        
+        .team-cell { font-weight: 600; color: var(--text-muted); }
+        .player-cell { font-weight: 600; color: var(--text); }
+        .prop-cell { 
+            font-weight: 600; 
+            color: var(--gold);
+        }
+        .streak-cell {
+            font-weight: 700;
+            color: var(--emerald);
+            text-align: center;
+        }
+        .def-rank-cell {
+            text-align: center;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+        .def-rank-elite { color: var(--gold) !important; }
+        .def-rank-good { color: var(--emerald) !important; }
+        .ai-proj-cell {
+            text-align: right;
+            font-weight: 700;
+            color: var(--purple);
+        }
+        
+        .class-badge {
+            display: inline-block;
+            padding: 0.3rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .class-premium { 
+            background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%); 
+            color: #000; 
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
+        }
+        .class-strong { 
+            background: linear-gradient(135deg, var(--emerald) 0%, #3cb371 100%); 
+            color: #000; 
+        }
+        .class-play { 
+            background: linear-gradient(135deg, var(--purple) 0%, #9d4edd 100%); 
+            color: #fff; 
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-muted);
+            background: var(--bg-card);
+            border-radius: 16px;
+            margin: 1.5rem;
+        }
+        .empty-state i { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; color: var(--gold); }
+        .empty-state h5 { color: var(--text); margin-bottom: 0.5rem; }
+        
+        .loading-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-muted);
+            background: var(--bg-card);
+            border-radius: 16px;
+            margin: 1.5rem;
+        }
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid rgba(255, 215, 0, 0.2);
+            border-top-color: var(--gold);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .mobile-cards { display: none; }
+        .data-loaded .table-container { display: block; }
+        .data-loaded .mobile-cards { display: none; }
+        
+        @media (max-width: 992px) {
+            .data-loaded .table-container { display: none !important; }
+            .data-loaded .mobile-cards { display: block !important; margin: 1rem; }
+            .mobile-card {
+                background: var(--bg-card);
+                border: 1px solid var(--border);
+                border-radius: 16px;
+                padding: 1rem;
+                margin-bottom: 0.75rem;
+            }
+            .mobile-card-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                margin-bottom: 0.75rem;
+            }
+            .mobile-card-player {
+                font-weight: 700;
+                font-size: 1rem;
+                color: var(--text);
+            }
+            .mobile-card-team {
+                font-size: 0.75rem;
+                color: var(--text-muted);
+            }
+            .mobile-card-prop {
+                font-weight: 600;
+                font-size: 0.9rem;
+                color: var(--gold);
+                margin-bottom: 0.75rem;
+                padding: 0.5rem;
+                background: rgba(255, 215, 0, 0.1);
+                border: 1px solid rgba(255, 215, 0, 0.2);
+                border-radius: 8px;
+                text-align: center;
+            }
+            .mobile-card-stats {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 0.5rem;
+                text-align: center;
+            }
+            .mobile-stat {
+                background: var(--bg-input);
+                padding: 0.5rem;
+                border-radius: 8px;
+                border: 1px solid var(--border);
+            }
+            .mobile-stat-label {
+                font-size: 0.6rem;
+                color: var(--text-muted);
+                text-transform: uppercase;
+            }
+            .mobile-stat-value {
+                font-size: 0.85rem;
+                font-weight: 700;
+                color: var(--text);
+            }
+            .controls-section { padding: 1rem; }
+            .date-badge { width: 100%; justify-content: center; }
+            .btn-fetch { width: 100%; justify-content: center; }
+            .stats-bar { justify-content: center; flex-wrap: wrap; }
+            .stat-pill { padding: 0.4rem 0.75rem; }
+            .stat-pill .value { font-size: 1rem; }
+            .stat-pill .label { font-size: 0.65rem; }
+        }
+        
+        @media (max-width: 576px) {
+            .header {
+                padding: 0.5rem 0.75rem;
+            }
+            .brand {
+                font-size: 0.9rem;
+                white-space: nowrap;
+            }
+            .nav-links {
+                gap: 0.15rem;
+            }
+            .nav-links a {
+                font-size: 0.65rem;
+                padding: 0.25rem 0.4rem;
+                white-space: nowrap;
+            }
+            .controls-section {
+                padding: 0.75rem;
+            }
+            .controls-section > div {
+                flex-direction: column;
+                gap: 0.75rem !important;
+            }
+            .date-badge {
+                padding: 0.5rem 1rem;
+                font-size: 0.85rem;
+            }
+            .league-select {
+                width: 100%;
+                padding: 0.5rem;
+            }
+            .btn-fetch {
+                padding: 0.6rem 1rem;
+                font-size: 0.8rem;
+            }
+            .empty-state {
+                padding: 2rem 1rem;
+                margin: 0.75rem;
+            }
+            .empty-state i { font-size: 2rem; }
+            .empty-state h5 { font-size: 1rem; }
+            .empty-state p { font-size: 0.8rem; }
+            .mobile-card { padding: 0.75rem; }
+            .mobile-card-player { font-size: 0.9rem; }
+            .mobile-stat-value { font-size: 0.75rem; }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <a href="/" class="brand">
+            <i class="bi bi-lock-fill"></i>
+            730's Locks
+        </a>
+        <nav class="nav-links">
+            <a href="/">Dashboard</a>
+            <a href="/props" class="active">Player Props</a>
+            <a href="/bankroll">Bankroll</a>
+            <a href="/history">History</a>
+        </nav>
+    </header>
+
+    <div class="controls-section">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div class="date-badge">
+                <i class="bi bi-calendar3"></i>
+                <span id="currentDate"></span>
+            </div>
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+                <select id="propTypeFilter" class="league-select" onchange="filterProps()">
+                    <option value="all">All Prop Types</option>
+                    <option value="points">Points</option>
+                    <option value="rebounds">Rebounds</option>
+                    <option value="assists">Assists</option>
+                    <option value="pts_reb">Points + Rebounds</option>
+                    <option value="pts_ast">Points + Assists</option>
+                    <option value="reb_ast">Rebounds + Assists</option>
+                    <option value="pts_reb_ast">Points + Rebounds + Assists</option>
+                    <option value="threes">3-Pointers Made</option>
+                    <option value="steals">Steals</option>
+                    <option value="blocks">Blocks</option>
+                </select>
+                <select id="leagueSelect" class="league-select">
+                    <option value="nba">🏀 NBA</option>
+                    <option value="euroleague">🇪🇺 EuroLeague</option>
+                    <option value="eurocup">🏆 EuroCup</option>
+                </select>
+                <button class="btn-fetch" id="fetchBtn" onclick="fetchPlayerStats()">
+                    <i class="bi bi-arrow-repeat"></i> Fetch Player Stats
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="stats-bar" id="statsBar" style="display: none;">
+        <div class="stat-pill">
+            <div class="value" id="totalProps">0</div>
+            <div class="label">Qualified</div>
+        </div>
+        <div class="stat-pill">
+            <div class="value" id="premiumCount">0</div>
+            <div class="label">Premium</div>
+        </div>
+        <div class="stat-pill">
+            <div class="value" id="strongCount">0</div>
+            <div class="label">Strong</div>
+        </div>
+    </div>
+
+    <div class="empty-state" id="emptyState">
+        <i class="bi bi-person-bounding-box"></i>
+        <h5>No Player Props Loaded</h5>
+        <p>Click "Fetch Player Stats" to find qualified plays</p>
+        <p style="font-size: 0.75rem; margin-top: 0.5rem; opacity: 0.7;">Sorted by longest streak | Elite 10 requires 10+ consecutive</p>
+    </div>
+    
+    <div class="loading-state" id="loadingState" style="display: none;">
+        <div class="loading-spinner"></div>
+        <p>Analyzing player stats...</p>
+        <p style="font-size: 0.75rem;">This may take 15-30 seconds</p>
+    </div>
+
+    <div class="table-container" id="tableContainer" style="display: none;">
+        <table class="props-table" id="propsTable">
+            <thead>
+                <tr>
+                    <th><i class="bi bi-building"></i> Team</th>
+                    <th><i class="bi bi-person-fill"></i> Player</th>
+                    <th><i class="bi bi-bullseye"></i> Prop</th>
+                    <th><i class="bi bi-fire"></i> Streak</th>
+                    <th><i class="bi bi-shield-fill"></i> Def Rank</th>
+                    <th><i class="bi bi-robot"></i> AI Proj</th>
+                </tr>
+            </thead>
+            <tbody id="propsTableBody">
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="mobile-cards" id="mobileCards"></div>
+
+    <script>
+        let allProps = [];
+
+        document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        });
+
+        async function fetchPlayerStats() {
+            const btn = document.getElementById('fetchBtn');
+            const loading = document.getElementById('loadingState');
+            const empty = document.getElementById('emptyState');
+            const tableContainer = document.getElementById('tableContainer');
+            const statsBar = document.getElementById('statsBar');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Loading...';
+            loading.style.display = 'block';
+            empty.style.display = 'none';
+            document.body.classList.remove('data-loaded');
+            statsBar.style.display = 'none';
+            
+            const league = document.getElementById('leagueSelect').value;
+            let apiUrl = '/api/player_props';
+            if (league === 'euroleague') apiUrl = '/api/euroleague_props';
+            else if (league === 'eurocup') apiUrl = '/api/eurocup_props';
+            
+            try {
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+                
+                loading.style.display = 'none';
+                
+                if (data.success && data.props && data.props.length > 0) {
+                    allProps = data.props;
+                    renderTable(allProps);
+                    renderMobileCards(allProps);
+                    updateStats(allProps);
+                    document.body.classList.add('data-loaded');
+                    statsBar.style.display = 'flex';
+                } else {
+                    empty.innerHTML = `
+                        <i class="bi bi-search"></i>
+                        <h5>No Qualified Props Found</h5>
+                        <p>No players met all criteria today</p>
+                        <p style="font-size: 0.75rem; margin-top: 0.5rem; opacity: 0.7;">Looking for players with 5+ consecutive hits</p>
+                    `;
+                    empty.style.display = 'block';
+                }
+            } catch (error) {
+                loading.style.display = 'none';
+                empty.innerHTML = `
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <h5>Error Loading Props</h5>
+                    <p>${error.message}</p>
+                `;
+                empty.style.display = 'block';
+            }
+            
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Fetch Player Stats';
+        }
+
+        function getOrdinal(n) {
+            const s = ["th", "st", "nd", "rd"];
+            const v = n % 100;
+            return n + (s[(v - 20) % 10] || s[v] || s[0]);
+        }
+
+        function renderTable(props) {
+            const tbody = document.getElementById('propsTableBody');
+            tbody.innerHTML = '';
+            
+            props.forEach((p, idx) => {
+                const streak = p.streak || 20;
+                const sample = p.sample || 20;
+                const streakDisplay = `${streak}/L${sample}`;
+                
+                const defRank = p.def_rank || 5;
+                const defDisplay = p.def_rank_display || getOrdinal(defRank);
+                let defClass = '';
+                if (defRank <= 3) defClass = 'def-rank-elite';
+                else if (defRank <= 7) defClass = 'def-rank-good';
+                
+                const classification = p.play_classification || 'PLAY';
+                let classStyle = 'class-play';
+                if (classification === 'PREMIUM PLAY') classStyle = 'class-premium';
+                else if (classification === 'STRONG PLAY') classStyle = 'class-strong';
+                
+                const aiProj = p.ai_proj || 0;
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="team-cell">${p.team}</td>
+                    <td class="player-cell">${p.player}</td>
+                    <td class="prop-cell">
+                        ${p.prop_display}
+                        <span class="class-badge ${classStyle}" style="margin-left: 0.5rem;">${classification}</span>
+                    </td>
+                    <td class="streak-cell">${streakDisplay}</td>
+                    <td class="def-rank-cell ${defClass}">${defDisplay}</td>
+                    <td class="ai-proj-cell">${aiProj.toFixed(1)}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function renderMobileCards(props) {
+            const container = document.getElementById('mobileCards');
+            container.innerHTML = '';
+            
+            props.forEach((p, idx) => {
+                const streak = p.streak || 20;
+                const sample = p.sample || 20;
+                const defRank = p.def_rank || 5;
+                const defDisplay = p.def_rank_display || getOrdinal(defRank);
+                const classification = p.play_classification || 'PLAY';
+                let classStyle = 'class-play';
+                if (classification === 'PREMIUM PLAY') classStyle = 'class-premium';
+                else if (classification === 'STRONG PLAY') classStyle = 'class-strong';
+                
+                const card = document.createElement('div');
+                card.className = 'mobile-card';
+                card.innerHTML = `
+                    <div class="mobile-card-header">
+                        <div>
+                            <div class="mobile-card-player">${p.player}</div>
+                            <div class="mobile-card-team">${p.team}</div>
+                        </div>
+                        <span class="class-badge ${classStyle}">${classification}</span>
+                    </div>
+                    <div class="mobile-card-prop">${p.prop_display}</div>
+                    <div class="mobile-card-stats">
+                        <div class="mobile-stat">
+                            <div class="mobile-stat-label">Streak</div>
+                            <div class="mobile-stat-value" style="color: var(--emerald);">${streak}/L${sample}</div>
+                        </div>
+                        <div class="mobile-stat">
+                            <div class="mobile-stat-label">Def Rank</div>
+                            <div class="mobile-stat-value">${defDisplay}</div>
+                        </div>
+                        <div class="mobile-stat">
+                            <div class="mobile-stat-label">AI Proj</div>
+                            <div class="mobile-stat-value" style="color: var(--purple);">${(p.ai_proj || 0).toFixed(1)}</div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function updateStats(props) {
+            document.getElementById('totalProps').textContent = props.length;
+            document.getElementById('premiumCount').textContent = props.filter(p => p.play_classification === 'PREMIUM PLAY').length;
+            document.getElementById('strongCount').textContent = props.filter(p => p.play_classification === 'STRONG PLAY').length;
+            
+        }
+        
+        function filterProps() {
+            const filter = document.getElementById('propTypeFilter').value;
+            let filtered = allProps;
+            
+            if (filter !== 'all') {
+                filtered = allProps.filter(p => p.prop_type === filter);
+            }
+            
+            renderTable(filtered);
+            renderMobileCards(filtered);
+            updateStats(filtered);
+        }
+    </script>
+</body>
+</html>
