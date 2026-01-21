@@ -8318,15 +8318,15 @@ def api_player_props():
             
             player_count += 1
         
-        # Sort by: 1) Favorable defense (bottom 10 = ranks 21-30), 2) L20 hit rate, 3) Streak, 4) AI Proj
+        # Sort by: 1) Streak length (Joe's methodology - longest streak first), 2) Def rank, 3) L20 hit rate
         props_found.sort(key=lambda x: (
-            -1 if x.get('is_elite') else 0,  # Favorable defense matchups first
+            -x['streak'],  # Longest streak first (Joe's primary sort)
+            -1 if x.get('is_elite') else 0,  # Then favorable defense matchups
             -x['streak_pct'],  # Then by L20 hit rate
-            -x['streak'],  # Then by streak length
             -x['ai_proj']  # Then by AI projection
         ))
         
-        # Limit to max 2 props per player (best 2 by L20 hit rate)
+        # Limit to max 2 props per player (best 2 by streak length)
         player_prop_count = {}
         limited_props = []
         for prop in props_found:
