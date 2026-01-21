@@ -1304,6 +1304,41 @@
                 btn.innerHTML = '<i class="bi bi-discord"></i> Post to Discord';
             });
         }
+        
+        // Haptic feedback helper
+        function hapticFeedback(type = 'light') {
+            if ('vibrate' in navigator) {
+                const patterns = { light: [10], medium: [20], heavy: [30, 10, 30] };
+                navigator.vibrate(patterns[type] || [10]);
+            }
+        }
+        
+        // Add haptic to all buttons
+        document.querySelectorAll('button, .btn-fetch, .btn-discord').forEach(btn => {
+            btn.addEventListener('click', () => hapticFeedback('light'));
+        });
+        
+        // Pull-to-refresh
+        let touchStartY = 0;
+        let touchEndY = 0;
+        
+        document.addEventListener('touchstart', (e) => {
+            touchStartY = e.touches[0].clientY;
+        }, { passive: true });
+        
+        document.addEventListener('touchmove', (e) => {
+            touchEndY = e.touches[0].clientY;
+        }, { passive: true });
+        
+        document.addEventListener('touchend', () => {
+            const pullDistance = touchEndY - touchStartY;
+            if (window.scrollY === 0 && pullDistance > 100) {
+                hapticFeedback('medium');
+                fetchGames();
+            }
+            touchStartY = 0;
+            touchEndY = 0;
+        });
     </script>
     
     <div class="mobile-action-bar">

@@ -1,9 +1,10 @@
-const CACHE_NAME = '730-locks-v3';
-const STATIC_CACHE = '730-locks-static-v3';
-const DATA_CACHE = '730-locks-data-v3';
+const CACHE_NAME = '730-locks-v4';
+const STATIC_CACHE = '730-locks-static-v4';
+const DATA_CACHE = '730-locks-data-v4';
 
 const urlsToCache = [
   '/',
+  '/props',
   '/bankroll',
   '/history',
   '/static/manifest.json',
@@ -61,7 +62,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
   
-  // Cache API data responses separately
+  // Cache API data responses with network-first, fallback to cache for offline
   if (event.request.url.includes('/api/')) {
     event.respondWith(
       fetch(event.request)
@@ -74,7 +75,22 @@ self.addEventListener('fetch', (event) => {
           }
           return response;
         })
-        .catch(() => caches.match(event.request))
+        .catch(() => {
+          return caches.match(event.request).then((cached) => {
+            if (cached) {
+              return cached;
+            }
+            // Return empty data if no cache
+            return new Response(JSON.stringify({
+              success: true,
+              props: [],
+              games: [],
+              message: 'Offline - showing cached data'
+            }), {
+              headers: { 'Content-Type': 'application/json' }
+            });
+          });
+        })
     );
     return;
   }

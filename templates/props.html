@@ -240,23 +240,44 @@
         .empty-state h5 { color: var(--text); margin-bottom: 0.5rem; }
         
         .loading-state {
-            text-align: center;
-            padding: 4rem 2rem;
-            color: var(--text-muted);
-            background: var(--bg-card);
-            border-radius: 16px;
+            padding: 1.5rem;
             margin: 1.5rem;
         }
-        .loading-spinner {
-            width: 48px;
-            height: 48px;
-            border: 4px solid rgba(255, 215, 0, 0.2);
-            border-top-color: var(--gold);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 1rem;
+        .skeleton-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
         }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        .skeleton {
+            background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-input) 50%, var(--bg-card) 75%);
+            background-size: 200% 100%;
+            animation: skeleton-shimmer 1.5s infinite;
+            border-radius: 6px;
+        }
+        @keyframes skeleton-shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        .skeleton-row { display: flex; gap: 1rem; align-items: center; }
+        .skeleton-avatar { width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; }
+        .skeleton-text { height: 16px; flex: 1; }
+        .skeleton-text.short { width: 60px; flex: none; }
+        .skeleton-text.medium { width: 100px; flex: none; }
+        .skeleton-badge { height: 24px; width: 70px; border-radius: 12px; }
+        
+        .pull-indicator {
+            text-align: center;
+            padding: 1rem;
+            color: var(--gold);
+            font-weight: 600;
+            display: none;
+            transition: all 0.3s;
+        }
+        .pull-indicator.visible { display: block; }
+        .pull-indicator i { animation: bounce 0.6s infinite; }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
         
         .mobile-cards { display: none; }
         .data-loaded .table-container { display: block; }
@@ -483,10 +504,42 @@
         <p style="font-size: 0.75rem; margin-top: 0.5rem; opacity: 0.7;">Sorted by defense matchup + streak | Requires 10+ consecutive games</p>
     </div>
     
+    <div class="pull-indicator" id="pullIndicator">
+        <i class="bi bi-arrow-down-circle"></i> Pull to refresh
+    </div>
+    
     <div class="loading-state" id="loadingState" style="display: none;">
-        <div class="loading-spinner"></div>
-        <p>Analyzing player stats...</p>
-        <p style="font-size: 0.75rem;">This may take 15-30 seconds</p>
+        <div class="skeleton-card">
+            <div class="skeleton-row" style="margin-bottom: 0.75rem;">
+                <div class="skeleton skeleton-avatar"></div>
+                <div style="flex: 1;">
+                    <div class="skeleton skeleton-text" style="margin-bottom: 0.5rem;"></div>
+                    <div class="skeleton skeleton-text short"></div>
+                </div>
+                <div class="skeleton skeleton-badge"></div>
+            </div>
+        </div>
+        <div class="skeleton-card">
+            <div class="skeleton-row" style="margin-bottom: 0.75rem;">
+                <div class="skeleton skeleton-avatar"></div>
+                <div style="flex: 1;">
+                    <div class="skeleton skeleton-text" style="margin-bottom: 0.5rem;"></div>
+                    <div class="skeleton skeleton-text short"></div>
+                </div>
+                <div class="skeleton skeleton-badge"></div>
+            </div>
+        </div>
+        <div class="skeleton-card">
+            <div class="skeleton-row" style="margin-bottom: 0.75rem;">
+                <div class="skeleton skeleton-avatar"></div>
+                <div style="flex: 1;">
+                    <div class="skeleton skeleton-text" style="margin-bottom: 0.5rem;"></div>
+                    <div class="skeleton skeleton-text short"></div>
+                </div>
+                <div class="skeleton skeleton-badge"></div>
+            </div>
+        </div>
+        <p style="text-align: center; color: var(--text-muted); margin-top: 1rem; font-size: 0.85rem;">Analyzing player stats... This may take 15-30 seconds</p>
     </div>
 
     <div class="table-container" id="tableContainer" style="display: none;">
@@ -715,6 +768,51 @@
             renderMobileCards(filtered);
             updateStats(filtered);
         }
+        
+        // Haptic feedback helper
+        function hapticFeedback(type = 'light') {
+            if ('vibrate' in navigator) {
+                const patterns = { light: [10], medium: [20], heavy: [30, 10, 30] };
+                navigator.vibrate(patterns[type] || [10]);
+            }
+        }
+        
+        // Add haptic to all buttons
+        document.querySelectorAll('button, .btn-fetch').forEach(btn => {
+            btn.addEventListener('click', () => hapticFeedback('light'));
+        });
+        
+        // Pull-to-refresh
+        let touchStartY = 0;
+        let touchEndY = 0;
+        const pullIndicator = document.getElementById('pullIndicator');
+        
+        document.addEventListener('touchstart', (e) => {
+            touchStartY = e.touches[0].clientY;
+        }, { passive: true });
+        
+        document.addEventListener('touchmove', (e) => {
+            touchEndY = e.touches[0].clientY;
+            const pullDistance = touchEndY - touchStartY;
+            if (window.scrollY === 0 && pullDistance > 60) {
+                pullIndicator.classList.add('visible');
+            } else {
+                pullIndicator.classList.remove('visible');
+            }
+        }, { passive: true });
+        
+        document.addEventListener('touchend', () => {
+            const pullDistance = touchEndY - touchStartY;
+            if (window.scrollY === 0 && pullDistance > 100) {
+                hapticFeedback('medium');
+                pullIndicator.classList.remove('visible');
+                fetchPlayerStats();
+            } else {
+                pullIndicator.classList.remove('visible');
+            }
+            touchStartY = 0;
+            touchEndY = 0;
+        });
     </script>
     
     <nav class="mobile-bottom-nav">
