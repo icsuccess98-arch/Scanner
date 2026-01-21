@@ -7994,8 +7994,16 @@ def api_player_props():
             {'key': 'reb_ast', 'name': 'Reb+Ast', 'thresholds': [6, 8, 10, 12], 'stats': ['REB', 'AST'], 'market_key': 'rebounds_assists'},
         ]
         
-        # Fetch real defensive rankings
-        def_rankings = {}
+        # Fetch STAT-SPECIFIC defensive rankings (Joe's methodology)
+        # Each stat type has its own ranking (e.g., "16th most points allowed")
+        stat_def_rankings = {
+            'PTS': {},      # Points allowed ranking
+            'REB': {},      # Rebounds allowed ranking
+            'AST': {},      # Assists allowed ranking
+            'BLK': {},      # Blocks allowed ranking
+            'STL': {},      # Steals allowed ranking
+            'FG3M': {},     # 3PM allowed ranking
+        }
         try:
             from nba_api.stats.endpoints import leaguedashteamstats
             team_stats = leaguedashteamstats.LeagueDashTeamStats(
@@ -8004,15 +8012,36 @@ def api_player_props():
                 timeout=30
             )
             team_df = team_stats.get_data_frames()[0]
-            team_df = team_df.sort_values('OPP_PTS', ascending=True)
-            for rank, (_, row) in enumerate(team_df.iterrows(), 1):
-                def_rankings[row['TEAM_ID']] = rank
-            logger.info(f"Fetched defensive rankings for {len(def_rankings)} teams")
+            
+            # Create rankings for each stat category (higher rank = allows MORE of that stat = worse defense)
+            stat_columns = {
+                'PTS': 'OPP_PTS',
+                'REB': 'OPP_REB', 
+                'AST': 'OPP_AST',
+                'BLK': 'OPP_BLK',
+                'STL': 'OPP_STL',
+                'FG3M': 'OPP_FG3M',
+            }
+            
+            for stat_key, column in stat_columns.items():
+                if column in team_df.columns:
+                    # Sort descending - rank 1 = allows MOST of that stat (worst defense = best for betting over)
+                    sorted_df = team_df.sort_values(column, ascending=False)
+                    for rank, (_, row) in enumerate(sorted_df.iterrows(), 1):
+                        stat_def_rankings[stat_key][row['TEAM_ID']] = rank
+            
+            logger.info(f"Fetched stat-specific defensive rankings for {len(team_df)} teams")
         except Exception as e:
             logger.warning(f"Could not fetch defensive rankings: {e}")
         
-        def get_def_rank(opponent_team_id):
-            return def_rankings.get(opponent_team_id, None)
+        def get_def_rank(opponent_team_id, stat_key='PTS'):
+            """Get opponent's defensive rank for a specific stat category"""
+            # For combo stats, use the primary stat's ranking
+            if stat_key in ['Pts+Reb+Ast', 'Pts+Reb', 'Pts+Ast']:
+                stat_key = 'PTS'
+            elif stat_key in ['Reb+Ast']:
+                stat_key = 'REB'
+            return stat_def_rankings.get(stat_key, {}).get(opponent_team_id, None)
         
         # Process each player using pre-fetched data
         player_count = 0
@@ -8037,12 +8066,17 @@ def api_player_props():
             if games_available < 10:
                 continue
             
-            # Get opponent's defensive rank
+            # Get opponent ID for defensive rankings
             opponent_id = team_opponents.get(team_id)
-            opp_def_rank = get_def_rank(opponent_id) if opponent_id else None
             
             # Check ALL prop types through 100-game simulation
             for prop in prop_types:
+                # Get stat-specific defensive rank (Joe's methodology)
+                # e.g., "16th most points allowed" for points props
+                stat_key = prop.get('stat', 'PTS')
+                if 'stats' in prop:
+                    stat_key = prop['stats'][0]  # Use primary stat for combos
+                opp_def_rank = get_def_rank(opponent_id, stat_key) if opponent_id else None
                 # Get stat values from game logs
                 try:
                     if 'stats' in prop:
@@ -8204,9 +8238,18 @@ def api_player_props():
                 # Calculate L20 percentage for filtering
                 l20_pct = (l20_hits / len(l20_values)) * 100 if l20_values else 0
                 
-                # Joe's methodology: Focus on CONSECUTIVE STREAKS (10+ games hitting threshold)
-                # L20 hit rate is for reference, not a mandatory filter
-                # The streak requirement is handled above (10+ consecutive games)
+                # === STRICT FILTERS (Joe's methodology) ===
+                # 1. Must have at least 20 games of data
+                if len(values) < 20:
+                    continue
+                
+                # 2. Must hit 100% of last 10 games (10/10)
+                if l10_hits < 10:
+                    continue
+                
+                # 3. Must have 85%+ hit rate in last 20 games (17+/20)
+                if l20_pct < 85:
+                    continue
                 
                 # Track the streak - Joe's format shows consecutive streak on both sides
                 # e.g., "30/L30" means 30 consecutive games hit, "25/L25" means 25 consecutive
