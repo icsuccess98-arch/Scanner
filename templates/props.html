@@ -515,6 +515,9 @@
             btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Loading...';
             loading.style.display = 'block';
             empty.style.display = 'none';
+            tableContainer.style.display = 'none';
+            document.getElementById('mobileCards').innerHTML = '';
+            document.getElementById('propsTableBody').innerHTML = '';
             document.body.classList.remove('data-loaded');
             statsBar.style.display = 'none';
             
