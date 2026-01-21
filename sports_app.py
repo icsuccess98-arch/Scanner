@@ -8040,8 +8040,9 @@ def api_player_props():
                 ai_proj = base_projection * defense_boost
                 
                 # Look up ALL Bovada lines for this player/prop (including alternates)
+                # API uses 'player_points', 'player_assists' etc, so add 'player_' prefix
                 market_key = prop.get('market_key', prop['key'])
-                player_key_prefix = f"{player_name.lower()}_{market_key}_"
+                player_key_prefix = f"{player_name.lower()}_player_{market_key}_"
                 
                 # Find all lines for this player/prop (main + alternates)
                 available_lines = []
