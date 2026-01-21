@@ -7822,7 +7822,7 @@ def api_player_props():
                             'player_points_rebounds_alternate', 'player_points_assists_alternate',
                             'player_rebounds_assists_alternate', 'player_points_rebounds_assists_alternate'
                         ]
-                        props_url = f"https://api.the-odds-api.com/v4/sports/basketball_nba/events/{event_id}/odds?apiKey={odds_api_key}&regions=us&markets={','.join(props_markets)}&bookmakers=bovada,fanduel,draftkings,betmgm"
+                        props_url = f"https://api.the-odds-api.com/v4/sports/basketball_nba/events/{event_id}/odds?apiKey={odds_api_key}&regions=us&markets={','.join(props_markets)}&bookmakers=bovada"
                         
                         try:
                             props_resp = requests.get(props_url, timeout=10)
@@ -7830,8 +7830,8 @@ def api_player_props():
                                 props_data = props_resp.json()
                                 bookmakers = props_data.get('bookmakers', [])
                                 for bm in bookmakers:
-                                    # Accept lines from major US bookmakers
-                                    if bm.get('key') in ['bovada', 'fanduel', 'draftkings', 'betmgm']:
+                                    # Only use Bovada lines
+                                    if bm.get('key') == 'bovada':
                                         for market in bm.get('markets', []):
                                             # Normalize market key (remove player_ prefix and _alternate suffix)
                                             market_key = market.get('key', '').replace('player_', '').replace('_alternate', '')
