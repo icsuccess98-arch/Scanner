@@ -5596,7 +5596,8 @@ def dashboard():
     # PURE MODEL: Games qualified ONLY by edge threshold (TOTALS ONLY)
     # Rule: Difference = Projected_Total - Bovada_Line must meet threshold
     # NBA/CBB: ±8.0, NFL/CFB: ±3.5, NHL: ±0.5
-    qualified = [g for g in all_games if g.is_qualified]
+    # MANDATORY: Alt lines required for totals - no alt line = no pick
+    qualified = [g for g in all_games if g.is_qualified and g.alt_total_line]
     
     # AWAY FAVORITE CONFIDENCE BOOST: Away team as favorite + O/U threshold = higher confidence
     # When away team is favored AND meets totals threshold, O/U pick is more likely to hit
@@ -5627,7 +5628,7 @@ def dashboard():
         
         if g.direction and g.line:
             direction = 'O' if g.direction == 'O' else 'U'
-            current_line = g.alt_total_line or g.line
+            current_line = g.alt_total_line  # Alt lines mandatory
             
             # Check both teams' hit rates
             away_result = calculate_ou_hit_rate_espn(g.away_team, g.league, direction, current_line)
@@ -5817,7 +5818,7 @@ def dashboard():
     for g in qualified[:5]:
         # Use alt edge if available (better line), else main edge
         best_edge = g.alt_edge or g.edge or 0
-        best_line = g.alt_total_line or g.line
+        best_line = g.alt_total_line  # Alt lines mandatory - no fallback to main line
         top_picks.append({
             'game': g,
             'edge': best_edge,
@@ -6975,7 +6976,7 @@ def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_s
     
     Returns (best_line, best_odds) or (None, None) if no valid line found.
     """
-    MAX_ODDS = -180  # Floor - no worse than -180, anything worse is not a lock
+    MAX_ODDS = -185  # Floor - no worse than -185, anything worse is not a lock
     MIN_ODDS = -100  # No positive odds allowed
     candidates = []
     all_valid_lines = []  # For debug logging
@@ -7222,7 +7223,7 @@ def post_discord():
         pick_type = vp['pick_type']
         
         if pick_type == 'total':
-            line_val = g.alt_total_line if g.alt_total_line else g.line
+            line_val = g.alt_total_line  # Alt lines mandatory
             pick_str = f"{g.direction}{line_val}"
         else:
             team, line_val = get_display_spread(g, use_alt=True)
@@ -7256,7 +7257,7 @@ def post_discord():
     def format_pick(p):
         g = p['game']
         if p['pick_type'] == 'total':
-            line = g.alt_total_line if g.alt_total_line else g.line
+            line = g.alt_total_line  # Alt lines mandatory
             odds = g.alt_total_odds if g.alt_total_odds else None
             pick_str = f"{g.direction}{line:.0f}" if line else p['pick_str']
             if odds:
@@ -7307,7 +7308,7 @@ def post_discord():
             existing_pick = Pick.query.filter_by(date=today, matchup=matchup, pick_type=p['pick_type']).first()
             if not existing_pick:
                 if p['pick_type'] == 'total':
-                    line_val = p_game.alt_total_line if p_game.alt_total_line else p_game.line
+                    line_val = p_game.alt_total_line  # Alt lines mandatory
                     pick_str = f"{p_game.direction}{line_val}"
                     edge_val = p_game.edge
                 else:
@@ -7406,7 +7407,7 @@ def post_discord_window(window: str):
     
     # Format pick using foolproof helper
     if supermax['pick_type'] == 'total':
-        line = sm_game.alt_total_line if sm_game.alt_total_line else sm_game.line
+        line = sm_game.alt_total_line  # Alt lines mandatory
         odds = sm_game.alt_total_odds if sm_game.alt_total_odds else None
         pick_str = f"{sm_game.direction}{line:.0f}" if line else f"{sm_game.direction}"
         if odds:
@@ -7429,7 +7430,7 @@ def post_discord_window(window: str):
         # Save to history using foolproof helper
         matchup = f"{sm_game.away_team} @ {sm_game.home_team}"
         if supermax['pick_type'] == 'total':
-            line_val = sm_game.alt_total_line if sm_game.alt_total_line else sm_game.line
+            line_val = sm_game.alt_total_line  # Alt lines mandatory
             pick_save = f"{sm_game.direction}{line_val}"
             edge_val = sm_game.edge
         else:

@@ -51,7 +51,7 @@ This project develops and manages trading systems including a Sports Betting Cal
     -   **SUPERMAX**: Highest absolute edge across all qualified TOTALS picks
     -   **TOP 5 Ranking**: Sorted by EDGE only (highest edge = best pick)
     -   **Star Ratings**: Based on edge only (5★ for 12+, 4★ for 10+, 3★ for 8+, 2★ otherwise)
-    -   **Alt Lines**: Uses alternate totals lines from The Odds API (Bovada) when they provide better edge, max -180 odds
+    -   **Alt Lines**: MANDATORY - Uses alternate totals lines from The Odds API (Bovada) only, max -185 odds. Games without alt lines are not qualified.
     -   **Away Favorite Model**: Confidence boost when away team is favorite AND meets totals threshold
 -   **Data Management**: Date-keyed caching for ESPN lookups, PostgreSQL database with indexes, and data validation.
 -   **System Stability**: Gunicorn timeout increased to 120s, robust logging, team alias expansion.
