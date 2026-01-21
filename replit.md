@@ -79,8 +79,17 @@ This project develops and manages trading systems including a Sports Betting Cal
 
 ### Player Props Analysis Protocol (Jan 2026) - Joe's Methodology
 -   **Separate Tab**: /props route with dedicated "Fetch Player Stats" button
+-   **Prop Types (Full Coverage)**:
+    -   Single stats: Points, Rebounds, Assists, 3PM, Steals, Blocks (with alternates)
+    -   Combo props: PTS+REB, PTS+AST, REB+AST, PTS+REB+AST (with alternates)
+-   **Sportsbooks**: DraftKings, FanDuel, Fanatics, Bet365 (priority order)
+-   **Stat-Specific Defensive Rankings**: 
+    -   Uses NBA API PerGame opponent stats (OPP_*_RANK columns)
+    -   Each stat has its own ranking (e.g., assists defense rank for assists props)
+    -   Rank 1 = best defense (allows least), Rank 30 = worst defense (allows most)
+    -   Ranks 21-30 = bottom 10 defenses = favorable for OVER bets
 -   **Multi-League Support**: League selector dropdown for NBA, EuroLeague, and EuroCup
-    -   NBA: Uses nba_api for player game logs with Bovada lines
+    -   NBA: Uses nba_api for player game logs with sportsbook lines
     -   EuroLeague/EuroCup: Uses euroleague-api package for European basketball
 -   **EDGE CALCULATION**:
     -   `Edge% = (AI_Projection - Prop_Line) / Prop_Line × 100`
