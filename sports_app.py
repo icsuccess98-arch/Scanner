@@ -7769,7 +7769,9 @@ def api_player_props():
                     players = team.get('injuries', [])
                     for player in players:
                         status = player.get('status', '').lower()
-                        if status in ['out', 'doubtful', 'questionable', 'day-to-day']:
+                        # Only exclude players who are OUT or DOUBTFUL
+                        # Include QUESTIONABLE and DAY-TO-DAY as they often still play
+                        if status in ['out', 'doubtful']:
                             player_name = player.get('athlete', {}).get('displayName', '')
                             if player_name:
                                 injured_players.add(player_name.lower())
