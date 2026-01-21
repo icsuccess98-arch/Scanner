@@ -6133,7 +6133,7 @@ def get_nba_stats():
                 if "76ers" in team_name: stats["76ers"] = stats[nick]
                 if "Trail Blazers" in team_name: stats["blazers"] = stats[nick]
     except Exception as e:
-        print(f"NBA stats error: {e}")
+        logger.error(f"NBA stats error: {e}")
     return stats
 
 def get_nhl_stats():
@@ -6156,7 +6156,7 @@ def get_nhl_stats():
                     stats[place] = stat_entry
                 stats[name.lower()] = stat_entry
     except Exception as e:
-        print(f"NHL stats error: {e}")
+        logger.error(f"NHL stats error: {e}")
     return stats
 
 def get_team_stats_from_event(event, sport):
@@ -6186,7 +6186,7 @@ def get_team_stats_from_event(event, sport):
             if ppg and opp_ppg:
                 stats[team_name.lower()] = {"name": team_name, "ppg": ppg, "opp_ppg": opp_ppg}
     except Exception as e:
-        print(f"Event stats error: {e}")
+        logger.error(f"Event stats error: {e}")
     return stats
 
 def find_team_stats(name, stats_dict):
