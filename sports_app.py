@@ -6696,14 +6696,15 @@ def fetch_odds_internal() -> dict:
                                         edge = abs(proj_total - line)
                                         
                                         # PURE MODEL: Direction based on strict threshold
-                                        # OVER: if proj_total >= line + threshold
-                                        # UNDER: if line >= proj_total + threshold
-                                        if proj_total >= line + threshold:
+                                        # Always set direction based on projection vs line
+                                        # OVER: projection higher than line
+                                        # UNDER: line higher than projection
+                                        if proj_total > line:
                                             game.direction = 'O'
-                                        elif line >= proj_total + threshold:
+                                        elif proj_total < line:
                                             game.direction = 'U'
                                         else:
-                                            game.direction = None  # No qualified direction
+                                            game.direction = None  # Exact match, no edge
                                         
                                         game.edge = edge
                                         
