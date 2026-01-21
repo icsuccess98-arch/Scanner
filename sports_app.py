@@ -8121,8 +8121,9 @@ def api_player_props():
                 if len(values) < 10:
                     continue
                 
-                # Sort by line value (LOWEST first) to find the lowest viable line
-                available_lines.sort(key=lambda x: x['line'])
+                # Sort by line value (HIGHEST first) - Joe's methodology prefers higher lines
+                # Higher lines = harder to hit = more valuable when streak is long
+                available_lines.sort(key=lambda x: x['line'], reverse=True)
                 
                 # Test each line from lowest to highest, pick LOWEST with 10+ streak
                 best_line_data = None
@@ -8155,11 +8156,11 @@ def api_player_props():
                         else:
                             break
                     
-                    # Take the FIRST (lowest) line that has 5+ streak (PLAY threshold)
-                    if test_streak >= 5:
+                    # Joe's methodology: Pick the line with the LONGEST streak
+                    # This prioritizes consistency over lower lines
+                    if test_streak > best_streak_for_line:
                         best_streak_for_line = test_streak
                         best_line_data = line_data
-                        break
                 
                 if not best_line_data:
                     continue
