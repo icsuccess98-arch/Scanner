@@ -7981,17 +7981,18 @@ def api_player_props():
         props_found = []
         
         # Define prop types to check with multiple thresholds (market_key for Bovada lookup)
+        # Joe's exact thresholds from his sheets (expanded to match his methodology)
         prop_types = [
-            {'key': 'points', 'name': 'Points', 'thresholds': [8, 10, 12, 15, 20], 'stat': 'PTS', 'market_key': 'points'},
-            {'key': 'rebounds', 'name': 'Rebounds', 'thresholds': [2, 3, 4, 5, 7], 'stat': 'REB', 'market_key': 'rebounds'},
-            {'key': 'assists', 'name': 'Assists', 'thresholds': [2, 3, 4, 5, 6], 'stat': 'AST', 'market_key': 'assists'},
-            {'key': 'threes', 'name': '3 Pointers', 'thresholds': [1, 2, 3], 'stat': 'FG3M', 'market_key': 'threes'},
-            {'key': 'blocks', 'name': 'Blocks', 'thresholds': [1, 2], 'stat': 'BLK', 'market_key': 'blocks'},
-            {'key': 'steals', 'name': 'Steals', 'thresholds': [1, 2], 'stat': 'STL', 'market_key': 'steals'},
-            {'key': 'pts_reb_ast', 'name': 'Pts+Reb+Ast', 'thresholds': [12, 15, 18, 20, 25], 'stats': ['PTS', 'REB', 'AST'], 'market_key': 'points_rebounds_assists'},
-            {'key': 'pts_reb', 'name': 'Pts+Reb', 'thresholds': [10, 12, 15, 18, 20], 'stats': ['PTS', 'REB'], 'market_key': 'points_rebounds'},
-            {'key': 'pts_ast', 'name': 'Pts+Ast', 'thresholds': [10, 12, 15, 18, 20], 'stats': ['PTS', 'AST'], 'market_key': 'points_assists'},
-            {'key': 'reb_ast', 'name': 'Reb+Ast', 'thresholds': [6, 8, 10, 12], 'stats': ['REB', 'AST'], 'market_key': 'rebounds_assists'},
+            {'key': 'points', 'name': 'Points', 'thresholds': [8, 10, 12, 15, 17, 20, 25], 'stat': 'PTS', 'market_key': 'points', 'priority': 5},
+            {'key': 'rebounds', 'name': 'Rebounds', 'thresholds': [2, 3, 4, 5, 7, 10], 'stat': 'REB', 'market_key': 'rebounds', 'priority': 3},
+            {'key': 'assists', 'name': 'Assists', 'thresholds': [2, 3, 4, 5, 6, 8], 'stat': 'AST', 'market_key': 'assists', 'priority': 4},
+            {'key': 'threes', 'name': '3 Point Made', 'thresholds': [1, 2, 3, 4], 'stat': 'FG3M', 'market_key': 'threes', 'priority': 2},
+            {'key': 'blocks', 'name': 'Blocks', 'thresholds': [1, 2, 3], 'stat': 'BLK', 'market_key': 'blocks', 'priority': 1},
+            {'key': 'steals', 'name': 'Steals', 'thresholds': [1, 2, 3], 'stat': 'STL', 'market_key': 'steals', 'priority': 1},
+            {'key': 'pts_reb_ast', 'name': 'PTS+AST+REB', 'thresholds': [18, 20, 23, 25, 28, 30, 35], 'stats': ['PTS', 'REB', 'AST'], 'market_key': 'points_rebounds_assists', 'priority': 6},
+            {'key': 'pts_reb', 'name': 'PTS+REB', 'thresholds': [10, 11, 12, 13, 15, 18, 20], 'stats': ['PTS', 'REB'], 'market_key': 'points_rebounds', 'priority': 5},
+            {'key': 'pts_ast', 'name': 'PTS+AST', 'thresholds': [10, 12, 15, 18, 20], 'stats': ['PTS', 'AST'], 'market_key': 'points_assists', 'priority': 5},
+            {'key': 'reb_ast', 'name': 'REB+AST', 'thresholds': [5, 6, 8, 10, 12], 'stats': ['REB', 'AST'], 'market_key': 'rebounds_assists', 'priority': 4},
         ]
         
         # Fetch STAT-SPECIFIC defensive rankings (Joe's methodology)
@@ -8334,6 +8335,7 @@ def api_player_props():
                     'team': team_full_name,
                     'player': player_name,
                     'prop_type': prop['key'],
+                    'prop_priority': prop.get('priority', 1),  # For sorting - higher = more impressive prop
                     'prop_display': prop_display,
                     'streak': best_streak,
                     'sample': best_sample,
@@ -8365,25 +8367,25 @@ def api_player_props():
             
             player_count += 1
         
-        # Sort by: 1) Favorable defense (bottom 10 = ranks 21-30), 2) L20 hit rate, 3) Streak, 4) AI Proj
-        props_found.sort(key=lambda x: (
-            -1 if x.get('is_elite') else 0,  # Favorable defense matchups first
-            -x['streak_pct'],  # Then by L20 hit rate
-            -x['streak'],  # Then by streak length
-            -x['ai_proj']  # Then by AI projection
-        ))
+        # Joe's methodology: Sort by streak length, pick ONE prop per player
+        # First sort all props by streak length (longest first)
+        props_found.sort(key=lambda x: -x['streak'])
         
-        # Limit to max 2 props per player (best 2 by L20 hit rate)
-        player_prop_count = {}
-        limited_props = []
+        # Keep only ONE prop per player (the one with longest streak)
+        player_best_props = {}
         for prop in props_found:
             player = prop['player']
-            if player not in player_prop_count:
-                player_prop_count[player] = 0
-            if player_prop_count[player] < 2:
-                limited_props.append(prop)
-                player_prop_count[player] += 1
-        props_found = limited_props
+            if player not in player_best_props:
+                player_best_props[player] = prop
+        
+        props_found = list(player_best_props.values())
+        
+        # Final sort by streak length (Joe's display order - longest streaks first)
+        props_found.sort(key=lambda x: (
+            -x['streak'],  # Longest streak first
+            -x.get('bovada_line', 0),  # Then by threshold
+            -x['ai_proj']  # Then by AI projection
+        ))
         
         # Get Elite 10 - top picks with favorable defense AND L20 85%+ (unique players)
         elite_picks = []
