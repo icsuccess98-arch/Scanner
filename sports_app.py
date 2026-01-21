@@ -7803,7 +7803,7 @@ def api_player_props():
         bovada_lines = {}
         bovada_lines_normalized = {}  # Secondary lookup with normalized names
         try:
-            odds_api_key = os.environ.get('ODDS_API_KEY') or os.environ.get('API_KEY')
+            odds_api_key = os.environ.get('BOVADA_API_KEY') or os.environ.get('ODDS_API_KEY') or os.environ.get('API_KEY')
             key_prefix = odds_api_key[:4] if odds_api_key else 'NONE'
             logger.info(f"ODDS API KEY loaded: {'YES' if odds_api_key else 'NO'} (length: {len(odds_api_key) if odds_api_key else 0}, starts with: {key_prefix})")
             if odds_api_key:
