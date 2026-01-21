@@ -544,11 +544,11 @@
                 const sample = p.sample || 20;
                 const streakDisplay = `${streak}/L${sample}`;
                 
-                const defRank = p.def_rank || 5;
+                const defRank = p.def_rank || 15;
                 const defDisplay = p.def_rank_display || getOrdinal(defRank);
+                const isElite = p.is_elite || defRank >= 21;
                 let defClass = '';
-                if (defRank <= 3) defClass = 'def-rank-elite';
-                else if (defRank <= 7) defClass = 'def-rank-good';
+                if (isElite) defClass = 'def-rank-elite';
                 
                 const classification = p.play_classification || 'PLAY';
                 let classStyle = 'class-play';
@@ -556,6 +556,8 @@
                 else if (classification === 'STRONG PLAY') classStyle = 'class-strong';
                 
                 const aiProj = p.ai_proj || 0;
+                
+                const eliteBadge = isElite ? '<span style="background: linear-gradient(135deg, #FFD700, #FFA500); color: #1a1a2e; padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.7rem; font-weight: 700; margin-left: 0.4rem;">ELITE</span>' : '';
                 
                 const row = document.createElement('tr');
                 row.innerHTML = `
@@ -566,7 +568,7 @@
                         <span class="class-badge ${classStyle}" style="margin-left: 0.5rem;">${classification}</span>
                     </td>
                     <td class="streak-cell">${streakDisplay}</td>
-                    <td class="def-rank-cell ${defClass}">${defDisplay}</td>
+                    <td class="def-rank-cell ${defClass}">${defDisplay}${eliteBadge}</td>
                     <td class="ai-proj-cell">${aiProj.toFixed(1)}</td>
                 `;
                 tbody.appendChild(row);
@@ -580,12 +582,15 @@
             props.forEach((p, idx) => {
                 const streak = p.streak || 20;
                 const sample = p.sample || 20;
-                const defRank = p.def_rank || 5;
+                const defRank = p.def_rank || 15;
                 const defDisplay = p.def_rank_display || getOrdinal(defRank);
+                const isElite = p.is_elite || defRank >= 21;
                 const classification = p.play_classification || 'PLAY';
                 let classStyle = 'class-play';
                 if (classification === 'PREMIUM PLAY') classStyle = 'class-premium';
                 else if (classification === 'STRONG PLAY') classStyle = 'class-strong';
+                
+                const eliteBadge = isElite ? '<span style="background: linear-gradient(135deg, #FFD700, #FFA500); color: #1a1a2e; padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.65rem; font-weight: 700; margin-left: 0.3rem;">ELITE</span>' : '';
                 
                 const card = document.createElement('div');
                 card.className = 'mobile-card';
@@ -605,7 +610,7 @@
                         </div>
                         <div class="mobile-stat">
                             <div class="mobile-stat-label">Def Rank</div>
-                            <div class="mobile-stat-value">${defDisplay}</div>
+                            <div class="mobile-stat-value">${defDisplay}${eliteBadge}</div>
                         </div>
                         <div class="mobile-stat">
                             <div class="mobile-stat-label">AI Proj</div>

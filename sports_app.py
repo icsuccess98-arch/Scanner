@@ -8205,9 +8205,14 @@ def api_player_props():
                 if l5_hits < 5:
                     continue
                 
-                # 3. Must be 90%+ L20 (18/20 or better)
+                # 3. Must be 90%+ L10 (9/10 or better)
+                l10_pct = (l10_hits / len(l10_values)) * 100 if l10_values else 0
+                if l10_pct < 90:
+                    continue
+                
+                # 4. Must be 80%+ L20 (16/20 or better)
                 l20_pct = (l20_hits / len(l20_values)) * 100 if l20_values else 0
-                if l20_pct < 90:
+                if l20_pct < 80:
                     continue
                 
                 # Track the streak length
@@ -8296,6 +8301,9 @@ def api_player_props():
                 else:
                     value_score = 60 + int((edge_pct - 15) * 2)  # 60-79
                 
+                # Elite pick = bottom 10 defense (ranks 21-30 are worst defenses)
+                is_elite = opp_def_rank and opp_def_rank >= 21
+                
                 props_found.append({
                     'team': team_full_name,
                     'player': player_name,
@@ -8321,6 +8329,7 @@ def api_player_props():
                     'play_classification': play_classification,
                     'def_rank': opp_def_rank,
                     'def_rank_display': def_rank_display,
+                    'is_elite': is_elite,
                     'stat_name': stat_name,
                     'ai_proj': round(ai_proj, 1),
                     'bovada_line': bovada_line,
