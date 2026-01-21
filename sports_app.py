@@ -5596,8 +5596,12 @@ def dashboard():
     # PURE MODEL: Games qualified ONLY by edge threshold (TOTALS ONLY)
     # Rule: Difference = Projected_Total - Bovada_Line must meet threshold
     # NBA/CBB: ±8.0, NFL/CFB: ±3.5, NHL: ±0.5
-    # MANDATORY: Alt lines required for totals - no alt line = no pick
-    qualified = [g for g in all_games if g.is_qualified and g.alt_total_line]
+    # Alt lines required for display but qualification happens first via is_qualified flag
+    qualified = [g for g in all_games if g.is_qualified]
+    
+    # Filter to only show picks with alt lines (mandatory for display)
+    qualified_with_alt = [g for g in qualified if g.alt_total_line]
+    qualified = qualified_with_alt if qualified_with_alt else []
     
     # AWAY FAVORITE CONFIDENCE BOOST: Away team as favorite + O/U threshold = higher confidence
     # When away team is favored AND meets totals threshold, O/U pick is more likely to hit
@@ -7823,7 +7827,7 @@ def api_player_props():
                             'player_points_rebounds_alternate', 'player_points_assists_alternate',
                             'player_rebounds_assists_alternate', 'player_points_rebounds_assists_alternate'
                         ]
-                        props_url = f"https://api.the-odds-api.com/v4/sports/basketball_nba/events/{event_id}/odds?apiKey={odds_api_key}&regions=us&markets={','.join(props_markets)}&bookmakers=bovada"
+                        props_url = f"https://api.the-odds-api.com/v4/sports/basketball_nba/events/{event_id}/odds?apiKey={odds_api_key}&regions=us&markets={','.join(props_markets)}&bookmakers=bovada,betonlineag,lowvig"
                         
                         try:
                             props_resp = requests.get(props_url, timeout=10)
@@ -7831,8 +7835,8 @@ def api_player_props():
                                 props_data = props_resp.json()
                                 bookmakers = props_data.get('bookmakers', [])
                                 for bm in bookmakers:
-                                    # Only use Bovada lines
-                                    if bm.get('key') == 'bovada':
+                                    # Prioritize Bovada, fallback to other books
+                                    if bm.get('key') in ['bovada', 'betonlineag', 'lowvig']:
                                         for market in bm.get('markets', []):
                                             # Normalize market key (remove player_ prefix and _alternate suffix)
                                             market_key = market.get('key', '').replace('player_', '').replace('_alternate', '')
