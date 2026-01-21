@@ -8369,12 +8369,15 @@ def api_player_props():
             player_count += 1
         
         # Joe's methodology: Max 2 props per player
-        # Sort by streak length first (longest streaks first)
-        props_found.sort(key=lambda x: (
-            -x['streak'],  # Longest streak first
-            -x.get('bovada_line', 0),  # Then by threshold
-            -x['ai_proj']  # Then by AI projection
-        ))
+        # Sort: Elite (favorable defense 21-30) first, then streak, then L20, then def rank
+        def sort_key(x):
+            def_rank = x.get('opp_def_rank') or 99
+            is_elite = 1 if def_rank >= 21 else 0  # Elite = favorable defense (ranks 21-30)
+            l20_rate = x.get('l20_hit_rate', 0)
+            streak = x.get('streak', 0)
+            return (-is_elite, -streak, -l20_rate, -def_rank)
+        
+        props_found.sort(key=sort_key)
         
         # Keep max 2 props per player (Joe's rule)
         player_prop_counts = {}
