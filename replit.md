@@ -71,7 +71,7 @@ This project develops and manages trading systems including a Sports Betting Cal
     -   OVER picks: Shows when facing bottom 10 defense (worst defenses = more points allowed)
     -   UNDER picks: Shows when facing top 10 defense (best defenses = fewer points allowed)
     -   NBA/CBB only (basketball games) - badge adds confidence, not required for qualification
--   **File Size**: ~9,080 lines
+-   **File Size**: Reduced to 8,048 lines
 -   **Focus**: Pure TOTALS (Over/Under) functionality only with confidence badges:
     1. **Totals Model**: Standard O/U picks with edge thresholds
     2. **Away Favorite Badge**: Games where away team is favorite AND meets O/U threshold (orange badge)
