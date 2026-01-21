@@ -8146,14 +8146,13 @@ def api_player_props():
                 if l5_hits < 5:
                     continue
                 
-                # 3. Must be 90%+ L10 (9/10 or better)
-                l10_pct = (l10_hits / len(l10_values)) * 100 if l10_values else 0
-                if l10_pct < 90:
+                # 3. Must be 100% L10 (10/10)
+                if l10_hits < 10:
                     continue
                 
-                # 4. Must be 80%+ L20 (16/20 or better)
+                # 4. Must be 87%+ L20 (17/20 or better)
                 l20_pct = (l20_hits / len(l20_values)) * 100 if l20_values else 0
-                if l20_pct < 80:
+                if l20_pct < 87:
                     continue
                 
                 # Track the streak length

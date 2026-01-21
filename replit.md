@@ -96,15 +96,15 @@ This project develops and manages trading systems including a Sports Betting Cal
     -   **PLAY**: 5-9 consecutive hits (purple)
 -   **MANDATORY FILTERS (ALL must pass)**:
     -   L5 100% (5/5 mandatory)
-    -   L10 90%+ (at least 9/10)
-    -   L20 80%+ (at least 16/20)
+    -   L10 100% (10/10 mandatory)
+    -   L20 87%+ (at least 17/20)
     -   5+ consecutive hits on the prop
-    -   Bovada line exists for the prop (max -200 odds)
+    -   Line exists from Bovada/FanDuel/DraftKings/BetMGM (max -200 odds)
 -   **ELITE PICKS**: Bottom 10 defenses (ranks 21-30) marked with golden ELITE badge
 -   **DISQUALIFICATION RULES (Auto-AVOID)**:
     -   Fewer than 5 consecutive hits
-    -   L5 < 100% or L10 < 90% or L20 < 80%
-    -   No Bovada line available
+    -   L5 < 100% or L10 < 100% or L20 < 87%
+    -   No sportsbook line available
 -   **Defensive Rank Display**: Shows "Xth vs [Stat Type]" - higher rank = worse defense (informational only)
 -   **Stat-Specific Defensive Rankings**: Shows "Xth vs [Stat Type]" (e.g., "21st vs Points")
 -   **Elite 10 Section**: Top 10 picks by consecutive streak length
