@@ -77,36 +77,37 @@ This project develops and manages trading systems including a Sports Betting Cal
     2. **Away Favorite Badge**: Games where away team is favorite AND meets O/U threshold (orange badge)
     3. **Defense Edge Badge**: Games where pick direction aligns with defensive matchup (blue badge)
 
-### Player Props Analysis Protocol (Jan 2026)
+### Player Props Analysis Protocol (Jan 2026) - Joe's Methodology
 -   **Separate Tab**: /props route with dedicated "Fetch Player Stats" button
 -   **Multi-League Support**: League selector dropdown for NBA, EuroLeague, and EuroCup
     -   NBA: Uses nba_api for player game logs with Bovada lines
     -   EuroLeague/EuroCup: Uses euroleague-api package for European basketball
 -   **EDGE CALCULATION**:
     -   `Edge% = (AI_Projection - Prop_Line) / Prop_Line × 100`
-    -   AI Projection = 20-game average with defensive adjustment
-    -   Sorted by Edge% (highest edge = best pick)
--   **CONSECUTIVE HIT STREAK METHODOLOGY** (Updated Jan 2026):
-    -   Counts consecutive games hitting the prop line (from most recent)
-    -   Example: 36/L36 means 36 games in a row at or above the line
-    -   Only players with 5+ consecutive hits qualify
--   **PLAY CLASSIFICATION** (Based on consecutive streak length):
-    -   **PREMIUM PLAY**: 15+ consecutive hits (gold glow)
-    -   **STRONG PLAY**: 10-14 consecutive hits (green)
-    -   **PLAY**: 5-9 consecutive hits (purple)
--   **MANDATORY FILTER**: 10+ consecutive hits on the prop (the streak IS the filter)
-    -   If a player has hit the prop 10+ games in a row, they qualify
-    -   L5/L10/L20 percentages shown for display only (not used for filtering)
+    -   AI Projection = 20-game average with defensive adjustment (100-game simulation)
+    -   Sorted by: Favorable defense > L20 hit rate > Streak > AI Proj
+-   **L20 HIT RATE METHODOLOGY** (Updated Jan 2026):
+    -   Primary filter: L20 hit rate 85%+ (17/20 or better)
+    -   Consecutive streak tracked for display (e.g., 36/L36 = 36 in a row)
+    -   Streak format: X/LY where X = consecutive hits, Y = sample size
+-   **PLAY CLASSIFICATION** (Based on L20 hit rate):
+    -   **PREMIUM PLAY**: 100% L20 (20/20) - gold glow
+    -   **STRONG PLAY**: 95%+ L20 (19/20) - green
+    -   **PLAY**: 85%+ L20 (17-18/20) - purple
+-   **MANDATORY FILTER**: L20 hit rate 85%+ (17/20 minimum)
+    -   Players must have 20+ games of data
     -   Line exists from Bovada/FanDuel/DraftKings/BetMGM (max -200 odds)
--   **ELITE PICKS**: Bottom 10 defenses (ranks 21-30) marked with golden ELITE badge
+-   **ELITE PICKS**: Bottom 10 defenses (ranks 21-30) = favorable matchups
+    -   Picks against worst defenses prioritized at top
+    -   Golden ELITE badge for favorable defense matchups
 -   **DISQUALIFICATION RULES (Auto-AVOID)**:
-    -   Fewer than 10 consecutive hits
+    -   L20 hit rate below 85%
+    -   Fewer than 20 games of data
     -   No sportsbook line available
--   **Defensive Rank Display**: Shows "Xth vs [Stat Type]" - higher rank = worse defense (informational only)
--   **Stat-Specific Defensive Rankings**: Shows "Xth vs [Stat Type]" (e.g., "21st vs Points")
--   **Elite 10 Section**: Top 10 picks by consecutive streak length
-    -   Golden glow for PREMIUM PLAY, green for STRONG PLAY, purple for PLAY
-    -   Shows streak display (e.g., "36 / L36"), L5/L10/L20 hit rates, Edge%, Classification, Def Rank vs Stat
+-   **Defensive Rank Display**: Shows "Xth" - rank 21-30 = worst defenses (favorable for OVER)
+-   **Elite 10 Section**: Top 10 picks by L20 hit rate with defense priority
+    -   Favorable defense matchups sorted first
+    -   Shows streak display (e.g., "36/L36"), L5/L10/L20 hit rates, Edge%, Def Rank, AI Proj
 -   **Display Columns**: Team, Player, Prop, Bovada, Streak, Edge%, Class, Def Rank vs Stat, AI Proj, Trend
 -   **Prop Types**: Points, Rebounds, Assists, P+R, P+A, R+A, P+R+A, 3PM, Steals, Blocks, Steal+Block
 -   **Mobile Layout**: Card-based responsive design with Edge% and Classification badges

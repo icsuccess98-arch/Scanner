@@ -8175,11 +8175,10 @@ def api_player_props():
                 l20_values = values[:min(20, len(values))]
                 l20_hits = sum(1 for v in l20_values if v >= threshold)
                 
-                # Debug: Log top streaks found
-                if consecutive_streak >= 10:
-                    logger.info(f"Found streak: {player_name} - {prop['name']} - {consecutive_streak} consecutive (line: {bovada_line}, avg: {base_projection:.1f})")
-                    l20_pct = (l20_hits / len(l20_values)) * 100 if l20_values else 0
-                    logger.info(f"  -> L5: {l5_hits}/5, L20: {l20_hits}/{len(l20_values)} ({l20_pct:.0f}%)")
+                # Debug: Log L20 85%+ qualified streaks
+                current_l20_pct = (l20_hits / len(l20_values)) * 100 if l20_values else 0
+                if current_l20_pct >= 85 and len(l20_values) >= 20:
+                    logger.info(f"QUALIFIED: {player_name} - {prop['name']} - {consecutive_streak}/{len(l20_values)} consecutive, L20: {l20_hits}/20 ({current_l20_pct:.0f}%), line: {bovada_line}")
                 
                 # Debug key players even without 10+ streak
                 if 'derozan' in player_name.lower() or 'raynaud' in player_name.lower() or 'lebron' in player_name.lower() or 'james' in player_name.lower():
@@ -8291,7 +8290,7 @@ def api_player_props():
                     'prop_display': prop_display,
                     'streak': best_streak,
                     'sample': best_sample,
-                    'streak_display': f"{best_streak} / L{best_sample}",
+                    'streak_display': f"{best_streak}/L{best_sample}",
                     'streak_pct': round(streak_pct, 0),
                     'hit_rates': hit_rates,
                     'l5': f"{l5_hits}/5",
