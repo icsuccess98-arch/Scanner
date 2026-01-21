@@ -8196,14 +8196,18 @@ def api_player_props():
                     l20_pct_debug = (l20_hits / len(l20_values)) * 100 if l20_values else 0
                     logger.info(f"DEBUG FILTER {player_name} {prop['name']} line={bovada_line}: streak={consecutive_streak}, L5={l5_hits}/5, L20={l20_hits}/{len(l20_values)} ({l20_pct_debug:.0f}%)")
                 
-                # RELAXED FILTERS:
-                # 1. Must have at least 3 consecutive hits
-                if consecutive_streak < 3:
+                # MANDATORY FILTERS:
+                # 1. Must have at least 5 consecutive hits (PLAY threshold)
+                if consecutive_streak < 5:
                     continue
                 
-                # 2. L20 70%+ (14/20 or better)
+                # 2. Must be 100% L5 (5/5)
+                if l5_hits < 5:
+                    continue
+                
+                # 3. Must be 90%+ L20 (18/20 or better)
                 l20_pct = (l20_hits / len(l20_values)) * 100 if l20_values else 0
-                if l20_pct < 70:
+                if l20_pct < 90:
                     continue
                 
                 # Track the streak length
