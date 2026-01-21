@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#d4af37">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -882,5 +882,61 @@
             navigator.serviceWorker.register('/sw.js').catch(() => {});
         }
     </script>
+    
+    <nav class="mobile-bottom-nav">
+        <ul>
+            <li><a href="/"><i class="bi bi-house-fill"></i>Home</a></li>
+            <li><a href="/props"><i class="bi bi-person-badge-fill"></i>Props</a></li>
+            <li><a href="/bankroll" class="active"><i class="bi bi-wallet2"></i>Bankroll</a></li>
+            <li><a href="/history"><i class="bi bi-clock-history"></i>History</a></li>
+        </ul>
+    </nav>
+    
+    <style>
+        .mobile-bottom-nav {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(180deg, #1a1825 0%, #12101a 100%);
+            border-top: 1px solid var(--border);
+            padding: 0.5rem 0;
+            z-index: 1000;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+        }
+        .mobile-bottom-nav ul {
+            display: flex;
+            justify-content: space-around;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        .mobile-bottom-nav a {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: var(--text-muted);
+            text-decoration: none;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.65rem;
+            transition: all 0.2s;
+        }
+        .mobile-bottom-nav a i {
+            font-size: 1.25rem;
+            margin-bottom: 0.15rem;
+        }
+        .mobile-bottom-nav a.active {
+            color: var(--gold);
+        }
+        .mobile-bottom-nav a.active i {
+            filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.5));
+        }
+        @media (max-width: 768px) {
+            .mobile-bottom-nav { display: block; }
+            .nav-links { display: none !important; }
+            body { padding-bottom: 70px; }
+        }
+    </style>
 </body>
 </html>
