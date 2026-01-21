@@ -7864,16 +7864,22 @@ def api_player_props():
                             continue
                     
                     logger.info(f"Fetched {len(bovada_lines)} prop lines from bookmakers")
-                    # Log sample of different market types (extract market key from key format: player_market_line)
-                    sample_by_type = {}
+                    # Count market types - combo markets have underscores in the market key
+                    market_counts = {}
+                    combo_markets = ['points_rebounds', 'points_assists', 'rebounds_assists', 'points_rebounds_assists']
                     for k in bovada_lines.keys():
-                        parts = k.rsplit('_', 1)  # Split off line number
-                        if len(parts) >= 2:
-                            player_market = parts[0].rsplit('_', 1)  # Split off market from player
-                            mtype = player_market[-1] if len(player_market) > 1 else 'unknown'
-                            if mtype not in sample_by_type:
-                                sample_by_type[mtype] = k
-                    logger.info(f"Market types found: {list(sample_by_type.keys())}")
+                        # Key format: playername_market_line
+                        for combo in combo_markets:
+                            if f"_{combo}_" in k:
+                                market_counts[combo] = market_counts.get(combo, 0) + 1
+                                break
+                        else:
+                            # Single stat market
+                            for single in ['points', 'rebounds', 'assists', 'threes', 'steals', 'blocks']:
+                                if f"_{single}_" in k and not any(f"_{c}_" in k for c in combo_markets):
+                                    market_counts[single] = market_counts.get(single, 0) + 1
+                                    break
+                    logger.info(f"Market type counts: {market_counts}")
                     # Log sample keys and unique player names for debugging
                     sample_keys = list(bovada_lines.keys())[:5]
                     logger.info(f"Sample keys: {sample_keys}")
