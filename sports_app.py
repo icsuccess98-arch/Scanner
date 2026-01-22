@@ -6512,7 +6512,7 @@ def fetch_odds_for_league(league: str, sport_key: str, api_key: str) -> tuple:
 def fetch_odds_internal() -> dict:
     """Internal function to fetch odds from Bovada via The Odds API - PARALLEL + ATOMIC (TOTALS ONLY)."""
     start_time = time.time()
-    api_key = os.environ.get("ODDS_API_KEY") or os.environ.get("API_KEY")
+    api_key = os.environ.get("BOVADA_API_KEY") or os.environ.get("ODDS_API_KEY") or os.environ.get("API_KEY")
     if not api_key:
         return {"success": False, "lines_updated": 0, "alt_lines_found": 0}
     
@@ -7111,7 +7111,7 @@ def fetch_single_alt_line(game_info: dict, api_key: str) -> dict:
 
 def fetch_alt_lines_internal() -> dict:
     """Internal function to fetch alternate lines for qualified TOTALS games (parallel)."""
-    api_key = os.environ.get("ODDS_API_KEY") or os.environ.get("API_KEY")
+    api_key = os.environ.get("BOVADA_API_KEY") or os.environ.get("ODDS_API_KEY") or os.environ.get("API_KEY")
     if not api_key:
         logger.warning("No ODDS_API_KEY or API_KEY for alt lines fetch")
         return {"alt_lines_found": 0, "games_checked": 0}
