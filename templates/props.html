@@ -1007,17 +1007,16 @@
         }
         
         function getSuperlockPicks(props) {
-            // Only consider picks with def_rank 21-30 (true elite - favorable defense)
-            const eliteProps = props.filter(p => p.def_rank && p.def_rank >= 21 && p.def_rank <= 30);
-            const sorted = eliteProps.sort((a, b) => {
-                // Primary: Higher def rank = worse defense = more favorable
-                const aDefRank = a.def_rank;
-                const bDefRank = b.def_rank;
-                if (bDefRank !== aDefRank) return bDefRank - aDefRank;
-                // Secondary: Longer streak = more reliable
+            // Superlocks = HIGHEST STREAKS among all qualified picks
+            const sorted = props.slice().sort((a, b) => {
+                // Primary: Longest streak = most reliable
                 const aStreak = a.streak || 0;
                 const bStreak = b.streak || 0;
-                return bStreak - aStreak;
+                if (bStreak !== aStreak) return bStreak - aStreak;
+                // Secondary: Higher def rank = worse defense = more favorable
+                const aDefRank = a.def_rank || 0;
+                const bDefRank = b.def_rank || 0;
+                return bDefRank - aDefRank;
             });
             const seen = new Set();
             const unique = [];

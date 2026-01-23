@@ -128,8 +128,8 @@ This project develops and manages trading systems including a Sports Betting Cal
     -   **All Tab**: Shows all qualified props in card format
     -   **Elite Tab**: Filters to show only elite picks (def rank 21-30)
     -   **Superlocks Tab**: Shows top 3 picks on a single premium card, prioritized by:
-        1. Defense rank (21-30 = favorable matchups, higher = more favorable)
-        2. Streak length (longer streaks = more reliable)
+        1. Streak length (HIGHEST STREAKS = most reliable picks)
+        2. Defense rank (tiebreaker - higher = more favorable)
     -   Sticky tab bar with haptic feedback on mobile
     -   Superlock card features golden glow, numbered picks, and streak/defense stats
 
