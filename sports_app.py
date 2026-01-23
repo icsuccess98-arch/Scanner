@@ -7939,17 +7939,42 @@ def api_player_props():
             team_opponents[away_id] = home_id
         
         # Fetch ALL player game logs at once (more efficient than individual calls)
+        # CROSS-SEASON: Fetch both current AND previous season to calculate cross-season streaks
         all_game_logs = {}
         try:
-            logger.info("Fetching bulk player game logs...")
-            bulk_logs = playergamelogs.PlayerGameLogs(
+            logger.info("Fetching bulk player game logs (cross-season)...")
+            
+            # Current season (2025-26)
+            bulk_logs_current = playergamelogs.PlayerGameLogs(
                 season_nullable='2025-26',
-                last_n_games_nullable=100,  # 100 games for simulation
+                last_n_games_nullable=100,
                 timeout=90
             )
-            logs_df = bulk_logs.get_data_frames()[0]
+            logs_current = bulk_logs_current.get_data_frames()[0]
             
-            # Group by player
+            # Previous season (2024-25) for cross-season streaks
+            try:
+                bulk_logs_previous = playergamelogs.PlayerGameLogs(
+                    season_nullable='2024-25',
+                    last_n_games_nullable=50,
+                    timeout=90
+                )
+                logs_previous = bulk_logs_previous.get_data_frames()[0]
+                # Combine both seasons
+                import pandas as pd
+                logs_df = pd.concat([logs_current, logs_previous], ignore_index=True)
+                
+                # Filter out preseason games (GAME_ID starting with '001')
+                # NBA GAME_ID format: 001=preseason, 002=regular, 003=allstar, 004=playoffs
+                original_count = len(logs_df)
+                logs_df = logs_df[~logs_df['GAME_ID'].astype(str).str.startswith('001')]
+                filtered_count = len(logs_df)
+                logger.info(f"Cross-season data: {filtered_count} regular season games (filtered {original_count - filtered_count} preseason games)")
+            except Exception as e:
+                logger.warning(f"Could not fetch previous season, using current only: {e}")
+                logs_df = logs_current
+            
+            # Group by player and sort by date (most recent first)
             for player_id, group in logs_df.groupby('PLAYER_ID'):
                 all_game_logs[player_id] = group.sort_values('GAME_DATE', ascending=False)
             
@@ -8367,6 +8392,17 @@ def api_player_props():
                 })
             
             player_count += 1
+        
+        # Deduplicate exact same props (same player, prop type, line)
+        # Can happen when same line appears from multiple sportsbooks
+        seen_prop_keys = set()
+        deduped_props = []
+        for prop in props_found:
+            prop_key = f"{prop['player']}_{prop['prop_display']}_{prop['bovada_line']}"
+            if prop_key not in seen_prop_keys:
+                deduped_props.append(prop)
+                seen_prop_keys.add(prop_key)
+        props_found = deduped_props
         
         # Joe's methodology: Max 2 props per player
         # Sort: Elite (favorable defense 21-30) first, then streak, then L20, then def rank
