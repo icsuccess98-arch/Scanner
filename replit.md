@@ -99,6 +99,8 @@ This project develops and manages trading systems including a Sports Betting Cal
     -   Primary filter: L20 hit rate 85%+ (17/20 or better)
     -   Consecutive streak tracked for display (e.g., 36/L36 = 36 in a row)
     -   Streak format: X/LY where X = consecutive hits, Y = sample size
+    -   **Cross-Season Streaks**: Fetches both current (2025-26) and previous (2024-25) seasons
+    -   **Preseason Filter**: Excludes preseason games (GAME_ID starting with '001') for accurate streaks
 -   **PLAY CLASSIFICATION** (Based on L20 hit rate):
     -   **PREMIUM PLAY**: 100% L20 (20/20) - gold glow
     -   **STRONG PLAY**: 95%+ L20 (19/20) - green
@@ -122,6 +124,14 @@ This project develops and manages trading systems including a Sports Betting Cal
 -   **Prop Types**: Points, Rebounds, Assists, P+R, P+A, R+A, P+R+A, 3PM, Steals, Blocks, Steal+Block
 -   **Mobile Layout**: Card-based responsive design with Edge% and Classification badges
 -   **UI Theme**: Royal gold theme with dark background matching dashboard aesthetics
+-   **Mobile Tabs** (screens ≤992px):
+    -   **All Tab**: Shows all qualified props in card format
+    -   **Elite Tab**: Filters to show only elite picks (def rank 21-30)
+    -   **Superlocks Tab**: Shows top 3 picks on a single premium card, prioritized by:
+        1. Defense rank (21-30 = favorable matchups, higher = more favorable)
+        2. Streak length (longer streaks = more reliable)
+    -   Sticky tab bar with haptic feedback on mobile
+    -   Superlock card features golden glow, numbered picks, and streak/defense stats
 
 ### Feature Specifications
 -   **Sports Scanner**: Fetches NBA, CBB, NFL, CFB, NHL games, stats, and odds to identify qualified TOTALS picks.

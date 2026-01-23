@@ -441,6 +441,191 @@
         @media (max-width: 768px) {
             .mobile-bottom-nav { display: block; }
         }
+        
+        /* Mobile Tab Navigation */
+        .mobile-tabs {
+            display: none;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 60px;
+            z-index: 90;
+        }
+        @media (max-width: 992px) {
+            .mobile-tabs { display: flex; }
+        }
+        .tab-btn {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+        .tab-btn.active {
+            background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%);
+            color: #000;
+            border-color: var(--gold);
+            box-shadow: 0 0 12px rgba(255, 215, 0, 0.4);
+        }
+        .tab-btn i { font-size: 0.85rem; }
+        
+        /* Superlock Card Styling */
+        .superlock-container {
+            display: none;
+            margin: 1rem;
+        }
+        .superlock-card {
+            background: linear-gradient(145deg, #1a1528 0%, #12101a 100%);
+            border: 2px solid var(--gold);
+            border-radius: 20px;
+            padding: 1.25rem;
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.2), 0 8px 32px rgba(0, 0, 0, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+        .superlock-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255, 215, 0, 0.08) 0%, transparent 50%);
+            animation: pulse 3s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.1); }
+        }
+        .superlock-header {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            position: relative;
+            z-index: 1;
+        }
+        .superlock-title {
+            font-size: 1.25rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--gold) 0%, #FFA500 50%, var(--gold) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .superlock-badge {
+            background: linear-gradient(135deg, var(--gold) 0%, #FFA500 100%);
+            color: #000;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-size: 0.65rem;
+            font-weight: 800;
+        }
+        .superlock-picks {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            position: relative;
+            z-index: 1;
+        }
+        .superlock-pick {
+            background: rgba(26, 24, 37, 0.9);
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            border-radius: 12px;
+            padding: 0.85rem;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        .superlock-pick:first-child {
+            border-color: var(--gold);
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.15);
+        }
+        .superlock-pick-number {
+            position: absolute;
+            left: -8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: linear-gradient(135deg, var(--gold) 0%, #FFA500 100%);
+            color: #000;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 0.7rem;
+        }
+        .superlock-pick-info {
+            padding-left: 0.5rem;
+        }
+        .superlock-pick-player {
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: var(--text);
+            margin-bottom: 0.15rem;
+        }
+        .superlock-pick-team {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+        .superlock-pick-prop {
+            font-weight: 600;
+            font-size: 0.8rem;
+            color: var(--gold);
+            margin-top: 0.25rem;
+        }
+        .superlock-pick-stats {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.25rem;
+        }
+        .superlock-stat {
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        .superlock-stat-streak {
+            color: var(--emerald);
+            font-weight: 700;
+        }
+        .superlock-stat-def {
+            color: var(--gold);
+            font-weight: 600;
+        }
+        .superlock-footer {
+            margin-top: 1rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid rgba(255, 215, 0, 0.2);
+            text-align: center;
+            position: relative;
+            z-index: 1;
+        }
+        .superlock-note {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            font-style: italic;
+        }
+        
+        /* Elite Only Section */
+        .elite-cards { display: none; margin: 1rem; }
     </style>
 </head>
 <body>
@@ -496,6 +681,21 @@
             <div class="label">Other</div>
         </div>
     </div>
+    
+    <div class="mobile-tabs" id="mobileTabs" style="display: none;">
+        <button class="tab-btn active" data-tab="all" onclick="switchTab('all')">
+            <i class="bi bi-list-ul"></i> All
+        </button>
+        <button class="tab-btn" data-tab="elite" onclick="switchTab('elite')">
+            <i class="bi bi-star-fill"></i> Elite
+        </button>
+        <button class="tab-btn" data-tab="superlocks" onclick="switchTab('superlocks')">
+            <i class="bi bi-lock-fill"></i> Superlocks
+        </button>
+    </div>
+    
+    <div class="superlock-container" id="superlockContainer"></div>
+    <div class="elite-cards" id="eliteCards"></div>
 
     <div class="empty-state" id="emptyState">
         <i class="bi bi-person-bounding-box"></i>
@@ -582,12 +782,16 @@
                     if (allProps.length > 0) {
                         renderTable(allProps);
                         renderMobileCards(allProps);
+                        renderEliteCards(allProps);
+                        renderSuperlockCard(allProps);
                         updateStats(allProps);
                         document.body.classList.add('data-loaded');
                         document.getElementById('statsBar').style.display = 'flex';
+                        document.getElementById('mobileTabs').style.display = 'flex';
                         document.getElementById('tableContainer').style.display = 'block';
                         document.getElementById('emptyState').style.display = 'none';
                         document.getElementById('loadingState').style.display = 'none';
+                        switchTab(currentTab);
                         return true;
                     }
                 } catch (e) {
@@ -642,9 +846,13 @@
                     
                     renderTable(allProps);
                     renderMobileCards(allProps);
+                    renderEliteCards(allProps);
+                    renderSuperlockCard(allProps);
                     updateStats(allProps);
                     document.body.classList.add('data-loaded');
                     statsBar.style.display = 'flex';
+                    document.getElementById('mobileTabs').style.display = 'flex';
+                    switchTab(currentTab);
                 } else {
                     empty.innerHTML = `
                         <i class="bi bi-search"></i>
@@ -766,7 +974,177 @@
             
             renderTable(filtered);
             renderMobileCards(filtered);
+            renderEliteCards(filtered);
+            renderSuperlockCard(filtered);
             updateStats(filtered);
+        }
+        
+        let currentTab = 'all';
+        
+        function switchTab(tab) {
+            currentTab = tab;
+            hapticFeedback('light');
+            
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === tab);
+            });
+            
+            const mobileCards = document.getElementById('mobileCards');
+            const eliteCards = document.getElementById('eliteCards');
+            const superlockContainer = document.getElementById('superlockContainer');
+            
+            mobileCards.style.display = 'none';
+            eliteCards.style.display = 'none';
+            superlockContainer.style.display = 'none';
+            
+            if (tab === 'all') {
+                mobileCards.style.display = 'block';
+            } else if (tab === 'elite') {
+                eliteCards.style.display = 'block';
+            } else if (tab === 'superlocks') {
+                superlockContainer.style.display = 'block';
+            }
+        }
+        
+        function getSuperlockPicks(props) {
+            // Only consider picks with def_rank 21-30 (true elite - favorable defense)
+            const eliteProps = props.filter(p => p.def_rank && p.def_rank >= 21 && p.def_rank <= 30);
+            const sorted = eliteProps.sort((a, b) => {
+                // Primary: Higher def rank = worse defense = more favorable
+                const aDefRank = a.def_rank;
+                const bDefRank = b.def_rank;
+                if (bDefRank !== aDefRank) return bDefRank - aDefRank;
+                // Secondary: Longer streak = more reliable
+                const aStreak = a.streak || 0;
+                const bStreak = b.streak || 0;
+                return bStreak - aStreak;
+            });
+            const seen = new Set();
+            const unique = [];
+            for (const p of sorted) {
+                if (!seen.has(p.player) && unique.length < 3) {
+                    unique.push(p);
+                    seen.add(p.player);
+                }
+            }
+            return unique;
+        }
+        
+        function renderSuperlockCard(props) {
+            const container = document.getElementById('superlockContainer');
+            const superlocks = getSuperlockPicks(props);
+            
+            if (superlocks.length === 0) {
+                container.innerHTML = `
+                    <div class="superlock-card">
+                        <div class="superlock-header">
+                            <span class="superlock-title">Superlocks</span>
+                        </div>
+                        <p style="text-align: center; color: var(--text-muted);">No elite picks available today</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let picksHtml = '';
+            superlocks.forEach((p, idx) => {
+                const streak = p.streak || 20;
+                const sample = p.sample || 20;
+                const defRank = p.def_rank || 15;
+                const defDisplay = p.def_rank_display || getOrdinal(defRank);
+                
+                picksHtml += `
+                    <div class="superlock-pick" style="position: relative;">
+                        <div class="superlock-pick-number">${idx + 1}</div>
+                        <div class="superlock-pick-info">
+                            <div class="superlock-pick-player">${p.player}</div>
+                            <div class="superlock-pick-team">${p.team}</div>
+                            <div class="superlock-pick-prop">${p.prop_display}</div>
+                        </div>
+                        <div class="superlock-pick-stats">
+                            <div class="superlock-stat">
+                                <i class="bi bi-fire" style="color: var(--emerald);"></i>
+                                <span class="superlock-stat-streak">${streak}/L${sample}</span>
+                            </div>
+                            <div class="superlock-stat">
+                                <i class="bi bi-shield-fill" style="color: var(--gold);"></i>
+                                <span class="superlock-stat-def">${defDisplay}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = `
+                <div class="superlock-card">
+                    <div class="superlock-header">
+                        <i class="bi bi-lock-fill" style="color: var(--gold); font-size: 1.5rem;"></i>
+                        <span class="superlock-title">Superlocks</span>
+                        <span class="superlock-badge">TOP 3</span>
+                    </div>
+                    <div class="superlock-picks">
+                        ${picksHtml}
+                    </div>
+                    <div class="superlock-footer">
+                        <div class="superlock-note">Prioritized by defense matchup (rank 21-30) + streak length</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function renderEliteCards(props) {
+            const container = document.getElementById('eliteCards');
+            container.innerHTML = '';
+            
+            // Only show picks with def_rank 21-30 (favorable defense matchups)
+            const eliteProps = props.filter(p => p.def_rank && p.def_rank >= 21 && p.def_rank <= 30);
+            
+            if (eliteProps.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                        <i class="bi bi-star" style="font-size: 2rem; opacity: 0.5;"></i>
+                        <p style="margin-top: 0.5rem;">No elite picks available</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            eliteProps.forEach((p, idx) => {
+                const streak = p.streak || 20;
+                const sample = p.sample || 20;
+                const defRank = p.def_rank || 15;
+                const defDisplay = p.def_rank_display || getOrdinal(defRank);
+                
+                const card = document.createElement('div');
+                card.className = 'mobile-card';
+                card.style.border = '1px solid rgba(255, 215, 0, 0.4)';
+                card.style.boxShadow = '0 0 15px rgba(255, 215, 0, 0.1)';
+                card.innerHTML = `
+                    <div class="mobile-card-header">
+                        <div>
+                            <div class="mobile-card-player">${p.player}</div>
+                            <div class="mobile-card-team">${p.team}</div>
+                        </div>
+                        <span style="background: linear-gradient(135deg, #FFD700, #FFA500); color: #1a1a2e; padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.65rem; font-weight: 700;">⭐ ELITE</span>
+                    </div>
+                    <div class="mobile-card-prop">${p.prop_display}</div>
+                    <div class="mobile-card-stats">
+                        <div class="mobile-stat">
+                            <div class="mobile-stat-label">Streak</div>
+                            <div class="mobile-stat-value" style="color: var(--emerald);">${streak}/L${sample}</div>
+                        </div>
+                        <div class="mobile-stat">
+                            <div class="mobile-stat-label">Def Rank</div>
+                            <div class="mobile-stat-value" style="color: var(--gold);">${defDisplay}</div>
+                        </div>
+                        <div class="mobile-stat">
+                            <div class="mobile-stat-label">AI Proj</div>
+                            <div class="mobile-stat-value" style="color: var(--purple);">${(p.ai_proj || 0).toFixed(1)}</div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
         }
         
         // Haptic feedback helper
