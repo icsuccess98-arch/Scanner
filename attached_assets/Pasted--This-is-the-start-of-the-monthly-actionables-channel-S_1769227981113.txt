@@ -1,0 +1,119 @@
+
+
+This is the start of the #monthly-actionables channel. 
+Strat Monthly Scanner
+APP
+ — 9/29/25, 11:31 AM
+📅 Monthly Actionables — Closed Aug 2025
+Monthly Inside (1) — Aug 2025
+ARKK, BA, CAT, KO, MSFT, NEE, ORCL, RBLX, TSM, XLI
+
+Monthly 3-Bar (3) — Aug 2025
+AAL, AAPL, BAC, CSCO, INTC, IWM, IYR, MU, PFE, ROKU, SNOW, URA, XLE, XLF, XLV, ZM
+
+Monthly Failed 2-Up — Aug 2025
+AMD, ETSY, META, TLT, WMT, XLU
+
+Monthly Failed 2-Down — Aug 2025
+ABNB, ADBE, AMZN, ARM, CRM, DIS, DOCU, FDX, MARA, NFLX, PANW, PYPL, QCOM, RIOT, UBER, UNH, UPS, WDAY, WFC, XOM
+Strat Monthly Scanner
+APP
+ — 10/1/25, 2:50 AM
+📅 Monthly Actionables — Closed Sep 2025
+Monthly Inside (1) — Sep 2025
+ABNB, CSCO, DDOG, PFE, PLTR, SNOW
+
+Monthly 3-Bar (3) — Sep 2025
+AMAT, BA, CRWD, DKNG, ETSY, MCD, MRVL, NVDA, ORCL, PYPL, TLT
+
+Monthly Failed 2-Up — Sep 2025
+AAL, AMZN, CRM, CVX, DAL, DOCU, OXY, PEP, UAL, XLE, XOM
+
+Monthly Failed 2-Down — Sep 2025
+AMD, META, MSFT, NEE, SMCI, XLU
+MRF2REV — 10/7/25, 1:35 AM
+Ticker
+ABNB
+CSCO
+DDOG
+PFE
+PLTR
+Expand
+monthly-signals-sep-2025.csv
+1 KB
+Wassup Family — here’s the monthly signals list for September 2025 in CSV format:
+
+
+You can import this directly into TradingView to make your scanning process faster and more organized.
+
+📌 Quick tips when reviewing:
+
+Remove any tickers that don’t match your setup 🧹
+
+This isn’t a buy list — just a streamlined way to focus your attention
+
+Use this to avoid bouncing back and forth between Discord and your charts
+
+Let me know if you want this sent automatically each month 🔁💡 @everyone  FYI AMD pulled so we know there will always be another play!! let's get it 
+Strat Monthly Scanner
+APP
+ — 10/26/25, 2:38 AM
+📅 Monthly Actionables — Closed Sep 2025
+Monthly Inside (1) — Sep 2025
+ABNB, CSCO, DDOG, PFE, PLTR, SNOW
+
+Monthly 3-Bar (3) — Sep 2025
+AMAT, BA, CRWD, DKNG, ETSY, MCD, MRVL, NVDA, ORCL, PYPL, TLT
+
+Monthly Failed 2-Up — Sep 2025
+AAL, AMZN, CRM, CVX, DAL, DOCU, OXY, PEP, UAL, XLE, XOM
+
+Monthly Failed 2-Down — Sep 2025
+AMD, META, MSFT, NEE, SMCI, XLU
+Strat Monthly Scanner
+APP
+ — 11/1/25, 4:48 AM
+📅 Monthly Actionables — Closed Oct 2025
+Monthly Inside (1) — Oct 2025
+AAL, COST, DAL, GS, ORCL, UBER, WDAY, XLY, XOM
+
+Monthly 3-Bar (3) — Oct 2025
+ABNB, AMZN, BAC, CMG, CRM, IYR, NKE, QCOM, ROKU, TGT, WFC
+
+Monthly Failed 2-Up — Oct 2025
+ABBV, ETSY, MARA, PFE, UNH, WMT
+
+Monthly Failed 2-Down — Oct 2025
+CVX, DOCU, PEP, PINS, ZM
+Strat Monthly Scanner
+APP
+ — 12/1/25, 12:02 AM
+📅 Monthly Actionables — Closed Nov 2025
+Monthly Inside (1) — Nov 2025
+AMD, CAT, CVS, HYG, NEE, PEP, QCOM, TLT, UPS, XLU
+
+Monthly 3-Bar (3) — Nov 2025
+AMAT, DAL, DIS, MRVL, NET, PLTR, SBUX, SOFI, TSLA, WMT, XLY, ZM
+
+Monthly Failed 2-Up — Nov 2025
+AMZN, CRWD, DDOG, SNOW, WFC
+
+Monthly Failed 2-Down — Nov 2025
+ABBV, CMG, COST, DKNG, INTC, IWM, IYR, OXY, PFE, UAL, UBS, XLF, XLP
+MRF2REV — 12/1/25, 12:06 AM
+@everyone
+Strat Monthly Scanner
+APP
+ — 1/1/26, 10:46 PM
+📅 Monthly Actionables — Closed Dec 2025
+Monthly Inside (1) — Dec 2025
+ABBV, AMD, AMZN, ARKK, DIS, GOOG, GOOGL, HYG, KO, LLY, MSFT, NET, NVDA, PANW, PINS, PLTR, PYPL, QCOM, QQQ, RIOT, SHOP, SOFI, URA, WDAY, XLK, XLV
+
+Monthly 3-Bar (3) — Dec 2025
+AAP, AVGO, GE, NKE
+
+Monthly Failed 2-Up — Dec 2025
+AAPL, INTC, MCD, MRVL, PEP, PFE, SBUX, XLE, XLP
+
+Monthly Failed 2-Down — Dec 2025
+CVX, DOCU, ETSY

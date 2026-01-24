@@ -1,0 +1,395 @@
+━━━━━━━━━━━━━━━━━━━━
+Q
+━━━━━━━━━━━━━━━━━━━━
+3: ANF, CRM, ABNB, CVX, CCL, TGT, BA, DDOG, NET, XLI
+3-2: INTC, LLY, DKNG, KR, CRWD, ZM, XLP
+3-Failed2: DKNG, CRWD, ZM, XLP
+1-Failed2: DIS, MCD
+
+━━━━━━━━━━━━━━━━━━━━
+M
+━━━━━━━━━━━━━━━━━━━━
+3: QCOM, ABBV, WMT, BAC, XLP
+3-2: AAP, GE
+3-Failed2: AAP
+1-Failed2: QQQ, NVDA, AMZN, AMD, IONQ, PANW, LLY, DIS, KO
+1-1→Failed2: AMD
+
+━━━━━━━━━━━━━━━━━━━━
+W
+━━━━━━━━━━━━━━━━━━━━
+3: SPY, QQQ, SHOP, ROKU, ZM, XLK
+3-2: MSFT, NVDA, AMD, ORCL, ABBV, XOM, WMT, DKNG, DDOG, NET, DOCU, KO, NEE, MRVL, XLP
+3-Failed2: AMD, ORCL, ABBV, DKNG, NET
+
+━━━━━━━━━━━━━━━━━━━━
+D
+━━━━━━━━━━━━━━━━━━━━
+3: IWM, AAPL, NFLX, UBER, PYPL, NKE, NET, PLTR, CRWD, URA
+3-2: MU, LUV, ARM, WFC, JPM, BAC, GLD, UAL, XLV, IYR
+3-Failed2: GLD
+1-Failed2: GS, MSOS, SOFI
+3-2 Hammer: GLD
+
+━━━━━━━━━━━━━━━━━━━━
+4H
+━━━━━━━━━━━━━━━━━━━━
+3-2: IWM, ANF, NFLX, CVS, DDOG, RBLX, DAL, NEE, URA
+3-Failed2: NFLX, DDOG, RBLX, DAL, NEE, URA
+Captain Hook
+APP
+ — 1/15/26, 3:20 AM
+STRAT MINI SCAN — Thu Jan 15, 2026 15:20 (Asia/Jakarta)
+Only: 3, 3-2, 3-Failed2, 1-Failed2, 1-1→Failed2, 3-2 Hammer
+Tickers: core.txt
+
+━━━━━━━━━━━━━━━━━━━━
+Q
+━━━━━━━━━━━━━━━━━━━━
+3: ANF, CRM, ABNB, CVX, CCL, TGT, BA, DDOG, NET, XLI
+3-2: INTC, LLY, DKNG, KR, CRWD, ZM, XLP
+3-Failed2: DKNG, CRWD, ZM, XLP
+1-Failed2: DIS, MCD
+
+━━━━━━━━━━━━━━━━━━━━
+M
+━━━━━━━━━━━━━━━━━━━━
+3: QCOM, ABBV, WMT, BAC, XLP
+3-2: AAP, GE
+3-Failed2: AAP
+1-Failed2: QQQ, NVDA, AMZN, AMD, IONQ, PANW, LLY, DIS, KO
+1-1→Failed2: AMD
+
+━━━━━━━━━━━━━━━━━━━━
+W
+━━━━━━━━━━━━━━━━━━━━
+3: SPY, QQQ, SHOP, ROKU, ZM, XLK
+3-2: MSFT, NVDA, AMD, ORCL, ABBV, XOM, WMT, DKNG, DDOG, NET, DOCU, KO, NEE, MRVL, XLP
+3-Failed2: AMD, ORCL, ABBV, DKNG, NET
+
+━━━━━━━━━━━━━━━━━━━━
+D
+━━━━━━━━━━━━━━━━━━━━
+3: IWM, AAPL, NFLX, UBER, PYPL, NKE, NET, PLTR, CRWD, URA
+3-2: OKLO, MU, LUV, ARM, WFC, JPM, BAC, GLD, UAL, XLV, IYR
+3-Failed2: GLD
+1-Failed2: GS, MSOS, SOFI
+3-2 Hammer: GLD
+
+━━━━━━━━━━━━━━━━━━━━
+4H
+━━━━━━━━━━━━━━━━━━━━
+3: EBAY
+3-2: IWM, ANF, NFLX, CVS, DDOG, RBLX, DAL, NEE, URA
+3-Failed2: NFLX, DDOG, RBLX, DAL, NEE, URA
+MRF2REV — 1/15/26, 1:15 PM
+@Snatchin Entries
+Captain Hook
+APP
+ — 1/15/26, 6:01 PM
+STRAT MINI SCAN — Fri Jan 16, 2026 06:01 (Asia/Jakarta)
+Only: 3, 3-2, 3-Failed2, 1-Failed2, 1-1→Failed2, 3-2 Hammer
+Tickers: core.txt
+
+━━━━━━━━━━━━━━━━━━━━
+Q
+━━━━━━━━━━━━━━━━━━━━
+3: ANF, CRM, ABNB, CVX, CCL, TGT, BA, DDOG, NET, XLI
+3-2: INTC, LLY, DKNG, KR, CRWD, ZM, XLP
+3-Failed2: DKNG, CRWD, ZM, XLP
+1-Failed2: DIS, MCD
+
+━━━━━━━━━━━━━━━━━━━━
+M
+━━━━━━━━━━━━━━━━━━━━
+3: QCOM, ABBV, WMT, BAC, XLP
+3-2: AAP, GE
+3-Failed2: AAP
+1-Failed2: QQQ, NVDA, AMZN, IONQ, PANW, LLY, DIS, KO, XLV
+
+━━━━━━━━━━━━━━━━━━━━
+W
+━━━━━━━━━━━━━━━━━━━━
+3: SPY, QQQ, AMD, SHOP, MS, ROKU, ZM, XLK
+3-2: MSFT, NVDA, ORCL, LLY, ABBV, XOM, CVS, WMT, DKNG, DDOG, NET, DOCU, KO, TLRY, NEE, MRVL, XLP
+3-Failed2: NVDA, ORCL, CVS, DKNG, NET, KO, TLRY
+3-2 Hammer: CVS
+
+━━━━━━━━━━━━━━━━━━━━
+D
+━━━━━━━━━━━━━━━━━━━━
+3: AAP, OKLO, QCOM, PANW, UBER, CVS, DIS, UBS, ARKK
+3-2: IWM, NFLX, PYPL, NKE, NET, CRWD, URA
+3-Failed2: NFLX, PYPL, CRWD, URA
+1-Failed2: UNH
+
+━━━━━━━━━━━━━━━━━━━━
+4H
+━━━━━━━━━━━━━━━━━━━━
+3: NVDA
+3-2: OKLO, META, STZ, MARA, JNJ, CVS, WMT, CCL, TGT, DLTR, GS, ROKU, XLP
+3-Failed2: META, STZ, WMT, DLTR, GS, ROKU, XLP
+Captain Hook
+APP
+ — 1/16/26, 8:29 PM
+STRAT MINI SCAN — Sat Jan 17, 2026 08:28 (Asia/Jakarta)
+Only: 3, 3-2, 3-Failed2, 1-Failed2, 1-1→Failed2, 3-2 Hammer
+Tickers: core.txt
+
+━━━━━━━━━━━━━━━━━━━━
+Q
+━━━━━━━━━━━━━━━━━━━━
+3: ANF, CRM, ABNB, CVX, CCL, TGT, BA, DDOG, NET, XLI
+3-2: INTC, LLY, DKNG, KR, CRWD, ZM, XLP
+3-Failed2: DKNG, KR, CRWD, ZM, XLP
+1-Failed2: DIS, MCD
+
+━━━━━━━━━━━━━━━━━━━━
+M
+━━━━━━━━━━━━━━━━━━━━
+3: QCOM, ABBV, WMT, BAC, DKNG, XLP
+3-2: AAP, GE
+3-Failed2: AAP
+1-Failed2: QQQ, NVDA, IONQ, PANW, LLY, DIS, KO, XLV
+
+━━━━━━━━━━━━━━━━━━━━
+W
+━━━━━━━━━━━━━━━━━━━━
+3: SPY, QQQ, AMD, SHOP, COIN, SMCI, MS, ROKU, PINS, ZM, XLK
+3-2: MSFT, NVDA, ORCL, LLY, ABBV, XOM, CVS, DIS, WMT, DKNG, DDOG, NET, DOCU, KO, TLRY, NEE, MRVL, XLP
+3-Failed2: NVDA, ORCL, LLY, CVS, NET, KO, TLRY
+1-Failed2: MSOS
+1-1→Failed2: MSOS
+
+━━━━━━━━━━━━━━━━━━━━
+D
+━━━━━━━━━━━━━━━━━━━━
+3: NVDA, TSLA, IONQ, MARA, CAT, PEP, PLTR
+3-2: OKLO, QCOM, PANW, CVS, DIS, ARKK
+3-Failed2: OKLO, PANW, CVS
+1-Failed2: AMZN, WFC, BAC
+
+━━━━━━━━━━━━━━━━━━━━
+4H
+━━━━━━━━━━━━━━━━━━━━
+3: LUV, WMT
+3-2: IWM, IONQ, UBER, JNJ, CVS, COST, FDX, MS, ROKU, PEP, UAL, DAL, PLTR, HYG, IYR
+3-Failed2: IWM, IONQ, JNJ, ROKU, PEP, DAL, PLTR, HYG
+1-Failed2: XOM
+1-1→Failed2: XOM
+3-2 Hammer: PEP
+MRF2REV — 1/16/26, 8:37 PM
+@everyone
+Captain Hook
+APP
+ — 1/20/26, 6:40 PM
+STRAT MINI SCAN — Wed Jan 21, 2026 06:39 (Asia/Jakarta)
+Only: 3, 3-2, 3-Failed2, 1-Failed2, 1-1→Failed2, 3-2 Hammer
+Tickers: core.txt
+
+━━━━━━━━━━━━━━━━━━━━
+Q
+━━━━━━━━━━━━━━━━━━━━
+3: ANF, CRM, ABNB, CVX, CCL, TGT, BA, DDOG, NET, XLI
+3-2: INTC, LLY, DKNG, KR, CRWD, ZM, XLP
+3-Failed2: DKNG, KR, CRWD, ZM, XLP
+1-Failed2: DIS, MCD
+
+━━━━━━━━━━━━━━━━━━━━
+M
+━━━━━━━━━━━━━━━━━━━━
+3: QCOM, ABBV, WMT, BAC, DKNG, XLP
+3-2: AAP, GE
+3-Failed2: AAP, GE
+1-Failed2: QQQ, NVDA, AMZN, GOOGL, GOOG, IONQ, PANW, LLY, DIS, KO, XLV
+
+━━━━━━━━━━━━━━━━━━━━
+W
+━━━━━━━━━━━━━━━━━━━━
+3: KO
+3-2: SPY, QQQ, AMD, SHOP, COIN, ROKU, PINS, ZM, XLK
+3-Failed2: AMD, ZM
+1-Failed2: OKLO, IONQ, UBER, UPS, XLV
+
+━━━━━━━━━━━━━━━━━━━━
+D
+━━━━━━━━━━━━━━━━━━━━
+3: OKLO, AMD, NFLX, ARM, UNH, CVX, BA, BAC, SBUX, KO, PEP, MRVL, XLP
+3-2: NVDA, TSLA, IONQ, MARA, CAT, PLTR
+3-Failed2: IONQ
+1-Failed2: UBER, LLY, XLE
+1-1→Failed2: XLE
+
+━━━━━━━━━━━━━━━━━━━━
+4H
+━━━━━━━━━━━━━━━━━━━━
+3-2: OKLO, CVX, NKE, BA, BAC, SBUX, KO, PEP, CMG
+3-Failed2: OKLO, NKE, BAC, SBUX
+3-2 Hammer: NKE, SBUX
+MRF2REV — 1/20/26, 6:41 PM
+@everyone
+Captain Hook
+APP
+ — 1/21/26, 6:21 PM
+STRAT MINI SCAN — Thu Jan 22, 2026 06:21 (Asia/Jakarta)
+Only: 3, 3-2, 3-Failed2, 1-Failed2, 1-1→Failed2, 3-2 Hammer
+Tickers: core.txt
+
+━━━━━━━━━━━━━━━━━━━━
+Q
+━━━━━━━━━━━━━━━━━━━━
+3: NVO, NET, ANF, CRM, ABNB, CVX, CCL, TGT, BA, DDOG, SBUX, XLI
+3-2: INTC, LLY, DKNG, KR, CRWD, ZM, XLP
+3-Failed2: DKNG, KR, CRWD, ZM, XLP
+1-Failed2: AAP, DIS, MCD
+
+━━━━━━━━━━━━━━━━━━━━
+M
+━━━━━━━━━━━━━━━━━━━━
+3: QCOM, ABBV, WMT, BAC, DKNG, XLP
+3-2: AAP, GE
+3-Failed2: AAP
+1-Failed2: QQQ, NVDA, AMZN, IONQ, LLY, DIS, KO, SOFI, PLTR
+
+━━━━━━━━━━━━━━━━━━━━
+W
+━━━━━━━━━━━━━━━━━━━━
+3: AAP, IONQ, UNH, CVS, UPS, KO, MRVL, HYG, XLV
+3-2: SPY, QQQ, AMD, SHOP, COIN, ROKU, PINS, ZM, XLK
+3-Failed2: QQQ, ROKU, ZM, XLK
+1-Failed2: OKLO, UBER, GE, UBS
+
+━━━━━━━━━━━━━━━━━━━━
+D
+━━━━━━━━━━━━━━━━━━━━
+3: ANF, OKLO, GOOGL, GOOG, DOCU, CRWD, ARKK
+3-2: KHC, AMD, NFLX, ARM, UNH, CVX, BA, SBUX, KO, PEP, MRVL, XLP
+3-Failed2: CVX, PEP, MRVL, XLP
+1-Failed2: NEE
+3-2 Hammer: KO
+
+━━━━━━━━━━━━━━━━━━━━
+4H
+━━━━━━━━━━━━━━━━━━━━
+3: CCL
+3-2: AMZN, ANF, EBAY, META, CSCO, COIN, SMCI, PFE, COST, BA, FDX, TLRY, PINS, CRWD, ARKK, IYR
+3-Failed2: AMZN, ANF, META, CSCO, COIN, SMCI, BA, FDX, TLRY, PINS, CRWD, ARKK, IYR
+1-Failed2: AAPL
+MRF2REV — 1/21/26, 6:22 PM
+@everyone
+Captain Hook
+APP
+ — Yesterday at 4:59 PM
+STRAT MINI SCAN — Fri Jan 23, 2026 04:58 (Asia/Jakarta)
+Only: 3, 3-2, 3-Failed2, 1-Failed2, 1-1→Failed2, 3-2 Hammer
+Tickers: core.txt
+
+━━━━━━━━━━━━━━━━━━━━
+Q
+━━━━━━━━━━━━━━━━━━━━
+3: NVO, NET, ANF, CRM, ABNB, CVX, CCL, TGT, BA, DDOG, SBUX, XLI
+3-2: INTC, LLY, DKNG, KR, CRWD, ZM, XLP
+3-Failed2: DKNG, CRWD, ZM, XLP
+1-Failed2: AAP, DIS, MCD
+
+━━━━━━━━━━━━━━━━━━━━
+M
+━━━━━━━━━━━━━━━━━━━━
+3: QCOM, ABBV, WMT, BAC, DKNG, XLP
+3-2: AAP, GE
+3-Failed2: AAP, GE
+1-Failed2: QQQ, NVDA, AMZN, IONQ, LLY, DIS, KO, SOFI, PLTR, PINS
+
+━━━━━━━━━━━━━━━━━━━━
+W
+━━━━━━━━━━━━━━━━━━━━
+3: AAP, IONQ, UNH, CVS, UPS, UBS, DDOG, KO, ETSY, MRVL, HYG, XLV
+3-2: SPY, QQQ, AMD, SHOP, COIN, SMCI, ROKU, PINS, ZM, XLK
+3-Failed2: SPY, QQQ, SMCI, ROKU, ZM, XLK
+1-Failed2: OKLO, TSLA, FDX
+
+━━━━━━━━━━━━━━━━━━━━
+D
+━━━━━━━━━━━━━━━━━━━━
+3: LUV, SNOW, XOM, DKNG
+3-2: ANF, GOOGL, GOOG, DOCU, ARKK
+3-Failed2: GOOGL, GOOG
+1-Failed2: CCL, BAC, XLF
+
+━━━━━━━━━━━━━━━━━━━━
+4H
+━━━━━━━━━━━━━━━━━━━━
+3: AAPL
+3-2: ANF, AMAT, SHOP, MU, LUV, SNOW, XOM, XLE
+3-Failed2: SHOP, LUV, XOM
+1-Failed2: KO
+1-1→Failed2: KO
+MRF2REV — Yesterday at 5:00 PM
+@everyone
+MRF2REV — 5:38 PM
+1 (Inside Bar) followed by a Failed 2 ⬇️⬆️
+I know a lot of traders like to play the break of an inside bar as a continuation move 📈
+But my mindset is different.
+I don’t rush the break.
+I wait for the next candle after the inside bar to fail ⛔️
+That failure tells me traders are trapped… and control is shifting 🎯
+Once that happens?
+It’s showtime 🔥💰
+That’s when I step in — tight risk, clear invalidation, high probability.
+
+Patience first.
+Execution second.
+Results follow. 🧠📈  @everyone
+Then we have a 3 followed by a Failed 2 🔄
+Off rip, we already know a 3 is a broadening formation 📏
+That means expansion… and traps on both sides 😈
+Once one side breaks and fails ⛔️
+I’m no longer guessing.
+Now I’m hunting for the other side to get taken out 🎯🔥
+That’s where momentum flips and pressure builds fast @everyone
+Image
+Image
+Captain Hook
+APP
+ — 9:06 PM
+STRAT MINI SCAN — Sat Jan 24, 2026 09:06 (Asia/Jakarta)
+Only: 3, 3-2, 3-Failed2, 1-Failed2, 1-1→Failed2, 3-2 Hammer
+Tickers: core.txt
+
+━━━━━━━━━━━━━━━━━━━━
+Q
+━━━━━━━━━━━━━━━━━━━━
+3: NVO, NET, ANF, CRM, ABNB, CVX, CCL, TGT, BA, DDOG, SBUX, XLI
+3-2: INTC, LLY, DKNG, KR, CRWD, ZM, XLP
+3-Failed2: DKNG, KR, CRWD, ZM, XLP
+1-Failed2: AAP, DIS, MCD
+
+━━━━━━━━━━━━━━━━━━━━
+M
+━━━━━━━━━━━━━━━━━━━━
+3: QCOM, ABBV, WMT, JPM, BAC, DKNG, KO, XLP
+3-2: AAP, AVGO, GE
+3-Failed2: AAP, GE
+1-Failed2: QQQ, NVDA, IONQ, LLY, DIS, SOFI, PLTR, PINS, XLV
+
+━━━━━━━━━━━━━━━━━━━━
+W
+━━━━━━━━━━━━━━━━━━━━
+3: AAP, META, IONQ, UNH, CVS, UPS, UBS, DDOG, KO, ETSY, MRVL, HYG, XLV
+3-2: SPY, QQQ, AMD, SHOP, COIN, SMCI, MS, ROKU, PINS, ZM, XLK
+3-Failed2: SPY, QQQ, SMCI, MS, ROKU, PINS, ZM, XLK
+1-Failed2: TSLA, PFE
+
+━━━━━━━━━━━━━━━━━━━━
+D
+━━━━━━━━━━━━━━━━━━━━
+3: CSCO, PANW, MARA, RIOT, SMCI, COST, ROKU, XLK
+3-2: LUV, SNOW, XOM, DKNG
+3-Failed2: SNOW
+1-Failed2: ORCL, WMT, CMG, CRWD
+
+━━━━━━━━━━━━━━━━━━━━
+4H
+━━━━━━━━━━━━━━━━━━━━
+3-2: PANW, SMCI, UNH, JNJ, CVS, COST, UPS, URA, TLT
+3-Failed2: SMCI, UNH, JNJ, COST, UPS, URA, TLT

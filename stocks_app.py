@@ -17,29 +17,30 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 STOCK_WATCHLIST = [
-    # Major ETFs
-    "SPY", "QQQ", "IWM", "DIA", "XLF", "XLE", "XLK", "XLV", "XLI", "XLU", "XLY", "XLP",
-    "ARKK", "SMH", "TLT", "HYG", "IYR", "MSOS",
+    # ETFs
+    "SPY", "QQQ", "IWM", "XLF", "XLE", "XLK", "XLV", "XLI", "XLU", "XLY", "XLP",
+    "ARKK", "SMH", "TLT", "HYG", "IYR", "MSOS", "GLD",
     # Mega Caps
-    "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "NVDA", "META", "TSLA", "JPM", "V",
+    "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "NVDA", "META", "TSLA", "JPM", "GS",
     # Tech/Growth
     "AMD", "CRM", "NFLX", "PYPL", "SHOP", "UBER", "COIN", "PLTR", "SOFI", "IONQ",
     "PANW", "CRWD", "NET", "SNOW", "DDOG", "SMCI", "ARM", "MRVL", "AVGO", "INTC",
-    "ORCL", "CSCO", "QCOM", "AMAT", "RBLX", "ROKU", "PINS", "WDAY", "DOCU",
+    "ORCL", "CSCO", "QCOM", "AMAT", "RBLX", "ROKU", "PINS", "WDAY", "DOCU", "ADBE",
+    "MU", "TSM", "OKLO", "TLRY", "EBAY",
     # Crypto/Blockchain
     "MARA", "RIOT",
     # Consumer/Retail
-    "COST", "WMT", "TGT", "MCD", "SBUX", "NKE", "DIS", "ABNB", "ETSY", "DLTR",
+    "COST", "WMT", "TGT", "MCD", "SBUX", "NKE", "DIS", "ABNB", "ETSY", "DLTR", "ANF",
     # Healthcare/Pharma
     "UNH", "LLY", "PFE", "JNJ", "ABBV", "NVO", "CVS", "PEP", "KHC",
     # Financials
-    "BAC", "WFC", "MS", "GE",
+    "BAC", "WFC", "MS", "GE", "UBS",
     # Energy/Commodities
     "CVX", "XOM", "OXY", "URA",
     # Airlines/Travel
-    "UAL", "DAL", "AAL", "LUV", "CCL", "BA",
+    "UAL", "DAL", "AAL", "LUV", "CCL", "BA", "FDX", "CAT",
     # Other Popular
-    "KO", "CMG", "KR", "UPS", "UBS", "DKNG", "ANF", "STZ", "ZM", "AAP", "NEE"
+    "KO", "CMG", "KR", "UPS", "DKNG", "STZ", "ZM", "AAP", "NEE"
 ]
 
 def get_stock_candles(symbol: str, period: str = "3mo", interval: str = "1d") -> list:
