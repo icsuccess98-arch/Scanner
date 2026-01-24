@@ -18,15 +18,15 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Sports App"
+args = "Stocks App"
 
 [[workflows.workflow]]
-name = "Sports App"
+name = "Stocks App"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python sports_app.py"
+args = "python stocks_app.py"
 waitForPort = 5000
 
 [workflows.workflow.metadata]
@@ -41,6 +41,10 @@ CRYPTO_DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1454128407293071393/k
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[[ports]]
+localPort = 3000
+externalPort = 3000
 
 [deployment]
 deploymentTarget = "autoscale"
