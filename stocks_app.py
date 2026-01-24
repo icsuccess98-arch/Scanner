@@ -17,10 +17,29 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 STOCK_WATCHLIST = [
-    "SPY", "QQQ", "IWM", "DIA", "XLF", "XLE", "XLK", "XLV", "XLI", "XLU",
-    "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "BRK-B", "JPM", "V",
-    "AMD", "CRM", "NFLX", "PYPL", "SHOP", "UBER", "COIN", "PLTR", "SOFI", "RIVN",
-    "BA", "DIS", "NKE", "SBUX", "MCD", "WMT", "HD", "LOW", "TGT", "COST"
+    # Major ETFs
+    "SPY", "QQQ", "IWM", "DIA", "XLF", "XLE", "XLK", "XLV", "XLI", "XLU", "XLY", "XLP",
+    "ARKK", "SMH", "TLT", "HYG", "IYR", "MSOS",
+    # Mega Caps
+    "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "NVDA", "META", "TSLA", "JPM", "V",
+    # Tech/Growth
+    "AMD", "CRM", "NFLX", "PYPL", "SHOP", "UBER", "COIN", "PLTR", "SOFI", "IONQ",
+    "PANW", "CRWD", "NET", "SNOW", "DDOG", "SMCI", "ARM", "MRVL", "AVGO", "INTC",
+    "ORCL", "CSCO", "QCOM", "AMAT", "RBLX", "ROKU", "PINS", "WDAY", "DOCU",
+    # Crypto/Blockchain
+    "MARA", "RIOT",
+    # Consumer/Retail
+    "COST", "WMT", "TGT", "MCD", "SBUX", "NKE", "DIS", "ABNB", "ETSY", "DLTR",
+    # Healthcare/Pharma
+    "UNH", "LLY", "PFE", "JNJ", "ABBV", "NVO", "CVS", "PEP", "KHC",
+    # Financials
+    "BAC", "WFC", "MS", "GE",
+    # Energy/Commodities
+    "CVX", "XOM", "OXY", "URA",
+    # Airlines/Travel
+    "UAL", "DAL", "AAL", "LUV", "CCL", "BA",
+    # Other Popular
+    "KO", "CMG", "KR", "UPS", "UBS", "DKNG", "ANF", "STZ", "ZM", "AAP", "NEE"
 ]
 
 def get_stock_candles(symbol: str, period: str = "3mo", interval: str = "1d") -> list:
