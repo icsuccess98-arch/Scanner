@@ -18,15 +18,15 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Stocks App"
+args = "Sports App"
 
 [[workflows.workflow]]
-name = "Stocks App"
+name = "Sports App"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python stocks_app.py"
+args = "python sports_app.py"
 waitForPort = 5000
 
 [workflows.workflow.metadata]
