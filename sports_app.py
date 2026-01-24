@@ -9105,6 +9105,214 @@ def deep_test():
     })
 
 
+# ============================================================================
+# STOCK SETUPS SCANNER - The Strat Methodology
+# ============================================================================
+import yfinance as yf
+
+# Popular stocks to scan
+STOCK_WATCHLIST = [
+    # Major ETFs
+    "SPY", "QQQ", "IWM", "DIA", "XLF", "XLE", "XLK", "XLV", "XLI", "XLU",
+    # Mega caps
+    "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "BRK-B", "JPM", "V",
+    # Popular growth
+    "AMD", "CRM", "NFLX", "PYPL", "SHOP", "UBER", "COIN", "PLTR", "SOFI", "RIVN",
+    # Other popular
+    "BA", "DIS", "NKE", "SBUX", "MCD", "WMT", "HD", "LOW", "TGT", "COST"
+]
+
+def get_stock_candles(symbol: str, period: str = "3mo", interval: str = "1d") -> list:
+    """Fetch stock candles using yfinance"""
+    try:
+        ticker = yf.Ticker(symbol)
+        df = ticker.history(period=period, interval=interval)
+        if df.empty:
+            return []
+        
+        candles = []
+        for idx, row in df.iterrows():
+            candles.append({
+                "date": idx.strftime("%Y-%m-%d"),
+                "open": float(row["Open"]),
+                "high": float(row["High"]),
+                "low": float(row["Low"]),
+                "close": float(row["Close"]),
+                "volume": int(row["Volume"])
+            })
+        return candles
+    except Exception as e:
+        logger.error(f"Error fetching {symbol}: {e}")
+        return []
+
+def stock_direction(candle: dict) -> str:
+    """Determine candle direction"""
+    return "UP" if candle["close"] > candle["open"] else "DOWN"
+
+def stock_strat_type(curr: dict, prev: dict) -> str:
+    """Determine Strat candle type: 1 (inside), 2U/2D (directional), 3 (outside)"""
+    if curr["high"] > prev["high"] and curr["low"] < prev["low"]:
+        return "3"  # Outside bar
+    if curr["high"] > prev["high"] and curr["low"] >= prev["low"]:
+        return "2U"  # Up continuation
+    if curr["low"] < prev["low"] and curr["high"] <= prev["high"]:
+        return "2D"  # Down continuation
+    return "1"  # Inside bar
+
+def stock_failed_2(curr: dict, prev: dict) -> str:
+    """Check for Failed 2 pattern"""
+    t = stock_strat_type(curr, prev)
+    if t == "2U" and curr["close"] < curr["open"]:
+        return "Failed 2U"
+    if t == "2D" and curr["close"] > curr["open"]:
+        return "Failed 2D"
+    return None
+
+def stock_ftfc_check(daily: dict, weekly: dict, monthly: dict) -> dict:
+    """Check Full Time Frame Continuity"""
+    d_dir = stock_direction(daily)
+    w_dir = stock_direction(weekly)
+    m_dir = stock_direction(monthly)
+    
+    all_up = d_dir == "UP" and w_dir == "UP" and m_dir == "UP"
+    all_down = d_dir == "DOWN" and w_dir == "DOWN" and m_dir == "DOWN"
+    
+    return {
+        "daily": d_dir,
+        "weekly": w_dir,
+        "monthly": m_dir,
+        "ftfc": all_up or all_down,
+        "direction": "BULLISH" if all_up else ("BEARISH" if all_down else "MIXED")
+    }
+
+def scan_stock_setups(timeframe: str = "daily") -> dict:
+    """Scan stocks for Strat setups"""
+    results = {
+        "timeframe": timeframe,
+        "timestamp": datetime.now().isoformat(),
+        "inside_bars": [],
+        "outside_bars": [],
+        "two_up": [],
+        "two_down": [],
+        "failed_2u": [],
+        "failed_2d": [],
+        "double_inside": [],
+        "aplus_setups": [],
+        "ftfc_bullish": [],
+        "ftfc_bearish": []
+    }
+    
+    # Determine yfinance parameters based on timeframe
+    if timeframe == "weekly":
+        period = "1y"
+        interval = "1wk"
+    elif timeframe == "monthly":
+        period = "2y"
+        interval = "1mo"
+    else:  # daily
+        period = "3mo"
+        interval = "1d"
+    
+    for symbol in STOCK_WATCHLIST:
+        try:
+            candles = get_stock_candles(symbol, period, interval)
+            if not candles or len(candles) < 4:
+                continue
+            
+            curr = candles[-1]
+            prev = candles[-2]
+            prev2 = candles[-3]
+            prev3 = candles[-4] if len(candles) >= 4 else None
+            
+            strat = stock_strat_type(curr, prev)
+            direction = stock_direction(curr)
+            arrow = "↑" if direction == "UP" else "↓"
+            failed = stock_failed_2(curr, prev)
+            
+            setup_info = {
+                "symbol": symbol,
+                "strat": strat,
+                "direction": direction,
+                "arrow": arrow,
+                "close": round(curr["close"], 2),
+                "change_pct": round((curr["close"] - prev["close"]) / prev["close"] * 100, 2),
+                "high": round(curr["high"], 2),
+                "low": round(curr["low"], 2)
+            }
+            
+            # Categorize setups
+            if strat == "1":
+                results["inside_bars"].append(setup_info)
+                # Check for double inside
+                if stock_strat_type(prev, prev2) == "1":
+                    setup_info["pattern"] = "Double Inside"
+                    results["double_inside"].append(setup_info)
+            elif strat == "3":
+                results["outside_bars"].append(setup_info)
+            elif strat == "2U":
+                results["two_up"].append(setup_info)
+            elif strat == "2D":
+                results["two_down"].append(setup_info)
+            
+            if failed == "Failed 2U":
+                setup_info["pattern"] = "Failed 2U"
+                results["failed_2u"].append(setup_info)
+            elif failed == "Failed 2D":
+                setup_info["pattern"] = "Failed 2D"
+                results["failed_2d"].append(setup_info)
+            
+            # Check FTFC for daily timeframe
+            if timeframe == "daily":
+                try:
+                    weekly_candles = get_stock_candles(symbol, "1y", "1wk")
+                    monthly_candles = get_stock_candles(symbol, "2y", "1mo")
+                    
+                    if weekly_candles and monthly_candles and len(weekly_candles) >= 1 and len(monthly_candles) >= 1:
+                        ftfc = stock_ftfc_check(curr, weekly_candles[-1], monthly_candles[-1])
+                        if ftfc["ftfc"]:
+                            setup_info["ftfc"] = ftfc
+                            if ftfc["direction"] == "BULLISH":
+                                results["ftfc_bullish"].append(setup_info)
+                            else:
+                                results["ftfc_bearish"].append(setup_info)
+                            
+                            # A++ Setup: Inside bar + FTFC
+                            if strat == "1" and ftfc["ftfc"]:
+                                setup_info["aplus"] = True
+                                setup_info["bias"] = ftfc["direction"]
+                                results["aplus_setups"].append(setup_info)
+                except Exception as e:
+                    logger.debug(f"FTFC check failed for {symbol}: {e}")
+        
+        except Exception as e:
+            logger.error(f"Error scanning {symbol}: {e}")
+            continue
+    
+    # Sort A++ setups by change percentage
+    results["aplus_setups"] = sorted(results["aplus_setups"], key=lambda x: abs(x.get("change_pct", 0)), reverse=True)
+    
+    return results
+
+@app.route('/stocks')
+def stocks():
+    """Mobile-friendly stocks setup page"""
+    return render_template('stocks.html')
+
+@app.route('/api/stock_setups')
+def api_stock_setups():
+    """API endpoint for stock setups"""
+    timeframe = request.args.get('timeframe', 'daily')
+    if timeframe not in ['daily', 'weekly', 'monthly']:
+        timeframe = 'daily'
+    
+    try:
+        results = scan_stock_setups(timeframe)
+        return jsonify(results)
+    except Exception as e:
+        logger.error(f"Stock scan error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route('/api/export_picks_sql')
 def export_picks_sql():
     """

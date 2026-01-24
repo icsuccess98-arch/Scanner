@@ -12,3 +12,4 @@ lxml
 cachetools
 flask-compress
 euroleague-api
+yfinance

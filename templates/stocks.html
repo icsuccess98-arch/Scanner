@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Stock Setups | 730's Locks</title>
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#1a1a2e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-card: #21262d;
+            --text-primary: #f0f6fc;
+            --text-secondary: #8b949e;
+            --text-muted: #6e7681;
+            --accent-gold: #ffd700;
+            --accent-green: #3fb950;
+            --accent-red: #f85149;
+            --accent-blue: #58a6ff;
+            --accent-purple: #a371f7;
+            --border-color: #30363d;
+        }
+        
+        * { box-sizing: border-box; }
+        
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            min-height: 100vh;
+            padding-bottom: 80px;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 1rem;
+            text-align: center;
+            border-bottom: 2px solid var(--accent-gold);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header h1 {
+            color: var(--accent-gold);
+            font-size: 1.5rem;
+            margin: 0;
+            font-weight: 700;
+        }
+        
+        .header .subtitle {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin-top: 0.25rem;
+        }
+        
+        .nav-tabs-container {
+            background: var(--bg-secondary);
+            padding: 0.75rem 1rem;
+            position: sticky;
+            top: 60px;
+            z-index: 99;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .timeframe-tabs {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+        
+        .timeframe-tab {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .timeframe-tab.active {
+            background: linear-gradient(135deg, var(--accent-gold), #ffaa00);
+            color: #000;
+            border-color: var(--accent-gold);
+        }
+        
+        .category-tabs {
+            display: flex;
+            gap: 0.25rem;
+            padding: 0.5rem 1rem;
+            background: var(--bg-primary);
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .category-tab {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            padding: 0.5rem 0.75rem;
+            font-size: 0.8rem;
+            white-space: nowrap;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        
+        .category-tab.active {
+            color: var(--accent-gold);
+            border-bottom-color: var(--accent-gold);
+        }
+        
+        .content-area {
+            padding: 1rem;
+        }
+        
+        .setup-section {
+            margin-bottom: 1.5rem;
+        }
+        
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .section-header .icon {
+            font-size: 1.25rem;
+        }
+        
+        .section-header h3 {
+            font-size: 1rem;
+            margin: 0;
+            font-weight: 600;
+        }
+        
+        .section-header .count {
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            padding: 0.15rem 0.5rem;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            margin-left: auto;
+        }
+        
+        .stock-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        
+        .stock-card.bullish {
+            border-left: 3px solid var(--accent-green);
+        }
+        
+        .stock-card.bearish {
+            border-left: 3px solid var(--accent-red);
+        }
+        
+        .stock-card.aplus {
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 170, 0, 0.05));
+            border: 1px solid var(--accent-gold);
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
+        }
+        
+        .stock-symbol {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            min-width: 60px;
+        }
+        
+        .stock-info {
+            flex: 1;
+        }
+        
+        .stock-price {
+            font-size: 0.95rem;
+            color: var(--text-primary);
+        }
+        
+        .stock-change {
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        
+        .stock-change.up { color: var(--accent-green); }
+        .stock-change.down { color: var(--accent-red); }
+        
+        .stock-strat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        
+        .strat-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .strat-1 { background: var(--accent-blue); color: #fff; }
+        .strat-2u { background: var(--accent-green); color: #fff; }
+        .strat-2d { background: var(--accent-red); color: #fff; }
+        .strat-3 { background: var(--accent-purple); color: #fff; }
+        .strat-f2u { background: #ff6b6b; color: #fff; }
+        .strat-f2d { background: #51cf66; color: #fff; }
+        
+        .direction-arrow {
+            font-size: 1.25rem;
+        }
+        
+        .direction-arrow.up { color: var(--accent-green); }
+        .direction-arrow.down { color: var(--accent-red); }
+        
+        .aplus-badge {
+            background: linear-gradient(135deg, var(--accent-gold), #ffaa00);
+            color: #000;
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            font-weight: 700;
+        }
+        
+        .ftfc-badge {
+            font-size: 0.7rem;
+            padding: 0.15rem 0.35rem;
+            border-radius: 4px;
+        }
+        
+        .ftfc-bullish { background: rgba(63, 185, 80, 0.2); color: var(--accent-green); }
+        .ftfc-bearish { background: rgba(248, 81, 73, 0.2); color: var(--accent-red); }
+        
+        .loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 3rem;
+            color: var(--text-secondary);
+        }
+        
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--accent-gold);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+        }
+        
+        .refresh-btn {
+            background: linear-gradient(135deg, var(--accent-gold), #ffaa00);
+            color: #000;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 0 auto;
+        }
+        
+        .refresh-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-around;
+            padding: 0.5rem;
+            z-index: 1000;
+        }
+        
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.7rem;
+            padding: 0.5rem;
+        }
+        
+        .nav-item.active {
+            color: var(--accent-gold);
+        }
+        
+        .nav-item i {
+            font-size: 1.25rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        .summary-card {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            border: 1px solid var(--accent-gold);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.5rem;
+            text-align: center;
+        }
+        
+        .stat-item {
+            padding: 0.5rem;
+        }
+        
+        .stat-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--accent-gold);
+        }
+        
+        .stat-label {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+        }
+        
+        @media (min-width: 768px) {
+            .stock-cards-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1><i class="bi bi-graph-up-arrow"></i> Stock Setups</h1>
+        <div class="subtitle">The Strat Methodology</div>
+    </div>
+    
+    <div class="nav-tabs-container">
+        <div class="timeframe-tabs">
+            <button class="timeframe-tab active" data-timeframe="daily">Daily</button>
+            <button class="timeframe-tab" data-timeframe="weekly">Weekly</button>
+            <button class="timeframe-tab" data-timeframe="monthly">Monthly</button>
+        </div>
+    </div>
+    
+    <div class="category-tabs" id="categoryTabs">
+        <button class="category-tab active" data-category="all">All</button>
+        <button class="category-tab" data-category="aplus" id="aplusTab">A++</button>
+        <button class="category-tab" data-category="inside">Inside (1)</button>
+        <button class="category-tab" data-category="outside">Outside (3)</button>
+        <button class="category-tab" data-category="continuation">2U/2D</button>
+        <button class="category-tab" data-category="failed2">Failed 2</button>
+        <button class="category-tab" data-category="ftfc" id="ftfcTab">FTFC</button>
+    </div>
+    
+    <div class="content-area" id="contentArea">
+        <div class="loading-container" id="loadingState">
+            <div class="loading-spinner"></div>
+            <p style="margin-top: 1rem;">Scanning stocks...</p>
+        </div>
+        
+        <div id="resultsContainer" style="display: none;"></div>
+    </div>
+    
+    <div class="bottom-nav">
+        <a href="/" class="nav-item">
+            <i class="bi bi-house"></i>
+            <span>Home</span>
+        </a>
+        <a href="/props" class="nav-item">
+            <i class="bi bi-person-badge"></i>
+            <span>Props</span>
+        </a>
+        <a href="/stocks" class="nav-item active">
+            <i class="bi bi-graph-up-arrow"></i>
+            <span>Stocks</span>
+        </a>
+        <a href="/history" class="nav-item">
+            <i class="bi bi-clock-history"></i>
+            <span>History</span>
+        </a>
+    </div>
+
+    <script>
+        let currentData = null;
+        let currentTimeframe = 'daily';
+        let currentCategory = 'all';
+        
+        document.querySelectorAll('.timeframe-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.timeframe-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                currentTimeframe = tab.dataset.timeframe;
+                fetchData();
+            });
+        });
+        
+        document.querySelectorAll('.category-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                currentCategory = tab.dataset.category;
+                renderResults();
+            });
+        });
+        
+        async function fetchData() {
+            document.getElementById('loadingState').style.display = 'flex';
+            document.getElementById('resultsContainer').style.display = 'none';
+            
+            try {
+                const response = await fetch(`/api/stock_setups?timeframe=${currentTimeframe}`);
+                currentData = await response.json();
+                renderResults();
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                document.getElementById('resultsContainer').innerHTML = `
+                    <div class="empty-state">
+                        <i class="bi bi-exclamation-triangle" style="font-size: 2rem; color: var(--accent-red);"></i>
+                        <p>Error loading data. Please try again.</p>
+                        <button class="refresh-btn" onclick="fetchData()">
+                            <i class="bi bi-arrow-clockwise"></i> Retry
+                        </button>
+                    </div>
+                `;
+                document.getElementById('resultsContainer').style.display = 'block';
+            }
+            
+            document.getElementById('loadingState').style.display = 'none';
+        }
+        
+        function renderResults() {
+            if (!currentData) return;
+            
+            const container = document.getElementById('resultsContainer');
+            container.style.display = 'block';
+            
+            let html = '';
+            
+            // Summary card - show different stats based on timeframe
+            const isDaily = currentTimeframe === 'daily';
+            
+            html += `
+                <div class="summary-card">
+                    <div class="summary-stats">
+                        ${isDaily ? `
+                        <div class="stat-item">
+                            <div class="stat-value">${currentData.aplus_setups?.length || 0}</div>
+                            <div class="stat-label">A++</div>
+                        </div>
+                        ` : ''}
+                        <div class="stat-item">
+                            <div class="stat-value">${currentData.inside_bars?.length || 0}</div>
+                            <div class="stat-label">Inside</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${currentData.outside_bars?.length || 0}</div>
+                            <div class="stat-label">Outside</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${(currentData.two_up?.length || 0) + (currentData.two_down?.length || 0)}</div>
+                            <div class="stat-label">2U/2D</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${(currentData.failed_2u?.length || 0) + (currentData.failed_2d?.length || 0)}</div>
+                            <div class="stat-label">Failed</div>
+                        </div>
+                        ${isDaily ? `
+                        <div class="stat-item">
+                            <div class="stat-value">${(currentData.ftfc_bullish?.length || 0) + (currentData.ftfc_bearish?.length || 0)}</div>
+                            <div class="stat-label">FTFC</div>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+            
+            // Hide FTFC/A++ tabs for non-daily timeframes
+            const aplusTab = document.getElementById('aplusTab');
+            const ftfcTab = document.getElementById('ftfcTab');
+            if (currentTimeframe !== 'daily') {
+                aplusTab.style.display = 'none';
+                ftfcTab.style.display = 'none';
+            } else {
+                aplusTab.style.display = '';
+                ftfcTab.style.display = '';
+            }
+            
+            // Render based on category
+            if (currentCategory === 'all' || currentCategory === 'aplus') {
+                if (currentData.aplus_setups?.length > 0) {
+                    html += renderSection('A++ Setups', 'star-fill', currentData.aplus_setups, true);
+                }
+            }
+            
+            if (currentCategory === 'all' || currentCategory === 'inside') {
+                if (currentData.inside_bars?.length > 0) {
+                    html += renderSection('Inside Bars (1)', 'circle', currentData.inside_bars);
+                }
+                if (currentData.double_inside?.length > 0) {
+                    html += renderSection('Double Inside', 'bullseye', currentData.double_inside);
+                }
+            }
+            
+            if (currentCategory === 'all' || currentCategory === 'outside') {
+                if (currentData.outside_bars?.length > 0) {
+                    html += renderSection('Outside Bars (3)', 'arrows-angle-expand', currentData.outside_bars);
+                }
+            }
+            
+            if (currentCategory === 'all' || currentCategory === 'continuation') {
+                if (currentData.two_up?.length > 0) {
+                    html += renderSection('2U (Up Continuation)', 'arrow-up-right', currentData.two_up);
+                }
+                if (currentData.two_down?.length > 0) {
+                    html += renderSection('2D (Down Continuation)', 'arrow-down-right', currentData.two_down);
+                }
+            }
+            
+            if (currentCategory === 'all' || currentCategory === 'failed2') {
+                if (currentData.failed_2u?.length > 0) {
+                    html += renderSection('Failed 2U (Bearish)', 'arrow-down-circle', currentData.failed_2u);
+                }
+                if (currentData.failed_2d?.length > 0) {
+                    html += renderSection('Failed 2D (Bullish)', 'arrow-up-circle', currentData.failed_2d);
+                }
+            }
+            
+            if (currentCategory === 'all' || currentCategory === 'ftfc') {
+                if (currentData.ftfc_bullish?.length > 0) {
+                    html += renderSection('FTFC Bullish', 'graph-up-arrow', currentData.ftfc_bullish);
+                }
+                if (currentData.ftfc_bearish?.length > 0) {
+                    html += renderSection('FTFC Bearish', 'graph-down-arrow', currentData.ftfc_bearish);
+                }
+            }
+            
+            if (!html.includes('setup-section')) {
+                html += `
+                    <div class="empty-state">
+                        <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                        <p>No setups found for this category</p>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+        }
+        
+        function renderSection(title, icon, stocks, isAplus = false) {
+            let html = `
+                <div class="setup-section">
+                    <div class="section-header">
+                        <i class="bi bi-${icon} icon" style="color: var(--accent-gold);"></i>
+                        <h3>${title}</h3>
+                        <span class="count">${stocks.length}</span>
+                    </div>
+                    <div class="stock-cards-grid">
+            `;
+            
+            stocks.forEach(stock => {
+                const isUp = stock.direction === 'UP';
+                const changeClass = stock.change_pct >= 0 ? 'up' : 'down';
+                const cardClass = isAplus ? 'aplus' : (isUp ? 'bullish' : 'bearish');
+                
+                let stratClass = 'strat-1';
+                if (stock.strat === '2U') stratClass = 'strat-2u';
+                else if (stock.strat === '2D') stratClass = 'strat-2d';
+                else if (stock.strat === '3') stratClass = 'strat-3';
+                else if (stock.pattern === 'Failed 2U') stratClass = 'strat-f2u';
+                else if (stock.pattern === 'Failed 2D') stratClass = 'strat-f2d';
+                
+                html += `
+                    <div class="stock-card ${cardClass}">
+                        <div class="stock-symbol">${stock.symbol}</div>
+                        <div class="stock-info">
+                            <div class="stock-price">$${stock.close}</div>
+                            <div class="stock-change ${changeClass}">
+                                ${stock.change_pct >= 0 ? '+' : ''}${stock.change_pct}%
+                            </div>
+                        </div>
+                        <div class="stock-strat">
+                            <span class="strat-badge ${stratClass}">${stock.pattern || stock.strat}</span>
+                            <span class="direction-arrow ${isUp ? 'up' : 'down'}">${stock.arrow}</span>
+                            ${stock.aplus ? '<span class="aplus-badge">A++</span>' : ''}
+                            ${stock.ftfc ? `<span class="ftfc-badge ${stock.ftfc.direction === 'BULLISH' ? 'ftfc-bullish' : 'ftfc-bearish'}">${stock.ftfc.direction}</span>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div></div>';
+            return html;
+        }
+        
+        // Initial load
+        fetchData();
+    </script>
+</body>
+</html>

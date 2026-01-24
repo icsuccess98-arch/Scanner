@@ -133,6 +133,23 @@ This project develops and manages trading systems including a Sports Betting Cal
     -   Sticky tab bar with haptic feedback on mobile
     -   Superlock card features golden glow, numbered picks, and streak/defense stats
 
+### Stock Setups Scanner (Jan 2026)
+-   **The Strat Methodology**: Implements Rob Smith's Strat trading patterns
+-   **Mobile App**: /stocks route with responsive mobile-first design
+-   **Timeframes**: Daily, Weekly, Monthly tabs (matches Discord scanner)
+-   **Pattern Recognition**:
+    -   Inside Bars (1): Current bar contained within previous bar's range
+    -   Outside Bars (3): Current bar engulfs previous bar's range
+    -   2U/2D: Directional continuation patterns
+    -   Failed 2U/2D: Reversal patterns when 2U closes red or 2D closes green
+    -   Double Inside: Two consecutive inside bars
+    -   FTFC (Full Time Frame Continuity): All timeframes aligned bullish or bearish
+    -   A++ Setups: Inside bar + FTFC alignment (highest probability)
+-   **Stock Watchlist**: 40 popular stocks including SPY, QQQ, mega caps, and growth stocks
+-   **Data Source**: yfinance (Yahoo Finance) for real-time stock data
+-   **Categories**: All, A++ Setups, Inside (1), Failed 2, FTFC filters
+-   **Bottom Navigation**: Links to Home, Props, Stocks, History pages
+
 ### Feature Specifications
 -   **Sports Scanner**: Fetches NBA, CBB, NFL, CFB, NHL games, stats, and odds to identify qualified TOTALS picks.
 
