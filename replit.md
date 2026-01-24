@@ -12,6 +12,13 @@ This project develops and manages trading systems including a Sports Betting Cal
 - Only make changes to the `replit.nix` and `.replit` files if it is absolutely necessary.
 - Do not make changes to files in the `archive` folder.
 
+## Separate Applications
+This project has two separate apps that run independently on port 5000:
+1. **Sports App** (`python sports_app.py`) - Sports betting with props and totals
+2. **Stocks App** (`python stocks_app.py`) - Stock setups using The Strat methodology
+
+Only one app can run at a time. Configure the workflow to switch between apps.
+
 ## System Architecture
 
 ### UI/UX
