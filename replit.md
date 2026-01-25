@@ -40,8 +40,14 @@ Only one app can run at a time. Configure the workflow to switch between apps.
         -   Adjusted Offensive/Defensive Efficiency (Adj O/D)
         -   Tempo (possessions per game)
         -   Barthag and Rankings
-        -   Dashboard displays Torvik stats instead of PPG for CBB games
         -   Projection formula uses adjusted efficiency + tempo for more accurate CBB totals
+    -   **Model Breakdown Feature**: Clickable dropdown on game cards showing advanced analytics:
+        -   Power Rating comparison with team ranks and colored bars
+        -   Offensive/Defensive Efficiency comparisons with visual indicators
+        -   Efficiency Comparison section showing offense vs defense matchups
+        -   Mismatch analysis with insights (e.g., "expect scoring", "defensive edge")
+        -   Pace & Tempo display with expected possessions
+        -   Only shows for CBB/NBA games with Torvik data available
     -   **Formulas (STRICT - NO MODIFICATIONS)**:
         -   `Expected_A = (Team A PPG + Team B Opp PPG) / 2`
         -   `Expected_B = (Team B PPG + Team A Opp PPG) / 2`
