@@ -3569,6 +3569,14 @@ class Game(db.Model):
     is_back_to_back_home = db.Column(db.Boolean, default=False)
     travel_distance = db.Column(db.Float)
     situational_adjustment = db.Column(db.Float, default=0.0)
+    # Bart Torvik CBB stats
+    torvik_tempo = db.Column(db.Float)
+    torvik_away_adj_o = db.Column(db.Float)
+    torvik_away_adj_d = db.Column(db.Float)
+    torvik_home_adj_o = db.Column(db.Float)
+    torvik_home_adj_d = db.Column(db.Float)
+    torvik_away_rank = db.Column(db.Integer)
+    torvik_home_rank = db.Column(db.Integer)
     
     __table_args__ = (
         db.Index('idx_date_league', 'date', 'league'),
@@ -6266,6 +6274,139 @@ def fetch_nfl_team_stats(team_id):
     except Exception:
         return None, None
 
+torvik_cache = {}
+torvik_cache_date = None
+
+def fetch_torvik_ratings():
+    """Fetch Bart Torvik team ratings for CBB. Cached daily."""
+    global torvik_cache, torvik_cache_date
+    today = date.today()
+    if torvik_cache_date == today and torvik_cache:
+        logger.info(f"Using cached Torvik data ({len(torvik_cache)} teams)")
+        return torvik_cache
+    try:
+        logger.info("Fetching Bart Torvik CBB ratings...")
+        url = "https://barttorvik.com/trank.php?year=2026&sort=&top=0&conlimit=All"
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+        resp = requests.get(url, headers=headers, timeout=15)
+        if resp.status_code != 200:
+            logger.warning(f"Torvik fetch failed: {resp.status_code}")
+            return torvik_cache
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        table = soup.find('table', {'id': 'ratings-table'})
+        if not table:
+            tables = soup.find_all('table')
+            table = tables[0] if tables else None
+        if not table:
+            logger.warning("Could not find Torvik ratings table")
+            return torvik_cache
+        rows = table.find_all('tr')[1:]
+        new_cache = {}
+        for row in rows:
+            cells = row.find_all('td')
+            if len(cells) >= 8:
+                try:
+                    rank = cells[0].get_text(strip=True)
+                    team_cell = cells[1]
+                    team_link = team_cell.find('a')
+                    team_name = team_link.get_text(strip=True) if team_link else team_cell.get_text(strip=True)
+                    team_name = team_name.replace('\n', ' ').strip()
+                    conf = cells[2].get_text(strip=True) if len(cells) > 2 else ""
+                    record = cells[3].get_text(strip=True) if len(cells) > 3 else ""
+                    adj_o_text = cells[4].get_text(strip=True) if len(cells) > 4 else ""
+                    adj_d_text = cells[5].get_text(strip=True) if len(cells) > 5 else ""
+                    barthag_text = cells[6].get_text(strip=True) if len(cells) > 6 else ""
+                    tempo_text = cells[7].get_text(strip=True) if len(cells) > 7 else ""
+                    adj_o = float(adj_o_text) if adj_o_text else None
+                    adj_d = float(adj_d_text) if adj_d_text else None
+                    barthag = float(barthag_text) if barthag_text else None
+                    tempo = float(tempo_text) if tempo_text else None
+                    if team_name and adj_o and adj_d:
+                        new_cache[team_name.lower()] = {
+                            'rank': int(rank) if rank.isdigit() else 0,
+                            'team': team_name,
+                            'conf': conf,
+                            'record': record,
+                            'adj_o': adj_o,
+                            'adj_d': adj_d,
+                            'barthag': barthag,
+                            'tempo': tempo
+                        }
+                except (ValueError, IndexError) as e:
+                    continue
+        if new_cache:
+            torvik_cache = new_cache
+            torvik_cache_date = today
+            logger.info(f"Torvik data loaded: {len(new_cache)} teams")
+        return torvik_cache
+    except Exception as e:
+        logger.error(f"Torvik fetch error: {e}")
+        return torvik_cache
+
+def get_torvik_team(team_name: str) -> Optional[dict]:
+    """Get Torvik stats for a team by name (fuzzy match)."""
+    if not torvik_cache:
+        fetch_torvik_ratings()
+    if not torvik_cache:
+        return None
+    name_lower = team_name.lower().strip()
+    if name_lower in torvik_cache:
+        return torvik_cache[name_lower]
+    for key, data in torvik_cache.items():
+        if name_lower in key or key in name_lower:
+            return data
+        key_parts = key.split()
+        name_parts = name_lower.split()
+        if any(p in name_parts for p in key_parts if len(p) > 3):
+            return data
+    common_aliases = {
+        'uconn': 'connecticut', 'usc': 'southern california', 'unc': 'north carolina',
+        'ucla': 'ucla', 'lsu': 'lsu', 'osu': 'ohio st.', 'msu': 'michigan st.',
+        'uk': 'kentucky', 'ku': 'kansas', 'iu': 'indiana', 'duke': 'duke',
+        'gonzaga': 'gonzaga', 'auburn': 'auburn', 'houston': 'houston', 'purdue': 'purdue',
+        'tennessee': 'tennessee', 'alabama': 'alabama', 'arizona': 'arizona', 'iowa st.': 'iowa st.',
+        'st. johns': "st. john's", 'st johns': "st. john's"
+    }
+    if name_lower in common_aliases:
+        alias = common_aliases[name_lower]
+        if alias in torvik_cache:
+            return torvik_cache[alias]
+    return None
+
+def calculate_torvik_projection(away_team: str, home_team: str) -> Optional[dict]:
+    """Calculate projected total using Torvik adjusted efficiency + tempo."""
+    away_stats = get_torvik_team(away_team)
+    home_stats = get_torvik_team(home_team)
+    if not away_stats or not home_stats:
+        return None
+    away_adj_o = away_stats.get('adj_o', 0)
+    away_adj_d = away_stats.get('adj_d', 0)
+    home_adj_o = home_stats.get('adj_o', 0)
+    home_adj_d = home_stats.get('adj_d', 0)
+    away_tempo = away_stats.get('tempo', 67)
+    home_tempo = home_stats.get('tempo', 67)
+    d1_avg_tempo = 67.5
+    d1_avg_eff = 109.6
+    game_tempo = (away_tempo + home_tempo) / 2
+    possessions = game_tempo
+    away_off_eff = (away_adj_o + home_adj_d) / 2
+    home_off_eff = (home_adj_o + away_adj_d) / 2
+    away_points = (away_off_eff / 100) * possessions
+    home_points = (home_off_eff / 100) * possessions
+    projected_total = away_points + home_points
+    return {
+        'projected_total': round(projected_total, 1),
+        'away_points': round(away_points, 1),
+        'home_points': round(home_points, 1),
+        'game_tempo': round(game_tempo, 1),
+        'away_adj_o': away_adj_o,
+        'away_adj_d': away_adj_d,
+        'home_adj_o': home_adj_o,
+        'home_adj_d': home_adj_d,
+        'away_rank': away_stats.get('rank', 0),
+        'home_rank': home_stats.get('rank', 0)
+    }
+
 def fetch_team_stats_batch(team_ids, fetch_func):
     results = {}
     with ThreadPoolExecutor(max_workers=10) as executor:
@@ -6441,6 +6582,8 @@ def fetch_games():
             stats = all_stats.get(league, {})
             gd["away_ppg"], gd["away_opp"] = stats.get(gd.get("away_id"), (None, None))
             gd["home_ppg"], gd["home_opp"] = stats.get(gd.get("home_id"), (None, None))
+    
+    fetch_torvik_ratings()
     
     # TRANSACTIONAL SAFETY: Only delete old games after we confirmed new data was fetched
     if all_games_data:
@@ -6637,6 +6780,22 @@ def fetch_odds_internal() -> dict:
                                             game.away_ppg, game.away_opp_ppg, 
                                             game.home_ppg, game.home_opp_ppg
                                         )
+                                        
+                                        if league == "CBB":
+                                            torvik_proj = calculate_torvik_projection(game.away_team, game.home_team)
+                                            if torvik_proj:
+                                                proj_total = torvik_proj['projected_total']
+                                                exp_away = torvik_proj['away_points']
+                                                exp_home = torvik_proj['home_points']
+                                                game.torvik_tempo = torvik_proj.get('game_tempo')
+                                                game.torvik_away_adj_o = torvik_proj.get('away_adj_o')
+                                                game.torvik_away_adj_d = torvik_proj.get('away_adj_d')
+                                                game.torvik_home_adj_o = torvik_proj.get('home_adj_o')
+                                                game.torvik_home_adj_d = torvik_proj.get('home_adj_d')
+                                                game.torvik_away_rank = torvik_proj.get('away_rank')
+                                                game.torvik_home_rank = torvik_proj.get('home_rank')
+                                                logger.debug(f"CBB {game.away_team}@{game.home_team}: Torvik proj={proj_total}")
+                                        
                                         game.expected_away = exp_away
                                         game.expected_home = exp_home
                                         game.projected_total = proj_total

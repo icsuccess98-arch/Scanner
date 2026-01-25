@@ -960,6 +960,29 @@
                             <div class="live-score" style="display:none; margin-top:0.5rem; font-size:0.875rem; color:#21C55D;"></div>
                         </div>
                         <div class="col-md-3">
+                            {% if game.league == 'CBB' and game.torvik_away_adj_o %}
+                            <div class="stats-grid">
+                                <div class="stat-item">
+                                    <div class="stat-label">Away AdjO</div>
+                                    <div class="stat-value">{{ "%.1f"|format(game.torvik_away_adj_o) }}</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">Away AdjD</div>
+                                    <div class="stat-value">{{ "%.1f"|format(game.torvik_away_adj_d) }}</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">Home AdjO</div>
+                                    <div class="stat-value">{{ "%.1f"|format(game.torvik_home_adj_o) }}</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">Home AdjD</div>
+                                    <div class="stat-value">{{ "%.1f"|format(game.torvik_home_adj_d) }}</div>
+                                </div>
+                            </div>
+                            <div style="font-size: 0.65rem; color: var(--text-muted); text-align: center; margin-top: 0.25rem;">
+                                Tempo: {{ "%.1f"|format(game.torvik_tempo) if game.torvik_tempo else '-' }} | Ranks: #{{ game.torvik_away_rank }} vs #{{ game.torvik_home_rank }}
+                            </div>
+                            {% else %}
                             <div class="stats-grid">
                                 <div class="stat-item">
                                     <div class="stat-label">Away PPG</div>
@@ -978,6 +1001,7 @@
                                     <div class="stat-value">{{ "%.1f"|format(game.home_opp_ppg) if game.home_opp_ppg else '-' }}</div>
                                 </div>
                             </div>
+                            {% endif %}
                         </div>
                         <div class="col-md-4">
                             <div class="d-flex gap-4">
@@ -1047,6 +1071,29 @@
                             <div class="live-score" style="display:none; margin-top:0.5rem; font-size:0.875rem; color:#21C55D;"></div>
                         </div>
                         <div class="col-md-3">
+                            {% if game.league == 'CBB' and game.torvik_away_adj_o %}
+                            <div class="stats-grid">
+                                <div class="stat-item">
+                                    <div class="stat-label">Away AdjO</div>
+                                    <div class="stat-value">{{ "%.1f"|format(game.torvik_away_adj_o) }}</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">Away AdjD</div>
+                                    <div class="stat-value">{{ "%.1f"|format(game.torvik_away_adj_d) }}</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">Home AdjO</div>
+                                    <div class="stat-value">{{ "%.1f"|format(game.torvik_home_adj_o) }}</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">Home AdjD</div>
+                                    <div class="stat-value">{{ "%.1f"|format(game.torvik_home_adj_d) }}</div>
+                                </div>
+                            </div>
+                            <div style="font-size: 0.65rem; color: var(--text-muted); text-align: center; margin-top: 0.25rem;">
+                                Tempo: {{ "%.1f"|format(game.torvik_tempo) if game.torvik_tempo else '-' }} | Ranks: #{{ game.torvik_away_rank }} vs #{{ game.torvik_home_rank }}
+                            </div>
+                            {% else %}
                             <div class="stats-grid">
                                 <div class="stat-item">
                                     <div class="stat-label">Away PPG</div>
@@ -1065,6 +1112,7 @@
                                     <div class="stat-value">{{ "%.1f"|format(game.home_opp_ppg) if game.home_opp_ppg else '-' }}</div>
                                 </div>
                             </div>
+                            {% endif %}
                         </div>
                         <div class="col-md-4">
                             <div class="d-flex gap-4">
