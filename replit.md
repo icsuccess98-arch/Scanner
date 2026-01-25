@@ -35,7 +35,13 @@ Only one app can run at a time. Configure the workflow to switch between apps.
 
 ### Technical Implementation (TOTALS-ONLY)
 -   **Sports Model (PURE FORMULA-BASED)**:
-    -   **Data Sources**: ONLY ESPN Official Season Stats (PPG, Opp PPG) and Bovada lines.
+    -   **Data Sources**: ESPN Official Season Stats (PPG, Opp PPG), Bart Torvik (CBB only), and Bovada lines.
+    -   **CBB Torvik Integration**: For college basketball, uses Bart Torvik advanced analytics:
+        -   Adjusted Offensive/Defensive Efficiency (Adj O/D)
+        -   Tempo (possessions per game)
+        -   Barthag and Rankings
+        -   Dashboard displays Torvik stats instead of PPG for CBB games
+        -   Projection formula uses adjusted efficiency + tempo for more accurate CBB totals
     -   **Formulas (STRICT - NO MODIFICATIONS)**:
         -   `Expected_A = (Team A PPG + Team B Opp PPG) / 2`
         -   `Expected_B = (Team B PPG + Team A Opp PPG) / 2`
