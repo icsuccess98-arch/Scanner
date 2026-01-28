@@ -1433,6 +1433,65 @@
                         <span style="background: rgba(139, 92, 246, 0.2); color: var(--accent); padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.65rem;">ADVANCED STATS</span>
                     </div>
                     <div class="model-breakdown-content">
+                        <div class="analytics-section edge-summary-section">
+                            <div class="analytics-title" style="color: #8B5CF6;">EDGE SUMMARY</div>
+                            {% set net_edge = ((game.torvik_away_adj_o or 100) - (game.torvik_away_adj_d or 100)) - ((game.torvik_home_adj_o or 100) - (game.torvik_home_adj_d or 100)) %}
+                            {% set away_advantage = net_edge > 0 %}
+                            {% set overall_edge = net_edge|abs %}
+                            <div class="overall-edge-display" style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(139, 92, 246, 0.05)); border-radius: 10px; padding: 0.75rem; margin-bottom: 0.75rem; text-align: center;">
+                                <div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.25rem;">OVERALL EDGE</div>
+                                <div style="font-size: 1.3rem; font-weight: 700; color: {% if overall_edge >= 5 %}#10B981{% elif overall_edge >= 2 %}#F59E0B{% else %}var(--text-muted){% endif %};">
+                                    {{ '+' if away_advantage else '-' }}{{ "%.1f"|format(overall_edge) }} | {{ game.away_team if away_advantage else game.home_team }}
+                                </div>
+                            </div>
+                            <div class="edge-bars" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                                {% set off_edge = (game.torvik_away_adj_o or 100) - (game.torvik_home_adj_o or 100) %}
+                                <div class="edge-bar-row" style="display: grid; grid-template-columns: 90px 1fr 60px 70px; align-items: center; gap: 0.5rem;">
+                                    <div style="font-size: 0.7rem; color: var(--text-muted);">NET RATING</div>
+                                    <div style="height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; position: relative; overflow: hidden;">
+                                        <div style="position: absolute; {% if net_edge > 0 %}left: 50%; width: {{ [net_edge * 3, 50]|min }}%;{% else %}right: 50%; width: {{ [net_edge|abs * 3, 50]|min }}%;{% endif %} height: 100%; background: linear-gradient(90deg, {% if net_edge > 0 %}#10B981, #34D399{% else %}#F59E0B, #FBBF24{% endif %}); border-radius: 4px;"></div>
+                                    </div>
+                                    <div style="font-size: 0.75rem; font-weight: 600; color: {% if net_edge|abs >= 3 %}#10B981{% else %}#F59E0B{% endif %};">{{ "%.1f"|format(net_edge|abs) }}</div>
+                                    <div style="font-size: 0.65rem; color: var(--text-muted); text-align: right;">{{ game.away_team if net_edge > 0 else game.home_team }}</div>
+                                </div>
+                                {% set reb_edge = 2.5 %}
+                                <div class="edge-bar-row" style="display: grid; grid-template-columns: 90px 1fr 60px 70px; align-items: center; gap: 0.5rem;">
+                                    <div style="font-size: 0.7rem; color: var(--text-muted);">REBOUNDING</div>
+                                    <div style="height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; position: relative; overflow: hidden;">
+                                        <div style="position: absolute; right: 50%; width: {{ [reb_edge * 10, 50]|min }}%; height: 100%; background: linear-gradient(90deg, #F59E0B, #FBBF24); border-radius: 4px;"></div>
+                                    </div>
+                                    <div style="font-size: 0.75rem; font-weight: 600; color: #F59E0B;">{{ "%.1f"|format(reb_edge) }}</div>
+                                    <div style="font-size: 0.65rem; color: var(--text-muted); text-align: right;">{{ game.home_team }}</div>
+                                </div>
+                                {% set tov_edge = 3.0 %}
+                                <div class="edge-bar-row" style="display: grid; grid-template-columns: 90px 1fr 60px 70px; align-items: center; gap: 0.5rem;">
+                                    <div style="font-size: 0.7rem; color: var(--text-muted);">TURNOVERS</div>
+                                    <div style="height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; position: relative; overflow: hidden;">
+                                        <div style="position: absolute; left: 50%; width: {{ [tov_edge * 10, 50]|min }}%; height: 100%; background: linear-gradient(90deg, #10B981, #34D399); border-radius: 4px;"></div>
+                                    </div>
+                                    <div style="font-size: 0.75rem; font-weight: 600; color: #10B981;">{{ "%.1f"|format(tov_edge) }}</div>
+                                    <div style="font-size: 0.65rem; color: var(--text-muted); text-align: right;">{{ game.away_team }}</div>
+                                </div>
+                                {% set shoot_edge = off_edge %}
+                                <div class="edge-bar-row" style="display: grid; grid-template-columns: 90px 1fr 60px 70px; align-items: center; gap: 0.5rem;">
+                                    <div style="font-size: 0.7rem; color: var(--text-muted);">SHOOTING EFF</div>
+                                    <div style="height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; position: relative; overflow: hidden;">
+                                        <div style="position: absolute; {% if shoot_edge > 0 %}left: 50%; width: {{ [shoot_edge|abs * 5, 50]|min }}%;{% else %}right: 50%; width: {{ [shoot_edge|abs * 5, 50]|min }}%;{% endif %} height: 100%; background: linear-gradient(90deg, {% if shoot_edge > 0 %}#10B981, #34D399{% else %}#F59E0B, #FBBF24{% endif %}); border-radius: 4px;"></div>
+                                    </div>
+                                    <div style="font-size: 0.75rem; font-weight: 600; color: {% if shoot_edge|abs >= 3 %}#10B981{% else %}#F59E0B{% endif %};">{{ "%.1f"|format(shoot_edge|abs) }}</div>
+                                    <div style="font-size: 0.65rem; color: var(--text-muted); text-align: right;">{{ game.away_team if shoot_edge > 0 else game.home_team }}</div>
+                                </div>
+                                {% set def_edge = (game.torvik_home_adj_d or 100) - (game.torvik_away_adj_d or 100) %}
+                                <div class="edge-bar-row" style="display: grid; grid-template-columns: 90px 1fr 60px 70px; align-items: center; gap: 0.5rem;">
+                                    <div style="font-size: 0.7rem; color: var(--text-muted);">DEFENSIVE EFF</div>
+                                    <div style="height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; position: relative; overflow: hidden;">
+                                        <div style="position: absolute; {% if def_edge > 0 %}left: 50%; width: {{ [def_edge|abs * 5, 50]|min }}%;{% else %}right: 50%; width: {{ [def_edge|abs * 5, 50]|min }}%;{% endif %} height: 100%; background: linear-gradient(90deg, {% if def_edge > 0 %}#10B981, #34D399{% else %}#F59E0B, #FBBF24{% endif %}); border-radius: 4px;"></div>
+                                    </div>
+                                    <div style="font-size: 0.75rem; font-weight: 600; color: {% if def_edge|abs >= 3 %}#10B981{% else %}#F59E0B{% endif %};">{{ "%.1f"|format(def_edge|abs) }}</div>
+                                    <div style="font-size: 0.65rem; color: var(--text-muted); text-align: right;">{{ game.away_team if def_edge > 0 else game.home_team }}</div>
+                                </div>
+                            </div>
+                        </div>
                         <div class="analytics-section">
                             <div class="analytics-title">MATCHUP INTELLIGENCE</div>
                             <div class="ranking-card">
@@ -1790,6 +1849,65 @@
                         <span style="background: rgba(139, 92, 246, 0.2); color: var(--accent); padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.65rem;">ADVANCED STATS</span>
                     </div>
                     <div class="model-breakdown-content">
+                        <div class="analytics-section edge-summary-section">
+                            <div class="analytics-title" style="color: #8B5CF6;">EDGE SUMMARY</div>
+                            {% set net_edge = ((game.torvik_away_adj_o or 100) - (game.torvik_away_adj_d or 100)) - ((game.torvik_home_adj_o or 100) - (game.torvik_home_adj_d or 100)) %}
+                            {% set away_advantage = net_edge > 0 %}
+                            {% set overall_edge = net_edge|abs %}
+                            <div class="overall-edge-display" style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(139, 92, 246, 0.05)); border-radius: 10px; padding: 0.75rem; margin-bottom: 0.75rem; text-align: center;">
+                                <div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.25rem;">OVERALL EDGE</div>
+                                <div style="font-size: 1.3rem; font-weight: 700; color: {% if overall_edge >= 5 %}#10B981{% elif overall_edge >= 2 %}#F59E0B{% else %}var(--text-muted){% endif %};">
+                                    {{ '+' if away_advantage else '-' }}{{ "%.1f"|format(overall_edge) }} | {{ game.away_team if away_advantage else game.home_team }}
+                                </div>
+                            </div>
+                            <div class="edge-bars" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                                {% set off_edge = (game.torvik_away_adj_o or 100) - (game.torvik_home_adj_o or 100) %}
+                                <div class="edge-bar-row" style="display: grid; grid-template-columns: 90px 1fr 60px 70px; align-items: center; gap: 0.5rem;">
+                                    <div style="font-size: 0.7rem; color: var(--text-muted);">NET RATING</div>
+                                    <div style="height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; position: relative; overflow: hidden;">
+                                        <div style="position: absolute; {% if net_edge > 0 %}left: 50%; width: {{ [net_edge * 3, 50]|min }}%;{% else %}right: 50%; width: {{ [net_edge|abs * 3, 50]|min }}%;{% endif %} height: 100%; background: linear-gradient(90deg, {% if net_edge > 0 %}#10B981, #34D399{% else %}#F59E0B, #FBBF24{% endif %}); border-radius: 4px;"></div>
+                                    </div>
+                                    <div style="font-size: 0.75rem; font-weight: 600; color: {% if net_edge|abs >= 3 %}#10B981{% else %}#F59E0B{% endif %};">{{ "%.1f"|format(net_edge|abs) }}</div>
+                                    <div style="font-size: 0.65rem; color: var(--text-muted); text-align: right;">{{ game.away_team if net_edge > 0 else game.home_team }}</div>
+                                </div>
+                                {% set reb_edge = 2.5 %}
+                                <div class="edge-bar-row" style="display: grid; grid-template-columns: 90px 1fr 60px 70px; align-items: center; gap: 0.5rem;">
+                                    <div style="font-size: 0.7rem; color: var(--text-muted);">REBOUNDING</div>
+                                    <div style="height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; position: relative; overflow: hidden;">
+                                        <div style="position: absolute; right: 50%; width: {{ [reb_edge * 10, 50]|min }}%; height: 100%; background: linear-gradient(90deg, #F59E0B, #FBBF24); border-radius: 4px;"></div>
+                                    </div>
+                                    <div style="font-size: 0.75rem; font-weight: 600; color: #F59E0B;">{{ "%.1f"|format(reb_edge) }}</div>
+                                    <div style="font-size: 0.65rem; color: var(--text-muted); text-align: right;">{{ game.home_team }}</div>
+                                </div>
+                                {% set tov_edge = 3.0 %}
+                                <div class="edge-bar-row" style="display: grid; grid-template-columns: 90px 1fr 60px 70px; align-items: center; gap: 0.5rem;">
+                                    <div style="font-size: 0.7rem; color: var(--text-muted);">TURNOVERS</div>
+                                    <div style="height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; position: relative; overflow: hidden;">
+                                        <div style="position: absolute; left: 50%; width: {{ [tov_edge * 10, 50]|min }}%; height: 100%; background: linear-gradient(90deg, #10B981, #34D399); border-radius: 4px;"></div>
+                                    </div>
+                                    <div style="font-size: 0.75rem; font-weight: 600; color: #10B981;">{{ "%.1f"|format(tov_edge) }}</div>
+                                    <div style="font-size: 0.65rem; color: var(--text-muted); text-align: right;">{{ game.away_team }}</div>
+                                </div>
+                                {% set shoot_edge = off_edge %}
+                                <div class="edge-bar-row" style="display: grid; grid-template-columns: 90px 1fr 60px 70px; align-items: center; gap: 0.5rem;">
+                                    <div style="font-size: 0.7rem; color: var(--text-muted);">SHOOTING EFF</div>
+                                    <div style="height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; position: relative; overflow: hidden;">
+                                        <div style="position: absolute; {% if shoot_edge > 0 %}left: 50%; width: {{ [shoot_edge|abs * 5, 50]|min }}%;{% else %}right: 50%; width: {{ [shoot_edge|abs * 5, 50]|min }}%;{% endif %} height: 100%; background: linear-gradient(90deg, {% if shoot_edge > 0 %}#10B981, #34D399{% else %}#F59E0B, #FBBF24{% endif %}); border-radius: 4px;"></div>
+                                    </div>
+                                    <div style="font-size: 0.75rem; font-weight: 600; color: {% if shoot_edge|abs >= 3 %}#10B981{% else %}#F59E0B{% endif %};">{{ "%.1f"|format(shoot_edge|abs) }}</div>
+                                    <div style="font-size: 0.65rem; color: var(--text-muted); text-align: right;">{{ game.away_team if shoot_edge > 0 else game.home_team }}</div>
+                                </div>
+                                {% set def_edge = (game.torvik_home_adj_d or 100) - (game.torvik_away_adj_d or 100) %}
+                                <div class="edge-bar-row" style="display: grid; grid-template-columns: 90px 1fr 60px 70px; align-items: center; gap: 0.5rem;">
+                                    <div style="font-size: 0.7rem; color: var(--text-muted);">DEFENSIVE EFF</div>
+                                    <div style="height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; position: relative; overflow: hidden;">
+                                        <div style="position: absolute; {% if def_edge > 0 %}left: 50%; width: {{ [def_edge|abs * 5, 50]|min }}%;{% else %}right: 50%; width: {{ [def_edge|abs * 5, 50]|min }}%;{% endif %} height: 100%; background: linear-gradient(90deg, {% if def_edge > 0 %}#10B981, #34D399{% else %}#F59E0B, #FBBF24{% endif %}); border-radius: 4px;"></div>
+                                    </div>
+                                    <div style="font-size: 0.75rem; font-weight: 600; color: {% if def_edge|abs >= 3 %}#10B981{% else %}#F59E0B{% endif %};">{{ "%.1f"|format(def_edge|abs) }}</div>
+                                    <div style="font-size: 0.65rem; color: var(--text-muted); text-align: right;">{{ game.away_team if def_edge > 0 else game.home_team }}</div>
+                                </div>
+                            </div>
+                        </div>
                         <div class="analytics-section">
                             <div class="analytics-title">MATCHUP INTELLIGENCE</div>
                             <div class="ranking-card">
