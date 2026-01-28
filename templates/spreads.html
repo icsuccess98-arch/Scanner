@@ -1373,19 +1373,34 @@
             const awayTeam = data.away_team;
             const homeTeam = data.home_team;
             
-            // Build stats table row helper
+            // Build stats table row helper - format: 'pct' for %, 'eff' for efficiency (3 decimals), 'num' for regular numbers
             function statRow(metric, awayVal, homeVal, format = 'num', higherIsBetter = true) {
                 const aw = parseFloat(awayVal) || 0;
                 const hm = parseFloat(homeVal) || 0;
                 const awayWins = higherIsBetter ? aw > hm : aw < hm;
                 const homeWins = higherIsBetter ? hm > aw : hm < aw;
-                const noEdge = Math.abs(aw - hm) < 0.3;
+                
+                // Use smaller threshold for efficiency values
+                const threshold = format === 'eff' ? 0.01 : 0.3;
+                const noEdge = Math.abs(aw - hm) < threshold;
+                
                 const awayClass = awayWins ? 'stat-winner' : '';
                 const homeClass = homeWins ? 'stat-winner' : '';
                 const edge = noEdge ? 'Even' : (awayWins ? awayTeam : homeTeam);
                 const edgeClass = noEdge ? '' : (awayWins ? 'edge-away' : 'edge-home');
-                const valFormat = format === 'pct' ? `${aw.toFixed(1)}%` : aw.toFixed(1);
-                const valFormat2 = format === 'pct' ? `${hm.toFixed(1)}%` : hm.toFixed(1);
+                
+                // Format values based on type
+                let valFormat, valFormat2;
+                if (format === 'pct') {
+                    valFormat = `${aw.toFixed(1)}%`;
+                    valFormat2 = `${hm.toFixed(1)}%`;
+                } else if (format === 'eff') {
+                    valFormat = aw.toFixed(3);
+                    valFormat2 = hm.toFixed(3);
+                } else {
+                    valFormat = aw.toFixed(1);
+                    valFormat2 = hm.toFixed(1);
+                }
                 
                 return `<tr>
                     <td class="metric-name">${metric}</td>
@@ -1411,7 +1426,9 @@
             edgeMetrics.forEach(([m, higher]) => {
                 const aw = parseFloat(awaySeason[m]) || 0;
                 const hm = parseFloat(homeSeason[m]) || 0;
-                if (Math.abs(aw - hm) < 0.3) return; // Skip if too close
+                // Use smaller threshold for efficiency values (around 1.x)
+                const threshold = (m === 'O Eff' || m === 'D Eff') ? 0.01 : 0.3;
+                if (Math.abs(aw - hm) < threshold) return;
                 if (higher ? aw > hm : aw < hm) awayEdgeCount++;
                 else if (higher ? hm > aw : hm < aw) homeEdgeCount++;
             });
@@ -1448,8 +1465,8 @@
                             ${statRow('DRB%', awaySeason['DRB%'], homeSeason['DRB%'], 'pct', true)}
                             ${statRow('TOV%', awaySeason['TOV%'], homeSeason['TOV%'], 'pct', false)}
                             ${statRow('F-TOV%', awaySeason['Opp TOV%'] || awaySeason['opp turnovers/play'], homeSeason['Opp TOV%'] || homeSeason['opp turnovers/play'], 'pct', true)}
-                            ${statRow('O Eff', awaySeason['O Eff'], homeSeason['O Eff'], 'num', true)}
-                            ${statRow('D Eff', awaySeason['D Eff'], homeSeason['D Eff'], 'num', false)}
+                            ${statRow('O Eff', awaySeason['O Eff'], homeSeason['O Eff'], 'eff', true)}
+                            ${statRow('D Eff', awaySeason['D Eff'], homeSeason['D Eff'], 'eff', false)}
                             ${statRow('eFG%', awaySeason['eFG%'], homeSeason['eFG%'], 'pct', true)}
                             ${statRow('Opp eFG%', awaySeason['Opp eFG%'], homeSeason['Opp eFG%'], 'pct', false)}
                             ${statRow('3PM/Gm', awaySeason['3PM/Game'], homeSeason['3PM/Game'], 'num', true)}
