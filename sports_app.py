@@ -603,6 +603,20 @@ class MatchupIntelligence:
             home_slug = team_slugs.get(home_team.lower(), home_team.lower().replace(' ', '-'))
             base_url = f"https://www.teamrankings.com/nba/matchup/{away_slug}-{home_slug}-{game_date}"
             
+            # City abbreviations used in TeamRankings tables
+            city_abbrevs = {
+                'bulls': 'CHI', 'pacers': 'IND', 'celtics': 'BOS', 'lakers': 'LAL',
+                'heat': 'MIA', 'bucks': 'MIL', 'nets': 'BKN', '76ers': 'PHI',
+                'knicks': 'NYK', 'hawks': 'ATL', 'hornets': 'CHA', 'cavaliers': 'CLE',
+                'pistons': 'DET', 'magic': 'ORL', 'wizards': 'WAS', 'raptors': 'TOR',
+                'nuggets': 'DEN', 'clippers': 'LAC', 'suns': 'PHX', 'warriors': 'GSW',
+                'grizzlies': 'MEM', 'mavericks': 'DAL', 'rockets': 'HOU', 'pelicans': 'NOP',
+                'spurs': 'SAS', 'thunder': 'OKC', 'timberwolves': 'MIN',
+                'trail blazers': 'POR', 'blazers': 'POR', 'jazz': 'UTA', 'kings': 'SAC'
+            }
+            away_abbrev = city_abbrevs.get(away_team.lower(), away_team[:3].upper())
+            home_abbrev = city_abbrevs.get(home_team.lower(), home_team[:3].upper())
+            
             headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
             
             result = {'away_season': {}, 'home_season': {}, 'away_l3': {}, 'home_l3': {}}
@@ -637,8 +651,9 @@ class MatchupIntelligence:
                         h0 = header[0].get_text(strip=True).upper()
                         h3 = header[3].get_text(strip=True).upper() if len(header) > 3 else ''
                         
-                        is_away_first = away_slug[:3].upper() in h0 or away_team[:3].upper() in h0
-                        is_home_first = home_slug[:3].upper() in h0 or home_team[:3].upper() in h0
+                        # Check for city abbreviation match (e.g., CHI, IND)
+                        is_away_first = away_abbrev in h0 or away_team[:3].upper() in h0
+                        is_home_first = home_abbrev in h0 or home_team[:3].upper() in h0
                         
                         for row in rows[1:]:
                             cells = row.find_all(['td', 'th'])
