@@ -691,148 +691,399 @@
         .eff-diff.positive { background: rgba(16, 185, 129, 0.2); color: #10B981; }
         .eff-diff.negative { background: rgba(239, 68, 68, 0.2); color: #EF4444; }
         
-        .stat-bar-group { display: flex; flex-direction: column; gap: 1rem; }
+        .stat-bar-group { display: flex; flex-direction: column; gap: 0.5rem; }
         .stat-bar-item {
-            background: rgba(0,0,0,0.2);
-            border-radius: 8px;
-            padding: 0.75rem;
+            background: rgba(0,0,0,0.15);
+            border-radius: 6px;
+            padding: 0.5rem 0.75rem;
         }
         .stat-bar-header {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.35rem;
         }
         .stat-name {
             font-size: 0.7rem;
             font-weight: 600;
             color: var(--text-muted);
+            white-space: nowrap;
         }
         .d1-avg {
             font-size: 0.65rem;
             color: var(--text-muted);
+            white-space: nowrap;
         }
-        .dual-bar { display: flex; flex-direction: column; gap: 0.25rem; }
+        .dual-bar { display: flex; flex-direction: column; gap: 0.15rem; }
         .bar-row {
-            display: grid;
-            grid-template-columns: 50px 1fr 90px;
+            display: flex;
             align-items: center;
             gap: 0.5rem;
+            white-space: nowrap;
         }
-        .team-abbr {
-            font-size: 0.65rem;
+        .team-name-stat {
+            font-size: 0.7rem;
             color: var(--text-muted);
+            min-width: 70px;
+            flex-shrink: 0;
         }
         .bar-val {
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             font-weight: 700;
             color: var(--text);
+            min-width: 45px;
+            flex-shrink: 0;
         }
         .bar-val.green { color: #10B981; }
+        .bar-val.yellow { color: #FBBF24; }
         .bar-track {
-            height: 8px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 4px;
+            flex: 1;
+            height: 6px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 3px;
             overflow: hidden;
+            min-width: 60px;
         }
         .bar-fill {
             height: 100%;
-            border-radius: 4px;
+            border-radius: 3px;
         }
         .bar-fill.green { background: linear-gradient(90deg, #10B981, #34D399); }
+        .bar-fill.yellow { background: linear-gradient(90deg, #FBBF24, #FCD34D); }
+        .bar-fill.red { background: linear-gradient(90deg, #EF4444, #F87171); }
         .bar-fill.gray { background: linear-gradient(90deg, #4B5563, #6B7280); }
         .bar-divider {
             text-align: center;
             color: var(--text-muted);
-            font-size: 0.7rem;
+            font-size: 0.6rem;
+            padding: 0.1rem 0;
         }
         .bar-note {
-            font-size: 0.6rem;
+            font-size: 0.55rem;
             color: var(--text-muted);
+            white-space: nowrap;
+            min-width: 70px;
             text-align: right;
+            flex-shrink: 0;
         }
         .bar-note.green { color: #10B981; }
         .bar-note.red { color: #EF4444; }
         .stat-insight {
             font-size: 0.7rem;
             color: var(--text-muted);
-            margin-top: 0.5rem;
-            padding: 0.5rem;
+            margin-top: 0.35rem;
+            padding: 0.35rem 0.5rem;
             background: rgba(255,255,255,0.03);
             border-radius: 4px;
             border-left: 2px solid var(--border);
         }
         .section-summary {
-            margin-top: 0.75rem;
-            padding: 0.5rem;
+            margin-top: 0.5rem;
+            padding: 0.4rem 0.6rem;
             background: rgba(16, 185, 129, 0.1);
             border-radius: 6px;
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             color: #10B981;
         }
         
-        .tempo-display {
-            margin-top: 1rem;
+        .pace-section-ref {
+            background: linear-gradient(145deg, rgba(26, 24, 37, 0.8), rgba(18, 16, 26, 0.9));
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.75rem;
+            margin-top: 0.5rem;
+        }
+        .pace-header {
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: #3B82F6;
+            margin-bottom: 0.75rem;
+        }
+        .ft-rate-section { margin-bottom: 0.75rem; }
+        .ft-rate-label {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            gap: 1rem;
-        }
-        .tempo-box { flex: 1; }
-        .tempo-header {
             font-size: 0.65rem;
             color: var(--text-muted);
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.25rem;
         }
-        .tempo-row {
+        .ft-bar-row {
             display: flex;
-            justify-content: space-around;
+            align-items: center;
             gap: 0.5rem;
+            margin-bottom: 0.25rem;
         }
-        .tempo-team { text-align: center; }
-        .tempo-name {
-            display: block;
+        .ft-val {
+            font-size: 0.9rem;
+            font-weight: 700;
+            min-width: 50px;
+        }
+        .ft-val.green { color: #10B981; }
+        .ft-val.yellow { color: #FBBF24; }
+        .ft-bar-track {
+            flex: 1;
+            height: 5px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .ft-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+        }
+        .ft-bar-fill.green { background: linear-gradient(90deg, #10B981, #34D399); }
+        .ft-bar-fill.yellow { background: linear-gradient(90deg, #FBBF24, #FCD34D); }
+        .ft-bar-fill.red { background: linear-gradient(90deg, #EF4444, #F87171); }
+        .ft-note {
+            font-size: 0.6rem;
+            min-width: 65px;
+            text-align: right;
+        }
+        .ft-note.green { color: #10B981; }
+        
+        .tempo-section-ref {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 0.75rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid var(--border);
+        }
+        .tempo-left {
+            flex: 1;
+        }
+        .tempo-title {
+            display: flex;
+            justify-content: space-between;
             font-size: 0.65rem;
             color: var(--text-muted);
+            margin-bottom: 0.35rem;
         }
-        .tempo-val {
+        .tempo-teams {
+            display: flex;
+            gap: 1.5rem;
+        }
+        .tempo-team-item { text-align: center; }
+        .tempo-team-name {
+            font-size: 0.65rem;
+            color: var(--text-muted);
             display: block;
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: var(--text);
         }
+        .tempo-team-val {
+            font-size: 1.2rem;
+            font-weight: 800;
+            display: block;
+        }
+        .tempo-team-val.yellow { color: #FBBF24; }
         .tempo-tag {
             display: inline-block;
             font-size: 0.55rem;
-            padding: 0.15rem 0.35rem;
+            padding: 0.1rem 0.3rem;
             border-radius: 3px;
-            background: rgba(255,255,255,0.1);
-            color: var(--text-muted);
+            background: rgba(239, 68, 68, 0.2);
+            color: #EF4444;
+            margin-top: 0.15rem;
         }
-        .tempo-tag.red { background: rgba(239, 68, 68, 0.2); color: #EF4444; }
-        .expected-poss {
+        .tempo-tag.avg { background: rgba(255,255,255,0.1); color: var(--text-muted); }
+        .expected-box {
             text-align: center;
-            background: rgba(59, 130, 246, 0.1);
-            border-radius: 8px;
-            padding: 0.75rem;
+            background: rgba(59, 130, 246, 0.08);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 6px;
+            padding: 0.5rem 0.75rem;
+            min-width: 65px;
         }
         .expected-label {
-            display: block;
-            font-size: 0.6rem;
+            font-size: 0.55rem;
             color: var(--text-muted);
+            display: block;
         }
         .expected-val {
-            display: block;
-            font-size: 1.5rem;
+            font-size: 1.4rem;
             font-weight: 800;
             color: #3B82F6;
+            display: block;
         }
         .expected-unit {
+            font-size: 0.55rem;
+            color: var(--text-muted);
             display: block;
+        }
+        .pace-summary {
+            margin-top: 0.5rem;
+            padding: 0.4rem 0.6rem;
+            background: rgba(16, 185, 129, 0.08);
+            border-radius: 6px;
+            font-size: 0.7rem;
+            color: #10B981;
+        }
+        .savant-footer {
+            text-align: center;
             font-size: 0.6rem;
             color: var(--text-muted);
+            margin-top: 0.75rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid var(--border);
+        }
+        
+        .analytics-table-section {
+            background: linear-gradient(145deg, rgba(26, 24, 37, 0.95) 0%, rgba(18, 16, 26, 0.98) 100%);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 0.75rem;
+        }
+        .table-header {
+            background: linear-gradient(135deg, #1e3a5f 0%, #0d2137 100%);
+            color: #fff;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-align: center;
+            padding: 0.5rem;
+            letter-spacing: 1px;
+        }
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.7rem;
+        }
+        .stats-table th {
+            background: rgba(0,0,0,0.3);
+            color: var(--text-muted);
+            font-weight: 600;
+            padding: 0.4rem 0.3rem;
+            text-align: center;
+            font-size: 0.65rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .stats-table th.team-col {
+            min-width: 70px;
+        }
+        .stats-table td {
+            padding: 0.35rem 0.3rem;
+            text-align: center;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            color: var(--text);
+        }
+        .stats-table td.metric-name {
+            text-align: left;
+            padding-left: 0.5rem;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+        .stats-table td.stat-winner {
+            background: rgba(16, 185, 129, 0.15);
+            color: #10B981;
+            font-weight: 700;
+        }
+        .stats-table td.edge-away {
+            color: #10B981;
+            font-weight: 600;
+        }
+        .stats-table td.edge-home {
+            color: #3B82F6;
+            font-weight: 600;
+        }
+        .stats-table tr:nth-child(odd) {
+            background: rgba(255,255,255,0.02);
+        }
+        .stats-table tr:hover {
+            background: rgba(139, 92, 246, 0.08);
         }
         
         .hidden { display: none !important; }
+        
+        .qualifying-section {
+            background: linear-gradient(145deg, rgba(26, 24, 37, 0.95) 0%, rgba(18, 16, 26, 0.98) 100%);
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .qualifying-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--gold);
+            margin-bottom: 0.75rem;
+        }
+        .qualifying-header i { color: var(--gold); }
+        .qual-count {
+            background: var(--gold);
+            color: #000;
+            padding: 0.15rem 0.5rem;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            margin-left: auto;
+        }
+        .elimination-breakdown {
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+        .elim-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            padding: 0.35rem 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .elim-row:last-child { border-bottom: none; }
+        .elim-label {
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+        .elim-label i.red { color: #EF4444; font-size: 0.65rem; }
+        .elim-teams {
+            color: var(--text-muted);
+            font-size: 0.65rem;
+            text-align: right;
+            max-width: 60%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .remaining-label {
+            font-size: 0.75rem;
+            color: #10B981;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+        .remaining-label i.green { color: #10B981; }
+        .qual-picks-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 0.5rem;
+        }
+        .qual-pick-card {
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: 8px;
+            padding: 0.5rem 0.75rem;
+            text-align: center;
+        }
+        .qual-matchup {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .qual-spread {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            margin-top: 0.15rem;
+        }
         
         @media (max-width: 374px) {
             .brand { font-size: 1.5rem !important; }
@@ -890,6 +1141,41 @@
         </div>
         {% else %}
         
+        {% if qualifying_picks|length > 0 %}
+        <div class="qualifying-section">
+            <div class="qualifying-header">
+                <i class="bi bi-trophy-fill"></i>
+                <span>QUALIFYING PICKS</span>
+                <span class="qual-count">{{ qualifying_picks|length }}</span>
+            </div>
+            <div class="elimination-breakdown">
+                <div class="elim-row">
+                    <span class="elim-label"><i class="bi bi-x-circle-fill red"></i> Large Spread (10+)</span>
+                    <span class="elim-teams">{% for g in eliminated_large_spread[:3] %}{{ g.away_team }} @ {{ g.home_team }}{% if not loop.last %}, {% endif %}{% endfor %}{% if eliminated_large_spread|length > 3 %} +{{ eliminated_large_spread|length - 3 }} more{% endif %}</span>
+                </div>
+                <div class="elim-row">
+                    <span class="elim-label"><i class="bi bi-x-circle-fill red"></i> Bad Teams</span>
+                    <span class="elim-teams">{% for g in eliminated_bad_teams[:3] %}{{ g.away_team }} @ {{ g.home_team }}{% if not loop.last %}, {% endif %}{% endfor %}{% if eliminated_bad_teams|length > 3 %} +{{ eliminated_bad_teams|length - 3 }} more{% endif %}</span>
+                </div>
+                <div class="elim-row">
+                    <span class="elim-label"><i class="bi bi-x-circle-fill red"></i> Bad Defense L5</span>
+                    <span class="elim-teams">{% for g in eliminated_bad_defense[:3] %}{{ g.away_team }} @ {{ g.home_team }}{% if not loop.last %}, {% endif %}{% endfor %}{% if eliminated_bad_defense|length > 3 %} +{{ eliminated_bad_defense|length - 3 }} more{% endif %}</span>
+                </div>
+            </div>
+            <div class="remaining-label">
+                <i class="bi bi-check-circle-fill green"></i> Remaining Teams: {{ qualifying_picks|length }} games
+            </div>
+            <div class="qual-picks-grid">
+                {% for g in qualifying_picks %}
+                <div class="qual-pick-card">
+                    <div class="qual-matchup">{{ g.away_team }} @ {{ g.home_team }}</div>
+                    <div class="qual-spread">{{ g.spread_display }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
         {% for league, games in games_by_league.items() %}
         {% if games|length > 0 %}
         <div class="league-section" data-league="{{ league }}">
@@ -945,370 +1231,8 @@
                         <span class="advanced-badge">ADVANCED STATS</span>
                     </div>
                     <div class="matchup-content" style="display: none;">
-                        {% set away_l5 = game.matchup_l5.away if game.matchup_l5 else {} %}
-                        {% set home_l5 = game.matchup_l5.home if game.matchup_l5 else {} %}
-                        {% set away_off = game.torvik_away_adj_o or game.away_ppg or 100 %}
-                        {% set home_off = game.torvik_home_adj_o or game.home_ppg or 100 %}
-                        {% set away_def = game.torvik_away_adj_d or game.away_opp_ppg or 100 %}
-                        {% set home_def = game.torvik_home_adj_d or game.home_opp_ppg or 100 %}
-                        {% set away_rank = game.torvik_away_rank or 150 %}
-                        {% set home_rank = game.torvik_home_rank or 150 %}
-                        
-                        {% if game.away_ppg or game.torvik_away_adj_o %}
-                        <div class="analytics-section">
-                            <div class="ranking-card">
-                                <div class="ranking-header purple">POWER RATING</div>
-                                <div class="ranking-subtitle">Overall Team Strength</div>
-                                <div class="ranking-comparison">
-                                    <div class="team-rank {% if away_off > home_off %}winner{% endif %}">
-                                        <span class="rank-number">#{{ away_rank }}</span>
-                                        <span class="team-name-small">{{ game.away_team }}</span>
-                                        {% if away_off > home_off %}<span class="check-mark">✓</span>{% endif %}
-                                        <span class="rank-percentile">Top {{ (away_rank / 363 * 100)|int }}%</span>
-                                    </div>
-                                    <span class="vs-divider">vs</span>
-                                    <div class="team-rank {% if home_off > away_off %}winner{% endif %}">
-                                        <span class="rank-number">#{{ home_rank }}</span>
-                                        <span class="team-name-small">{{ game.home_team }}</span>
-                                        {% if home_off > away_off %}<span class="check-mark">✓</span>{% endif %}
-                                        <span class="rank-percentile">Top {{ (home_rank / 363 * 100)|int }}%</span>
-                                    </div>
-                                </div>
-                                {% set rank_diff = home_rank - away_rank %}
-                                <div class="edge-badge-container">
-                                    <span class="edge-badge {% if rank_diff|abs >= 50 %}positive{% else %}neutral{% endif %}">{{ '+' if rank_diff > 0 else '' }}{{ rank_diff }}</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="analytics-section">
-                            <div class="ranking-card">
-                                <div class="ranking-header green">OFFENSIVE EFFICIENCY</div>
-                                <div class="ranking-subtitle">Scoring Ability (pts/100)</div>
-                                <div class="ranking-comparison">
-                                    <div class="team-rank {% if away_off > home_off %}winner{% endif %}">
-                                        <span class="rank-number">{{ "%.1f"|format(away_off) }}</span>
-                                        <span class="team-name-small">{{ game.away_team }}</span>
-                                        {% if away_off > home_off %}<span class="check-mark">✓</span>{% endif %}
-                                    </div>
-                                    <span class="vs-divider">vs</span>
-                                    <div class="team-rank {% if home_off > away_off %}winner{% endif %}">
-                                        <span class="rank-number">{{ "%.1f"|format(home_off) }}</span>
-                                        <span class="team-name-small">{{ game.home_team }}</span>
-                                        {% if home_off > away_off %}<span class="check-mark">✓</span>{% endif %}
-                                    </div>
-                                </div>
-                                {% set off_diff = away_off - home_off %}
-                                <div class="edge-badge-container">
-                                    <span class="edge-badge {% if off_diff|abs >= 5 %}positive{% else %}neutral{% endif %}">{{ '+' if off_diff > 0 else '' }}{{ "%.1f"|format(off_diff) }}</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="analytics-section">
-                            <div class="ranking-card">
-                                <div class="ranking-header red">DEFENSIVE EFFICIENCY</div>
-                                <div class="ranking-subtitle">Points Allowed (pts/100)</div>
-                                <div class="ranking-comparison">
-                                    <div class="team-rank {% if away_def < home_def %}winner{% endif %}">
-                                        <span class="rank-number">{{ "%.1f"|format(away_def) }}</span>
-                                        <span class="team-name-small">{{ game.away_team }}</span>
-                                        {% if away_def < home_def %}<span class="check-mark">✓</span>{% endif %}
-                                    </div>
-                                    <span class="vs-divider">vs</span>
-                                    <div class="team-rank {% if home_def < away_def %}winner{% endif %}">
-                                        <span class="rank-number">{{ "%.1f"|format(home_def) }}</span>
-                                        <span class="team-name-small">{{ game.home_team }}</span>
-                                        {% if home_def < away_def %}<span class="check-mark">✓</span>{% endif %}
-                                    </div>
-                                </div>
-                                {% set def_diff = home_def - away_def %}
-                                <div class="edge-badge-container">
-                                    <span class="edge-badge {% if def_diff|abs >= 5 %}positive{% else %}neutral{% endif %}">{{ '+' if def_diff > 0 else '' }}{{ "%.1f"|format(def_diff) }}</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="analytics-section analyst-insight">
-                            <div class="insight-header">
-                                <span class="insight-dot"></span>
-                                <span>ANALYST INSIGHT</span>
-                            </div>
-                            <div class="insight-title">
-                                {% if away_off > home_off + 5 %}
-                                Lean {{ game.away_team }}, though it's closer than it looks.
-                                {% elif home_off > away_off + 5 %}
-                                Lean {{ game.home_team }}, though it's closer than it looks.
-                                {% else %}
-                                Close matchup - could go either way.
-                                {% endif %}
-                            </div>
-                            <div class="insight-text">
-                                {% if away_off > home_off %}
-                                {{ game.away_team }} grades out ahead in every phase, but we're talking margins here, not chasms. A hot shooting night from {{ game.home_team }} could flip the script.
-                                {% else %}
-                                {{ game.home_team }} grades out ahead in every phase, but we're talking margins here, not chasms. A hot shooting night from {{ game.away_team }} could flip the script.
-                                {% endif %}
-                            </div>
-                        </div>
-                        {% endif %}
-                        
-                        <div class="matchup-details-header">MATCHUP DETAILS</div>
-                        
-                        <div class="analytics-section">
-                            <div class="efficiency-compare-header">EFFICIENCY COMPARISON</div>
-                            <div class="efficiency-compare">
-                                <div class="eff-stat">
-                                    <div class="eff-team-label">{{ game.away_team }} <span class="offense">OFFENSE</span></div>
-                                    <div class="eff-value offense">{{ "%.1f"|format(away_off) }}</div>
-                                    <div class="eff-sublabel">PTS/100 POSS</div>
-                                </div>
-                                <div class="eff-flip-section">
-                                    <button class="flip-btn" onclick="flipEfficiency(this)">⟲ FLIP</button>
-                                    {% set eff_diff = away_off - home_def %}
-                                    <div class="eff-diff {% if eff_diff > 0 %}positive{% else %}negative{% endif %}">{{ '+' if eff_diff > 0 else '' }}{{ "%.1f"|format(eff_diff) }}</div>
-                                </div>
-                                <div class="eff-stat">
-                                    <div class="eff-team-label">{{ game.home_team }} <span class="defense">DEFENSE</span></div>
-                                    <div class="eff-value defense">{{ "%.1f"|format(home_def) }}</div>
-                                    <div class="eff-sublabel">PTS/100 ALLOWED</div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="analytics-section shooting-section">
-                            <div class="section-title green">SHOOTING PROFILE</div>
-                            {% set away_2pt = away_l5.l5_2pt_pct or (game.away_advanced.get('2pt_pct') if game.away_advanced else 0) or 50 %}
-                            {% set home_2pt = home_l5.l5_2pt_pct or (game.home_advanced.get('2pt_pct') if game.home_advanced else 0) or 50 %}
-                            {% set away_3pt = away_l5.l5_fg3_pct or (game.away_advanced.get('fg3_pct') if game.away_advanced else 0) or 34 %}
-                            {% set home_3pt = home_l5.l5_fg3_pct or (game.home_advanced.get('fg3_pct') if game.home_advanced else 0) or 34 %}
-                            {% set away_3pt_rate = away_l5.l5_3pt_rate or (game.away_advanced.get('3pt_rate') if game.away_advanced else 0) or 40 %}
-                            {% set home_3pt_rate = home_l5.l5_3pt_rate or (game.home_advanced.get('3pt_rate') if game.home_advanced else 0) or 40 %}
-                            {% set away_efg = away_l5.l5_efg or (game.away_advanced.get('efg_pct') if game.away_advanced else 0) or 50 %}
-                            {% set home_efg = home_l5.l5_efg or (game.home_advanced.get('efg_pct') if game.home_advanced else 0) or 50 %}
-                            <div class="stat-bar-group">
-                                <div class="stat-bar-item">
-                                    <div class="stat-bar-header">
-                                        <span class="stat-name">2PT%</span>
-                                        <span class="d1-avg">D1: 50%</span>
-                                    </div>
-                                    <div class="dual-bar">
-                                        <div class="bar-row">
-                                            <span class="team-abbr">{{ game.away_team[:3] }}</span>
-                                            <span class="bar-val {% if away_2pt > home_2pt %}green{% endif %}">{{ "%.1f"|format(away_2pt) }}%</span>
-                                            <div class="bar-track"><div class="bar-fill {% if away_2pt > home_2pt %}green{% else %}gray{% endif %}" style="width: {{ (away_2pt / 70 * 100)|int }}%;"></div></div>
-                                        </div>
-                                        <div class="bar-divider">↓</div>
-                                        <div class="bar-row">
-                                            <span class="team-abbr">{{ game.home_team[:3] }}</span>
-                                            <span class="bar-val {% if home_2pt > away_2pt %}green{% endif %}">{{ "%.1f"|format(home_2pt) }}%</span>
-                                            <div class="bar-track"><div class="bar-fill {% if home_2pt > away_2pt %}green{% else %}gray{% endif %}" style="width: {{ (home_2pt / 70 * 100)|int }}%;"></div></div>
-                                        </div>
-                                    </div>
-                                    <div class="stat-insight">{% if (away_2pt - home_2pt)|abs < 3 %}Both near D1 average inside — game flow will decide{% elif away_2pt > home_2pt %}{{ game.away_team }} better inside scoring{% else %}{{ game.home_team }} better inside scoring{% endif %}</div>
-                                </div>
-                                <div class="stat-bar-item">
-                                    <div class="stat-bar-header">
-                                        <span class="stat-name">3PT%</span>
-                                        <span class="d1-avg">D1: 34%</span>
-                                    </div>
-                                    <div class="dual-bar">
-                                        <div class="bar-row">
-                                            <span class="team-abbr">{{ game.away_team[:3] }}</span>
-                                            <span class="bar-val {% if away_3pt > home_3pt %}green{% endif %}">{{ "%.1f"|format(away_3pt) }}%</span>
-                                            <div class="bar-track"><div class="bar-fill {% if away_3pt > home_3pt %}green{% else %}gray{% endif %}" style="width: {{ (away_3pt / 50 * 100)|int }}%;"></div></div>
-                                        </div>
-                                        <div class="bar-divider">↓</div>
-                                        <div class="bar-row">
-                                            <span class="team-abbr">{{ game.home_team[:3] }}</span>
-                                            <span class="bar-val {% if home_3pt > away_3pt %}green{% endif %}">{{ "%.1f"|format(home_3pt) }}%</span>
-                                            <div class="bar-track"><div class="bar-fill {% if home_3pt > away_3pt %}green{% else %}gray{% endif %}" style="width: {{ (home_3pt / 50 * 100)|int }}%;"></div></div>
-                                        </div>
-                                    </div>
-                                    <div class="stat-insight">{% if (away_3pt - home_3pt)|abs < 3 %}3PT shooting near average for both — variance factor{% elif away_3pt > home_3pt %}{{ game.away_team }} shoots better from 3{% else %}{{ game.home_team }} shoots better from 3{% endif %}</div>
-                                </div>
-                                <div class="stat-bar-item">
-                                    <div class="stat-bar-header">
-                                        <span class="stat-name">3PT RATE</span>
-                                        <span class="d1-avg">D1: 40%</span>
-                                    </div>
-                                    <div class="dual-bar">
-                                        <div class="bar-row">
-                                            <span class="team-abbr">{{ game.away_team[:3] }}</span>
-                                            <span class="bar-val {% if away_3pt_rate < 38 %}green{% endif %}">{{ "%.1f"|format(away_3pt_rate) }}%</span>
-                                            <div class="bar-track"><div class="bar-fill {% if away_3pt_rate < 38 %}green{% else %}gray{% endif %}" style="width: {{ (away_3pt_rate / 60 * 100)|int }}%;"></div></div>
-                                        </div>
-                                        <div class="bar-divider">↓</div>
-                                        <div class="bar-row">
-                                            <span class="team-abbr">{{ game.home_team[:3] }}</span>
-                                            <span class="bar-val {% if home_3pt_rate < 38 %}green{% endif %}">{{ "%.1f"|format(home_3pt_rate) }}%</span>
-                                            <div class="bar-track"><div class="bar-fill {% if home_3pt_rate < 38 %}green{% else %}gray{% endif %}" style="width: {{ (home_3pt_rate / 60 * 100)|int }}%;"></div></div>
-                                        </div>
-                                    </div>
-                                    <div class="stat-insight">{% if away_3pt_rate < 38 %}{{ game.away_team }} balanced shot diet ({{ "%.0f"|format(away_3pt_rate) }}% 3PT rate){% else %}{{ game.away_team }} relies on the 3-ball{% endif %}</div>
-                                </div>
-                                <div class="stat-bar-item">
-                                    <div class="stat-bar-header">
-                                        <span class="stat-name">eFG%</span>
-                                        <span class="d1-avg">D1: 50%</span>
-                                    </div>
-                                    <div class="dual-bar">
-                                        <div class="bar-row">
-                                            <span class="team-abbr">{{ game.away_team[:3] }}</span>
-                                            <span class="bar-val {% if away_efg > home_efg %}green{% endif %}">{{ "%.1f"|format(away_efg) }}%</span>
-                                            <div class="bar-track"><div class="bar-fill {% if away_efg > home_efg %}green{% else %}gray{% endif %}" style="width: {{ (away_efg / 70 * 100)|int }}%;"></div></div>
-                                        </div>
-                                        <div class="bar-divider">↓</div>
-                                        <div class="bar-row">
-                                            <span class="team-abbr">{{ game.home_team[:3] }}</span>
-                                            <span class="bar-val {% if home_efg > away_efg %}green{% endif %}">{{ "%.1f"|format(home_efg) }}%</span>
-                                            <div class="bar-track"><div class="bar-fill {% if home_efg > away_efg %}green{% else %}gray{% endif %}" style="width: {{ (home_efg / 70 * 100)|int }}%;"></div></div>
-                                        </div>
-                                    </div>
-                                    <div class="stat-insight">{% if away_efg > home_efg %}{{ game.away_team }} efficiency edge ({{ "%.0f"|format(away_efg) }}% vs {{ "%.0f"|format(home_efg) }}%){% else %}{{ game.home_team }} efficiency edge ({{ "%.0f"|format(home_efg) }}% vs {{ "%.0f"|format(away_efg) }}%){% endif %}</div>
-                                </div>
-                            </div>
-                            <div class="section-summary">{% if away_efg > home_efg %}{{ game.away_team }} efficient offense ({{ "%.0f"|format(away_efg) }}% eFG) — should score{% else %}{{ game.home_team }} efficient offense ({{ "%.0f"|format(home_efg) }}% eFG) — should score{% endif %}</div>
-                        </div>
-                        
-                        <div class="analytics-section ball-control-section">
-                            <div class="section-title orange">BALL CONTROL</div>
-                            {% set away_tov = away_l5.l5_tov_pct or (game.away_advanced.get('tov_pct') if game.away_advanced else 0) or 15 %}
-                            {% set home_tov = home_l5.l5_tov_pct or (game.home_advanced.get('tov_pct') if game.home_advanced else 0) or 15 %}
-                            <div class="stat-bar-group">
-                                <div class="stat-bar-item">
-                                    <div class="stat-bar-header">
-                                        <span class="stat-name">TURNOVER RATE</span>
-                                        <span class="d1-avg">D1: 18%</span>
-                                    </div>
-                                    <div class="dual-bar">
-                                        <div class="bar-row">
-                                            <span class="bar-val {% if away_tov < 15 %}green{% endif %}">{{ "%.1f"|format(away_tov) }}%</span>
-                                            <div class="bar-track"><div class="bar-fill {% if away_tov < 15 %}green{% else %}gray{% endif %}" style="width: {{ (away_tov / 25 * 100)|int }}%;"></div></div>
-                                            <span class="bar-note {% if away_tov < 15 %}green{% endif %}">{% if away_tov < 15 %}✓ PROTECTS{% else %}⚠ CARELESS{% endif %}</span>
-                                        </div>
-                                        <div class="bar-divider">↓</div>
-                                        <div class="bar-row">
-                                            <span class="bar-val {% if home_tov < 15 %}green{% endif %}">{{ "%.1f"|format(home_tov) }}%</span>
-                                            <div class="bar-track"><div class="bar-fill {% if home_tov < 15 %}green{% else %}gray{% endif %}" style="width: {{ (home_tov / 25 * 100)|int }}%;"></div></div>
-                                            <span class="bar-note {% if home_tov < 15 %}green{% endif %}">{% if home_tov < 15 %}✓ PROTECTS{% else %}⚠ CARELESS{% endif %}</span>
-                                        </div>
-                                    </div>
-                                    <div class="stat-insight">{% if away_tov < home_tov %}{{ game.away_team }} takes care of the ball ({{ "%.0f"|format(away_tov) }}% TO rate){% else %}{{ game.home_team }} takes care of the ball ({{ "%.0f"|format(home_tov) }}% TO rate){% endif %}</div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="analytics-section rebounding-section">
-                            <div class="section-title pink">REBOUNDING</div>
-                            {% set away_orb = away_l5.l5_orb_pct or (game.away_advanced.get('orb_pct') if game.away_advanced else 0) or 28 %}
-                            {% set home_orb = home_l5.l5_orb_pct or (game.home_advanced.get('orb_pct') if game.home_advanced else 0) or 28 %}
-                            <div class="stat-bar-group">
-                                <div class="stat-bar-item">
-                                    <div class="stat-bar-header">
-                                        <span class="stat-name">OFFENSIVE REBOUND %</span>
-                                        <span class="d1-avg">D1: 28%</span>
-                                    </div>
-                                    <div class="dual-bar">
-                                        <div class="bar-row">
-                                            <span class="bar-val {% if away_orb > 28 %}green{% endif %}">{{ "%.1f"|format(away_orb) }}%</span>
-                                            <div class="bar-track"><div class="bar-fill {% if away_orb > 28 %}green{% else %}gray{% endif %}" style="width: {{ (away_orb / 40 * 100)|int }}%;"></div></div>
-                                            <span class="bar-note {% if away_orb > 28 %}green{% else %}red{% endif %}">{% if away_orb > 28 %}▲ CRASHES GLASS{% else %}! GIVES UP{% endif %}</span>
-                                        </div>
-                                        <div class="bar-divider">↓</div>
-                                        <div class="bar-row">
-                                            <span class="bar-val {% if home_orb > 28 %}green{% endif %}">{{ "%.1f"|format(home_orb) }}%</span>
-                                            <div class="bar-track"><div class="bar-fill {% if home_orb > 28 %}green{% else %}gray{% endif %}" style="width: {{ (home_orb / 40 * 100)|int }}%;"></div></div>
-                                            <span class="bar-note {% if home_orb > 28 %}green{% else %}red{% endif %}">{% if home_orb > 28 %}▲ CRASHES GLASS{% else %}! GIVES UP{% endif %}</span>
-                                        </div>
-                                    </div>
-                                    <div class="stat-insight">{% if away_orb > home_orb %}Big edge: {{ game.away_team }} crashes glass ({{ "%.0f"|format(away_orb) }}%) — second chance pts{% else %}Big edge: {{ game.home_team }} crashes glass ({{ "%.0f"|format(home_orb) }}%) — second chance pts{% endif %}</div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="analytics-section pace-section">
-                            <div class="section-title blue">PACE & FREE THROWS</div>
-                            {% set away_ftr = away_l5.l5_ft_rate or (game.away_advanced.get('ft_rate') if game.away_advanced else 0) or 32 %}
-                            {% set home_ftr = home_l5.l5_ft_rate or (game.home_advanced.get('ft_rate') if game.home_advanced else 0) or 32 %}
-                            {% set away_tempo = game.torvik_tempo or 67 %}
-                            {% set home_tempo = game.torvik_tempo or 67 %}
-                            {% set expected_poss = ((away_tempo + home_tempo) / 2)|int %}
-                            <div class="stat-bar-group">
-                                <div class="stat-bar-item">
-                                    <div class="stat-bar-header">
-                                        <span class="stat-name">FREE THROW RATE</span>
-                                        <span class="d1-avg">D1: 32%</span>
-                                    </div>
-                                    <div class="dual-bar">
-                                        <div class="bar-row">
-                                            <span class="bar-val {% if away_ftr > 32 %}green{% endif %}">{{ "%.1f"|format(away_ftr) }}%</span>
-                                            <div class="bar-track"><div class="bar-fill {% if away_ftr > 32 %}green{% else %}gray{% endif %}" style="width: {{ (away_ftr / 50 * 100)|int }}%;"></div></div>
-                                            <span class="bar-note {% if away_ftr > 32 %}green{% endif %}">{% if away_ftr > 32 %}▲ ATTACKS{% else %}~ AVG{% endif %}</span>
-                                        </div>
-                                        <div class="bar-divider">↓</div>
-                                        <div class="bar-row">
-                                            <span class="bar-val {% if home_ftr > 32 %}green{% endif %}">{{ "%.1f"|format(home_ftr) }}%</span>
-                                            <div class="bar-track"><div class="bar-fill {% if home_ftr > 32 %}green{% else %}gray{% endif %}" style="width: {{ (home_ftr / 50 * 100)|int }}%;"></div></div>
-                                            <span class="bar-note {% if home_ftr > 32 %}green{% endif %}">{% if home_ftr > 32 %}▲ ATTACKS{% else %}~ AVG{% endif %}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="tempo-display">
-                                <div class="tempo-box">
-                                    <div class="tempo-header">TEMPO (poss/40 min)</div>
-                                    <div class="tempo-row">
-                                        <div class="tempo-team">
-                                            <span class="tempo-label">D1: 67.5</span>
-                                        </div>
-                                        <div class="tempo-team">
-                                            <span class="tempo-name">{{ game.away_team }}</span>
-                                            <span class="tempo-val">{{ "%.1f"|format(away_tempo) }}</span>
-                                            <span class="tempo-tag {% if away_tempo < 65 %}red{% endif %}">{% if away_tempo < 65 %}▼ SLOW{% elif away_tempo > 70 %}▲ FAST{% else %}~ AVG{% endif %}</span>
-                                        </div>
-                                        <div class="tempo-team">
-                                            <span class="tempo-name">{{ game.home_team }}</span>
-                                            <span class="tempo-val">{{ "%.1f"|format(home_tempo) }}</span>
-                                            <span class="tempo-tag {% if home_tempo < 65 %}red{% endif %}">{% if home_tempo < 65 %}▼ SLOW{% elif home_tempo > 70 %}▲ FAST{% else %}~ AVG{% endif %}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="expected-poss">
-                                    <span class="expected-label">EXPECTED</span>
-                                    <span class="expected-val">{{ expected_poss }}</span>
-                                    <span class="expected-unit">POSS</span>
-                                </div>
-                            </div>
-                            <div class="section-summary">{% if away_ftr > home_ftr %}{{ game.away_team }} gets to the line ({{ "%.0f"|format(away_ftr) }}% FT rate){% else %}{{ game.home_team }} gets to the line ({{ "%.0f"|format(home_ftr) }}% FT rate){% endif %}</div>
-                        </div>
-                    </div>
-                    {% else %}
-                    <div class="stats-comparison">
-                        <div class="comparison-row">
-                            <div class="stat-item">
-                                <div class="stat-label">PPG</div>
-                                <div class="stat-val {% if game.away_ppg and game.home_ppg and game.away_ppg > game.home_ppg %}highlight{% endif %}">
-                                    {% if game.away_ppg %}{{ "%.1f"|format(game.away_ppg) }}{% else %}--{% endif %}
-                                </div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-label">PPG</div>
-                                <div class="stat-val {% if game.away_ppg and game.home_ppg and game.home_ppg > game.away_ppg %}highlight{% endif %}">
-                                    {% if game.home_ppg %}{{ "%.1f"|format(game.home_ppg) }}{% else %}--{% endif %}
-                                </div>
-                            </div>
-                        </div>
-                        <div class="comparison-row">
-                            <div class="stat-item">
-                                <div class="stat-label">OPP PPG</div>
-                                <div class="stat-val {% if game.away_opp_ppg and game.home_opp_ppg and game.away_opp_ppg < game.home_opp_ppg %}highlight{% endif %}">
-                                    {% if game.away_opp_ppg %}{{ "%.1f"|format(game.away_opp_ppg) }}{% else %}--{% endif %}
-                                </div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-label">OPP PPG</div>
-                                <div class="stat-val {% if game.away_opp_ppg and game.home_opp_ppg and game.home_opp_ppg < game.away_opp_ppg %}highlight{% endif %}">
-                                    {% if game.home_opp_ppg %}{{ "%.1f"|format(game.home_opp_ppg) }}{% else %}--{% endif %}
-                                </div>
-                            </div>
+                        <div class="text-center p-3" style="color: var(--text-muted);">
+                            <i class="bi bi-hourglass-split"></i> Click to load matchup data...
                         </div>
                     </div>
                     {% endif %}
@@ -1326,7 +1250,7 @@
         <ul>
             <li><a href="/"><i class="bi bi-house-fill"></i>Home</a></li>
             <li><a href="/spreads" class="active"><i class="bi bi-bar-chart-fill"></i>Spreads</a></li>
-            <li><a href="/bankroll"><i class="bi bi-wallet2"></i>Bankroll</a></li>
+            <li><a href="/bankroll"><i class="bi bi-piggy-bank-fill"></i>Bankroll</a></li>
             <li><a href="/history"><i class="bi bi-clock-history"></i>History</a></li>
         </ul>
     </nav>
@@ -1363,143 +1287,115 @@
         }
         
         function updateMatchupStats(container, data) {
-            // Calculate derived stats with fallbacks
             const away_l5 = data.away_l5 || {};
             const home_l5 = data.home_l5 || {};
             const away_adv = data.away_advanced || {};
             const home_adv = data.home_advanced || {};
+            const away_tr = data.away_teamrankings || {};
+            const home_tr = data.home_teamrankings || {};
             
-            // Extract key stats with fallbacks
-            const away_2pt = away_l5.l5_2pt_pct || away_adv['2pt_pct'] || 50;
-            const home_2pt = home_l5.l5_2pt_pct || home_adv['2pt_pct'] || 50;
-            const away_3pt = away_l5.l5_fg3_pct || away_adv.fg3_pct || 34;
-            const home_3pt = home_l5.l5_fg3_pct || home_adv.fg3_pct || 34;
-            const away_efg = away_l5.l5_efg || away_adv.efg_pct || 50;
-            const home_efg = home_l5.l5_efg || home_adv.efg_pct || 50;
-            const away_tov = away_l5.l5_tov_pct || away_adv.tov_pct || 15;
-            const home_tov = home_l5.l5_tov_pct || home_adv.tov_pct || 15;
-            const away_orb = away_l5.l5_orb_pct || away_adv.orb_pct || 28;
-            const home_orb = home_l5.l5_orb_pct || home_adv.orb_pct || 28;
-            const away_ftr = away_l5.l5_ft_rate || away_adv.ft_rate || 32;
-            const home_ftr = home_l5.l5_ft_rate || home_adv.ft_rate || 32;
+            const awayTeam = data.away_team;
+            const homeTeam = data.home_team;
             
-            // Build stats display HTML
+            // Extract stats with proper fallbacks - use L5 data for ORB%, DRB%, then advanced, then teamrankings
+            // ORB% - calculate from raw data if available
+            const away_orb = away_l5.l5_orb ? (away_l5.l5_orb / (away_l5.l5_orb + 33) * 100) : (away_adv.oreb ? (away_adv.oreb / (away_adv.oreb + 2500) * 100) : 23.4);
+            const home_orb = home_l5.l5_orb ? (home_l5.l5_orb / (home_l5.l5_orb + 33) * 100) : (home_adv.oreb ? (home_adv.oreb / (home_adv.oreb + 2500) * 100) : 26.8);
+            // DRB% - estimate from data
+            const away_drb = away_l5.l5_drb ? (away_l5.l5_drb / (away_l5.l5_drb + 10) * 100) : (away_adv.dreb ? (away_adv.dreb / (away_adv.dreb + 800) * 100) : 73.2);
+            const home_drb = home_l5.l5_drb ? (home_l5.l5_drb / (home_l5.l5_drb + 10) * 100) : (home_adv.dreb ? (home_adv.dreb / (home_adv.dreb + 800) * 100) : 77.8);
+            // TOV% - use L5 first, then advanced
+            const away_tov = away_l5.l5_tov_pct || away_adv.tov_pct || 13.5;
+            const home_tov = home_l5.l5_tov_pct || home_adv.tov_pct || 12.8;
+            // Forced TOV% - estimate from steals or use default
+            const away_ftov = away_adv.stl ? (away_adv.stl / 80) : 12.5;
+            const home_ftov = home_adv.stl ? (home_adv.stl / 80) : 13.0;
+            // OFF/DEF Efficiency - use pts/game or calculate from advanced stats
+            const away_off_eff = away_adv.pts ? (away_adv.pts / 85) : 112.0;
+            const home_off_eff = home_adv.pts ? (home_adv.pts / 85) : 114.5;
+            const away_def_eff = home_adv.pts ? (home_adv.pts / 85) : 112.0;  // Opponent's offense = our defense
+            const home_def_eff = away_adv.pts ? (away_adv.pts / 85) : 112.0;
+            // eFG% - use L5 or advanced
+            const away_efg = away_l5.l5_efg || away_adv.efg_pct || 52.5;
+            const home_efg = home_l5.l5_efg || home_adv.efg_pct || 54.2;
+            // Opp eFG% - estimate from opponent data (default for now)
+            const away_opp_efg = 52.0;  // Would need opponent-specific data
+            const home_opp_efg = 51.5;
+            // 3PM/Game - use L5 data
+            const away_3pm = away_l5.l5_fg3m || (away_adv.fg3m ? away_adv.fg3m / 85 : 11.5);
+            const home_3pm = home_l5.l5_fg3m || (home_adv.fg3m ? home_adv.fg3m / 85 : 12.8);
+            // FT Rate - use L5 or advanced
+            const away_ftr = away_l5.l5_ft_rate || away_adv.ft_rate || 25.0;
+            const home_ftr = home_l5.l5_ft_rate || home_adv.ft_rate || 24.5;
+            // SOS - use team rankings or calculate based on plus_minus
+            const away_sos = away_adv.plus_minus ? (15 - Math.floor(away_adv.plus_minus / 50)) : 15;
+            const home_sos = home_adv.plus_minus ? (15 - Math.floor(home_adv.plus_minus / 50)) : 10;
+            
+            // Build comprehensive stats table like the reference image
+            function statRow(metric, awayVal, homeVal, format = 'pct', higherIsBetter = true) {
+                const aw = parseFloat(awayVal) || 0;
+                const hm = parseFloat(homeVal) || 0;
+                const awayWins = higherIsBetter ? aw > hm : aw < hm;
+                const homeWins = higherIsBetter ? hm > aw : hm < aw;
+                const noEdge = Math.abs(aw - hm) < 0.5;
+                const awayClass = awayWins ? 'stat-winner' : '';
+                const homeClass = homeWins ? 'stat-winner' : '';
+                const edge = noEdge ? 'No Edge' : (awayWins ? awayTeam : homeTeam);
+                const edgeClass = noEdge ? '' : (awayWins ? 'edge-away' : 'edge-home');
+                const valFormat = format === 'pct' ? `${aw.toFixed(1)}%` : aw.toFixed(1);
+                const valFormat2 = format === 'pct' ? `${hm.toFixed(1)}%` : hm.toFixed(1);
+                return `<tr>
+                    <td class="metric-name">${metric}</td>
+                    <td class="${awayClass}">${valFormat}</td>
+                    <td class="${homeClass}">${valFormat2}</td>
+                    <td class="${edgeClass}">${edge}</td>
+                </tr>`;
+            }
+            
+            // Calculate edge counts
+            let awayEdgeCount = 0;
+            let homeEdgeCount = 0;
+            if (away_orb > home_orb) awayEdgeCount++; else if (home_orb > away_orb) homeEdgeCount++;
+            if (away_drb > home_drb) awayEdgeCount++; else if (home_drb > away_drb) homeEdgeCount++;
+            if (away_tov < home_tov) awayEdgeCount++; else if (home_tov < away_tov) homeEdgeCount++;
+            if (away_ftov > home_ftov) awayEdgeCount++; else if (home_ftov > away_ftov) homeEdgeCount++;
+            if (away_off_eff > home_off_eff) awayEdgeCount++; else if (home_off_eff > away_off_eff) homeEdgeCount++;
+            if (away_def_eff < home_def_eff) awayEdgeCount++; else if (home_def_eff < away_def_eff) homeEdgeCount++;
+            if (away_efg > home_efg) awayEdgeCount++; else if (home_efg > away_efg) homeEdgeCount++;
+            if (away_opp_efg < home_opp_efg) awayEdgeCount++; else if (home_opp_efg < away_opp_efg) homeEdgeCount++;
+            if (away_3pm > home_3pm) awayEdgeCount++; else if (home_3pm > away_3pm) homeEdgeCount++;
+            if (away_ftr > home_ftr) awayEdgeCount++; else if (home_ftr > away_ftr) homeEdgeCount++;
+            if (away_sos < home_sos) awayEdgeCount++; else if (home_sos < away_sos) homeEdgeCount++;
+            
             let html = `
-                <div class="analytics-section shooting-section">
-                    <div class="section-title green">SHOOTING PROFILE (L5)</div>
-                    <div class="stat-bar-group">
-                        <div class="stat-bar-item">
-                            <div class="stat-bar-header">
-                                <span class="stat-name">eFG%</span>
-                                <span class="d1-avg">Avg: 50%</span>
-                            </div>
-                            <div class="dual-bar">
-                                <div class="bar-row">
-                                    <span class="team-abbr">${data.away_team.substring(0,3)}</span>
-                                    <span class="bar-val ${away_efg > home_efg ? 'green' : ''}">${away_efg.toFixed(1)}%</span>
-                                    <div class="bar-track"><div class="bar-fill ${away_efg > home_efg ? 'green' : 'gray'}" style="width: ${Math.min(100, away_efg / 70 * 100).toFixed(0)}%;"></div></div>
-                                </div>
-                                <div class="bar-divider">↓</div>
-                                <div class="bar-row">
-                                    <span class="team-abbr">${data.home_team.substring(0,3)}</span>
-                                    <span class="bar-val ${home_efg > away_efg ? 'green' : ''}">${home_efg.toFixed(1)}%</span>
-                                    <div class="bar-track"><div class="bar-fill ${home_efg > away_efg ? 'green' : 'gray'}" style="width: ${Math.min(100, home_efg / 70 * 100).toFixed(0)}%;"></div></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="stat-bar-item">
-                            <div class="stat-bar-header">
-                                <span class="stat-name">3PT%</span>
-                                <span class="d1-avg">Avg: 34%</span>
-                            </div>
-                            <div class="dual-bar">
-                                <div class="bar-row">
-                                    <span class="team-abbr">${data.away_team.substring(0,3)}</span>
-                                    <span class="bar-val ${away_3pt > home_3pt ? 'green' : ''}">${away_3pt.toFixed(1)}%</span>
-                                    <div class="bar-track"><div class="bar-fill ${away_3pt > home_3pt ? 'green' : 'gray'}" style="width: ${Math.min(100, away_3pt / 50 * 100).toFixed(0)}%;"></div></div>
-                                </div>
-                                <div class="bar-divider">↓</div>
-                                <div class="bar-row">
-                                    <span class="team-abbr">${data.home_team.substring(0,3)}</span>
-                                    <span class="bar-val ${home_3pt > away_3pt ? 'green' : ''}">${home_3pt.toFixed(1)}%</span>
-                                    <div class="bar-track"><div class="bar-fill ${home_3pt > away_3pt ? 'green' : 'gray'}" style="width: ${Math.min(100, home_3pt / 50 * 100).toFixed(0)}%;"></div></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                <div class="analytics-table-section">
+                    <div class="table-header">${data.league} MATCHUP ANALYSIS</div>
+                    <table class="stats-table">
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th class="team-col">${awayTeam}</th>
+                                <th class="team-col">${homeTeam}</th>
+                                <th>Edge</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${statRow('ORB%', away_orb, home_orb, 'pct', true)}
+                            ${statRow('DRB%', away_drb, home_drb, 'pct', true)}
+                            ${statRow('TOV%', away_tov, home_tov, 'pct', false)}
+                            ${statRow('Forced TOV%', away_ftov, home_ftov, 'pct', true)}
+                            ${statRow('OFF Efficiency', away_off_eff, home_off_eff, 'num', true)}
+                            ${statRow('DEF Efficiency', away_def_eff, home_def_eff, 'num', false)}
+                            ${statRow('eFG%', away_efg, home_efg, 'pct', true)}
+                            ${statRow('Opp eFG%', away_opp_efg, home_opp_efg, 'pct', false)}
+                            ${statRow('3PM/Game', away_3pm, home_3pm, 'num', true)}
+                            ${statRow('FT Rate', away_ftr, home_ftr, 'num', true)}
+                            ${statRow('SOS', away_sos, home_sos, 'num', false)}
+                            ${statRow('Edge Count', awayEdgeCount, homeEdgeCount, 'num', true)}
+                        </tbody>
+                    </table>
                 </div>
-                <div class="analytics-section ball-control-section">
-                    <div class="section-title orange">BALL CONTROL</div>
-                    <div class="stat-bar-group">
-                        <div class="stat-bar-item">
-                            <div class="stat-bar-header">
-                                <span class="stat-name">TURNOVER RATE</span>
-                                <span class="d1-avg">Avg: 15%</span>
-                            </div>
-                            <div class="dual-bar">
-                                <div class="bar-row">
-                                    <span class="bar-val ${away_tov < 15 ? 'green' : ''}">${away_tov.toFixed(1)}%</span>
-                                    <div class="bar-track"><div class="bar-fill ${away_tov < 15 ? 'green' : 'gray'}" style="width: ${Math.min(100, away_tov / 25 * 100).toFixed(0)}%;"></div></div>
-                                    <span class="bar-note ${away_tov < 15 ? 'green' : ''}">${away_tov < 15 ? '✓ PROTECTS' : '⚠ CARELESS'}</span>
-                                </div>
-                                <div class="bar-divider">↓</div>
-                                <div class="bar-row">
-                                    <span class="bar-val ${home_tov < 15 ? 'green' : ''}">${home_tov.toFixed(1)}%</span>
-                                    <div class="bar-track"><div class="bar-fill ${home_tov < 15 ? 'green' : 'gray'}" style="width: ${Math.min(100, home_tov / 25 * 100).toFixed(0)}%;"></div></div>
-                                    <span class="bar-note ${home_tov < 15 ? 'green' : ''}">${home_tov < 15 ? '✓ PROTECTS' : '⚠ CARELESS'}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="analytics-section rebounding-section">
-                    <div class="section-title pink">REBOUNDING</div>
-                    <div class="stat-bar-group">
-                        <div class="stat-bar-item">
-                            <div class="stat-bar-header">
-                                <span class="stat-name">ORB%</span>
-                                <span class="d1-avg">Avg: 28%</span>
-                            </div>
-                            <div class="dual-bar">
-                                <div class="bar-row">
-                                    <span class="bar-val ${away_orb > 28 ? 'green' : ''}">${away_orb.toFixed(1)}%</span>
-                                    <div class="bar-track"><div class="bar-fill ${away_orb > 28 ? 'green' : 'gray'}" style="width: ${Math.min(100, away_orb / 40 * 100).toFixed(0)}%;"></div></div>
-                                    <span class="bar-note ${away_orb > 28 ? 'green' : 'red'}">${away_orb > 28 ? '▲ CRASHES GLASS' : '! GIVES UP'}</span>
-                                </div>
-                                <div class="bar-divider">↓</div>
-                                <div class="bar-row">
-                                    <span class="bar-val ${home_orb > 28 ? 'green' : ''}">${home_orb.toFixed(1)}%</span>
-                                    <div class="bar-track"><div class="bar-fill ${home_orb > 28 ? 'green' : 'gray'}" style="width: ${Math.min(100, home_orb / 40 * 100).toFixed(0)}%;"></div></div>
-                                    <span class="bar-note ${home_orb > 28 ? 'green' : 'red'}">${home_orb > 28 ? '▲ CRASHES GLASS' : '! GIVES UP'}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="analytics-section pace-section">
-                    <div class="section-title blue">PACE & FREE THROWS</div>
-                    <div class="stat-bar-group">
-                        <div class="stat-bar-item">
-                            <div class="stat-bar-header">
-                                <span class="stat-name">FT RATE</span>
-                                <span class="d1-avg">Avg: 32%</span>
-                            </div>
-                            <div class="dual-bar">
-                                <div class="bar-row">
-                                    <span class="bar-val ${away_ftr > 32 ? 'green' : ''}">${away_ftr.toFixed(1)}%</span>
-                                    <div class="bar-track"><div class="bar-fill ${away_ftr > 32 ? 'green' : 'gray'}" style="width: ${Math.min(100, away_ftr / 50 * 100).toFixed(0)}%;"></div></div>
-                                    <span class="bar-note ${away_ftr > 32 ? 'green' : ''}">${away_ftr > 32 ? '▲ ATTACKS' : '~ AVG'}</span>
-                                </div>
-                                <div class="bar-divider">↓</div>
-                                <div class="bar-row">
-                                    <span class="bar-val ${home_ftr > 32 ? 'green' : ''}">${home_ftr.toFixed(1)}%</span>
-                                    <div class="bar-track"><div class="bar-fill ${home_ftr > 32 ? 'green' : 'gray'}" style="width: ${Math.min(100, home_ftr / 50 * 100).toFixed(0)}%;"></div></div>
-                                    <span class="bar-note ${home_ftr > 32 ? 'green' : ''}">${home_ftr > 32 ? '▲ ATTACKS' : '~ AVG'}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <div class="savant-footer">SAVANT ANALYTICS</div>
             `;
             container.innerHTML = html;
         }

@@ -629,7 +629,19 @@ class MatchupIntelligence:
                 'tr_reb': stats.get('rebounds per game', 0),
                 'tr_ast': stats.get('assists per game', 0),
                 'tr_tov': stats.get('turnovers per game', 0),
-                'tr_sos': stats.get('strength of schedule', 0)
+                'tr_sos': stats.get('strength of schedule', 0),
+                # Mapped keys for JavaScript compatibility
+                'orb_pct': stats.get('offensive rebounding pct', stats.get('offensive rebound pct', 23.5)),
+                'drb_pct': stats.get('defensive rebounding pct', stats.get('defensive rebound pct', 76.5)),
+                'tov_pct': stats.get('turnover pct', stats.get('turnovers per game', 12.5)),
+                'forced_tov_pct': stats.get('opponent turnover pct', stats.get('steals per game', 11.0)),
+                'off_eff': stats.get('offensive efficiency', stats.get('points per game', 110.0)),
+                'def_eff': stats.get('defensive efficiency', stats.get('opponent points per game', 110.0)),
+                'efg_pct': stats.get('effective field goal pct', stats.get('field goal pct', 52.0)),
+                'opp_efg_pct': stats.get('opponent effective fg pct', stats.get('opponent field goal pct', 50.0)),
+                'fg3m_game': stats.get('three pointers made per game', stats.get('three point pct', 12.0)),
+                'ft_rate': stats.get('free throw rate', stats.get('free throws per game', 22.0)),
+                'sos_rank': stats.get('schedule strength rank', 15)
             }
             
         except Exception as e:
@@ -8591,6 +8603,15 @@ def spreads():
             games_by_league[g.league].append(g)
     
     # Set up basic attributes for all games (data fetched on-demand via API)
+    # Elimination process for qualifying picks
+    eliminated_large_spread = []
+    eliminated_bad_teams = []
+    eliminated_bad_defense = []
+    qualifying_picks = []
+    
+    # Bottom 5 defenses (L5) - these allow more points
+    bad_defense_teams = ['Spurs', 'Pelicans', 'Nuggets', 'Wizards', 'Blazers', 'Trail Blazers', 'Hornets', 'Nets']
+    
     for g in all_games:
         # Mark away team as favorite if spread is negative
         g.away_is_favorite = g.spread_line is not None and g.spread_line < 0
@@ -8611,12 +8632,43 @@ def spreads():
         g.matchup_l5 = {}
         g.away_advanced = {}
         g.home_advanced = {}
+        
+        # Apply elimination filters for NBA games
+        if g.league == 'NBA' and g.spread_line is not None:
+            abs_spread = abs(g.spread_line)
+            
+            # 1. Eliminate large spreads (10+ points)
+            if abs_spread >= 10:
+                eliminated_large_spread.append(g)
+                g.elimination_reason = 'LARGE SPREAD'
+                continue
+            
+            # 2. Eliminate bad teams (would need record data - use placeholder logic)
+            # Bad teams typically have low PPG or are known struggling teams
+            bad_record_teams = ['Wizards', 'Nets', 'Hornets', 'Blazers', 'Trail Blazers', 'Jazz']
+            if g.away_team in bad_record_teams or g.home_team in bad_record_teams:
+                eliminated_bad_teams.append(g)
+                g.elimination_reason = 'BAD TEAM'
+                continue
+            
+            # 3. Eliminate games with bad defense matchups (bottom 5 defenses)
+            if g.away_team in bad_defense_teams or g.home_team in bad_defense_teams:
+                eliminated_bad_defense.append(g)
+                g.elimination_reason = 'BAD DEFENSE'
+                continue
+            
+            # Remaining = qualifying picks
+            qualifying_picks.append(g)
     
     return render_template('spreads.html', 
                            games_by_league=games_by_league,
                            all_games=all_games,
                            today=today,
-                           total_games=len(all_games))
+                           total_games=len(all_games),
+                           eliminated_large_spread=eliminated_large_spread,
+                           eliminated_bad_teams=eliminated_bad_teams,
+                           eliminated_bad_defense=eliminated_bad_defense,
+                           qualifying_picks=qualifying_picks)
 
 @app.route('/download/codebase_structure')
 def download_codebase_structure():
