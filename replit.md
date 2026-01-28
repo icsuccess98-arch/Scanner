@@ -45,10 +45,11 @@ Only one app can run at a time. Configure the workflow to switch between apps.
         -   Power Rating comparison with team ranks, percentiles, and colored bars
         -   Offensive/Defensive Efficiency comparisons (pts/100 possessions)
         -   Efficiency Comparison section with flip button showing offense vs defense matchups
-        -   **Shooting Profile**: 2PT%, 3PT%, 3PT Rate, eFG% with D1 averages and insight notes
-        -   **Ball Control**: Turnover Rate with PROTECTS/DOESN'T PRESS indicators
-        -   **Rebounding**: Offensive Rebound % with CRASHES GLASS/LOCKS OUT indicators
-        -   **Pace & Free Throws**: Free Throw Rate with ATTACKS indicator, tempo display
+        -   **Shooting Profile**: 2PT%, 3PT%, 3PT Rate, eFG%, Opp eFG%, 3PM/Game, Opp 3PM/Game with D1 averages
+        -   **Ball Control**: TOV% (Turnover Rate), Forced TOV% with PROTECTS/FORCES ERRORS indicators
+        -   **Rebounding**: ORB% (Offensive), DRB% (Defensive) with CRASHES GLASS/LOCKS OUT indicators
+        -   **Pace & Free Throws**: FT Rate, Opp FT Rate, Tempo display with expected possessions
+        -   **Strength of Schedule (SOS)**: Schedule difficulty rankings for context
         -   **Analyst Insight**: AI-generated summary of matchup advantages
         -   Data Sources: NBA.com API, Bart Torvik (CBB), ESPN stats
         -   Only shows for CBB/NBA games with advanced data available

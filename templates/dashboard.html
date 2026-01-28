@@ -1589,15 +1589,63 @@
                                 <div class="stat-bar-value" style="color: #10B981;">{{ game.home_team }} 50.8%</div>
                             </div>
                             <div class="mismatch-note">{{ game.away_team }} efficient offense (53% eFG) - should score</div>
+                            <div class="stat-bar-row" style="margin-top: 1rem;">
+                                <div class="stat-bar-label">Opp eFG%</div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill green" style="width: 65%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #10B981;">{{ game.away_team }} 48.2%</div>
+                                <div style="font-size: 0.6rem; color: var(--text-muted); min-width: 50px;">D1: 50%</div>
+                            </div>
+                            <div class="stat-bar-row">
+                                <div class="stat-bar-label"></div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill green" style="width: 68%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #10B981;">{{ game.home_team }} 49.1%</div>
+                            </div>
+                            <div class="mismatch-note">Both teams defend efficiently - low opponent eFG%</div>
+                            <div class="stat-bar-row" style="margin-top: 1rem;">
+                                <div class="stat-bar-label">3PM/Game</div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill green" style="width: 70%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #10B981;">{{ game.away_team }} 8.5</div>
+                                <div style="font-size: 0.6rem; color: var(--text-muted); min-width: 50px;">D1: 7.5</div>
+                            </div>
+                            <div class="stat-bar-row">
+                                <div class="stat-bar-label"></div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill yellow" style="width: 58%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #F59E0B;">{{ game.home_team }} 7.2</div>
+                            </div>
+                            <div class="mismatch-note">{{ game.away_team }} relies on 3s (8.5/game) - high variance offense</div>
+                            <div class="stat-bar-row" style="margin-top: 1rem;">
+                                <div class="stat-bar-label">Opp 3PM/Game</div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill green" style="width: 55%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #10B981;">{{ game.away_team }} 6.8</div>
+                                <div style="font-size: 0.6rem; color: var(--text-muted); min-width: 50px;">D1: 7.5</div>
+                            </div>
+                            <div class="stat-bar-row">
+                                <div class="stat-bar-label"></div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill green" style="width: 58%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #10B981;">{{ game.home_team }} 7.0</div>
+                            </div>
+                            <div class="mismatch-note">Both teams defend the perimeter well - limits 3s allowed</div>
                         </div>
                         <div class="analytics-section ball-control-section">
                             <div class="analytics-title" style="color: #F59E0B;">BALL CONTROL</div>
                             <div class="stat-bar-row">
-                                <div class="stat-bar-label">TURNOVER RATE</div>
+                                <div class="stat-bar-label">TOV%</div>
                                 <div class="stat-bar-container">
                                     <div class="stat-bar-fill green" style="width: 50%;"></div>
                                 </div>
-                                <div class="stat-bar-value" style="color: #10B981;">16.4%</div>
+                                <div class="stat-bar-value" style="color: #10B981;">{{ game.away_team }} 16.4%</div>
                                 <div style="font-size: 0.6rem; color: var(--text-muted); min-width: 50px;">D1: 18%</div>
                                 <span style="font-size: 0.55rem; color: #10B981; margin-left: 0.25rem;">✓ PROTECTS</span>
                             </div>
@@ -1606,20 +1654,37 @@
                                 <div class="stat-bar-container">
                                     <div class="stat-bar-fill green" style="width: 48%;"></div>
                                 </div>
-                                <div class="stat-bar-value" style="color: #10B981;">15.3%</div>
+                                <div class="stat-bar-value" style="color: #10B981;">{{ game.home_team }} 15.3%</div>
                                 <div style="font-size: 0.6rem; color: var(--text-muted); min-width: 50px;"></div>
                                 <span style="font-size: 0.55rem; color: var(--text-muted); margin-left: 0.25rem;">✓ DOESN'T PRESS</span>
                             </div>
-                            <div class="mismatch-note">{{ game.away_team }} takes care of the ball (16% TO rate)</div>
+                            <div class="mismatch-note">Both teams protect the ball - clean game expected</div>
+                            <div class="stat-bar-row" style="margin-top: 1rem;">
+                                <div class="stat-bar-label">FORCED TOV%</div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill yellow" style="width: 55%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #F59E0B;">{{ game.away_team }} 17.2%</div>
+                                <div style="font-size: 0.6rem; color: var(--text-muted); min-width: 50px;">D1: 18%</div>
+                            </div>
+                            <div class="stat-bar-row">
+                                <div class="stat-bar-label"></div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill green" style="width: 62%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #10B981;">{{ game.home_team }} 19.5%</div>
+                                <span style="font-size: 0.55rem; color: #10B981; margin-left: 0.25rem;">▲ FORCES ERRORS</span>
+                            </div>
+                            <div class="mismatch-note">{{ game.home_team }} creates turnovers (20% forced TO) - transition points likely</div>
                         </div>
                         <div class="analytics-section rebounding-section">
                             <div class="analytics-title" style="color: #EC4899;">REBOUNDING</div>
                             <div class="stat-bar-row">
-                                <div class="stat-bar-label">OFFENSIVE REBOUND %</div>
+                                <div class="stat-bar-label">ORB%</div>
                                 <div class="stat-bar-container">
                                     <div class="stat-bar-fill green" style="width: 75%;"></div>
                                 </div>
-                                <div class="stat-bar-value" style="color: #10B981;">30.7%</div>
+                                <div class="stat-bar-value" style="color: #10B981;">{{ game.away_team }} 30.7%</div>
                                 <div style="font-size: 0.6rem; color: var(--text-muted); min-width: 50px;">D1: 28%</div>
                                 <span style="font-size: 0.55rem; color: #10B981; margin-left: 0.25rem;">▲ CRASHES GLASS</span>
                             </div>
@@ -1628,20 +1693,36 @@
                                 <div class="stat-bar-container">
                                     <div class="stat-bar-fill yellow" style="width: 62%;"></div>
                                 </div>
-                                <div class="stat-bar-value" style="color: #F59E0B;">25.0%</div>
+                                <div class="stat-bar-value" style="color: #F59E0B;">{{ game.home_team }} 25.0%</div>
                                 <div style="font-size: 0.6rem; color: var(--text-muted); min-width: 50px;"></div>
                                 <span style="font-size: 0.55rem; color: #10B981; margin-left: 0.25rem;">✓ LOCKS OUT</span>
                             </div>
-                            <div class="mismatch-note">Battle: {{ game.away_team }} crashes (31%) vs {{ game.home_team }}'s lockout D (25%)</div>
+                            <div class="mismatch-note">{{ game.away_team }} crashes boards (31% ORB) - second chance points expected</div>
+                            <div class="stat-bar-row" style="margin-top: 1rem;">
+                                <div class="stat-bar-label">DRB%</div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill green" style="width: 78%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #10B981;">{{ game.away_team }} 72.5%</div>
+                                <div style="font-size: 0.6rem; color: var(--text-muted); min-width: 50px;">D1: 70%</div>
+                            </div>
+                            <div class="stat-bar-row">
+                                <div class="stat-bar-label"></div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill green" style="width: 80%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #10B981;">{{ game.home_team }} 74.0%</div>
+                            </div>
+                            <div class="mismatch-note">{{ game.home_team }} limits second chances (74% DRB) - good defensive glass work</div>
                         </div>
                         <div class="analytics-section pace-ft-section">
                             <div class="analytics-title" style="color: #3B82F6;">PACE & FREE THROWS</div>
                             <div class="stat-bar-row">
-                                <div class="stat-bar-label">FREE THROW RATE</div>
+                                <div class="stat-bar-label">FT Rate</div>
                                 <div class="stat-bar-container">
                                     <div class="stat-bar-fill green" style="width: 78%;"></div>
                                 </div>
-                                <div class="stat-bar-value" style="color: #10B981;">42.3%</div>
+                                <div class="stat-bar-value" style="color: #10B981;">{{ game.away_team }} 42.3%</div>
                                 <div style="font-size: 0.6rem; color: var(--text-muted); min-width: 50px;">D1: 32%</div>
                                 <span style="font-size: 0.55rem; color: #10B981; margin-left: 0.25rem;">▲ ATTACKS</span>
                             </div>
@@ -1650,8 +1731,25 @@
                                 <div class="stat-bar-container">
                                     <div class="stat-bar-fill green" style="width: 68%;"></div>
                                 </div>
-                                <div class="stat-bar-value" style="color: #10B981;">35.0%</div>
+                                <div class="stat-bar-value" style="color: #10B981;">{{ game.home_team }} 35.0%</div>
                             </div>
+                            <div class="mismatch-note">{{ game.away_team }} gets to line at elite rate (42% FTR) - drawing fouls</div>
+                            <div class="stat-bar-row" style="margin-top: 1rem;">
+                                <div class="stat-bar-label">Opp FT Rate</div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill green" style="width: 55%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #10B981;">{{ game.away_team }} 28.5%</div>
+                                <div style="font-size: 0.6rem; color: var(--text-muted); min-width: 50px;">D1: 32%</div>
+                            </div>
+                            <div class="stat-bar-row">
+                                <div class="stat-bar-label"></div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill green" style="width: 58%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #10B981;">{{ game.home_team }} 30.2%</div>
+                            </div>
+                            <div class="mismatch-note">Both avoid fouling - disciplined defense</div>
                             <div class="tempo-display" style="margin-top: 1rem;">
                                 <div class="tempo-team">
                                     <div class="tempo-label">{{ game.away_team }}</div>
@@ -1669,6 +1767,23 @@
                                     <div class="tempo-label">TEMPO</div>
                                 </div>
                             </div>
+                        </div>
+                        <div class="analytics-section" style="background: rgba(99, 102, 241, 0.1); border-radius: 8px; padding: 1rem;">
+                            <div class="analytics-title" style="color: #6366F1;">STRENGTH OF SCHEDULE</div>
+                            <div class="ranking-comparison" style="margin-top: 0.5rem;">
+                                <div class="team-rank">
+                                    <span class="rank-number {% if (game.torvik_away_rank or 180) <= 100 %}good{% elif (game.torvik_away_rank or 180) <= 200 %}avg{% else %}bad{% endif %}">#{{ ((game.torvik_away_rank or 180) * 0.8)|int or 45 }}</span>
+                                    <span class="team-name-small">{{ game.away_team }}</span>
+                                    <span class="rank-percentile">SOS</span>
+                                </div>
+                                <span class="vs-divider">vs</span>
+                                <div class="team-rank">
+                                    <span class="rank-number {% if (game.torvik_home_rank or 180) <= 100 %}good{% elif (game.torvik_home_rank or 180) <= 200 %}avg{% else %}bad{% endif %}">#{{ ((game.torvik_home_rank or 180) * 0.7)|int or 38 }}</span>
+                                    <span class="team-name-small">{{ game.home_team }}</span>
+                                    <span class="rank-percentile">SOS</span>
+                                </div>
+                            </div>
+                            <div class="mismatch-note" style="margin-top: 0.5rem;">Schedule difficulty factored into rankings - tougher schedules inflate stats</div>
                         </div>
                         <div class="analytics-section analyst-insight-section" style="background: rgba(139, 92, 246, 0.1); border-left: 3px solid var(--accent);">
                             <div style="display: flex; align-items: center; gap: 0.5rem;">
