@@ -144,6 +144,8 @@
             background: var(--bg-card);
             border-bottom: 1px solid var(--border);
             -webkit-overflow-scrolling: touch;
+            position: relative;
+            z-index: 10;
         }
         .league-tab {
             flex-shrink: 0;
@@ -427,9 +429,10 @@
             .spread-value { font-size: 1.1rem; }
             .teams-matchup { gap: 0.4rem; }
             .vs-at { font-size: 0.75rem; }
-            .stats-table { font-size: 0.6rem; width: 100%; table-layout: fixed; }
-            .stats-table th, .stats-table td { padding: 0.3rem 0.2rem; word-wrap: break-word; overflow-wrap: break-word; }
-            .section-divider { font-size: 0.65rem; padding: 5px 8px; }
+            .stats-table { font-size: 0.6rem; width: 100%; table-layout: auto; }
+            .stats-table th, .stats-table td { padding: 0.3rem 0.2rem; white-space: nowrap; }
+            .stats-table td.metric-name { white-space: nowrap !important; }
+            .section-divider { font-size: 0.65rem; padding: 5px 8px; white-space: nowrap; }
             .edge-summary-box { padding: 10px; }
             .edge-team { font-size: 12px; }
             .edge-winner { font-size: 13px; }
@@ -983,6 +986,7 @@
             border-left: 3px solid #FFD700;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            white-space: nowrap;
         }
         .edge-summary-box {
             background: linear-gradient(135deg, #0a1628 0%, #162438 100%);
@@ -1045,12 +1049,14 @@
             text-align: center;
             border-bottom: 1px solid rgba(255,255,255,0.05);
             color: var(--text);
+            white-space: nowrap;
         }
         .stats-table td.metric-name {
             text-align: left;
             padding-left: 0.5rem;
             font-weight: 500;
             color: var(--text-muted);
+            white-space: nowrap !important;
         }
         .stats-table td.stat-winner {
             background: rgba(16, 185, 129, 0.15);
