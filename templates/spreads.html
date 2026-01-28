@@ -1057,6 +1057,23 @@
             background: rgba(139, 92, 246, 0.08);
         }
         
+        /* Key Metric Highlighting - Orange highlight for most impactful stats */
+        .stats-table tr.key-metric-row {
+            background: rgba(255, 165, 0, 0.08) !important;
+            border-left: 3px solid #FFA500;
+        }
+        .stats-table tr.key-metric-row:hover {
+            background: rgba(255, 165, 0, 0.15) !important;
+        }
+        .stats-table td.key-metric {
+            color: #FFA500 !important;
+            font-weight: 700 !important;
+        }
+        .stats-table td.key-metric::before {
+            content: "★ ";
+            color: #FFA500;
+        }
+        
         .hidden { display: none !important; }
         
         .qualifying-section {
@@ -1367,6 +1384,17 @@
             const awayTeam = data.away_team;
             const homeTeam = data.home_team;
             
+            // Key metrics to highlight in orange (most impactful for betting)
+            const keyMetrics = [
+                'Off. Rebounds', 'ORB%', 'Def. Rebounds', 'DRB%',
+                'Turnovers', 'TOV%', 'Forced TOV', 'Turnovers Forced',
+                'Off. Efficiency', 'Def. Efficiency', 
+                'Effective FG%', 'eFG%', 'Opp eFG%',
+                '3PM/Game', 'Opp 3PM/Game',
+                'FT Rate', 'Opp FT Rate',
+                'SOS Rank', 'SOS'
+            ];
+            
             // Build stats table row helper
             function statRow(metric, awayVal, homeVal, format = 'num', higherIsBetter = true) {
                 const aw = parseFloat(awayVal) || 0;
@@ -1380,8 +1408,14 @@
                 const edgeClass = noEdge ? '' : (awayWins ? 'edge-away' : 'edge-home');
                 const valFormat = format === 'pct' ? `${aw.toFixed(1)}%` : aw.toFixed(1);
                 const valFormat2 = format === 'pct' ? `${hm.toFixed(1)}%` : hm.toFixed(1);
-                return `<tr>
-                    <td class="metric-name">${metric}</td>
+                
+                // Check if this is a key metric to highlight
+                const isKeyMetric = keyMetrics.some(km => metric.toLowerCase().includes(km.toLowerCase()) || km.toLowerCase().includes(metric.toLowerCase()));
+                const rowClass = isKeyMetric ? 'key-metric-row' : '';
+                const metricClass = isKeyMetric ? 'metric-name key-metric' : 'metric-name';
+                
+                return `<tr class="${rowClass}">
+                    <td class="${metricClass}">${metric}</td>
                     <td class="${awayClass}">${valFormat}</td>
                     <td class="${homeClass}">${valFormat2}</td>
                     <td class="${edgeClass}">${edge}</td>
