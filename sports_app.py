@@ -578,16 +578,16 @@ class MatchupIntelligence:
     @staticmethod
     def fetch_teamrankings_matchup(away_team: str, home_team: str, game_date: str, league: str = 'NBA') -> dict:
         """
-        Fetch matchup data from TeamRankings /stats page.
-        Parses tables for both teams' stats with proper value extraction.
-        Returns Season stats for both teams.
+        Fetch matchup data from ALL TeamRankings matchup pages:
+        - /stats: Basic stats (PPG, rebounds, assists, etc.)
+        - /efficiency: Off/Def Efficiency, eFG%, Turnover rates, Rebound %
+        - /splits: Season + Last 3 Games columns
         """
         try:
             import requests
             from bs4 import BeautifulSoup
             import re
             
-            # Team name to slug mapping
             team_slugs = {
                 'bulls': 'bulls', 'pacers': 'pacers', 'celtics': 'celtics', 'lakers': 'lakers',
                 'heat': 'heat', 'bucks': 'bucks', 'nets': 'nets', '76ers': '76ers',
@@ -601,22 +601,17 @@ class MatchupIntelligence:
             
             away_slug = team_slugs.get(away_team.lower(), away_team.lower().replace(' ', '-'))
             home_slug = team_slugs.get(home_team.lower(), home_team.lower().replace(' ', '-'))
+            base_url = f"https://www.teamrankings.com/nba/matchup/{away_slug}-{home_slug}-{game_date}"
             
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
             
-            result = {
-                'away_season': {},
-                'home_season': {},
-                'away_l3': {},
-                'home_l3': {}
-            }
+            result = {'away_season': {}, 'home_season': {}, 'away_l3': {}, 'home_l3': {}}
             
             def parse_value(val_str):
-                """Parse a stat value like '117.9(#7)' to get just the number."""
                 if not val_str:
                     return None
-                # Extract numeric value before parenthesis (e.g., "117.9(#7)" -> 117.9)
-                match = re.match(r'([+-]?\d*\.?\d+)', val_str.strip())
+                val_str = val_str.replace('%', '').strip()
+                match = re.match(r'([+-]?\d*\.?\d+)', val_str)
                 if match:
                     try:
                         return float(match.group(1))
@@ -624,73 +619,131 @@ class MatchupIntelligence:
                         pass
                 return None
             
-            # Fetch from /stats page which has the comprehensive stats tables
-            url = f"https://www.teamrankings.com/nba/matchup/{away_slug}-{home_slug}-{game_date}/stats"
-            
+            # 1. STATS PAGE - Format: StatName | CHI Value(rank) | IND Value(rank) | OppStatName
             try:
-                resp = requests.get(url, headers=headers, timeout=15)
-                if resp.status_code != 200:
-                    logger.warning(f"TeamRankings stats page returned {resp.status_code}")
-                    return result
-                
-                soup = BeautifulSoup(resp.text, 'html.parser')
-                tables = soup.find_all('table')
-                
-                # The stats page has paired tables - Table 1 is Away team, Table 2 is Home team
-                # Structure: Stat Name | Value(rank) | Opp Value(rank) | Opp Stat Name
-                for table_idx, table in enumerate(tables):
-                    rows = table.find_all('tr')
-                    if not rows:
-                        continue
+                resp = requests.get(f"{base_url}/stats", headers=headers, timeout=15)
+                if resp.status_code == 200:
+                    soup = BeautifulSoup(resp.text, 'html.parser')
+                    tables = soup.find_all('table')
                     
-                    # Check header to determine which team this table is for
-                    header = rows[0].find_all(['td', 'th'])
-                    if len(header) < 1:
-                        continue
-                    
-                    header_text = header[0].get_text(strip=True).upper()
-                    
-                    # Determine if this is away or home team table
-                    is_away_table = away_slug[:3].upper() in header_text or away_team[:3].upper() in header_text
-                    is_home_table = home_slug[:3].upper() in header_text or home_team[:3].upper() in header_text
-                    
-                    if not is_away_table and not is_home_table:
-                        continue
-                    
-                    target_dict = result['away_season'] if is_away_table else result['home_season']
-                    
-                    # Parse data rows
-                    for row in rows[1:]:
-                        cells = row.find_all(['td', 'th'])
-                        if len(cells) < 2:
+                    for table in tables:
+                        rows = table.find_all('tr')
+                        if len(rows) < 2:
+                            continue
+                        header = rows[0].find_all(['td', 'th'])
+                        if len(header) < 4:
                             continue
                         
-                        # Column 0 = Stat name, Column 1 = Value with rank
-                        stat_name = cells[0].get_text(strip=True).lower()
-                        if not stat_name or 'subscribe' in stat_name.lower():
-                            continue
+                        h0 = header[0].get_text(strip=True).upper()
+                        h3 = header[3].get_text(strip=True).upper() if len(header) > 3 else ''
                         
-                        value = parse_value(cells[1].get_text(strip=True))
-                        if value is not None:
-                            target_dict[stat_name] = value
+                        is_away_first = away_slug[:3].upper() in h0 or away_team[:3].upper() in h0
+                        is_home_first = home_slug[:3].upper() in h0 or home_team[:3].upper() in h0
                         
-                        # If there's an opponent stat in columns 2-3
-                        if len(cells) >= 4:
-                            opp_value = parse_value(cells[2].get_text(strip=True))
-                            opp_stat_name = cells[3].get_text(strip=True).lower()
-                            if opp_value is not None and opp_stat_name:
-                                target_dict[opp_stat_name] = opp_value
-                
-                logger.info(f"TeamRankings stats: away={len(result['away_season'])}, home={len(result['home_season'])}")
-                
+                        for row in rows[1:]:
+                            cells = row.find_all(['td', 'th'])
+                            if len(cells) < 4:
+                                continue
+                            stat1 = cells[0].get_text(strip=True).lower()
+                            val1 = parse_value(cells[1].get_text(strip=True))
+                            val2 = parse_value(cells[2].get_text(strip=True))
+                            stat2 = cells[3].get_text(strip=True).lower()
+                            
+                            if 'subscribe' in stat1.lower():
+                                continue
+                            
+                            if is_away_first:
+                                if val1 is not None:
+                                    result['away_season'][stat1] = val1
+                                if val2 is not None:
+                                    result['away_season'][stat2] = val2
+                            elif is_home_first:
+                                if val1 is not None:
+                                    result['home_season'][stat1] = val1
+                                if val2 is not None:
+                                    result['home_season'][stat2] = val2
+                    
+                    logger.info(f"Stats page: away={len(result['away_season'])}, home={len(result['home_season'])}")
             except Exception as e:
-                logger.warning(f"TeamRankings fetch error: {e}")
+                logger.warning(f"Stats page error: {e}")
             
+            # 2. EFFICIENCY PAGE - Format: Stat | CHI | adv | IND
+            try:
+                resp = requests.get(f"{base_url}/efficiency", headers=headers, timeout=15)
+                if resp.status_code == 200:
+                    soup = BeautifulSoup(resp.text, 'html.parser')
+                    tables = soup.find_all('table')
+                    
+                    for table in tables:
+                        rows = table.find_all('tr')
+                        if len(rows) < 2:
+                            continue
+                        header = rows[0].find_all(['td', 'th'])
+                        if len(header) < 4:
+                            continue
+                        
+                        for row in rows[1:]:
+                            cells = row.find_all(['td', 'th'])
+                            if len(cells) < 4:
+                                continue
+                            stat_name = cells[0].get_text(strip=True).lower()
+                            away_val = parse_value(cells[1].get_text(strip=True))
+                            home_val = parse_value(cells[3].get_text(strip=True))
+                            
+                            if 'subscribe' in stat_name:
+                                continue
+                            if away_val is not None:
+                                result['away_season'][stat_name] = away_val
+                            if home_val is not None:
+                                result['home_season'][stat_name] = home_val
+                    
+                    logger.info(f"Efficiency page added stats")
+            except Exception as e:
+                logger.warning(f"Efficiency page error: {e}")
+            
+            # 3. SPLITS PAGE - Format: Stat | CHI Season | adv | IND | CHI L3 | adv | IND L3
+            try:
+                resp = requests.get(f"{base_url}/splits", headers=headers, timeout=15)
+                if resp.status_code == 200:
+                    soup = BeautifulSoup(resp.text, 'html.parser')
+                    tables = soup.find_all('table')
+                    
+                    for table in tables:
+                        rows = table.find_all('tr')
+                        if len(rows) < 3:
+                            continue
+                        
+                        for row in rows[2:]:
+                            cells = row.find_all(['td', 'th'])
+                            if len(cells) < 7:
+                                continue
+                            stat_name = cells[0].get_text(strip=True).lower()
+                            away_season = parse_value(cells[1].get_text(strip=True))
+                            home_season = parse_value(cells[3].get_text(strip=True))
+                            away_l3 = parse_value(cells[4].get_text(strip=True))
+                            home_l3 = parse_value(cells[6].get_text(strip=True))
+                            
+                            if 'subscribe' in stat_name:
+                                continue
+                            if away_season is not None:
+                                result['away_season'][stat_name] = away_season
+                            if home_season is not None:
+                                result['home_season'][stat_name] = home_season
+                            if away_l3 is not None:
+                                result['away_l3'][stat_name] = away_l3
+                            if home_l3 is not None:
+                                result['home_l3'][stat_name] = home_l3
+                    
+                    logger.info(f"Splits page: L3 away={len(result['away_l3'])}, home={len(result['home_l3'])}")
+            except Exception as e:
+                logger.warning(f"Splits page error: {e}")
+            
+            logger.info(f"TeamRankings TOTAL: away_season={len(result['away_season'])}, home_season={len(result['home_season'])}")
             return result
             
         except Exception as e:
             logger.warning(f"Error fetching TeamRankings matchup: {e}")
-            return {}
+            return {'away_season': {}, 'home_season': {}, 'away_l3': {}, 'home_l3': {}}
     
     @staticmethod
     def fetch_teamrankings_stats(team_name: str, league: str = 'NBA') -> dict:
