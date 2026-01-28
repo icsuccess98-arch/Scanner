@@ -917,7 +917,7 @@
             font-size: 0.7rem;
             color: #10B981;
         }
-        .savant-footer {
+        .hidden-unused-class {
             text-align: center;
             font-size: 0.6rem;
             color: var(--text-muted);
@@ -1325,46 +1325,24 @@
         }
         
         function updateMatchupStats(container, data) {
-            // Use pre-calculated stats from API matching matchup_table_generator format
-            const awayStats = data.away_stats || {};
-            const homeStats = data.home_stats || {};
+            // Use Season and L3 (Last 3 Games) stats from TeamRankings matchup page
+            const awaySeason = data.away_season || {};
+            const homeSeason = data.home_season || {};
+            const awayL3 = data.away_l3 || {};
+            const homeL3 = data.home_l3 || {};
             const awayTeam = data.away_team;
             const homeTeam = data.home_team;
             
-            // Extract stats with proper keys matching the provided format
-            const away_orb = awayStats['ORB%'] || 23.4;
-            const home_orb = homeStats['ORB%'] || 26.8;
-            const away_drb = awayStats['DRB%'] || 73.2;
-            const home_drb = homeStats['DRB%'] || 77.8;
-            const away_tov = awayStats['TOV%'] || 13.5;
-            const home_tov = homeStats['TOV%'] || 12.8;
-            const away_ftov = awayStats['Forced TOV%'] || 8.0;
-            const home_ftov = homeStats['Forced TOV%'] || 8.5;
-            const away_off_eff = awayStats['OFF_Efficiency'] || 112.0;
-            const home_off_eff = homeStats['OFF_Efficiency'] || 114.5;
-            const away_def_eff = awayStats['DEF_Efficiency'] || 112.0;
-            const home_def_eff = homeStats['DEF_Efficiency'] || 110.0;
-            const away_efg = awayStats['eFG%'] || 52.5;
-            const home_efg = homeStats['eFG%'] || 54.2;
-            const away_opp_efg = awayStats['Opp_eFG%'] || 52.0;
-            const home_opp_efg = homeStats['Opp_eFG%'] || 51.5;
-            const away_3pm = awayStats['3PM_Game'] || 11.5;
-            const home_3pm = homeStats['3PM_Game'] || 12.8;
-            const away_ftr = awayStats['FT_Rate'] || 25.0;
-            const home_ftr = homeStats['FT_Rate'] || 24.5;
-            const away_sos = awayStats['SOS'] || 15;
-            const home_sos = homeStats['SOS'] || 10;
-            
-            // Build comprehensive stats table like the reference image
-            function statRow(metric, awayVal, homeVal, format = 'pct', higherIsBetter = true) {
+            // Build stats table row helper
+            function statRow(metric, awayVal, homeVal, format = 'num', higherIsBetter = true) {
                 const aw = parseFloat(awayVal) || 0;
                 const hm = parseFloat(homeVal) || 0;
                 const awayWins = higherIsBetter ? aw > hm : aw < hm;
                 const homeWins = higherIsBetter ? hm > aw : hm < aw;
-                const noEdge = Math.abs(aw - hm) < 0.5;
+                const noEdge = Math.abs(aw - hm) < 0.3;
                 const awayClass = awayWins ? 'stat-winner' : '';
                 const homeClass = homeWins ? 'stat-winner' : '';
-                const edge = noEdge ? 'No Edge' : (awayWins ? awayTeam : homeTeam);
+                const edge = noEdge ? 'Even' : (awayWins ? awayTeam : homeTeam);
                 const edgeClass = noEdge ? '' : (awayWins ? 'edge-away' : 'edge-home');
                 const valFormat = format === 'pct' ? `${aw.toFixed(1)}%` : aw.toFixed(1);
                 const valFormat2 = format === 'pct' ? `${hm.toFixed(1)}%` : hm.toFixed(1);
@@ -1376,57 +1354,38 @@
                 </tr>`;
             }
             
-            // Calculate edge counts
-            let awayEdgeCount = 0;
-            let homeEdgeCount = 0;
-            if (away_orb > home_orb) awayEdgeCount++; else if (home_orb > away_orb) homeEdgeCount++;
-            if (away_drb > home_drb) awayEdgeCount++; else if (home_drb > away_drb) homeEdgeCount++;
-            if (away_tov < home_tov) awayEdgeCount++; else if (home_tov < away_tov) homeEdgeCount++;
-            if (away_ftov > home_ftov) awayEdgeCount++; else if (home_ftov > away_ftov) homeEdgeCount++;
-            if (away_off_eff > home_off_eff) awayEdgeCount++; else if (home_off_eff > away_off_eff) homeEdgeCount++;
-            if (away_def_eff < home_def_eff) awayEdgeCount++; else if (home_def_eff < away_def_eff) homeEdgeCount++;
-            if (away_efg > home_efg) awayEdgeCount++; else if (home_efg > away_efg) homeEdgeCount++;
-            if (away_opp_efg < home_opp_efg) awayEdgeCount++; else if (home_opp_efg < away_opp_efg) homeEdgeCount++;
-            if (away_3pm > home_3pm) awayEdgeCount++; else if (home_3pm > away_3pm) homeEdgeCount++;
-            if (away_ftr > home_ftr) awayEdgeCount++; else if (home_ftr > away_ftr) homeEdgeCount++;
-            if (away_sos < home_sos) awayEdgeCount++; else if (home_sos < away_sos) homeEdgeCount++;
+            // Calculate edge counts from season stats
+            let awaySeasonEdge = 0;
+            let homeSeasonEdge = 0;
+            const seasonMetrics = [
+                ['PPG', true], ['Opp PPG', false], ['eFG%', true], ['3PT%', true],
+                ['2PT%', true], ['FT%', true], ['Assists/Game', true], ['Assists/TO', true],
+                ['Shooting Eff', true], ['Fastbreak Pts', true], ['Pts in Paint', true]
+            ];
+            seasonMetrics.forEach(([m, higher]) => {
+                const aw = awaySeason[m] || 0;
+                const hm = homeSeason[m] || 0;
+                if (higher ? aw > hm : aw < hm) awaySeasonEdge++;
+                else if (higher ? hm > aw : hm < aw) homeSeasonEdge++;
+            });
             
-            // L5 stats from API
-            const away_l5 = data.away_l5 || {};
-            const home_l5 = data.home_l5 || {};
-            const away_l5_orb = away_l5.l5_orb || 10.5;
-            const home_l5_orb = home_l5.l5_orb || 11.2;
-            const away_l5_drb = away_l5.l5_drb || 32.0;
-            const home_l5_drb = home_l5.l5_drb || 33.5;
-            const away_l5_tov = away_l5.l5_tov_pct || 13.0;
-            const home_l5_tov = home_l5.l5_tov_pct || 12.5;
-            const away_l5_efg = away_l5.l5_efg || 53.0;
-            const home_l5_efg = home_l5.l5_efg || 54.5;
-            const away_l5_pts = away_l5.l5_pts || 112.0;
-            const home_l5_pts = home_l5.l5_pts || 115.0;
-            const away_l5_3pm = away_l5.l5_fg3m || 12.0;
-            const home_l5_3pm = home_l5.l5_fg3m || 13.5;
-            const away_l5_ftr = away_l5.l5_ft_rate || 24.0;
-            const home_l5_ftr = home_l5.l5_ft_rate || 25.0;
-            
-            // Calculate L5 edge counts
-            let awayL5EdgeCount = 0;
-            let homeL5EdgeCount = 0;
-            if (away_l5_orb > home_l5_orb) awayL5EdgeCount++; else if (home_l5_orb > away_l5_orb) homeL5EdgeCount++;
-            if (away_l5_drb > home_l5_drb) awayL5EdgeCount++; else if (home_l5_drb > away_l5_drb) homeL5EdgeCount++;
-            if (away_l5_tov < home_l5_tov) awayL5EdgeCount++; else if (home_l5_tov < away_l5_tov) homeL5EdgeCount++;
-            if (away_l5_efg > home_l5_efg) awayL5EdgeCount++; else if (home_l5_efg > away_l5_efg) homeL5EdgeCount++;
-            if (away_l5_pts > home_l5_pts) awayL5EdgeCount++; else if (home_l5_pts > away_l5_pts) homeL5EdgeCount++;
-            if (away_l5_3pm > home_l5_3pm) awayL5EdgeCount++; else if (home_l5_3pm > away_l5_3pm) homeL5EdgeCount++;
-            if (away_l5_ftr > home_l5_ftr) awayL5EdgeCount++; else if (home_l5_ftr > away_l5_ftr) homeL5EdgeCount++;
+            // Calculate edge counts from L3 stats
+            let awayL3Edge = 0;
+            let homeL3Edge = 0;
+            seasonMetrics.forEach(([m, higher]) => {
+                const aw = awayL3[m] || 0;
+                const hm = homeL3[m] || 0;
+                if (higher ? aw > hm : aw < hm) awayL3Edge++;
+                else if (higher ? hm > aw : hm < aw) homeL3Edge++;
+            });
             
             // Determine overall edge
-            const totalAwayEdge = awayEdgeCount + awayL5EdgeCount;
-            const totalHomeEdge = homeEdgeCount + homeL5EdgeCount;
+            const totalAwayEdge = awaySeasonEdge + awayL3Edge;
+            const totalHomeEdge = homeSeasonEdge + homeL3Edge;
             let edgeSummary = '';
-            if (totalAwayEdge > totalHomeEdge + 3) {
+            if (totalAwayEdge > totalHomeEdge + 4) {
                 edgeSummary = `<strong>EDGE: ${awayTeam}</strong><br>${awayTeam} has clear statistical advantages across multiple categories.`;
-            } else if (totalHomeEdge > totalAwayEdge + 3) {
+            } else if (totalHomeEdge > totalAwayEdge + 4) {
                 edgeSummary = `<strong>EDGE: ${homeTeam}</strong><br>${homeTeam} has clear statistical advantages across multiple categories.`;
             } else {
                 edgeSummary = `<strong>EDGE: Even</strong><br>Closely matched teams. Execution will be decisive.`;
@@ -1447,48 +1406,52 @@
                             </tr>
                         </thead>
                         <tbody>
-                            ${statRow('ORB%', away_orb, home_orb, 'pct', true)}
-                            ${statRow('DRB%', away_drb, home_drb, 'pct', true)}
-                            ${statRow('TOV%', away_tov, home_tov, 'pct', false)}
-                            ${statRow('Forced TOV%', away_ftov, home_ftov, 'pct', true)}
-                            ${statRow('OFF Efficiency', away_off_eff, home_off_eff, 'num', true)}
-                            ${statRow('DEF Efficiency', away_def_eff, home_def_eff, 'num', false)}
-                            ${statRow('eFG%', away_efg, home_efg, 'pct', true)}
-                            ${statRow('Opp eFG%', away_opp_efg, home_opp_efg, 'pct', false)}
-                            ${statRow('3PM/Game', away_3pm, home_3pm, 'num', true)}
-                            ${statRow('FT Rate', away_ftr, home_ftr, 'num', true)}
-                            ${statRow('SOS', away_sos, home_sos, 'num', false)}
-                            ${statRow('Edge Count', awayEdgeCount, homeEdgeCount, 'num', true)}
+                            ${statRow('Points/Game', awaySeason['PPG'], homeSeason['PPG'], 'num', true)}
+                            ${statRow('Opp Points/Game', awaySeason['Opp PPG'], homeSeason['Opp PPG'], 'num', false)}
+                            ${statRow('Effective FG%', awaySeason['eFG%'], homeSeason['eFG%'], 'pct', true)}
+                            ${statRow('3-Point %', awaySeason['3PT%'], homeSeason['3PT%'], 'pct', true)}
+                            ${statRow('2-Point %', awaySeason['2PT%'], homeSeason['2PT%'], 'pct', true)}
+                            ${statRow('Free Throw %', awaySeason['FT%'], homeSeason['FT%'], 'pct', true)}
+                            ${statRow('Assists/Game', awaySeason['Assists/Game'], homeSeason['Assists/Game'], 'num', true)}
+                            ${statRow('Assists/Turnover', awaySeason['Assists/TO'], homeSeason['Assists/TO'], 'num', true)}
+                            ${statRow('Shooting Efficiency', awaySeason['Shooting Eff'], homeSeason['Shooting Eff'], 'num', true)}
+                            ${statRow('Fastbreak Pts/Gm', awaySeason['Fastbreak Pts'], homeSeason['Fastbreak Pts'], 'num', true)}
+                            ${statRow('Pts in Paint/Gm', awaySeason['Pts in Paint'], homeSeason['Pts in Paint'], 'num', true)}
+                            ${statRow('Edge Count', awaySeasonEdge, homeSeasonEdge, 'num', true)}
                         </tbody>
                     </table>
                     
-                    <div class="section-divider">LAST 5 GAMES COMPARISON</div>
+                    <div class="section-divider">LAST 3 GAMES COMPARISON</div>
                     <table class="stats-table">
                         <thead>
                             <tr>
                                 <th>Metric</th>
-                                <th class="team-col">${awayTeam} (L5)</th>
-                                <th class="team-col">${homeTeam} (L5)</th>
+                                <th class="team-col">${awayTeam} (L3)</th>
+                                <th class="team-col">${homeTeam} (L3)</th>
                                 <th>Edge</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${statRow('ORB/Game', away_l5_orb, home_l5_orb, 'num', true)}
-                            ${statRow('DRB/Game', away_l5_drb, home_l5_drb, 'num', true)}
-                            ${statRow('TOV%', away_l5_tov, home_l5_tov, 'pct', false)}
-                            ${statRow('eFG%', away_l5_efg, home_l5_efg, 'pct', true)}
-                            ${statRow('PPG', away_l5_pts, home_l5_pts, 'num', true)}
-                            ${statRow('3PM/Game', away_l5_3pm, home_l5_3pm, 'num', true)}
-                            ${statRow('FT Rate', away_l5_ftr, home_l5_ftr, 'num', true)}
-                            ${statRow('Edge Count', awayL5EdgeCount, homeL5EdgeCount, 'num', true)}
+                            ${statRow('Points/Game', awayL3['PPG'], homeL3['PPG'], 'num', true)}
+                            ${statRow('Opp Points/Game', awayL3['Opp PPG'], homeL3['Opp PPG'], 'num', false)}
+                            ${statRow('Effective FG%', awayL3['eFG%'], homeL3['eFG%'], 'pct', true)}
+                            ${statRow('3-Point %', awayL3['3PT%'], homeL3['3PT%'], 'pct', true)}
+                            ${statRow('2-Point %', awayL3['2PT%'], homeL3['2PT%'], 'pct', true)}
+                            ${statRow('Free Throw %', awayL3['FT%'], homeL3['FT%'], 'pct', true)}
+                            ${statRow('Assists/Game', awayL3['Assists/Game'], homeL3['Assists/Game'], 'num', true)}
+                            ${statRow('Assists/Turnover', awayL3['Assists/TO'], homeL3['Assists/TO'], 'num', true)}
+                            ${statRow('Shooting Efficiency', awayL3['Shooting Eff'], homeL3['Shooting Eff'], 'num', true)}
+                            ${statRow('Fastbreak Pts/Gm', awayL3['Fastbreak Pts'], homeL3['Fastbreak Pts'], 'num', true)}
+                            ${statRow('Pts in Paint/Gm', awayL3['Pts in Paint'], homeL3['Pts in Paint'], 'num', true)}
+                            ${statRow('Edge Count', awayL3Edge, homeL3Edge, 'num', true)}
                         </tbody>
                     </table>
                     
                     <div class="section-divider">EDGE SUMMARY</div>
                     <div class="edge-summary-box">
                         <div class="edge-counts">
-                            <span class="edge-team">${awayTeam}: ${totalAwayEdge} edges</span>
-                            <span class="edge-team">${homeTeam}: ${totalHomeEdge} edges</span>
+                            <span class="edge-team">${awayTeam}: ${totalAwayEdge} edges (Season: ${awaySeasonEdge}, L3: ${awayL3Edge})</span>
+                            <span class="edge-team">${homeTeam}: ${totalHomeEdge} edges (Season: ${homeSeasonEdge}, L3: ${homeL3Edge})</span>
                         </div>
                         <div class="edge-verdict">${edgeSummary}</div>
                     </div>
