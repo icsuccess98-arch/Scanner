@@ -1078,6 +1078,19 @@
             background: rgba(139, 92, 246, 0.08);
         }
         
+        /* Key Metric Highlighting - Orange highlight for most impactful stats */
+        .stats-table tr.key-metric-row {
+            background: rgba(255, 165, 0, 0.08) !important;
+            border-left: 3px solid #FFA500;
+        }
+        .stats-table tr.key-metric-row:hover {
+            background: rgba(255, 165, 0, 0.15) !important;
+        }
+        .stats-table td.key-metric {
+            color: #FFA500 !important;
+            font-weight: 700 !important;
+        }
+        
         .hidden { display: none !important; }
         
         .qualifying-section {
@@ -1373,8 +1386,10 @@
             const awayTeam = data.away_team;
             const homeTeam = data.home_team;
             
-            // Build stats table row helper - format: 'pct' for %, 'eff' for efficiency (3 decimals), 'num' for regular numbers
-            function statRow(metric, awayVal, homeVal, format = 'num', higherIsBetter = true) {
+            // Build stats table row helper with rank display
+            // format: 'pct' for %, 'eff' for efficiency (3 decimals), 'num' for regular numbers
+            // awayRank/homeRank: league ranks to display as "#X" prefix
+            function statRow(metric, awayVal, homeVal, format = 'num', higherIsBetter = true, awayRank = null, homeRank = null, isKeyMetric = false) {
                 const aw = parseFloat(awayVal) || 0;
                 const hm = parseFloat(homeVal) || 0;
                 const awayWins = higherIsBetter ? aw > hm : aw < hm;
@@ -1402,20 +1417,29 @@
                     valFormat2 = hm.toFixed(1);
                 }
                 
-                return `<tr>
-                    <td class="metric-name">${metric}</td>
-                    <td class="${awayClass}">${valFormat}</td>
-                    <td class="${homeClass}">${valFormat2}</td>
+                // Add rank prefix if provided
+                const awayDisplay = awayRank ? `#${awayRank} ${valFormat}` : valFormat;
+                const homeDisplay = homeRank ? `#${homeRank} ${valFormat2}` : valFormat2;
+                
+                // Key metric orange highlighting
+                const rowClass = isKeyMetric ? 'key-metric-row' : '';
+                const metricClass = isKeyMetric ? 'metric-name key-metric' : 'metric-name';
+                
+                return `<tr class="${rowClass}">
+                    <td class="${metricClass}">${metric}</td>
+                    <td class="${awayClass}">${awayDisplay}</td>
+                    <td class="${homeClass}">${homeDisplay}</td>
                     <td class="${edgeClass}">${edge}</td>
                 </tr>`;
             }
             
-            // Calculate edge counts from 13 key metrics
+            // Calculate edge counts from 15 key metrics
             let awayEdgeCount = 0;
             let homeEdgeCount = 0;
             
             // [stat_key, higherIsBetter]
             const edgeMetrics = [
+                ['PPP', true], ['Opp PPP', false],
                 ['ORB%', true], ['DRB%', true], ['TOV%', false], 
                 ['Opp TOV%', true], ['O Eff', true], ['D Eff', false],
                 ['eFG%', true], ['Opp eFG%', false], ['3PM/Game', true],
@@ -1461,27 +1485,29 @@
                             </tr>
                         </thead>
                         <tbody>
-                            ${statRow('ORB%', awaySeason['ORB%'], homeSeason['ORB%'], 'pct', true)}
-                            ${statRow('DRB%', awaySeason['DRB%'], homeSeason['DRB%'], 'pct', true)}
-                            ${statRow('TOV%', awaySeason['TOV%'], homeSeason['TOV%'], 'pct', false)}
-                            ${statRow('F-TOV%', awaySeason['Opp TOV%'] || awaySeason['opp turnovers/play'], homeSeason['Opp TOV%'] || homeSeason['opp turnovers/play'], 'pct', true)}
-                            ${statRow('O Eff', awaySeason['O Eff'], homeSeason['O Eff'], 'eff', true)}
-                            ${statRow('D Eff', awaySeason['D Eff'], homeSeason['D Eff'], 'eff', false)}
-                            ${statRow('eFG%', awaySeason['eFG%'], homeSeason['eFG%'], 'pct', true)}
-                            ${statRow('Opp eFG%', awaySeason['Opp eFG%'], homeSeason['Opp eFG%'], 'pct', false)}
-                            ${statRow('3PM/Gm', awaySeason['3PM/Game'], homeSeason['3PM/Game'], 'num', true)}
-                            ${statRow('Opp 3PM/Gm', awaySeason['Opp 3PM/Game'] || awaySeason['opp 3pm/game'], homeSeason['Opp 3PM/Game'] || homeSeason['opp 3pm/game'], 'num', false)}
-                            ${statRow('FT Rate', awaySeason['FTA/FGA'], homeSeason['FTA/FGA'], 'num', true)}
-                            ${statRow('Opp FT Rate', awaySeason['Opp FTA/FGA'] || awaySeason['opp fta/fga'], homeSeason['Opp FTA/FGA'] || homeSeason['opp fta/fga'], 'num', false)}
-                            ${statRow('SOS', awaySeason['SOS'], homeSeason['SOS'], 'num', false)}
+                            ${statRow('PPP', awaySeason['PPP'], homeSeason['PPP'], 'num', true, awaySeason['PPP Rank'], homeSeason['PPP Rank'], true)}
+                            ${statRow('Opp PPP', awaySeason['Opp PPP'], homeSeason['Opp PPP'], 'num', false, awaySeason['Opp PPP Rank'], homeSeason['Opp PPP Rank'], true)}
+                            ${statRow('ORB%', awaySeason['ORB%'], homeSeason['ORB%'], 'pct', true, awaySeason['ORB% Rank'], homeSeason['ORB% Rank'], true)}
+                            ${statRow('DRB%', awaySeason['DRB%'], homeSeason['DRB%'], 'pct', true, awaySeason['DRB% Rank'], homeSeason['DRB% Rank'], true)}
+                            ${statRow('TOV%', awaySeason['TOV%'], homeSeason['TOV%'], 'pct', false, awaySeason['TOV% Rank'], homeSeason['TOV% Rank'], true)}
+                            ${statRow('F-TOV%', awaySeason['Opp TOV%'], homeSeason['Opp TOV%'], 'pct', true, awaySeason['F-TOV% Rank'], homeSeason['F-TOV% Rank'], true)}
+                            ${statRow('O Eff', awaySeason['O Eff'], homeSeason['O Eff'], 'eff', true, null, null, true)}
+                            ${statRow('D Eff', awaySeason['D Eff'], homeSeason['D Eff'], 'eff', false, null, null, true)}
+                            ${statRow('eFG%', awaySeason['eFG%'], homeSeason['eFG%'], 'pct', true, awaySeason['eFG% Rank'], homeSeason['eFG% Rank'], true)}
+                            ${statRow('Opp eFG%', awaySeason['Opp eFG%'], homeSeason['Opp eFG%'], 'pct', false, awaySeason['Opp eFG% Rank'], homeSeason['Opp eFG% Rank'], true)}
+                            ${statRow('3PM/Gm', awaySeason['3PM/Game'], homeSeason['3PM/Game'], 'num', true, null, null, true)}
+                            ${statRow('Opp 3PM/Gm', awaySeason['Opp 3PM/Game'], homeSeason['Opp 3PM/Game'], 'num', false, null, null, true)}
+                            ${statRow('FT Rate', awaySeason['FTA/FGA'], homeSeason['FTA/FGA'], 'num', true, awaySeason['FT Rate Rank'], homeSeason['FT Rate Rank'], true)}
+                            ${statRow('Opp FT Rate', awaySeason['Opp FTA/FGA'], homeSeason['Opp FTA/FGA'], 'num', false, awaySeason['Opp FT Rate Rank'], homeSeason['Opp FT Rate Rank'], true)}
+                            ${statRow('SOS', awaySeason['SOS'], homeSeason['SOS'], 'num', false, null, null, true)}
                         </tbody>
                     </table>
                     
                     <div class="section-divider">EDGE SUMMARY</div>
                     <div class="edge-summary-box">
                         <div class="edge-counts">
-                            <div class="edge-team">${awayTeam}: ${awayEdgeCount}/13</div>
-                            <div class="edge-team">${homeTeam}: ${homeEdgeCount}/13</div>
+                            <div class="edge-team">${awayTeam}: ${awayEdgeCount}/15</div>
+                            <div class="edge-team">${homeTeam}: ${homeEdgeCount}/15</div>
                         </div>
                         <div class="edge-verdict">
                             <div class="edge-winner">${edgeWinner}</div>

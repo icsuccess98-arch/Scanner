@@ -75,12 +75,22 @@ Only one app can run at a time. Configure the workflow to switch between apps.
                 -   URL format: `teamrankings.com/{league}/matchup/{away}-{home}-{date}/{page}`
                 -   TOTAL: 74+ away stats, 85+ home stats scraped per matchup
             -   **NBA.com API** (nba_api): L5 game stats via TeamGameLog endpoint with 30-min cache
-            -   **CTG-Style Metrics**: Cleaning-the-Glass style efficiency calculations (eFG%, TS%, TOV%, etc.)
+            -   **Cleaning the Glass (CTG)**: FREE tier Four Factors scraper for NBA:
+                -   Scrapes all 30 NBA teams' four factors from ctg team pages
+                -   Returns eFG%, TOV%, ORB%, FT Rate for offense and defense WITH league ranks
+                -   PPP (Points Per Possession) and Opp PPP for scoring efficiency
+                -   All values include "#X" rank prefix (e.g., "#7 13.9%")
             -   Cache layer prevents API rate limiting and speeds up page loads
-        -   **Matchup Breakdown Sections** (Jan 2026): Organized stat tables:
-            -   **KEY METRICS**: PPG, FG%, Opp FG%, 3PT%, Opp 3PT%, FT%, Opp FT%, PACE, Assists/TO
-            -   **OFFENSIVE METRICS**: Off. Efficiency, eFG%, Off. Rebounds, Assists, Fastbreak Pts, Pts in Paint
-            -   **DEFENSIVE METRICS**: Def. Efficiency, Opp PPG, Def. Rebounds, Blocks, Steals, TOV Forced
+        -   **15 Key Metrics** (Jan 2026): All metrics have orange highlighting with border-left accent:
+            -   **Scoring**: PPP, Opp PPP (with ranks from CTG)
+            -   **Rebounding**: ORB%, DRB% (with ranks from CTG)
+            -   **Ball Control**: TOV%, F-TOV% (with ranks from CTG)
+            -   **Efficiency**: O Eff, D Eff (from TeamRankings)
+            -   **Shooting**: eFG%, Opp eFG% (with ranks from CTG)
+            -   **3PT**: 3PM/Gm, Opp 3PM/Gm (from TeamRankings)
+            -   **Free Throws**: FT Rate, Opp FT Rate (with ranks from CTG)
+            -   **Schedule**: SOS (from TeamRankings)
+            -   Edge count displays X/15 format
             -   **STRENGTH OF SCHEDULE**: SOS Rank from TeamRankings team profile pages
             -   **LAST 3 GAMES**: Recent performance comparison with same stats
         -   Only shows for CBB/NBA games with advanced data available

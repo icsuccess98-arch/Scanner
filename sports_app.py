@@ -867,21 +867,34 @@ class MatchupIntelligence:
                     # Then defense versions
                     
                     if len(data) >= 31:
-                        # Offense four factors - CTG format: rank, value alternating
-                        # Positions: efg=13, tov=15, orb=17, ft_rate=19
+                        # CTG format: rank, value pairs for each metric
+                        # Offense section starts at index 10
+                        # Positions: pts_poss_rank=10, pts_poss=11, efg_rank=12, efg=13, tov_rank=14, tov=15, orb_rank=16, orb=17, ft_rank=18, ft=19
+                        result['off_ppp'] = data[11]  # Points per possession
+                        result['off_ppp_rank'] = data[10]
                         result['off_efg'] = data[13].replace('%', '') if '%' in data[13] else data[13]
+                        result['off_efg_rank'] = data[12]
                         result['off_tov'] = data[15].replace('%', '') if '%' in data[15] else data[15]
+                        result['off_tov_rank'] = data[14]
                         result['off_orb'] = data[17].replace('%', '') if '%' in data[17] else data[17]
+                        result['off_orb_rank'] = data[16]
                         result['off_ft_rate'] = data[19]
+                        result['off_ft_rank'] = data[18]
                         
-                        # Defense four factors - shifted by 1 for value positions
-                        # Positions: efg=24, tov=26, orb=28, ft_rate=30
+                        # Defense section starts at index 21
+                        # Positions: pts_poss_rank=21, pts_poss=22, efg_rank=23, efg=24, tov_rank=25, tov=26, orb_rank=27, orb=28, ft_rank=29, ft=30
+                        result['def_ppp'] = data[22]  # Opponent points per possession
+                        result['def_ppp_rank'] = data[21]
                         result['def_efg'] = data[24].replace('%', '') if '%' in data[24] else data[24]
+                        result['def_efg_rank'] = data[23]
                         result['def_tov'] = data[26].replace('%', '') if '%' in data[26] else data[26]
+                        result['def_tov_rank'] = data[25]
                         result['def_orb'] = data[28].replace('%', '') if '%' in data[28] else data[28]
+                        result['def_orb_rank'] = data[27]
                         result['def_ft_rate'] = data[30]
+                        result['def_ft_rank'] = data[29]
                         
-                        logger.info(f"CTG Four Factors for {team_name}: eFG={result.get('off_efg')}, FT Rate={result.get('off_ft_rate')}, Opp FT Rate={result.get('def_ft_rate')}")
+                        logger.info(f"CTG Four Factors for {team_name}: PPP={result.get('off_ppp')} (#{result.get('off_ppp_rank')}), FT Rate={result.get('off_ft_rate')} (#{result.get('off_ft_rank')})")
             
             return result
             
@@ -9132,11 +9145,23 @@ def get_matchup_data(game_id):
                 'Pts in Paint': find_stat(away_season, 'pts in paint/gm'),
                 'Fastbreak Pts': find_stat(away_season, 'fastbreak pts/gm'),
                 'FTA/FGA': away_ctg.get('off_ft_rate') or find_stat(away_season, 'fta/fga'),
+                'FT Rate Rank': away_ctg.get('off_ft_rank'),
                 '3PM/Game': find_stat(away_season, '3pm/game'),
                 'Opp TOV': find_stat(away_season, 'opp turnovers/game'),
                 'Opp TOV%': find_stat(away_season, 'opp turnovers/play'),
                 'Opp 3PM/Game': find_stat(away_season, 'opp 3pm/game'),
-                'Opp FTA/FGA': away_ctg.get('def_ft_rate') or find_stat(away_season, 'opp fta/fga')
+                'Opp FTA/FGA': away_ctg.get('def_ft_rate') or find_stat(away_season, 'opp fta/fga'),
+                'Opp FT Rate Rank': away_ctg.get('def_ft_rank'),
+                'PPP': away_ctg.get('off_ppp'),
+                'PPP Rank': away_ctg.get('off_ppp_rank'),
+                'Opp PPP': away_ctg.get('def_ppp'),
+                'Opp PPP Rank': away_ctg.get('def_ppp_rank'),
+                'eFG% Rank': away_ctg.get('off_efg_rank'),
+                'Opp eFG% Rank': away_ctg.get('def_efg_rank'),
+                'TOV% Rank': away_ctg.get('off_tov_rank'),
+                'F-TOV% Rank': away_ctg.get('def_tov_rank'),
+                'ORB% Rank': away_ctg.get('off_orb_rank'),
+                'DRB% Rank': away_ctg.get('def_orb_rank')
             }
             result['home_season'] = {
                 'PPG': find_stat(home_season, 'points/game'),
@@ -9166,11 +9191,23 @@ def get_matchup_data(game_id):
                 'Pts in Paint': find_stat(home_season, 'pts in paint/gm'),
                 'Fastbreak Pts': find_stat(home_season, 'fastbreak pts/gm'),
                 'FTA/FGA': home_ctg.get('off_ft_rate') or find_stat(home_season, 'fta/fga'),
+                'FT Rate Rank': home_ctg.get('off_ft_rank'),
                 '3PM/Game': find_stat(home_season, '3pm/game'),
                 'Opp TOV': find_stat(home_season, 'opp turnovers/game'),
                 'Opp TOV%': find_stat(home_season, 'opp turnovers/play'),
                 'Opp 3PM/Game': find_stat(home_season, 'opp 3pm/game'),
-                'Opp FTA/FGA': home_ctg.get('def_ft_rate') or find_stat(home_season, 'opp fta/fga')
+                'Opp FTA/FGA': home_ctg.get('def_ft_rate') or find_stat(home_season, 'opp fta/fga'),
+                'Opp FT Rate Rank': home_ctg.get('def_ft_rank'),
+                'PPP': home_ctg.get('off_ppp'),
+                'PPP Rank': home_ctg.get('off_ppp_rank'),
+                'Opp PPP': home_ctg.get('def_ppp'),
+                'Opp PPP Rank': home_ctg.get('def_ppp_rank'),
+                'eFG% Rank': home_ctg.get('off_efg_rank'),
+                'Opp eFG% Rank': home_ctg.get('def_efg_rank'),
+                'TOV% Rank': home_ctg.get('off_tov_rank'),
+                'F-TOV% Rank': home_ctg.get('def_tov_rank'),
+                'ORB% Rank': home_ctg.get('off_orb_rank'),
+                'DRB% Rank': home_ctg.get('def_orb_rank')
             }
             
             # SOS Rank comes from the power-ratings page scraper
