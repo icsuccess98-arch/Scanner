@@ -1612,6 +1612,8 @@
                         </div>
                         <div class="analytics-section shooting-profile-section">
                             <div class="analytics-title" style="color: #10B981;">SHOOTING PROFILE</div>
+                            {% set away_l5 = game.matchup_l5.away if game.matchup_l5 else {} %}
+                            {% set home_l5 = game.matchup_l5.home if game.matchup_l5 else {} %}
                             <div class="stats-table" style="width: 100%; font-size: 0.75rem; margin-top: 0.5rem;">
                                 <div class="stats-header" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.5rem; background: rgba(16, 185, 129, 0.1); border-radius: 6px; margin-bottom: 0.5rem;">
                                     <div style="color: var(--text-muted); font-weight: 600;">Metric</div>
@@ -1622,34 +1624,42 @@
                                 </div>
                                 <div class="stats-row" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.4rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
                                     <div style="color: var(--text-muted);">eFG%</div>
-                                    <div style="text-align: center; color: #10B981; font-weight: 600;">52.7%</div>
-                                    <div style="text-align: center; color: #F59E0B;">54.1%</div>
-                                    <div style="text-align: center; color: #10B981; font-weight: 600;">50.8%</div>
-                                    <div style="text-align: center; color: #F59E0B;">49.2%</div>
+                                    <div style="text-align: center; color: #10B981; font-weight: 600;">{% if away_l5.l5_efg %}{{ "%.1f"|format(away_l5.l5_efg) }}%{% else %}--{% endif %}</div>
+                                    <div style="text-align: center; color: #F59E0B;">{% if away_l5.l5_efg %}{{ "%.1f"|format(away_l5.l5_efg) }}%{% else %}--{% endif %}</div>
+                                    <div style="text-align: center; color: #10B981; font-weight: 600;">{% if home_l5.l5_efg %}{{ "%.1f"|format(home_l5.l5_efg) }}%{% else %}--{% endif %}</div>
+                                    <div style="text-align: center; color: #F59E0B;">{% if home_l5.l5_efg %}{{ "%.1f"|format(home_l5.l5_efg) }}%{% else %}--{% endif %}</div>
                                 </div>
                                 <div class="stats-row" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.4rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                                    <div style="color: var(--text-muted);">Opp eFG%</div>
-                                    <div style="text-align: center; color: #10B981; font-weight: 600;">48.2%</div>
-                                    <div style="text-align: center; color: #F59E0B;">46.8%</div>
-                                    <div style="text-align: center; color: #10B981; font-weight: 600;">49.1%</div>
-                                    <div style="text-align: center; color: #F59E0B;">51.3%</div>
+                                    <div style="color: var(--text-muted);">3PT%</div>
+                                    <div style="text-align: center; color: #10B981; font-weight: 600;">{% if away_l5.l5_fg3_pct %}{{ "%.1f"|format(away_l5.l5_fg3_pct) }}%{% else %}--{% endif %}</div>
+                                    <div style="text-align: center; color: #F59E0B;">{% if away_l5.l5_fg3_pct %}{{ "%.1f"|format(away_l5.l5_fg3_pct) }}%{% else %}--{% endif %}</div>
+                                    <div style="text-align: center; color: #10B981; font-weight: 600;">{% if home_l5.l5_fg3_pct %}{{ "%.1f"|format(home_l5.l5_fg3_pct) }}%{% else %}--{% endif %}</div>
+                                    <div style="text-align: center; color: #F59E0B;">{% if home_l5.l5_fg3_pct %}{{ "%.1f"|format(home_l5.l5_fg3_pct) }}%{% else %}--{% endif %}</div>
                                 </div>
                                 <div class="stats-row" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.4rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
                                     <div style="color: var(--text-muted);">3PM/Game</div>
-                                    <div style="text-align: center; color: #10B981; font-weight: 600;">8.5</div>
-                                    <div style="text-align: center; color: #F59E0B;">9.2</div>
-                                    <div style="text-align: center; color: #F59E0B; font-weight: 600;">7.2</div>
-                                    <div style="text-align: center; color: #F59E0B;">6.8</div>
+                                    <div style="text-align: center; color: #10B981; font-weight: 600;">{% if away_l5.l5_fg3m %}{{ "%.1f"|format(away_l5.l5_fg3m) }}{% else %}--{% endif %}</div>
+                                    <div style="text-align: center; color: #F59E0B;">{% if away_l5.l5_fg3m %}{{ "%.1f"|format(away_l5.l5_fg3m) }}{% else %}--{% endif %}</div>
+                                    <div style="text-align: center; color: #10B981; font-weight: 600;">{% if home_l5.l5_fg3m %}{{ "%.1f"|format(home_l5.l5_fg3m) }}{% else %}--{% endif %}</div>
+                                    <div style="text-align: center; color: #F59E0B;">{% if home_l5.l5_fg3m %}{{ "%.1f"|format(home_l5.l5_fg3m) }}{% else %}--{% endif %}</div>
                                 </div>
                                 <div class="stats-row" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.4rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                                    <div style="color: var(--text-muted);">Opp 3PM/G</div>
-                                    <div style="text-align: center; color: #10B981; font-weight: 600;">6.8</div>
-                                    <div style="text-align: center; color: #F59E0B;">7.0</div>
-                                    <div style="text-align: center; color: #10B981; font-weight: 600;">7.0</div>
-                                    <div style="text-align: center; color: #F59E0B;">7.4</div>
+                                    <div style="color: var(--text-muted);">PPG</div>
+                                    <div style="text-align: center; color: #10B981; font-weight: 600;">{{ "%.1f"|format(game.away_ppg or 0) }}</div>
+                                    <div style="text-align: center; color: #F59E0B;">{% if away_l5.l5_pts %}{{ "%.1f"|format(away_l5.l5_pts) }}{% else %}--{% endif %}</div>
+                                    <div style="text-align: center; color: #10B981; font-weight: 600;">{{ "%.1f"|format(game.home_ppg or 0) }}</div>
+                                    <div style="text-align: center; color: #F59E0B;">{% if home_l5.l5_pts %}{{ "%.1f"|format(home_l5.l5_pts) }}{% else %}--{% endif %}</div>
                                 </div>
                             </div>
-                            <div class="mismatch-note" style="margin-top: 0.5rem;">{{ game.away_team }} shooting well lately (54% eFG L5) - hot streak</div>
+                            {% if away_l5.l5_efg and home_l5.l5_efg %}
+                            <div class="mismatch-note" style="margin-top: 0.5rem;">
+                                {% if away_l5.l5_efg > home_l5.l5_efg %}
+                                {{ game.away_team }} shooting hot lately ({{ "%.1f"|format(away_l5.l5_efg) }}% eFG L5)
+                                {% else %}
+                                {{ game.home_team }} shooting hot lately ({{ "%.1f"|format(home_l5.l5_efg) }}% eFG L5)
+                                {% endif %}
+                            </div>
+                            {% endif %}
                         </div>
                         <div class="analytics-section ball-control-section">
                             <div class="analytics-title" style="color: #F59E0B;">BALL CONTROL</div>
@@ -1663,20 +1673,28 @@
                                 </div>
                                 <div class="stats-row" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.4rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
                                     <div style="color: var(--text-muted);">TOV%</div>
-                                    <div style="text-align: center; color: #10B981; font-weight: 600;">16.4%</div>
-                                    <div style="text-align: center; color: #F59E0B;">14.8%</div>
-                                    <div style="text-align: center; color: #10B981; font-weight: 600;">15.3%</div>
-                                    <div style="text-align: center; color: #F59E0B;">16.2%</div>
+                                    <div style="text-align: center; color: {% if away_l5.l5_tov_pct and away_l5.l5_tov_pct < 15 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{% if away_l5.l5_tov_pct %}{{ "%.1f"|format(away_l5.l5_tov_pct) }}%{% else %}--{% endif %}</div>
+                                    <div style="text-align: center; color: #F59E0B;">{% if away_l5.l5_tov_pct %}{{ "%.1f"|format(away_l5.l5_tov_pct) }}%{% else %}--{% endif %}</div>
+                                    <div style="text-align: center; color: {% if home_l5.l5_tov_pct and home_l5.l5_tov_pct < 15 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{% if home_l5.l5_tov_pct %}{{ "%.1f"|format(home_l5.l5_tov_pct) }}%{% else %}--{% endif %}</div>
+                                    <div style="text-align: center; color: #F59E0B;">{% if home_l5.l5_tov_pct %}{{ "%.1f"|format(home_l5.l5_tov_pct) }}%{% else %}--{% endif %}</div>
                                 </div>
                                 <div class="stats-row" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.4rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                                    <div style="color: var(--text-muted);">Forced TOV%</div>
-                                    <div style="text-align: center; color: #F59E0B; font-weight: 600;">17.2%</div>
-                                    <div style="text-align: center; color: #F59E0B;">18.5%</div>
-                                    <div style="text-align: center; color: #10B981; font-weight: 600;">19.5%</div>
-                                    <div style="text-align: center; color: #10B981;">21.2%</div>
+                                    <div style="color: var(--text-muted);">TOV/Game</div>
+                                    <div style="text-align: center; color: {% if away_l5.l5_tov and away_l5.l5_tov < 14 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{% if away_l5.l5_tov %}{{ "%.1f"|format(away_l5.l5_tov) }}{% else %}--{% endif %}</div>
+                                    <div style="text-align: center; color: #F59E0B;">{% if away_l5.l5_tov %}{{ "%.1f"|format(away_l5.l5_tov) }}{% else %}--{% endif %}</div>
+                                    <div style="text-align: center; color: {% if home_l5.l5_tov and home_l5.l5_tov < 14 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{% if home_l5.l5_tov %}{{ "%.1f"|format(home_l5.l5_tov) }}{% else %}--{% endif %}</div>
+                                    <div style="text-align: center; color: #F59E0B;">{% if home_l5.l5_tov %}{{ "%.1f"|format(home_l5.l5_tov) }}{% else %}--{% endif %}</div>
                                 </div>
                             </div>
-                            <div class="mismatch-note" style="margin-top: 0.5rem;">{{ game.home_team }} forcing more TOs lately (21% L5) - transition points likely</div>
+                            {% if away_l5.l5_tov_pct and home_l5.l5_tov_pct %}
+                            <div class="mismatch-note" style="margin-top: 0.5rem;">
+                                {% if away_l5.l5_tov_pct < home_l5.l5_tov_pct %}
+                                {{ game.away_team }} taking better care of ball ({{ "%.1f"|format(away_l5.l5_tov_pct) }}% TOV L5)
+                                {% else %}
+                                {{ game.home_team }} taking better care of ball ({{ "%.1f"|format(home_l5.l5_tov_pct) }}% TOV L5)
+                                {% endif %}
+                            </div>
+                            {% endif %}
                         </div>
                         <div class="analytics-section rebounding-section">
                             <div class="analytics-title" style="color: #EC4899;">REBOUNDING</div>
@@ -1689,21 +1707,29 @@
                                     <div style="text-align: center; color: #F59E0B; font-size: 0.65rem;">L5</div>
                                 </div>
                                 <div class="stats-row" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.4rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                                    <div style="color: var(--text-muted);">ORB%</div>
-                                    <div style="text-align: center; color: #10B981; font-weight: 600;">30.7%</div>
-                                    <div style="text-align: center; color: #10B981;">32.4%</div>
-                                    <div style="text-align: center; color: #F59E0B; font-weight: 600;">25.0%</div>
-                                    <div style="text-align: center; color: #F59E0B;">24.1%</div>
+                                    <div style="color: var(--text-muted);">ORB/Game</div>
+                                    <div style="text-align: center; color: {% if away_l5.l5_orb and away_l5.l5_orb >= 10 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{% if away_l5.l5_orb %}{{ "%.1f"|format(away_l5.l5_orb) }}{% else %}--{% endif %}</div>
+                                    <div style="text-align: center; color: #F59E0B;">{% if away_l5.l5_orb %}{{ "%.1f"|format(away_l5.l5_orb) }}{% else %}--{% endif %}</div>
+                                    <div style="text-align: center; color: {% if home_l5.l5_orb and home_l5.l5_orb >= 10 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{% if home_l5.l5_orb %}{{ "%.1f"|format(home_l5.l5_orb) }}{% else %}--{% endif %}</div>
+                                    <div style="text-align: center; color: #F59E0B;">{% if home_l5.l5_orb %}{{ "%.1f"|format(home_l5.l5_orb) }}{% else %}--{% endif %}</div>
                                 </div>
                                 <div class="stats-row" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.4rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                                    <div style="color: var(--text-muted);">DRB%</div>
-                                    <div style="text-align: center; color: #10B981; font-weight: 600;">72.5%</div>
-                                    <div style="text-align: center; color: #F59E0B;">71.8%</div>
-                                    <div style="text-align: center; color: #10B981; font-weight: 600;">74.0%</div>
-                                    <div style="text-align: center; color: #10B981;">76.2%</div>
+                                    <div style="color: var(--text-muted);">DRB/Game</div>
+                                    <div style="text-align: center; color: {% if away_l5.l5_drb and away_l5.l5_drb >= 35 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{% if away_l5.l5_drb %}{{ "%.1f"|format(away_l5.l5_drb) }}{% else %}--{% endif %}</div>
+                                    <div style="text-align: center; color: #F59E0B;">{% if away_l5.l5_drb %}{{ "%.1f"|format(away_l5.l5_drb) }}{% else %}--{% endif %}</div>
+                                    <div style="text-align: center; color: {% if home_l5.l5_drb and home_l5.l5_drb >= 35 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{% if home_l5.l5_drb %}{{ "%.1f"|format(home_l5.l5_drb) }}{% else %}--{% endif %}</div>
+                                    <div style="text-align: center; color: #F59E0B;">{% if home_l5.l5_drb %}{{ "%.1f"|format(home_l5.l5_drb) }}{% else %}--{% endif %}</div>
                                 </div>
                             </div>
-                            <div class="mismatch-note" style="margin-top: 0.5rem;">{{ game.away_team }} crashing boards (32% ORB L5) - second chance points expected</div>
+                            {% if away_l5.l5_orb and home_l5.l5_orb %}
+                            <div class="mismatch-note" style="margin-top: 0.5rem;">
+                                {% if away_l5.l5_orb > home_l5.l5_orb %}
+                                {{ game.away_team }} crashing boards ({{ "%.1f"|format(away_l5.l5_orb) }} ORB L5) - second chance points
+                                {% else %}
+                                {{ game.home_team }} crashing boards ({{ "%.1f"|format(home_l5.l5_orb) }} ORB L5) - second chance points
+                                {% endif %}
+                            </div>
+                            {% endif %}
                         </div>
                         <div class="analytics-section pace-ft-section">
                             <div class="analytics-title" style="color: #3B82F6;">PACE & FREE THROWS</div>
@@ -1717,20 +1743,28 @@
                                 </div>
                                 <div class="stats-row" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.4rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
                                     <div style="color: var(--text-muted);">FT Rate</div>
-                                    <div style="text-align: center; color: #10B981; font-weight: 600;">42.3%</div>
-                                    <div style="text-align: center; color: #10B981;">45.1%</div>
-                                    <div style="text-align: center; color: #10B981; font-weight: 600;">35.0%</div>
-                                    <div style="text-align: center; color: #F59E0B;">32.8%</div>
+                                    <div style="text-align: center; color: {% if away_l5.l5_ft_rate and away_l5.l5_ft_rate >= 30 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{% if away_l5.l5_ft_rate %}{{ "%.1f"|format(away_l5.l5_ft_rate) }}%{% else %}--{% endif %}</div>
+                                    <div style="text-align: center; color: #F59E0B;">{% if away_l5.l5_ft_rate %}{{ "%.1f"|format(away_l5.l5_ft_rate) }}%{% else %}--{% endif %}</div>
+                                    <div style="text-align: center; color: {% if home_l5.l5_ft_rate and home_l5.l5_ft_rate >= 30 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{% if home_l5.l5_ft_rate %}{{ "%.1f"|format(home_l5.l5_ft_rate) }}%{% else %}--{% endif %}</div>
+                                    <div style="text-align: center; color: #F59E0B;">{% if home_l5.l5_ft_rate %}{{ "%.1f"|format(home_l5.l5_ft_rate) }}%{% else %}--{% endif %}</div>
                                 </div>
                                 <div class="stats-row" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.4rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                                    <div style="color: var(--text-muted);">Opp FT Rate</div>
-                                    <div style="text-align: center; color: #10B981; font-weight: 600;">28.5%</div>
-                                    <div style="text-align: center; color: #10B981;">26.2%</div>
-                                    <div style="text-align: center; color: #10B981; font-weight: 600;">30.2%</div>
-                                    <div style="text-align: center; color: #F59E0B;">33.5%</div>
+                                    <div style="color: var(--text-muted);">FT%</div>
+                                    <div style="text-align: center; color: {% if away_l5.l5_ft_pct and away_l5.l5_ft_pct >= 78 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{% if away_l5.l5_ft_pct %}{{ "%.1f"|format(away_l5.l5_ft_pct) }}%{% else %}--{% endif %}</div>
+                                    <div style="text-align: center; color: #F59E0B;">{% if away_l5.l5_ft_pct %}{{ "%.1f"|format(away_l5.l5_ft_pct) }}%{% else %}--{% endif %}</div>
+                                    <div style="text-align: center; color: {% if home_l5.l5_ft_pct and home_l5.l5_ft_pct >= 78 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{% if home_l5.l5_ft_pct %}{{ "%.1f"|format(home_l5.l5_ft_pct) }}%{% else %}--{% endif %}</div>
+                                    <div style="text-align: center; color: #F59E0B;">{% if home_l5.l5_ft_pct %}{{ "%.1f"|format(home_l5.l5_ft_pct) }}%{% else %}--{% endif %}</div>
                                 </div>
                             </div>
-                            <div class="mismatch-note" style="margin-top: 0.5rem;">{{ game.away_team }} attacking paint (45% FTR L5) - drawing fouls</div>
+                            {% if away_l5.l5_ft_rate and home_l5.l5_ft_rate %}
+                            <div class="mismatch-note" style="margin-top: 0.5rem;">
+                                {% if away_l5.l5_ft_rate > home_l5.l5_ft_rate %}
+                                {{ game.away_team }} attacking paint ({{ "%.1f"|format(away_l5.l5_ft_rate) }}% FTR L5) - drawing fouls
+                                {% else %}
+                                {{ game.home_team }} attacking paint ({{ "%.1f"|format(home_l5.l5_ft_rate) }}% FTR L5) - drawing fouls
+                                {% endif %}
+                            </div>
+                            {% endif %}
                             <div class="tempo-display" style="margin-top: 1rem;">
                                 <div class="tempo-team">
                                     <div class="tempo-label">{{ game.away_team }}</div>

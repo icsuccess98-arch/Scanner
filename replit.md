@@ -53,14 +53,19 @@ Only one app can run at a time. Configure the workflow to switch between apps.
         -   Power Rating comparison with team ranks, percentiles, and colored bars
         -   Offensive/Defensive Efficiency comparisons (pts/100 possessions)
         -   Efficiency Comparison section with flip button showing offense vs defense matchups
-        -   **Shooting Profile**: eFG%, Opp eFG%, 3PM/Game, Opp 3PM/Game (Season + L5 columns)
-        -   **Ball Control**: TOV%, Forced TOV% (Season + L5 columns)
-        -   **Rebounding**: ORB%, DRB% (Season + L5 columns)
-        -   **Pace & Free Throws**: FT Rate, Opp FT Rate, Tempo display (Season + L5 columns)
+        -   **Shooting Profile**: eFG%, 3PT%, 3PM/Game, PPG with Season + L5 columns
+        -   **Ball Control**: TOV%, TOV/Game with Season + L5 columns
+        -   **Rebounding**: ORB/Game, DRB/Game with Season + L5 columns
+        -   **Pace & Free Throws**: FT Rate, FT% with Season + L5 columns + Tempo display
         -   **Season vs L5**: All stats show both season averages and last 5 games performance
         -   **Strength of Schedule (SOS)**: Schedule difficulty rankings for context
         -   **Analyst Insight**: AI-generated summary of matchup advantages
-        -   Data Sources: NBA.com API, Bart Torvik (CBB), ESPN stats
+        -   **Live Data Integration** (Jan 2026): Multiple data sources for bulletproof stats:
+            -   **NBA.com API** (nba_api): L5 game stats via TeamGameLog endpoint with 30-min cache
+            -   **TeamRankings.com**: Advanced team metrics and predictive stats (web scraping)
+            -   **Covers.com**: ATS/O/U betting trends and historical records (web scraping)
+            -   **CTG-Style Metrics**: Cleaning-the-Glass style efficiency calculations (eFG%, TS%, TOV%, etc.)
+            -   Cache layer prevents API rate limiting and speeds up page loads
         -   Only shows for CBB/NBA games with advanced data available
         -   Mobile-optimized responsive design for iPhone
     -   **Formulas (STRICT - NO MODIFICATIONS)**:

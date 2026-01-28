@@ -485,15 +485,28 @@ class MatchupIntelligence:
             logger.warning(f"Error fetching team rankings: {e}")
             return {}
     
+    # L5 stats cache - stores team L5 data with TTL
+    _l5_cache = {}
+    _l5_cache_ttl = 1800  # 30 minute TTL
+    
     @staticmethod
     def get_team_last5_stats(team_name: str, league: str = 'NBA') -> dict:
         """
         Fetch last 5 games stats from NBA.com API for trend analysis.
         Returns dict with L5 averages for key metrics.
+        Uses in-memory cache with 30-minute TTL to avoid rate limiting.
         """
+        import time
+        
+        # Check cache first
+        cache_key = f"{team_name}_{league}"
+        if cache_key in MatchupIntelligence._l5_cache:
+            cached_data, cached_time = MatchupIntelligence._l5_cache[cache_key]
+            if time.time() - cached_time < MatchupIntelligence._l5_cache_ttl:
+                return cached_data
+        
         try:
             from nba_api.stats.endpoints import teamgamelog
-            import time
             
             # Find team ID
             team_id = None
@@ -505,7 +518,7 @@ class MatchupIntelligence:
             if not team_id:
                 return {}
             
-            time.sleep(0.6)  # Rate limiting
+            time.sleep(0.6)  # Rate limiting for NBA.com API
             
             # Fetch game log
             game_log = teamgamelog.TeamGameLog(
@@ -537,7 +550,7 @@ class MatchupIntelligence:
                 avg_fta = totals['FTA'] / n if n > 0 else 1
                 avg_fg3a = totals['FG3A'] / n if n > 0 else 1
                 
-                return {
+                result = {
                     'l5_efg': ((totals['FGM'] + 0.5 * totals['FG3M']) / max(1, totals['FGA'])) * 100,
                     'l5_fg_pct': (totals['FGM'] / max(1, totals['FGA'])) * 100,
                     'l5_fg3_pct': (totals['FG3M'] / max(1, totals['FG3A'])) * 100,
@@ -552,6 +565,9 @@ class MatchupIntelligence:
                     'l5_ft_rate': (totals['FTA'] / max(1, totals['FGA'])) * 100,
                     'games_played': n
                 }
+                # Cache the result
+                MatchupIntelligence._l5_cache[cache_key] = (result, time.time())
+                return result
             
             return {}
             
@@ -717,10 +733,10 @@ class MatchupIntelligence:
     @staticmethod
     def compute_matchup_stats(away_team: str, home_team: str, away_stats: dict, home_stats: dict, 
                              away_ppg: float, home_ppg: float, away_opp_ppg: float, home_opp_ppg: float,
-                             rankings: dict = None) -> dict:
+                             rankings: dict = None, league: str = 'NBA') -> dict:
         """
         Compute comprehensive matchup intelligence for a game.
-        Returns structured data for UI display.
+        Returns structured data for UI display including Season vs L5 comparisons.
         """
         result = {
             'has_data': False,
@@ -731,6 +747,20 @@ class MatchupIntelligence:
         # Get rankings data
         away_rank_data = rankings.get(away_team, {}) if rankings else {}
         home_rank_data = rankings.get(home_team, {}) if rankings else {}
+        
+        # Fetch L5 stats for both teams (NBA only for now)
+        away_l5 = {}
+        home_l5 = {}
+        if league == 'NBA':
+            try:
+                away_l5 = MatchupIntelligence.get_team_last5_stats(away_team, league)
+                home_l5 = MatchupIntelligence.get_team_last5_stats(home_team, league)
+            except Exception as e:
+                logger.warning(f"Failed to fetch L5 stats: {e}")
+        
+        # Store L5 data in result for template access
+        result['away_l5'] = away_l5
+        result['home_l5'] = home_l5
         
         # Power Rating section
         away_power_rank = away_rank_data.get('power_rank', 0)
@@ -816,65 +846,79 @@ class MatchupIntelligence:
                 }
             }
         
-        # Shooting Profile
+        # Shooting Profile with Season vs L5 comparison
         if away_stats and home_stats:
             result['shooting_profile'] = {
-                '2pt_pct': {
-                    'away': round(away_stats.get('2pt_pct', 0), 1),
-                    'home': round(home_stats.get('2pt_pct', 0), 1),
-                    'd1_avg': MatchupIntelligence.D1_AVERAGES['2PT%']
+                'efg_pct': {
+                    'away_season': round(away_stats.get('efg_pct', 0), 1),
+                    'home_season': round(home_stats.get('efg_pct', 0), 1),
+                    'away_l5': round(away_l5.get('l5_efg', 0), 1) if away_l5 else 0,
+                    'home_l5': round(home_l5.get('l5_efg', 0), 1) if home_l5 else 0,
+                    'd1_avg': MatchupIntelligence.D1_AVERAGES['eFG%']
                 },
                 '3pt_pct': {
-                    'away': round(away_stats.get('fg3_pct', 0), 1),
-                    'home': round(home_stats.get('fg3_pct', 0), 1),
+                    'away_season': round(away_stats.get('fg3_pct', 0), 1),
+                    'home_season': round(home_stats.get('fg3_pct', 0), 1),
+                    'away_l5': round(away_l5.get('l5_fg3_pct', 0), 1) if away_l5 else 0,
+                    'home_l5': round(home_l5.get('l5_fg3_pct', 0), 1) if home_l5 else 0,
                     'd1_avg': MatchupIntelligence.D1_AVERAGES['3PT%']
                 },
-                '3pt_rate': {
-                    'away': round(away_stats.get('3pt_rate', 0), 1),
-                    'home': round(home_stats.get('3pt_rate', 0), 1),
-                    'd1_avg': MatchupIntelligence.D1_AVERAGES['3PT_RATE']
-                },
-                'efg_pct': {
-                    'away': round(away_stats.get('efg_pct', 0), 1),
-                    'home': round(home_stats.get('efg_pct', 0), 1),
-                    'd1_avg': MatchupIntelligence.D1_AVERAGES['eFG%']
+                '3pm_game': {
+                    'away_season': round(away_stats.get('fg3m', 0), 1),
+                    'home_season': round(home_stats.get('fg3m', 0), 1),
+                    'away_l5': round(away_l5.get('l5_fg3m', 0), 1) if away_l5 else 0,
+                    'home_l5': round(home_l5.get('l5_fg3m', 0), 1) if home_l5 else 0
                 }
             }
             result['has_data'] = True
         
-        # Ball Control
+        # Ball Control with Season vs L5 comparison
         if away_stats and home_stats:
             away_tov_pct = away_stats.get('tov_pct', 0)
             home_tov_pct = home_stats.get('tov_pct', 0)
             result['ball_control'] = {
                 'tov_pct': {
-                    'away': round(away_tov_pct, 1),
-                    'home': round(home_tov_pct, 1),
+                    'away_season': round(away_tov_pct, 1),
+                    'home_season': round(home_tov_pct, 1),
+                    'away_l5': round(away_l5.get('l5_tov_pct', 0), 1) if away_l5 else 0,
+                    'home_l5': round(home_l5.get('l5_tov_pct', 0), 1) if home_l5 else 0,
                     'd1_avg': MatchupIntelligence.D1_AVERAGES['TOV%'],
                     'away_protects': away_tov_pct < MatchupIntelligence.D1_AVERAGES['TOV%'],
-                    'home_protects': home_tov_pct < MatchupIntelligence.D1_AVERAGES['TOV%'],
-                    'away_presses': away_tov_pct > MatchupIntelligence.D1_AVERAGES['TOV%'] + 2,
-                    'home_presses': home_tov_pct > MatchupIntelligence.D1_AVERAGES['TOV%'] + 2
+                    'home_protects': home_tov_pct < MatchupIntelligence.D1_AVERAGES['TOV%']
+                },
+                'forced_tov_pct': {
+                    'away_season': round(away_stats.get('forced_tov_pct', 0), 1),
+                    'home_season': round(home_stats.get('forced_tov_pct', 0), 1),
+                    'away_l5': 0,  # Would need opponent data for accurate L5
+                    'home_l5': 0
                 }
             }
         
-        # Rebounding
+        # Rebounding with Season vs L5 comparison
         if away_stats and home_stats:
             away_orb_pct = away_stats.get('orb_pct', 0)
             home_orb_pct = home_stats.get('orb_pct', 0)
+            away_drb_pct = away_stats.get('drb_pct', 0)
+            home_drb_pct = home_stats.get('drb_pct', 0)
             result['rebounding'] = {
                 'orb_pct': {
-                    'away': round(away_orb_pct, 1),
-                    'home': round(home_orb_pct, 1),
+                    'away_season': round(away_orb_pct, 1),
+                    'home_season': round(home_orb_pct, 1),
+                    'away_l5': round(away_l5.get('l5_orb', 0), 1) if away_l5 else 0,
+                    'home_l5': round(home_l5.get('l5_orb', 0), 1) if home_l5 else 0,
                     'd1_avg': MatchupIntelligence.D1_AVERAGES['ORB%'],
                     'away_crashes': away_orb_pct > MatchupIntelligence.D1_AVERAGES['ORB%'] + 2,
-                    'home_crashes': home_orb_pct > MatchupIntelligence.D1_AVERAGES['ORB%'] + 2,
-                    'away_locks_out': away_orb_pct < MatchupIntelligence.D1_AVERAGES['ORB%'] - 2,
-                    'home_locks_out': home_orb_pct < MatchupIntelligence.D1_AVERAGES['ORB%'] - 2
+                    'home_crashes': home_orb_pct > MatchupIntelligence.D1_AVERAGES['ORB%'] + 2
+                },
+                'drb_pct': {
+                    'away_season': round(away_drb_pct, 1),
+                    'home_season': round(home_drb_pct, 1),
+                    'away_l5': round(away_l5.get('l5_drb', 0), 1) if away_l5 else 0,
+                    'home_l5': round(home_l5.get('l5_drb', 0), 1) if home_l5 else 0
                 }
             }
         
-        # Pace & Free Throws
+        # Pace & Free Throws with Season vs L5 comparison
         if away_stats and home_stats:
             away_ft_rate = away_stats.get('ft_rate', 0)
             home_ft_rate = home_stats.get('ft_rate', 0)
@@ -882,11 +926,19 @@ class MatchupIntelligence:
             home_pace = home_rank_data.get('pace', 100)
             result['pace_ft'] = {
                 'ft_rate': {
-                    'away': round(away_ft_rate, 1),
-                    'home': round(home_ft_rate, 1),
+                    'away_season': round(away_ft_rate, 1),
+                    'home_season': round(home_ft_rate, 1),
+                    'away_l5': round(away_l5.get('l5_ft_rate', 0), 1) if away_l5 else 0,
+                    'home_l5': round(home_l5.get('l5_ft_rate', 0), 1) if home_l5 else 0,
                     'd1_avg': MatchupIntelligence.D1_AVERAGES['FT_RATE'],
                     'away_attacks': away_ft_rate > MatchupIntelligence.D1_AVERAGES['FT_RATE'] + 5,
                     'home_attacks': home_ft_rate > MatchupIntelligence.D1_AVERAGES['FT_RATE'] + 5
+                },
+                'opp_ft_rate': {
+                    'away_season': round(away_stats.get('opp_ft_rate', 0), 1),
+                    'home_season': round(home_stats.get('opp_ft_rate', 0), 1),
+                    'away_l5': 0,  # Would need opponent data
+                    'home_l5': 0
                 },
                 'pace': {
                     'away': round(away_pace, 1),
@@ -6432,6 +6484,25 @@ def dashboard():
     # TOP 5: Games qualified by edge threshold (sorted by edge)
     # Sort by edge before taking top 5
     qualified.sort(key=lambda x: x.alt_edge or x.edge or 0, reverse=True)
+    
+    # FETCH L5 STATS for NBA games (advanced analytics)
+    # Pre-cache L5 data to avoid API calls during template render
+    for g in qualified:
+        if g.league == 'NBA':
+            try:
+                away_l5 = MatchupIntelligence.get_team_last5_stats(g.away_team, 'NBA')
+                home_l5 = MatchupIntelligence.get_team_last5_stats(g.home_team, 'NBA')
+                g.matchup_l5 = {
+                    'away': away_l5,
+                    'home': home_l5,
+                    'has_data': bool(away_l5 or home_l5)
+                }
+            except Exception as e:
+                logger.warning(f"Error fetching L5 stats for {g.away_team} vs {g.home_team}: {e}")
+                g.matchup_l5 = {'away': {}, 'home': {}, 'has_data': False}
+        else:
+            g.matchup_l5 = {'away': {}, 'home': {}, 'has_data': False}
+    
     top_picks = []
     for g in qualified[:5]:
         # Use alt edge if available (better line), else main edge
