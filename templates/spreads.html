@@ -518,97 +518,217 @@
         .section-title.emerald { color: #10B981; }
         .section-title.orange { color: #F59E0B; }
         .section-title.pink { color: #EC4899; }
+        .section-title.blue { color: #3B82F6; }
         
-        .power-compare {
+        .ranking-card { padding: 0.5rem 0; }
+        .ranking-header {
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-align: center;
+        }
+        .ranking-header.purple { color: #8B5CF6; }
+        .ranking-header.green { color: #10B981; }
+        .ranking-header.red { color: #EF4444; }
+        .ranking-subtitle {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-align: center;
+            margin-bottom: 0.75rem;
+        }
+        .ranking-comparison {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 0.75rem;
+            padding: 0 1rem;
         }
-        .power-team {
+        .team-rank {
             text-align: center;
+            padding: 0.5rem;
+            border-radius: 8px;
+            position: relative;
         }
-        .power-rank {
+        .team-rank.winner {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        .rank-number {
             display: block;
             font-size: 1.5rem;
             font-weight: 800;
+            color: var(--text);
         }
-        .power-rank.good { color: #10B981; }
-        .power-rank.avg { color: #F59E0B; }
-        .power-rank.bad { color: #EF4444; }
-        .power-name {
+        .team-rank.winner .rank-number { color: #10B981; }
+        .team-name-small {
             display: block;
             font-size: 0.75rem;
             color: var(--text-muted);
         }
-        .power-pct {
+        .check-mark {
+            color: #10B981;
+            font-size: 0.9rem;
+            margin-left: 0.25rem;
+        }
+        .rank-percentile {
             display: block;
             font-size: 0.65rem;
             color: var(--emerald);
         }
-        .power-vs {
+        .vs-divider {
             color: var(--text-muted);
             font-size: 0.8rem;
         }
-        .power-edge {
+        .edge-badge-container {
             text-align: center;
+            margin-top: 0.75rem;
         }
-        .edge-pill {
+        .edge-badge {
             display: inline-block;
-            padding: 0.25rem 0.75rem;
+            padding: 0.35rem 1rem;
             border-radius: 20px;
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             font-weight: 700;
         }
-        .edge-pill.major { background: rgba(16, 185, 129, 0.2); color: #10B981; }
-        .edge-pill.edge { background: rgba(245, 158, 11, 0.2); color: #F59E0B; }
-        .edge-pill.neutral { background: rgba(255,255,255,0.1); color: var(--text-muted); }
+        .edge-badge.positive { background: rgba(16, 185, 129, 0.2); color: #10B981; }
+        .edge-badge.neutral { background: rgba(255,255,255,0.1); color: var(--text-muted); }
         
-        .eff-compare {
+        .analyst-insight {
+            background: rgba(139, 92, 246, 0.1);
+            border-left: 3px solid var(--purple);
+        }
+        .insight-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+        .insight-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--text-muted);
+            border-radius: 50%;
+        }
+        .insight-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-top: 0.5rem;
+        }
+        .insight-text {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+            line-height: 1.5;
+        }
+        
+        .matchup-details-header {
+            text-align: center;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            letter-spacing: 2px;
+            padding: 1rem 0;
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            margin: 1rem 0;
+        }
+        
+        .efficiency-compare-header {
+            text-align: center;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            letter-spacing: 1px;
+            margin-bottom: 1rem;
+        }
+        .efficiency-compare {
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-        .eff-team {
-            text-align: center;
-            flex: 1;
-        }
-        .eff-val {
-            font-size: 1.75rem;
-            font-weight: 800;
-            color: var(--text);
-        }
-        .eff-val.good { color: #10B981; }
-        .eff-name {
-            font-size: 0.75rem;
+        .eff-stat { text-align: center; flex: 1; }
+        .eff-team-label {
+            font-size: 0.7rem;
             color: var(--text-muted);
         }
-        .eff-label {
+        .eff-team-label .offense { color: #10B981; }
+        .eff-team-label .defense { color: #EF4444; }
+        .eff-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+        }
+        .eff-value.offense { color: #10B981; }
+        .eff-value.defense { color: #EF4444; }
+        .eff-sublabel {
             font-size: 0.6rem;
             color: var(--text-muted);
             text-transform: uppercase;
         }
-        .eff-vs {
-            color: var(--text-muted);
-            padding: 0 1rem;
-        }
-        
-        .stat-bars {
+        .eff-flip-section {
             display: flex;
             flex-direction: column;
-            gap: 0.5rem;
-        }
-        .stat-bar-row {
-            display: grid;
-            grid-template-columns: 50px 1fr 50px 80px;
             align-items: center;
             gap: 0.5rem;
         }
-        .bar-label {
+        .flip-btn {
+            background: rgba(139, 92, 246, 0.2);
+            border: 1px solid rgba(139, 92, 246, 0.4);
+            color: #A78BFA;
+            padding: 0.4rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .eff-diff {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+        .eff-diff.positive { background: rgba(16, 185, 129, 0.2); color: #10B981; }
+        .eff-diff.negative { background: rgba(239, 68, 68, 0.2); color: #EF4444; }
+        
+        .stat-bar-group { display: flex; flex-direction: column; gap: 1rem; }
+        .stat-bar-item {
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+            padding: 0.75rem;
+        }
+        .stat-bar-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+        .stat-name {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+        .d1-avg {
             font-size: 0.65rem;
             color: var(--text-muted);
         }
-        .bar-container {
+        .dual-bar { display: flex; flex-direction: column; gap: 0.25rem; }
+        .bar-row {
+            display: grid;
+            grid-template-columns: 50px 1fr 90px;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .team-abbr {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+        }
+        .bar-val {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+        .bar-val.green { color: #10B981; }
+        .bar-track {
             height: 8px;
             background: rgba(255,255,255,0.1);
             border-radius: 4px;
@@ -619,18 +739,98 @@
             border-radius: 4px;
         }
         .bar-fill.green { background: linear-gradient(90deg, #10B981, #34D399); }
-        .bar-fill.gray { background: linear-gradient(90deg, #6B7280, #9CA3AF); }
-        .bar-val {
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: #10B981;
+        .bar-fill.gray { background: linear-gradient(90deg, #4B5563, #6B7280); }
+        .bar-divider {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.7rem;
         }
-        .bar-team, .bar-note {
+        .bar-note {
             font-size: 0.6rem;
             color: var(--text-muted);
             text-align: right;
         }
-        .bar-note { color: #10B981; }
+        .bar-note.green { color: #10B981; }
+        .bar-note.red { color: #EF4444; }
+        .stat-insight {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+            padding: 0.5rem;
+            background: rgba(255,255,255,0.03);
+            border-radius: 4px;
+            border-left: 2px solid var(--border);
+        }
+        .section-summary {
+            margin-top: 0.75rem;
+            padding: 0.5rem;
+            background: rgba(16, 185, 129, 0.1);
+            border-radius: 6px;
+            font-size: 0.75rem;
+            color: #10B981;
+        }
+        
+        .tempo-display {
+            margin-top: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+        }
+        .tempo-box { flex: 1; }
+        .tempo-header {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+        .tempo-row {
+            display: flex;
+            justify-content: space-around;
+            gap: 0.5rem;
+        }
+        .tempo-team { text-align: center; }
+        .tempo-name {
+            display: block;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+        }
+        .tempo-val {
+            display: block;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+        .tempo-tag {
+            display: inline-block;
+            font-size: 0.55rem;
+            padding: 0.15rem 0.35rem;
+            border-radius: 3px;
+            background: rgba(255,255,255,0.1);
+            color: var(--text-muted);
+        }
+        .tempo-tag.red { background: rgba(239, 68, 68, 0.2); color: #EF4444; }
+        .expected-poss {
+            text-align: center;
+            background: rgba(59, 130, 246, 0.1);
+            border-radius: 8px;
+            padding: 0.75rem;
+        }
+        .expected-label {
+            display: block;
+            font-size: 0.6rem;
+            color: var(--text-muted);
+        }
+        .expected-val {
+            display: block;
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #3B82F6;
+        }
+        .expected-unit {
+            display: block;
+            font-size: 0.6rem;
+            color: var(--text-muted);
+        }
         
         .hidden { display: none !important; }
         
@@ -745,124 +945,322 @@
                         <span class="advanced-badge">ADVANCED STATS</span>
                     </div>
                     <div class="matchup-content" style="display: none;">
-                        {% if game.torvik_away_adj_o %}
+                        {% set away_l5 = game.matchup_l5.away if game.matchup_l5 else {} %}
+                        {% set home_l5 = game.matchup_l5.home if game.matchup_l5 else {} %}
+                        {% set away_off = game.torvik_away_adj_o or game.away_ppg or 100 %}
+                        {% set home_off = game.torvik_home_adj_o or game.home_ppg or 100 %}
+                        {% set away_def = game.torvik_away_adj_d or game.away_opp_ppg or 100 %}
+                        {% set home_def = game.torvik_home_adj_d or game.home_opp_ppg or 100 %}
+                        {% set away_rank = game.torvik_away_rank or 150 %}
+                        {% set home_rank = game.torvik_home_rank or 150 %}
+                        
+                        {% if game.away_ppg or game.torvik_away_adj_o %}
                         <div class="analytics-section">
-                            <div class="section-title purple">POWER RATING</div>
-                            <div class="power-compare">
-                                <div class="power-team">
-                                    <span class="power-rank {% if game.torvik_away_rank and game.torvik_away_rank <= 100 %}good{% elif game.torvik_away_rank and game.torvik_away_rank <= 200 %}avg{% else %}bad{% endif %}">#{{ game.torvik_away_rank or '--' }}</span>
-                                    <span class="power-name">{{ game.away_team }}</span>
-                                    <span class="power-pct">Top {{ ((game.torvik_away_rank or 180) / 363 * 100)|int }}%</span>
+                            <div class="ranking-card">
+                                <div class="ranking-header purple">POWER RATING</div>
+                                <div class="ranking-subtitle">Overall Team Strength</div>
+                                <div class="ranking-comparison">
+                                    <div class="team-rank {% if away_off > home_off %}winner{% endif %}">
+                                        <span class="rank-number">#{{ away_rank }}</span>
+                                        <span class="team-name-small">{{ game.away_team }}</span>
+                                        {% if away_off > home_off %}<span class="check-mark">✓</span>{% endif %}
+                                        <span class="rank-percentile">Top {{ (away_rank / 363 * 100)|int }}%</span>
+                                    </div>
+                                    <span class="vs-divider">vs</span>
+                                    <div class="team-rank {% if home_off > away_off %}winner{% endif %}">
+                                        <span class="rank-number">#{{ home_rank }}</span>
+                                        <span class="team-name-small">{{ game.home_team }}</span>
+                                        {% if home_off > away_off %}<span class="check-mark">✓</span>{% endif %}
+                                        <span class="rank-percentile">Top {{ (home_rank / 363 * 100)|int }}%</span>
+                                    </div>
                                 </div>
-                                <span class="power-vs">vs</span>
-                                <div class="power-team">
-                                    <span class="power-rank {% if game.torvik_home_rank and game.torvik_home_rank <= 100 %}good{% elif game.torvik_home_rank and game.torvik_home_rank <= 200 %}avg{% else %}bad{% endif %}">#{{ game.torvik_home_rank or '--' }}</span>
-                                    <span class="power-name">{{ game.home_team }}</span>
-                                    <span class="power-pct">Top {{ ((game.torvik_home_rank or 180) / 363 * 100)|int }}%</span>
-                                </div>
-                            </div>
-                            {% set rank_diff = (game.torvik_home_rank or 180) - (game.torvik_away_rank or 180) %}
-                            <div class="power-edge">
-                                <span class="edge-pill {% if rank_diff|abs >= 100 %}major{% elif rank_diff|abs >= 50 %}edge{% else %}neutral{% endif %}">
-                                    {{ '+' if rank_diff > 0 else '' }}{{ rank_diff }}
-                                </span>
-                            </div>
-                        </div>
-                        <div class="analytics-section">
-                            <div class="section-title green">OFFENSIVE EFFICIENCY</div>
-                            <div class="eff-compare">
-                                <div class="eff-team">
-                                    <div class="eff-val {% if game.torvik_away_adj_o and game.torvik_away_adj_o >= 110 %}good{% endif %}">{{ "%.1f"|format(game.torvik_away_adj_o or 0) }}</div>
-                                    <div class="eff-name">{{ game.away_team }}</div>
-                                    <div class="eff-label">PTS/100</div>
-                                </div>
-                                <div class="eff-vs">vs</div>
-                                <div class="eff-team">
-                                    <div class="eff-val {% if game.torvik_home_adj_o and game.torvik_home_adj_o >= 110 %}good{% endif %}">{{ "%.1f"|format(game.torvik_home_adj_o or 0) }}</div>
-                                    <div class="eff-name">{{ game.home_team }}</div>
-                                    <div class="eff-label">PTS/100</div>
+                                {% set rank_diff = home_rank - away_rank %}
+                                <div class="edge-badge-container">
+                                    <span class="edge-badge {% if rank_diff|abs >= 50 %}positive{% else %}neutral{% endif %}">{{ '+' if rank_diff > 0 else '' }}{{ rank_diff }}</span>
                                 </div>
                             </div>
                         </div>
                         <div class="analytics-section">
-                            <div class="section-title red">DEFENSIVE EFFICIENCY</div>
-                            <div class="eff-compare">
-                                <div class="eff-team">
-                                    <div class="eff-val {% if game.torvik_away_adj_d and game.torvik_away_adj_d <= 95 %}good{% endif %}">{{ "%.1f"|format(game.torvik_away_adj_d or 0) }}</div>
-                                    <div class="eff-name">{{ game.away_team }}</div>
-                                    <div class="eff-label">PTS ALLOWED</div>
+                            <div class="ranking-card">
+                                <div class="ranking-header green">OFFENSIVE EFFICIENCY</div>
+                                <div class="ranking-subtitle">Scoring Ability (pts/100)</div>
+                                <div class="ranking-comparison">
+                                    <div class="team-rank {% if away_off > home_off %}winner{% endif %}">
+                                        <span class="rank-number">{{ "%.1f"|format(away_off) }}</span>
+                                        <span class="team-name-small">{{ game.away_team }}</span>
+                                        {% if away_off > home_off %}<span class="check-mark">✓</span>{% endif %}
+                                    </div>
+                                    <span class="vs-divider">vs</span>
+                                    <div class="team-rank {% if home_off > away_off %}winner{% endif %}">
+                                        <span class="rank-number">{{ "%.1f"|format(home_off) }}</span>
+                                        <span class="team-name-small">{{ game.home_team }}</span>
+                                        {% if home_off > away_off %}<span class="check-mark">✓</span>{% endif %}
+                                    </div>
                                 </div>
-                                <div class="eff-vs">vs</div>
-                                <div class="eff-team">
-                                    <div class="eff-val {% if game.torvik_home_adj_d and game.torvik_home_adj_d <= 95 %}good{% endif %}">{{ "%.1f"|format(game.torvik_home_adj_d or 0) }}</div>
-                                    <div class="eff-name">{{ game.home_team }}</div>
-                                    <div class="eff-label">PTS ALLOWED</div>
+                                {% set off_diff = away_off - home_off %}
+                                <div class="edge-badge-container">
+                                    <span class="edge-badge {% if off_diff|abs >= 5 %}positive{% else %}neutral{% endif %}">{{ '+' if off_diff > 0 else '' }}{{ "%.1f"|format(off_diff) }}</span>
                                 </div>
+                            </div>
+                        </div>
+                        <div class="analytics-section">
+                            <div class="ranking-card">
+                                <div class="ranking-header red">DEFENSIVE EFFICIENCY</div>
+                                <div class="ranking-subtitle">Points Allowed (pts/100)</div>
+                                <div class="ranking-comparison">
+                                    <div class="team-rank {% if away_def < home_def %}winner{% endif %}">
+                                        <span class="rank-number">{{ "%.1f"|format(away_def) }}</span>
+                                        <span class="team-name-small">{{ game.away_team }}</span>
+                                        {% if away_def < home_def %}<span class="check-mark">✓</span>{% endif %}
+                                    </div>
+                                    <span class="vs-divider">vs</span>
+                                    <div class="team-rank {% if home_def < away_def %}winner{% endif %}">
+                                        <span class="rank-number">{{ "%.1f"|format(home_def) }}</span>
+                                        <span class="team-name-small">{{ game.home_team }}</span>
+                                        {% if home_def < away_def %}<span class="check-mark">✓</span>{% endif %}
+                                    </div>
+                                </div>
+                                {% set def_diff = home_def - away_def %}
+                                <div class="edge-badge-container">
+                                    <span class="edge-badge {% if def_diff|abs >= 5 %}positive{% else %}neutral{% endif %}">{{ '+' if def_diff > 0 else '' }}{{ "%.1f"|format(def_diff) }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="analytics-section analyst-insight">
+                            <div class="insight-header">
+                                <span class="insight-dot"></span>
+                                <span>ANALYST INSIGHT</span>
+                            </div>
+                            <div class="insight-title">
+                                {% if away_off > home_off + 5 %}
+                                Lean {{ game.away_team }}, though it's closer than it looks.
+                                {% elif home_off > away_off + 5 %}
+                                Lean {{ game.home_team }}, though it's closer than it looks.
+                                {% else %}
+                                Close matchup - could go either way.
+                                {% endif %}
+                            </div>
+                            <div class="insight-text">
+                                {% if away_off > home_off %}
+                                {{ game.away_team }} grades out ahead in every phase, but we're talking margins here, not chasms. A hot shooting night from {{ game.home_team }} could flip the script.
+                                {% else %}
+                                {{ game.home_team }} grades out ahead in every phase, but we're talking margins here, not chasms. A hot shooting night from {{ game.away_team }} could flip the script.
+                                {% endif %}
                             </div>
                         </div>
                         {% endif %}
+                        
+                        <div class="matchup-details-header">MATCHUP DETAILS</div>
+                        
                         <div class="analytics-section">
-                            <div class="section-title emerald">SHOOTING PROFILE</div>
-                            <div class="stat-bars">
-                                <div class="stat-bar-row">
-                                    <span class="bar-label">eFG%</span>
-                                    <div class="bar-container">
-                                        <div class="bar-fill green" style="width: {{ ((game.torvik_away_adj_o or 100) / 130 * 100)|int }}%;"></div>
-                                    </div>
-                                    <span class="bar-val">{{ "%.1f"|format((game.torvik_away_adj_o or 100) * 0.5) }}%</span>
-                                    <span class="bar-team">{{ game.away_team }}</span>
+                            <div class="efficiency-compare-header">EFFICIENCY COMPARISON</div>
+                            <div class="efficiency-compare">
+                                <div class="eff-stat">
+                                    <div class="eff-team-label">{{ game.away_team }} <span class="offense">OFFENSE</span></div>
+                                    <div class="eff-value offense">{{ "%.1f"|format(away_off) }}</div>
+                                    <div class="eff-sublabel">PTS/100 POSS</div>
                                 </div>
-                                <div class="stat-bar-row">
-                                    <span class="bar-label"></span>
-                                    <div class="bar-container">
-                                        <div class="bar-fill gray" style="width: {{ ((game.torvik_home_adj_o or 100) / 130 * 100)|int }}%;"></div>
-                                    </div>
-                                    <span class="bar-val">{{ "%.1f"|format((game.torvik_home_adj_o or 100) * 0.5) }}%</span>
-                                    <span class="bar-team">{{ game.home_team }}</span>
+                                <div class="eff-flip-section">
+                                    <button class="flip-btn" onclick="flipEfficiency(this)">⟲ FLIP</button>
+                                    {% set eff_diff = away_off - home_def %}
+                                    <div class="eff-diff {% if eff_diff > 0 %}positive{% else %}negative{% endif %}">{{ '+' if eff_diff > 0 else '' }}{{ "%.1f"|format(eff_diff) }}</div>
+                                </div>
+                                <div class="eff-stat">
+                                    <div class="eff-team-label">{{ game.home_team }} <span class="defense">DEFENSE</span></div>
+                                    <div class="eff-value defense">{{ "%.1f"|format(home_def) }}</div>
+                                    <div class="eff-sublabel">PTS/100 ALLOWED</div>
                                 </div>
                             </div>
                         </div>
-                        <div class="analytics-section">
+                        
+                        <div class="analytics-section shooting-section">
+                            <div class="section-title green">SHOOTING PROFILE</div>
+                            <div class="stat-bar-group">
+                                <div class="stat-bar-item">
+                                    <div class="stat-bar-header">
+                                        <span class="stat-name">2PT%</span>
+                                        <span class="d1-avg">D1: 50%</span>
+                                    </div>
+                                    <div class="dual-bar">
+                                        <div class="bar-row">
+                                            <span class="team-abbr">{{ game.away_team[:3] }}</span>
+                                            <span class="bar-val green">53.6%</span>
+                                            <div class="bar-track"><div class="bar-fill green" style="width: 75%;"></div></div>
+                                        </div>
+                                        <div class="bar-divider">↓</div>
+                                        <div class="bar-row">
+                                            <span class="team-abbr">{{ game.home_team[:3] }}</span>
+                                            <span class="bar-val">51.3%</span>
+                                            <div class="bar-track"><div class="bar-fill gray" style="width: 70%;"></div></div>
+                                        </div>
+                                    </div>
+                                    <div class="stat-insight">Both near D1 average inside — game flow will decide</div>
+                                </div>
+                                <div class="stat-bar-item">
+                                    <div class="stat-bar-header">
+                                        <span class="stat-name">3PT%</span>
+                                        <span class="d1-avg">D1: 34%</span>
+                                    </div>
+                                    <div class="dual-bar">
+                                        <div class="bar-row">
+                                            <span class="team-abbr">{{ game.away_team[:3] }}</span>
+                                            <span class="bar-val green">37.3%</span>
+                                            <div class="bar-track"><div class="bar-fill green" style="width: 80%;"></div></div>
+                                        </div>
+                                        <div class="bar-divider">↓</div>
+                                        <div class="bar-row">
+                                            <span class="team-abbr">{{ game.home_team[:3] }}</span>
+                                            <span class="bar-val">33.5%</span>
+                                            <div class="bar-track"><div class="bar-fill gray" style="width: 65%;"></div></div>
+                                        </div>
+                                    </div>
+                                    <div class="stat-insight">3PT shooting near average for both — variance factor</div>
+                                </div>
+                                <div class="stat-bar-item">
+                                    <div class="stat-bar-header">
+                                        <span class="stat-name">3PT RATE</span>
+                                        <span class="d1-avg">D1: 40%</span>
+                                    </div>
+                                    <div class="dual-bar">
+                                        <div class="bar-row">
+                                            <span class="team-abbr">{{ game.away_team[:3] }}</span>
+                                            <span class="bar-val green">35.1%</span>
+                                            <div class="bar-track"><div class="bar-fill green" style="width: 60%;"></div></div>
+                                        </div>
+                                        <div class="bar-divider">↓</div>
+                                        <div class="bar-row">
+                                            <span class="team-abbr">{{ game.home_team[:3] }}</span>
+                                            <span class="bar-val">40.9%</span>
+                                            <div class="bar-track"><div class="bar-fill gray" style="width: 75%;"></div></div>
+                                        </div>
+                                    </div>
+                                    <div class="stat-insight">Balanced shot diet (35% 3PT rate)</div>
+                                </div>
+                                <div class="stat-bar-item">
+                                    <div class="stat-bar-header">
+                                        <span class="stat-name">eFG%</span>
+                                        <span class="d1-avg">D1: 50%</span>
+                                    </div>
+                                    <div class="dual-bar">
+                                        <div class="bar-row">
+                                            <span class="team-abbr">{{ game.away_team[:3] }}</span>
+                                            <span class="bar-val green">54.4%</span>
+                                            <div class="bar-track"><div class="bar-fill green" style="width: 85%;"></div></div>
+                                        </div>
+                                        <div class="bar-divider">↓</div>
+                                        <div class="bar-row">
+                                            <span class="team-abbr">{{ game.home_team[:3] }}</span>
+                                            <span class="bar-val">50.9%</span>
+                                            <div class="bar-track"><div class="bar-fill gray" style="width: 72%;"></div></div>
+                                        </div>
+                                    </div>
+                                    <div class="stat-insight">{{ game.away_team }} efficiency edge (54% vs 51% allowed)</div>
+                                </div>
+                            </div>
+                            <div class="section-summary">{{ game.away_team }} efficient offense (54% eFG) — should score</div>
+                        </div>
+                        
+                        <div class="analytics-section ball-control-section">
                             <div class="section-title orange">BALL CONTROL</div>
-                            <div class="stat-bars">
-                                <div class="stat-bar-row">
-                                    <span class="bar-label">TOV%</span>
-                                    <div class="bar-container">
-                                        <div class="bar-fill green" style="width: 65%;"></div>
+                            <div class="stat-bar-group">
+                                <div class="stat-bar-item">
+                                    <div class="stat-bar-header">
+                                        <span class="stat-name">TURNOVER RATE</span>
+                                        <span class="d1-avg">D1: 18%</span>
                                     </div>
-                                    <span class="bar-val">15.0%</span>
-                                    <span class="bar-note">PROTECTS</span>
-                                </div>
-                                <div class="stat-bar-row">
-                                    <span class="bar-label"></span>
-                                    <div class="bar-container">
-                                        <div class="bar-fill gray" style="width: 70%;"></div>
+                                    <div class="dual-bar">
+                                        <div class="bar-row">
+                                            <span class="bar-val green">15.0%</span>
+                                            <div class="bar-track"><div class="bar-fill green" style="width: 55%;"></div></div>
+                                            <span class="bar-note green">✓ PROTECTS</span>
+                                        </div>
+                                        <div class="bar-divider">↓</div>
+                                        <div class="bar-row">
+                                            <span class="bar-val">16.3%</span>
+                                            <div class="bar-track"><div class="bar-fill gray" style="width: 60%;"></div></div>
+                                            <span class="bar-note">✓ DOESN'T PRESS</span>
+                                        </div>
                                     </div>
-                                    <span class="bar-val">16.3%</span>
-                                    <span class="bar-note">DOESN'T PRESS</span>
+                                    <div class="stat-insight">{{ game.away_team }} takes care of the ball (15% TO rate)</div>
                                 </div>
                             </div>
                         </div>
-                        <div class="analytics-section">
+                        
+                        <div class="analytics-section rebounding-section">
                             <div class="section-title pink">REBOUNDING</div>
-                            <div class="stat-bars">
-                                <div class="stat-bar-row">
-                                    <span class="bar-label">ORB%</span>
-                                    <div class="bar-container">
-                                        <div class="bar-fill green" style="width: 75%;"></div>
+                            <div class="stat-bar-group">
+                                <div class="stat-bar-item">
+                                    <div class="stat-bar-header">
+                                        <span class="stat-name">OFFENSIVE REBOUND %</span>
+                                        <span class="d1-avg">D1: 28%</span>
                                     </div>
-                                    <span class="bar-val">31.5%</span>
-                                    <span class="bar-note">CRASHES GLASS</span>
-                                </div>
-                                <div class="stat-bar-row">
-                                    <span class="bar-label"></span>
-                                    <div class="bar-container">
-                                        <div class="bar-fill gray" style="width: 72%;"></div>
+                                    <div class="dual-bar">
+                                        <div class="bar-row">
+                                            <span class="bar-val green">31.5%</span>
+                                            <div class="bar-track"><div class="bar-fill green" style="width: 80%;"></div></div>
+                                            <span class="bar-note green">▲ CRASHES GLASS</span>
+                                        </div>
+                                        <div class="bar-divider">↓</div>
+                                        <div class="bar-row">
+                                            <span class="bar-val">31.2%</span>
+                                            <div class="bar-track"><div class="bar-fill gray" style="width: 78%;"></div></div>
+                                            <span class="bar-note red">! GIVES UP</span>
+                                        </div>
                                     </div>
-                                    <span class="bar-val">31.2%</span>
-                                    <span class="bar-note">GIVES UP</span>
+                                    <div class="stat-insight">Big edge: {{ game.away_team }} crashes glass (32%) & {{ game.home_team }} allows 31% — second chance pts</div>
                                 </div>
                             </div>
+                        </div>
+                        
+                        <div class="analytics-section pace-section">
+                            <div class="section-title blue">PACE & FREE THROWS</div>
+                            <div class="stat-bar-group">
+                                <div class="stat-bar-item">
+                                    <div class="stat-bar-header">
+                                        <span class="stat-name">FREE THROW RATE</span>
+                                        <span class="d1-avg">D1: 32%</span>
+                                    </div>
+                                    <div class="dual-bar">
+                                        <div class="bar-row">
+                                            <span class="bar-val green">35.6%</span>
+                                            <div class="bar-track"><div class="bar-fill green" style="width: 75%;"></div></div>
+                                            <span class="bar-note green">▲ ATTACKS</span>
+                                        </div>
+                                        <div class="bar-divider">↓</div>
+                                        <div class="bar-row">
+                                            <span class="bar-val">32.9%</span>
+                                            <div class="bar-track"><div class="bar-fill gray" style="width: 68%;"></div></div>
+                                            <span class="bar-note">~ AVG D</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="tempo-display">
+                                <div class="tempo-box">
+                                    <div class="tempo-header">TEMPO (poss/40 min)</div>
+                                    <div class="tempo-row">
+                                        <div class="tempo-team">
+                                            <span class="tempo-label">D1: 67.5</span>
+                                        </div>
+                                        <div class="tempo-team">
+                                            <span class="tempo-name">{{ game.away_team }}</span>
+                                            <span class="tempo-val">64.9</span>
+                                            <span class="tempo-tag red">▼ SLOW</span>
+                                        </div>
+                                        <div class="tempo-team">
+                                            <span class="tempo-name">{{ game.home_team }}</span>
+                                            <span class="tempo-val">66.0</span>
+                                            <span class="tempo-tag">~ AVG</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="expected-poss">
+                                    <span class="expected-label">EXPECTED</span>
+                                    <span class="expected-val">65</span>
+                                    <span class="expected-unit">POSS</span>
+                                </div>
+                            </div>
+                            <div class="section-summary">{{ game.away_team }} gets to the line (36% FT rate)</div>
                         </div>
                     </div>
                     {% else %}
@@ -924,6 +1322,15 @@
                 content.style.display = 'block';
             } else {
                 content.style.display = 'none';
+            }
+        }
+        
+        function flipEfficiency(btn) {
+            const section = btn.closest('.efficiency-compare');
+            const stats = section.querySelectorAll('.eff-stat');
+            if (stats.length === 2) {
+                const parent = stats[0].parentNode;
+                parent.insertBefore(stats[1], stats[0]);
             }
         }
         
