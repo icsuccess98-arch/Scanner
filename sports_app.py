@@ -1215,7 +1215,7 @@ class MatchupIntelligence:
     @staticmethod
     def compute_matchup_stats(away_team: str, home_team: str, away_stats: dict, home_stats: dict, 
                              away_ppg: float, home_ppg: float, away_opp_ppg: float, home_opp_ppg: float,
-                             rankings: dict = None, league: str = 'NBA') -> dict:
+                             rankings: dict = None, league: str = 'NBA', tr_data: dict = None) -> dict:
         """
         Compute comprehensive matchup intelligence for a game.
         Returns structured data for UI display including Season vs L5 comparisons.
@@ -1238,23 +1238,23 @@ class MatchupIntelligence:
         # Store L3 data in result for template access (using l5 keys for compatibility)
         result['away_l5'] = {
             'l5_pts': away_l3.get('points/game', 0),
-            'l5_efg': away_l3.get('eff fg %', away_l3.get('effective fg pct', 0)),
-            'l5_fg3_pct': away_l3.get('three point %', away_l3.get('3-point pct', 0)),
-            'l5_ft_pct': away_l3.get('free throw %', away_l3.get('free throw pct', 0)),
-            'l5_tov_pct': away_l3.get('turnovers/play', away_l3.get('turnovers/possession', 0)),
-            'l5_orb': away_l3.get('off rebounds/gm', away_l3.get('offensive rebounds/game', 0)),
-            'l5_drb': away_l3.get('def rebounds/gm', away_l3.get('defensive rebounds/game', 0)),
-            'l5_ft_rate': away_l3.get('free throw rate', 0)
+            'l5_efg': away_l3.get('effective fg %', 0),
+            'l5_fg3_pct': away_l3.get('three point %', 0),
+            'l5_ft_pct': away_l3.get('free throw %', 0),
+            'l5_tov_pct': away_l3.get('turnovers/game', 0),
+            'l5_orb': away_l3.get('off rebounds/gm', 0),
+            'l5_drb': away_l3.get('def rebounds/gm', 0),
+            'l5_ft_rate': away_l3.get('fta/fga', 0)
         }
         result['home_l5'] = {
             'l5_pts': home_l3.get('points/game', 0),
-            'l5_efg': home_l3.get('eff fg %', home_l3.get('effective fg pct', 0)),
-            'l5_fg3_pct': home_l3.get('three point %', home_l3.get('3-point pct', 0)),
-            'l5_ft_pct': home_l3.get('free throw %', home_l3.get('free throw pct', 0)),
-            'l5_tov_pct': home_l3.get('turnovers/play', home_l3.get('turnovers/possession', 0)),
-            'l5_orb': home_l3.get('off rebounds/gm', home_l3.get('offensive rebounds/game', 0)),
-            'l5_drb': home_l3.get('def rebounds/gm', home_l3.get('defensive rebounds/game', 0)),
-            'l5_ft_rate': home_l3.get('free throw rate', 0)
+            'l5_efg': home_l3.get('effective fg %', 0),
+            'l5_fg3_pct': home_l3.get('three point %', 0),
+            'l5_ft_pct': home_l3.get('free throw %', 0),
+            'l5_tov_pct': home_l3.get('turnovers/game', 0),
+            'l5_orb': home_l3.get('off rebounds/gm', 0),
+            'l5_drb': home_l3.get('def rebounds/gm', 0),
+            'l5_ft_rate': home_l3.get('fta/fga', 0)
         }
         
         logger.info(f"L3 data: away={len(away_l3)} stats, home={len(home_l3)} stats")
