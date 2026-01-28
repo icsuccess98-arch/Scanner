@@ -136,29 +136,34 @@
             font-weight: 600;
         }
         
+        /* LEAGUE TABS - FIXED positioning, no overlap */
         .league-tabs {
             display: flex;
             overflow-x: auto;
-            padding: 0.75rem 1rem;
-            gap: 0.5rem;
+            padding: 12px 16px;
+            gap: 8px;
             background: var(--bg-card);
             border-bottom: 1px solid var(--border);
             -webkit-overflow-scrolling: touch;
+            position: relative;
+            z-index: 50;
+            margin-top: 0;
         }
         .league-tab {
             flex-shrink: 0;
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
+            padding: 8px 16px;
+            border-radius: 24px;
             background: var(--bg-input);
             color: var(--text-muted);
-            font-size: 0.85rem;
+            font-size: 14px;
             font-weight: 600;
             cursor: pointer;
             border: 1px solid var(--border);
             transition: all 0.2s;
             display: flex;
             align-items: center;
-            gap: 0.4rem;
+            gap: 6px;
+            white-space: nowrap;
         }
         .league-tab .tab-logo {
             width: 18px;
@@ -180,11 +185,12 @@
             box-shadow: 0 0 12px rgba(80, 200, 120, 0.4);
         }
         .league-tab .count {
-            background: rgba(255,255,255,0.2);
-            padding: 0.1rem 0.4rem;
-            border-radius: 10px;
-            margin-left: 0.3rem;
-            font-size: 0.75rem;
+            background: rgba(255,255,255,0.25);
+            padding: 2px 8px;
+            border-radius: 12px;
+            margin-left: 4px;
+            font-size: 12px;
+            font-weight: 700;
         }
         
         .games-container {
@@ -1041,191 +1047,274 @@
             line-height: 1.5;
         }
         
-        /* BREAKDOWN SECTIONS - Power Rating, Shooting Profile, etc */
+        /* ============================================
+           BREAKDOWN SECTIONS - iPhone 17 Optimized
+           Hardcoded fonts, colors, and alignments
+           ============================================ */
         .breakdown-card {
-            background: linear-gradient(145deg, rgba(20, 25, 35, 0.95), rgba(15, 18, 28, 0.98));
-            border: 1px solid rgba(0, 200, 255, 0.15);
-            border-radius: 12px;
-            padding: 1rem;
-            margin-bottom: 0.75rem;
+            background: linear-gradient(145deg, rgba(18, 22, 32, 0.98), rgba(12, 15, 22, 0.99));
+            border: 1px solid rgba(0, 180, 220, 0.2);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 12px;
         }
         .breakdown-header {
-            background: linear-gradient(135deg, rgba(0, 150, 200, 0.3), rgba(0, 100, 150, 0.2));
+            background: linear-gradient(135deg, rgba(0, 140, 180, 0.35), rgba(0, 100, 140, 0.25));
             color: #00d4ff;
-            font-size: 0.85rem;
+            font-size: 14px;
             font-weight: 700;
             text-align: center;
-            padding: 0.6rem 1rem;
-            border-radius: 8px;
-            margin-bottom: 0.75rem;
-            letter-spacing: 1px;
+            padding: 10px 16px;
+            border-radius: 10px;
+            margin-bottom: 6px;
+            letter-spacing: 2px;
             text-transform: uppercase;
         }
         .breakdown-subtitle {
-            color: var(--text-muted);
-            font-size: 0.65rem;
+            color: #9990B0;
+            font-size: 11px;
             text-align: center;
-            margin-top: -0.5rem;
-            margin-bottom: 0.75rem;
+            margin-bottom: 12px;
         }
         .rank-comparison {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 0.5rem;
+            padding: 8px 4px;
         }
         .rank-box {
             text-align: center;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            min-width: 80px;
+            padding: 10px 16px;
+            border-radius: 10px;
+            min-width: 100px;
+            flex: 1;
+            max-width: 120px;
         }
         .rank-box.winner {
-            background: rgba(16, 185, 129, 0.15);
-            border: 1px solid rgba(16, 185, 129, 0.4);
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.35);
+        }
+        .rank-box .team-name {
+            font-size: 12px;
+            font-weight: 600;
+            color: #F8F8FF;
+            margin-bottom: 4px;
         }
         .rank-box .rank-num {
-            font-size: 1.5rem;
+            font-size: 28px;
             font-weight: 800;
             color: #00d4ff;
+            line-height: 1.1;
         }
         .rank-box.winner .rank-num { color: #10B981; }
-        .rank-box .team-name {
-            font-size: 0.7rem;
-            font-weight: 600;
-            color: var(--text);
-            margin-bottom: 0.25rem;
-        }
         .rank-box .percentile {
-            font-size: 0.6rem;
-            color: var(--text-muted);
+            font-size: 10px;
+            color: #9990B0;
+            margin-top: 2px;
         }
-        .rank-vs { color: var(--text-muted); font-size: 0.7rem; }
+        .rank-vs {
+            color: #9990B0;
+            font-size: 12px;
+            padding: 0 8px;
+        }
         .rank-diff {
             background: rgba(16, 185, 129, 0.2);
             color: #10B981;
-            font-size: 0.75rem;
+            font-size: 13px;
             font-weight: 700;
-            padding: 0.3rem 0.75rem;
+            padding: 6px 16px;
             border-radius: 20px;
             text-align: center;
-            margin: 0.5rem auto 0;
+            margin: 8px auto 0;
             width: fit-content;
         }
-        
-        /* Progress bar stats */
-        .stat-bar-row {
-            margin-bottom: 0.6rem;
+        /* Progress bar section with horizontal lines */
+        .progress-section { padding: 8px 0; }
+        .progress-section .stat-row {
+            margin-bottom: 16px;
         }
-        .stat-bar-label {
+        .progress-section .stat-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 0.25rem;
+            margin-bottom: 8px;
         }
-        .stat-bar-label .stat-name {
-            font-size: 0.65rem;
-            color: var(--text-muted);
+        .progress-section .stat-label {
+            font-size: 11px;
+            color: #9990B0;
             text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
-        .stat-bar-label .d1-avg {
-            font-size: 0.6rem;
-            color: var(--text-muted);
+        .progress-section .d1-ref {
+            font-size: 10px;
+            color: #9990B0;
         }
-        .stat-bar-team {
+        .progress-section .team-row {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            margin-bottom: 0.3rem;
+            gap: 8px;
+            margin-bottom: 6px;
         }
-        .stat-bar-team .team-abbr {
-            font-size: 0.65rem;
-            color: var(--text-muted);
-            min-width: 45px;
-        }
-        .stat-bar-team .stat-value {
-            font-size: 0.8rem;
-            font-weight: 700;
+        .progress-section .team-abbr {
+            font-size: 11px;
+            color: #9990B0;
             min-width: 50px;
         }
-        .stat-bar-team .stat-value.green { color: #10B981; }
-        .stat-bar-team .stat-value.red { color: #EF4444; }
-        .stat-bar-team .stat-value.neutral { color: var(--text); }
-        .progress-bar-bg {
+        .progress-section .stat-val {
+            font-size: 15px;
+            font-weight: 700;
+            min-width: 60px;
+        }
+        .progress-section .stat-val.green { color: #10B981; }
+        .progress-section .stat-val.red { color: #EF4444; }
+        .progress-section .stat-val.neutral { color: #F8F8FF; }
+        .progress-section .bar-bg {
             flex: 1;
             height: 8px;
-            background: rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.08);
             border-radius: 4px;
             overflow: hidden;
         }
-        .progress-bar-fill {
+        .progress-section .bar-fill {
             height: 100%;
             border-radius: 4px;
-            transition: width 0.3s;
         }
-        .progress-bar-fill.green { background: linear-gradient(90deg, #10B981, #34D399); }
-        .progress-bar-fill.red { background: linear-gradient(90deg, #EF4444, #F87171); }
-        .progress-bar-fill.neutral { background: linear-gradient(90deg, #6B7280, #9CA3AF); }
-        .stat-bar-team .stat-note {
-            font-size: 0.55rem;
-            color: var(--text-muted);
+        .progress-section .bar-fill.green { background: linear-gradient(90deg, #10B981, #34D399); }
+        .progress-section .bar-fill.red { background: linear-gradient(90deg, #EF4444, #F87171); }
+        .progress-section .bar-fill.neutral { background: linear-gradient(90deg, #6B7280, #9CA3AF); }
+        .progress-section .note {
+            font-size: 10px;
+            min-width: 75px;
             text-align: right;
-            min-width: 70px;
         }
-        .stat-bar-team .stat-note.green { color: #10B981; }
-        .stat-bar-team .stat-note.red { color: #EF4444; }
-        
-        .insight-box {
+        .progress-section .note.green { color: #10B981; }
+        .progress-section .note.red { color: #EF4444; }
+        .progress-section .insight {
             background: rgba(255,255,255,0.03);
-            border-left: 3px solid var(--text-muted);
-            padding: 0.6rem 0.75rem;
-            margin: 0.5rem 0;
-            font-size: 0.7rem;
-            color: var(--text);
-            line-height: 1.4;
+            border-left: 3px solid #9990B0;
+            padding: 10px 12px;
+            margin: 8px 0;
+            font-size: 12px;
+            color: #F8F8FF;
+            line-height: 1.5;
+        }
+        /* Tempo section */
+        .tempo-grid {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 12px 0;
+        }
+        .tempo-box {
+            text-align: center;
+        }
+        .tempo-box .tempo-team {
+            font-size: 11px;
+            color: #9990B0;
+            margin-bottom: 4px;
+        }
+        .tempo-box .tempo-val {
+            font-size: 24px;
+            font-weight: 700;
+            color: #00d4ff;
+        }
+        .tempo-box .tempo-note {
+            font-size: 10px;
+            margin-top: 2px;
+        }
+        .tempo-box .tempo-note.slow { color: #EF4444; }
+        .tempo-box .tempo-note.fast { color: #10B981; }
+        .tempo-box .tempo-note.avg { color: #9990B0; }
+        .tempo-expected {
+            background: rgba(16, 185, 129, 0.12);
+            padding: 10px 16px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .tempo-expected .exp-label {
+            font-size: 9px;
+            color: #9990B0;
+            letter-spacing: 1px;
+        }
+        .tempo-expected .exp-val {
+            font-size: 20px;
+            font-weight: 700;
+            color: #10B981;
+        }
+        .tempo-expected .exp-unit {
+            font-size: 9px;
+            color: #9990B0;
+        }
+        /* iPhone 17 mobile hardcoded */
+        @media (max-width: 430px) {
+            .breakdown-card { padding: 14px; margin-bottom: 10px; border-radius: 14px; }
+            .breakdown-header { font-size: 13px; padding: 9px 14px; letter-spacing: 1.5px; }
+            .rank-box { min-width: 85px; max-width: 110px; padding: 8px 12px; }
+            .rank-box .rank-num { font-size: 24px; }
+            .rank-box .team-name { font-size: 11px; }
+            .rank-box .percentile { font-size: 9px; }
+            .progress-section .stat-val { font-size: 14px; min-width: 55px; }
+            .tempo-box .tempo-val { font-size: 20px; }
         }
         
-        /* Fix text wrapping */
-        .stats-table td, .stats-table th {
-            word-wrap: break-word;
-            overflow-wrap: break-word;
-            white-space: nowrap;
+        /* KEY METRICS TABLE - Clean, readable */
+        .key-metrics-card {
+            background: linear-gradient(145deg, rgba(18, 22, 32, 0.98), rgba(12, 15, 22, 0.99));
+            border: 1px solid rgba(255, 200, 0, 0.2);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 16px;
         }
-        @media (max-width: 480px) {
-            .stats-table td, .stats-table th { white-space: normal; font-size: 0.6rem; }
-            .rank-box { min-width: 70px; padding: 0.4rem 0.5rem; }
-            .rank-box .rank-num { font-size: 1.2rem; }
-            .breakdown-header { font-size: 0.75rem; padding: 0.5rem; }
+        .key-metrics-card .km-header {
+            background: linear-gradient(135deg, rgba(255, 200, 0, 0.25), rgba(200, 150, 0, 0.15));
+            color: #FFD700;
+            font-size: 14px;
+            font-weight: 700;
+            text-align: center;
+            padding: 10px 16px;
+            border-radius: 10px;
+            margin-bottom: 12px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
         }
-        
         .stats-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.7rem;
+            font-size: 13px;
         }
         .stats-table th {
-            background: rgba(0,0,0,0.3);
-            color: var(--text-muted);
+            background: rgba(0,0,0,0.4);
+            color: #9990B0;
             font-weight: 600;
-            padding: 0.4rem 0.3rem;
+            padding: 10px 8px;
             text-align: center;
-            font-size: 0.65rem;
-            border-bottom: 1px solid var(--border);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
         }
         .stats-table th.team-col {
-            min-width: 70px;
+            min-width: 75px;
         }
         .stats-table td {
-            padding: 0.35rem 0.3rem;
+            padding: 10px 8px;
             text-align: center;
             border-bottom: 1px solid rgba(255,255,255,0.05);
-            color: var(--text);
+            color: #F8F8FF;
+            font-size: 13px;
         }
         .stats-table td.metric-name {
             text-align: left;
-            padding-left: 0.5rem;
+            padding-left: 12px;
             font-weight: 500;
-            color: var(--text-muted);
+            color: #9990B0;
+        }
+        .stats-table td.metric-name.key-metric {
+            color: #FFA500;
+            font-weight: 600;
+        }
+        .stats-table tr.key-metric-row {
+            background: rgba(255, 165, 0, 0.08);
         }
         .stats-table td.stat-winner {
             background: rgba(16, 185, 129, 0.15);
