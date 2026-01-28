@@ -87,12 +87,13 @@ Only one app can run at a time. Configure the workflow to switch between apps.
             -   **Ball Control**: TOV%, F-TOV% (with ranks from CTG)
             -   **Efficiency**: O Eff, D Eff (from TeamRankings)
             -   **Shooting**: eFG%, Opp eFG% (with ranks from CTG)
-            -   **3PT**: 3PM/Gm, Opp 3PM/Gm (from TeamRankings)
+            -   **3PT**: 3PT%, Opp 3PT% (from TeamRankings)
             -   **Free Throws**: FT Rate, Opp FT Rate (with ranks from CTG)
-            -   **Schedule**: SOS (from TeamRankings)
-            -   Edge count displays X/15 format
-            -   **STRENGTH OF SCHEDULE**: SOS Rank from TeamRankings team profile pages
-            -   **LAST 3 GAMES**: Recent performance comparison with same stats
+            -   **Schedule**: SOS Rank (from TeamRankings)
+            -   **Footer Stats** (Jan 2026): Additional context in table footer:
+                -   H2H L10: Head-to-head last 10 games record from ESPN
+                -   Record: Team W/L records from ESPN
+                -   Edge Count: X/15 format showing statistical edges
         -   Only shows for CBB/NBA games with advanced data available
         -   Mobile-optimized responsive design for iPhone
     -   **Formulas (STRICT - NO MODIFICATIONS)**:

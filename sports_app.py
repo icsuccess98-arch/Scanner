@@ -1011,6 +1011,120 @@ class MatchupIntelligence:
             return {}
     
     @staticmethod
+    def fetch_h2h_and_records(away_team: str, home_team: str, league: str = 'NBA') -> dict:
+        """
+        Fetch H2H L10 W/L and team W/L records from ESPN.
+        Returns: {h2h_record: "6-4", h2h_leader: "Lakers", away_record: "24-20", home_record: "30-15"}
+        """
+        import requests
+        
+        result = {
+            'h2h_record': 'N/A',
+            'h2h_leader': 'Even',
+            'away_record': 'N/A',
+            'home_record': 'N/A'
+        }
+        
+        try:
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+            
+            away_id = get_espn_team_id(away_team, league)
+            home_id = get_espn_team_id(home_team, league)
+            
+            if not away_id or not home_id:
+                return result
+            
+            sport_map = {"NBA": "basketball/nba", "CBB": "basketball/mens-college-basketball"}
+            sport = sport_map.get(league, "basketball/nba")
+            
+            # Get team records from ESPN team endpoint
+            for team_name, team_id, key in [(away_team, away_id, 'away_record'), (home_team, home_id, 'home_record')]:
+                try:
+                    team_url = f"https://site.api.espn.com/apis/site/v2/sports/{sport}/teams/{team_id}"
+                    resp = requests.get(team_url, headers=headers, timeout=10)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        team_data = data.get('team', {})
+                        record = team_data.get('record', {})
+                        if isinstance(record, dict):
+                            items = record.get('items', [])
+                            if items:
+                                overall = next((r for r in items if r.get('type') == 'total'), items[0] if items else None)
+                                if overall:
+                                    summary = overall.get('summary', '')
+                                    if summary:
+                                        result[key] = summary
+                except Exception as e:
+                    logger.debug(f"Could not fetch record for {team_name}: {e}")
+            
+            # Fetch H2H from away team's schedule
+            try:
+                url = f"https://site.api.espn.com/apis/site/v2/sports/{sport}/teams/{away_id}/schedule"
+                resp = requests.get(url, headers=headers, timeout=15)
+                
+                if resp.status_code == 200:
+                    events = resp.json().get("events", [])
+                    h2h_games = []
+                    
+                    for event in events:
+                        status = event.get("competitions", [{}])[0].get("status", {}).get("type", {}).get("name", "")
+                        if status != "STATUS_FINAL":
+                            continue
+                        
+                        comps = event.get("competitions", [{}])[0]
+                        competitors = comps.get("competitors", [])
+                        if len(competitors) < 2:
+                            continue
+                        
+                        # Check if this game is between our two teams
+                        team_ids = [str(c.get("team", {}).get("id", "")) for c in competitors]
+                        if str(home_id) not in team_ids:
+                            continue
+                        
+                        # Found a H2H game
+                        home_comp = next((c for c in competitors if c.get("homeAway") == "home"), None)
+                        away_comp = next((c for c in competitors if c.get("homeAway") == "away"), None)
+                        
+                        if home_comp and away_comp:
+                            h_score = int(home_comp.get("score", 0) or 0)
+                            a_score = int(away_comp.get("score", 0) or 0)
+                            h_id = str(home_comp.get("team", {}).get("id", ""))
+                            a_id = str(away_comp.get("team", {}).get("id", ""))
+                            
+                            # Track which of our teams won
+                            winner_id = h_id if h_score > a_score else a_id
+                            
+                            h2h_games.append({
+                                'winner_id': winner_id,
+                                'away_team_id': str(away_id),
+                                'home_team_id': str(home_id)
+                            })
+                    
+                    # Take last 10 H2H games
+                    h2h_games = h2h_games[-10:]
+                    
+                    if h2h_games:
+                        away_wins = sum(1 for g in h2h_games if g['winner_id'] == str(away_id))
+                        home_wins = sum(1 for g in h2h_games if g['winner_id'] == str(home_id))
+                        
+                        result['h2h_record'] = f"{away_wins}-{home_wins}"
+                        if away_wins > home_wins:
+                            result['h2h_leader'] = away_team
+                        elif home_wins > away_wins:
+                            result['h2h_leader'] = home_team
+                        else:
+                            result['h2h_leader'] = 'Even'
+            except Exception as e:
+                logger.debug(f"Could not fetch H2H: {e}")
+            
+            logger.info(f"H2H {away_team} vs {home_team}: {result['h2h_record']} ({result['h2h_leader']}), Records: {result['away_record']} vs {result['home_record']}")
+            return result
+            
+        except Exception as e:
+            logger.warning(f"Error fetching H2H for {away_team} vs {home_team}: {e}")
+            return result
+    
+    @staticmethod
     def compute_ctg_metrics(team_stats: dict, league: str = 'NBA') -> dict:
         """
         Compute Cleaning-the-Glass style efficiency metrics.
@@ -9108,6 +9222,7 @@ def get_matchup_data(game_id):
             # Fetch Cleaning the Glass Four Factors (NBA only) - more accurate for eFG%, TOV%, ORB%, FT Rate
             away_ctg = {}
             home_ctg = {}
+            covers_data = {}
             if game.league == 'NBA':
                 try:
                     away_ctg = MatchupIntelligence.fetch_ctg_four_factors(game.away_team)
@@ -9115,6 +9230,22 @@ def get_matchup_data(game_id):
                     logging.info(f"CTG data: away={away_ctg}, home={home_ctg}")
                 except Exception as e:
                     logging.warning(f"CTG fetch error: {e}")
+                
+                # Fetch H2H L10 and team records from ESPN
+                try:
+                    h2h_data = MatchupIntelligence.fetch_h2h_and_records(game.away_team, game.home_team, game.league)
+                    logging.info(f"H2H data: {h2h_data}")
+                except Exception as e:
+                    logging.warning(f"H2H fetch error: {e}")
+                    h2h_data = {}
+            else:
+                h2h_data = {}
+            
+            # Add H2H and records to result
+            result['h2h_record'] = h2h_data.get('h2h_record', 'N/A')
+            result['h2h_leader'] = h2h_data.get('h2h_leader', 'Even')
+            result['away_record'] = h2h_data.get('away_record', 'N/A')
+            result['home_record'] = h2h_data.get('home_record', 'N/A')
             
             # Convert to display format - Season Stats using exact TeamRankings stat names
             result['away_season'] = {
