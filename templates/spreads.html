@@ -1179,24 +1179,25 @@
         </div>
         {% else %}
         
-        {% if qualifying_picks|length > 0 %}
+        <!-- Elimination Process Section - Always Show for NBA -->
+        {% if eliminated_large_spread|length > 0 or eliminated_bad_teams|length > 0 or eliminated_bad_defense|length > 0 or qualifying_picks|length > 0 %}
         <div class="qualifying-section">
             <div class="qualifying-header">
-                <i class="bi bi-trophy-fill"></i>
-                <span>QUALIFYING PICKS</span>
-                <span class="qual-count">{{ qualifying_picks|length }}</span>
+                <i class="bi bi-filter"></i>
+                <span>NBA ELIMINATION PROCESS</span>
+                <span class="qual-count">{{ qualifying_picks|length }} remaining</span>
             </div>
             <div class="elimination-breakdown">
                 <div class="elim-row">
-                    <span class="elim-label"><i class="bi bi-x-circle-fill red"></i> Large Spread (10+)</span>
+                    <span class="elim-label"><i class="bi bi-x-circle-fill red"></i> Large Spread (10+): {{ eliminated_large_spread|length }}</span>
                     <span class="elim-teams">{% for g in eliminated_large_spread[:3] %}{{ g.away_team }} @ {{ g.home_team }}{% if not loop.last %}, {% endif %}{% endfor %}{% if eliminated_large_spread|length > 3 %} +{{ eliminated_large_spread|length - 3 }} more{% endif %}</span>
                 </div>
                 <div class="elim-row">
-                    <span class="elim-label"><i class="bi bi-x-circle-fill red"></i> Bad Teams</span>
+                    <span class="elim-label"><i class="bi bi-x-circle-fill red"></i> Bad Teams: {{ eliminated_bad_teams|length }}</span>
                     <span class="elim-teams">{% for g in eliminated_bad_teams[:3] %}{{ g.away_team }} @ {{ g.home_team }}{% if not loop.last %}, {% endif %}{% endfor %}{% if eliminated_bad_teams|length > 3 %} +{{ eliminated_bad_teams|length - 3 }} more{% endif %}</span>
                 </div>
                 <div class="elim-row">
-                    <span class="elim-label"><i class="bi bi-x-circle-fill red"></i> Bad Defense L5</span>
+                    <span class="elim-label"><i class="bi bi-x-circle-fill red"></i> Bad Defense L5: {{ eliminated_bad_defense|length }}</span>
                     <span class="elim-teams">{% for g in eliminated_bad_defense[:3] %}{{ g.away_team }} @ {{ g.home_team }}{% if not loop.last %}, {% endif %}{% endfor %}{% if eliminated_bad_defense|length > 3 %} +{{ eliminated_bad_defense|length - 3 }} more{% endif %}</span>
                 </div>
             </div>
