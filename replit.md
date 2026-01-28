@@ -95,9 +95,9 @@ Only one app can run at a time. Configure the workflow to switch between apps.
                 -   ATS L10: Against the spread record from Covers.com (e.g., "4-6-0" with leader name)
                 -   Record: Team W/L records (e.g., "23-23" vs "11-36")
                 -   Edge Count: X/15 format showing statistical edges
-            -   **Last 5 Games Table** (Jan 2026): Second table showing recent performance:
+            -   **Last 3 Games Table** (Jan 2026): Second table showing recent performance:
                 -   PPG, eFG%, 3PT%, FT%, TOV%, ORB, DRB, FT Rate
-                -   Data from NBA.com API TeamGameLog endpoint
+                -   Data from TeamRankings splits page (Last 3 Games columns)
                 -   Edge highlighting for each stat comparison
         -   Only shows for CBB/NBA games with advanced data available
         -   Mobile-optimized responsive design for iPhone

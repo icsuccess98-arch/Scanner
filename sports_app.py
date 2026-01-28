@@ -711,7 +711,7 @@ class MatchupIntelligence:
             except Exception as e:
                 logger.warning(f"Efficiency page error: {e}")
             
-            # 3. SPLITS PAGE - Multi-header format with Season + Last 3 Games columns
+            # 3. SPLITS PAGE - 10-column format: Stat | Season(CHI,adv,IND) | Last3(CHI,adv,IND) | AvH(CHI,adv,IND)
             try:
                 resp = requests.get(f"{base_url}/splits", headers=headers, timeout=15)
                 if resp.status_code == 200:
@@ -723,18 +723,21 @@ class MatchupIntelligence:
                         if len(rows) < 3:
                             continue
                         
-                        for row in rows:
+                        for row in rows[2:]:  # Skip 2 header rows
                             cells = row.find_all(['td', 'th'])
                             if len(cells) < 7:
                                 continue
                             stat_name = cells[0].get_text(strip=True).lower()
-                            if not stat_name or 'stat' in stat_name or 'subscribe' in stat_name:
+                            if not stat_name or 'stat' in stat_name or 'subscribe' in stat_name or 'split' in stat_name:
                                 continue
                             
+                            # Season data: columns 1 (away), 3 (home)
                             away_season = parse_value(cells[1].get_text(strip=True))
                             home_season = parse_value(cells[3].get_text(strip=True))
-                            away_l3 = parse_value(cells[4].get_text(strip=True))
-                            home_l3 = parse_value(cells[6].get_text(strip=True))
+                            
+                            # Last 3 Games data: columns 4 (away), 6 (home)
+                            away_l3 = parse_value(cells[4].get_text(strip=True)) if len(cells) > 6 else None
+                            home_l3 = parse_value(cells[6].get_text(strip=True)) if len(cells) > 6 else None
                             
                             if away_season is not None:
                                 result['away_season'][stat_name] = away_season
@@ -1227,19 +1230,34 @@ class MatchupIntelligence:
         away_rank_data = rankings.get(away_team, {}) if rankings else {}
         home_rank_data = rankings.get(home_team, {}) if rankings else {}
         
-        # Fetch L5 stats for both teams (NBA only for now)
-        away_l5 = {}
-        home_l5 = {}
-        if league == 'NBA':
-            try:
-                away_l5 = MatchupIntelligence.get_team_last5_stats(away_team, league)
-                home_l5 = MatchupIntelligence.get_team_last5_stats(home_team, league)
-            except Exception as e:
-                logger.warning(f"Failed to fetch L5 stats: {e}")
+        # Use TeamRankings L3 data (Last 3 Games) instead of NBA.com API
+        # L3 data comes from the TeamRankings splits page - already in tr_data
+        away_l3 = tr_data.get('away_l3', {}) if tr_data else {}
+        home_l3 = tr_data.get('home_l3', {}) if tr_data else {}
         
-        # Store L5 data in result for template access
-        result['away_l5'] = away_l5
-        result['home_l5'] = home_l5
+        # Store L3 data in result for template access (using l5 keys for compatibility)
+        result['away_l5'] = {
+            'l5_pts': away_l3.get('points/game', 0),
+            'l5_efg': away_l3.get('eff fg %', away_l3.get('effective fg pct', 0)),
+            'l5_fg3_pct': away_l3.get('three point %', away_l3.get('3-point pct', 0)),
+            'l5_ft_pct': away_l3.get('free throw %', away_l3.get('free throw pct', 0)),
+            'l5_tov_pct': away_l3.get('turnovers/play', away_l3.get('turnovers/possession', 0)),
+            'l5_orb': away_l3.get('off rebounds/gm', away_l3.get('offensive rebounds/game', 0)),
+            'l5_drb': away_l3.get('def rebounds/gm', away_l3.get('defensive rebounds/game', 0)),
+            'l5_ft_rate': away_l3.get('free throw rate', 0)
+        }
+        result['home_l5'] = {
+            'l5_pts': home_l3.get('points/game', 0),
+            'l5_efg': home_l3.get('eff fg %', home_l3.get('effective fg pct', 0)),
+            'l5_fg3_pct': home_l3.get('three point %', home_l3.get('3-point pct', 0)),
+            'l5_ft_pct': home_l3.get('free throw %', home_l3.get('free throw pct', 0)),
+            'l5_tov_pct': home_l3.get('turnovers/play', home_l3.get('turnovers/possession', 0)),
+            'l5_orb': home_l3.get('off rebounds/gm', home_l3.get('offensive rebounds/game', 0)),
+            'l5_drb': home_l3.get('def rebounds/gm', home_l3.get('defensive rebounds/game', 0)),
+            'l5_ft_rate': home_l3.get('free throw rate', 0)
+        }
+        
+        logger.info(f"L3 data: away={len(away_l3)} stats, home={len(home_l3)} stats")
         
         # Power Rating section
         away_power_rank = away_rank_data.get('power_rank', 0)
