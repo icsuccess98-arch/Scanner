@@ -753,6 +753,30 @@ class MatchupIntelligence:
             except Exception as e:
                 logger.warning(f"Splits page error: {e}")
             
+            # 4. POWER-RATINGS PAGE - Get SOS Rank
+            try:
+                resp = requests.get(f"{base_url}/power-ratings", headers=headers, timeout=15)
+                if resp.status_code == 200:
+                    soup = BeautifulSoup(resp.text, 'html.parser')
+                    tables = soup.find_all('table')
+                    
+                    for table in tables:
+                        rows = table.find_all('tr')
+                        for row in rows:
+                            cells = row.find_all(['td', 'th'])
+                            if len(cells) >= 4:
+                                stat_name = cells[0].get_text(strip=True).lower()
+                                if 'strength of schedule' in stat_name or stat_name == 'sos':
+                                    # Format: Stat | Away Value | Away Rank | Home Rank
+                                    away_rank_text = cells[2].get_text(strip=True)
+                                    home_rank_text = cells[3].get_text(strip=True)
+                                    result['away_season']['sos rank'] = away_rank_text
+                                    result['home_season']['sos rank'] = home_rank_text
+                                    logger.info(f"SOS Rank: away={away_rank_text}, home={home_rank_text}")
+                                    break
+            except Exception as e:
+                logger.warning(f"Power-ratings page error: {e}")
+            
             logger.info(f"TeamRankings TOTAL: away_season={len(result['away_season'])}, home_season={len(result['home_season'])}")
             return result
             
@@ -9024,11 +9048,9 @@ def get_matchup_data(game_id):
                 'Opp TOV': find_stat(home_season, 'opp turnovers/game')
             }
             
-            # Fetch SOS for both teams
-            away_extra = MatchupIntelligence.fetch_teamrankings_stats(game.away_team, game.league)
-            home_extra = MatchupIntelligence.fetch_teamrankings_stats(game.home_team, game.league)
-            result['away_season']['SOS'] = away_extra.get('sos', 0) or away_extra.get('sos_rank', 'N/A')
-            result['home_season']['SOS'] = home_extra.get('sos', 0) or home_extra.get('sos_rank', 'N/A')
+            # SOS Rank comes from the power-ratings page scraper
+            result['away_season']['SOS'] = find_stat(away_season, 'sos rank') or 'N/A'
+            result['home_season']['SOS'] = find_stat(home_season, 'sos rank') or 'N/A'
             
             # Last 3 Games - use season stats as fallback since L3 may not be available from all pages
             result['away_l3'] = {
