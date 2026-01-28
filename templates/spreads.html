@@ -410,23 +410,38 @@
         }
         @media (max-width: 768px) {
             .mobile-bottom-nav { display: block; }
-            body { padding-bottom: 70px; }
-            .game-card { margin-bottom: 0.75rem; }
+            body { padding-bottom: 70px; overflow-x: hidden; }
+            .header { padding: 1rem 0.75rem; }
+            .brand { font-size: 1.5rem; }
+            .header-section { padding: 1rem 0.75rem; }
+            .control-panel { padding: 1rem; border-radius: 12px; }
+            .date-display { font-size: 1.2rem; }
+            .league-tabs { padding: 0 0.5rem; gap: 0.25rem; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+            .league-tabs::-webkit-scrollbar { display: none; }
+            .league-tab { font-size: 0.75rem; padding: 0.5rem 0.75rem; flex-shrink: 0; }
+            .games-container { padding: 0 0.5rem; }
+            .game-card { margin-bottom: 0.75rem; border-radius: 12px; }
             .game-content { padding: 0.75rem; }
-            .team-name { font-size: 0.95rem; white-space: nowrap; }
-            .team-stats { font-size: 0.7rem; white-space: nowrap; }
-            .spread-value { font-size: 1.25rem; }
-            .teams-matchup { gap: 0.5rem; }
-            .stats-table { font-size: 0.65rem; }
-            .stats-table th, .stats-table td { padding: 0.35rem 0.25rem; }
-            .section-divider { font-size: 0.7rem; padding: 6px 10px; }
-            .edge-summary-box { padding: 12px; }
-            .edge-team { font-size: 13px; }
-            .edge-winner { font-size: 14px; }
-            .edge-desc { font-size: 12px; }
-            .qualifying-section { padding: 0.75rem; }
-            .qualifying-header { font-size: 0.8rem; }
-            .elim-row { font-size: 0.65rem; }
+            .team-name { font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; }
+            .team-stats { font-size: 0.65rem; white-space: nowrap; }
+            .spread-value { font-size: 1.1rem; }
+            .teams-matchup { gap: 0.4rem; }
+            .vs-at { font-size: 0.75rem; }
+            .stats-table { font-size: 0.6rem; width: 100%; table-layout: fixed; }
+            .stats-table th, .stats-table td { padding: 0.3rem 0.2rem; word-wrap: break-word; overflow-wrap: break-word; }
+            .section-divider { font-size: 0.65rem; padding: 5px 8px; }
+            .edge-summary-box { padding: 10px; }
+            .edge-team { font-size: 12px; }
+            .edge-winner { font-size: 13px; }
+            .edge-desc { font-size: 11px; }
+            .qualifying-section { padding: 0.5rem; margin: 0 0.5rem 1rem; }
+            .qualifying-header { font-size: 0.75rem; }
+            .elim-row { font-size: 0.6rem; flex-wrap: wrap; }
+            .totals-grid { gap: 0.5rem; }
+            .spread-box { padding: 0.75rem; }
+            .spread-label { font-size: 0.6rem; }
+            .matchup-toggle { padding: 0.5rem 1rem; gap: 0.5rem; }
+            .matchup-toggle span { font-size: 0.75rem; }
         }
         
         .stats-comparison {
@@ -1192,28 +1207,13 @@
     <section class="header-section">
         <div class="control-panel">
             <div class="date-display">{{ today.strftime('%B %d, %Y') }}</div>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="value">{{ total_games }}</div>
-                    <div class="label">Games Today</div>
-                </div>
-                <div class="stat-card">
-                    <div class="value">{{ games_by_league['NBA']|length + games_by_league['CBB']|length }}</div>
-                    <div class="label">Basketball</div>
-                </div>
-            </div>
-            <div style="text-align: center;">
-                <button id="fetchSpreadsBtn" class="fetch-link" onclick="fetchSpreads()">
-                    <i class="bi bi-arrow-repeat"></i> Fetch Spreads
-                </button>
-            </div>
         </div>
     </section>
     
     <div class="league-tabs">
         <div class="league-tab active" data-league="all">All <span class="count">{{ total_games }}</span></div>
         {% for league, games in games_by_league.items() %}
-        {% if games|length > 0 %}
+        {% if games|length > 0 and league != 'NHL' %}
         <div class="league-tab" data-league="{{ league }}">{{ league }} <span class="count">{{ games|length }}</span></div>
         {% endif %}
         {% endfor %}
@@ -1266,7 +1266,7 @@
         {% endif %}
         
         {% for league, games in games_by_league.items() %}
-        {% if games|length > 0 %}
+        {% if games|length > 0 and league != 'NHL' %}
         <div class="league-section" data-league="{{ league }}">
             <div class="league-header">
                 {% if league == 'NBA' %}
@@ -1603,29 +1603,6 @@
                 });
             });
         });
-        
-        async function fetchSpreads() {
-            const btn = document.getElementById('fetchSpreadsBtn');
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Fetching...';
-            btn.disabled = true;
-            
-            try {
-                // Fetch games only (no odds/totals needed for spreads)
-                const gamesResp = await fetch('/fetch_games', { method: 'POST' });
-                const gamesData = await gamesResp.json();
-                
-                // Reload page to show new data
-                window.location.reload();
-            } catch (error) {
-                console.error('Error fetching spreads:', error);
-                btn.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Error';
-                setTimeout(() => {
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
-                }, 2000);
-            }
-        }
     </script>
 </body>
 </html>

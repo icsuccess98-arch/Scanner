@@ -8862,11 +8862,14 @@ def spreads():
             # Remaining = qualifying picks
             qualifying_picks.append(g)
     
+    # Exclude NHL from total count (not implemented yet)
+    basketball_games = [g for g in all_games if g.league in ['NBA', 'CBB']]
+    
     return render_template('spreads.html', 
                            games_by_league=games_by_league,
-                           all_games=all_games,
+                           all_games=basketball_games,
                            today=today,
-                           total_games=len(all_games),
+                           total_games=len(basketball_games),
                            eliminated_large_spread=eliminated_large_spread,
                            eliminated_bad_teams=eliminated_bad_teams,
                            eliminated_bad_defense=eliminated_bad_defense,
