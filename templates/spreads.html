@@ -450,6 +450,188 @@
             color: var(--emerald);
         }
         
+        .matchup-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(180deg, rgba(45, 40, 65, 0.9) 0%, rgba(30, 27, 45, 0.95) 100%);
+            border-top: 1px solid rgba(139, 92, 246, 0.3);
+            border-bottom: 1px solid rgba(139, 92, 246, 0.3);
+            cursor: pointer;
+            margin-top: 0.75rem;
+            transition: all 0.2s;
+        }
+        .matchup-toggle:hover {
+            background: linear-gradient(180deg, rgba(55, 48, 78, 0.95) 0%, rgba(35, 30, 52, 0.98) 100%);
+        }
+        .matchup-toggle i {
+            color: var(--text-muted);
+            font-size: 0.7rem;
+            transition: transform 0.3s;
+        }
+        .matchup-toggle.open i {
+            transform: rotate(90deg);
+        }
+        .matchup-toggle .toggle-text {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+        .advanced-badge {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.25), rgba(139, 92, 246, 0.15));
+            border: 1px solid rgba(139, 92, 246, 0.4);
+            color: #A78BFA;
+            padding: 0.35rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+        .advanced-badge::before {
+            content: "✦";
+            font-size: 0.65rem;
+        }
+        .matchup-content {
+            padding: 1rem 0;
+        }
+        .analytics-section {
+            background: linear-gradient(145deg, rgba(26, 24, 37, 0.8), rgba(18, 16, 26, 0.9));
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+        }
+        .section-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin-bottom: 0.75rem;
+        }
+        .section-title.purple { color: #8B5CF6; }
+        .section-title.green { color: #10B981; }
+        .section-title.red { color: #EF4444; }
+        .section-title.emerald { color: #10B981; }
+        .section-title.orange { color: #F59E0B; }
+        .section-title.pink { color: #EC4899; }
+        
+        .power-compare {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+        .power-team {
+            text-align: center;
+        }
+        .power-rank {
+            display: block;
+            font-size: 1.5rem;
+            font-weight: 800;
+        }
+        .power-rank.good { color: #10B981; }
+        .power-rank.avg { color: #F59E0B; }
+        .power-rank.bad { color: #EF4444; }
+        .power-name {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        .power-pct {
+            display: block;
+            font-size: 0.65rem;
+            color: var(--emerald);
+        }
+        .power-vs {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+        .power-edge {
+            text-align: center;
+        }
+        .edge-pill {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+        .edge-pill.major { background: rgba(16, 185, 129, 0.2); color: #10B981; }
+        .edge-pill.edge { background: rgba(245, 158, 11, 0.2); color: #F59E0B; }
+        .edge-pill.neutral { background: rgba(255,255,255,0.1); color: var(--text-muted); }
+        
+        .eff-compare {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .eff-team {
+            text-align: center;
+            flex: 1;
+        }
+        .eff-val {
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: var(--text);
+        }
+        .eff-val.good { color: #10B981; }
+        .eff-name {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        .eff-label {
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+        .eff-vs {
+            color: var(--text-muted);
+            padding: 0 1rem;
+        }
+        
+        .stat-bars {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .stat-bar-row {
+            display: grid;
+            grid-template-columns: 50px 1fr 50px 80px;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .bar-label {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+        }
+        .bar-container {
+            height: 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .bar-fill {
+            height: 100%;
+            border-radius: 4px;
+        }
+        .bar-fill.green { background: linear-gradient(90deg, #10B981, #34D399); }
+        .bar-fill.gray { background: linear-gradient(90deg, #6B7280, #9CA3AF); }
+        .bar-val {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #10B981;
+        }
+        .bar-team, .bar-note {
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            text-align: right;
+        }
+        .bar-note { color: #10B981; }
+        
         .hidden { display: none !important; }
         
         @media (max-width: 374px) {
@@ -556,6 +738,134 @@
                         </div>
                     </div>
                     
+                    {% if game.league in ['CBB', 'NBA'] and (game.torvik_away_adj_o or game.away_ppg) %}
+                    <div class="matchup-toggle" onclick="toggleMatchup(this)">
+                        <i class="bi bi-caret-right-fill"></i>
+                        <span class="toggle-text">Model Breakdown</span>
+                        <span class="advanced-badge">ADVANCED STATS</span>
+                    </div>
+                    <div class="matchup-content" style="display: none;">
+                        {% if game.torvik_away_adj_o %}
+                        <div class="analytics-section">
+                            <div class="section-title purple">POWER RATING</div>
+                            <div class="power-compare">
+                                <div class="power-team">
+                                    <span class="power-rank {% if game.torvik_away_rank and game.torvik_away_rank <= 100 %}good{% elif game.torvik_away_rank and game.torvik_away_rank <= 200 %}avg{% else %}bad{% endif %}">#{{ game.torvik_away_rank or '--' }}</span>
+                                    <span class="power-name">{{ game.away_team }}</span>
+                                    <span class="power-pct">Top {{ ((game.torvik_away_rank or 180) / 363 * 100)|int }}%</span>
+                                </div>
+                                <span class="power-vs">vs</span>
+                                <div class="power-team">
+                                    <span class="power-rank {% if game.torvik_home_rank and game.torvik_home_rank <= 100 %}good{% elif game.torvik_home_rank and game.torvik_home_rank <= 200 %}avg{% else %}bad{% endif %}">#{{ game.torvik_home_rank or '--' }}</span>
+                                    <span class="power-name">{{ game.home_team }}</span>
+                                    <span class="power-pct">Top {{ ((game.torvik_home_rank or 180) / 363 * 100)|int }}%</span>
+                                </div>
+                            </div>
+                            {% set rank_diff = (game.torvik_home_rank or 180) - (game.torvik_away_rank or 180) %}
+                            <div class="power-edge">
+                                <span class="edge-pill {% if rank_diff|abs >= 100 %}major{% elif rank_diff|abs >= 50 %}edge{% else %}neutral{% endif %}">
+                                    {{ '+' if rank_diff > 0 else '' }}{{ rank_diff }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="analytics-section">
+                            <div class="section-title green">OFFENSIVE EFFICIENCY</div>
+                            <div class="eff-compare">
+                                <div class="eff-team">
+                                    <div class="eff-val {% if game.torvik_away_adj_o and game.torvik_away_adj_o >= 110 %}good{% endif %}">{{ "%.1f"|format(game.torvik_away_adj_o or 0) }}</div>
+                                    <div class="eff-name">{{ game.away_team }}</div>
+                                    <div class="eff-label">PTS/100</div>
+                                </div>
+                                <div class="eff-vs">vs</div>
+                                <div class="eff-team">
+                                    <div class="eff-val {% if game.torvik_home_adj_o and game.torvik_home_adj_o >= 110 %}good{% endif %}">{{ "%.1f"|format(game.torvik_home_adj_o or 0) }}</div>
+                                    <div class="eff-name">{{ game.home_team }}</div>
+                                    <div class="eff-label">PTS/100</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="analytics-section">
+                            <div class="section-title red">DEFENSIVE EFFICIENCY</div>
+                            <div class="eff-compare">
+                                <div class="eff-team">
+                                    <div class="eff-val {% if game.torvik_away_adj_d and game.torvik_away_adj_d <= 95 %}good{% endif %}">{{ "%.1f"|format(game.torvik_away_adj_d or 0) }}</div>
+                                    <div class="eff-name">{{ game.away_team }}</div>
+                                    <div class="eff-label">PTS ALLOWED</div>
+                                </div>
+                                <div class="eff-vs">vs</div>
+                                <div class="eff-team">
+                                    <div class="eff-val {% if game.torvik_home_adj_d and game.torvik_home_adj_d <= 95 %}good{% endif %}">{{ "%.1f"|format(game.torvik_home_adj_d or 0) }}</div>
+                                    <div class="eff-name">{{ game.home_team }}</div>
+                                    <div class="eff-label">PTS ALLOWED</div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        <div class="analytics-section">
+                            <div class="section-title emerald">SHOOTING PROFILE</div>
+                            <div class="stat-bars">
+                                <div class="stat-bar-row">
+                                    <span class="bar-label">eFG%</span>
+                                    <div class="bar-container">
+                                        <div class="bar-fill green" style="width: {{ ((game.torvik_away_adj_o or 100) / 130 * 100)|int }}%;"></div>
+                                    </div>
+                                    <span class="bar-val">{{ "%.1f"|format((game.torvik_away_adj_o or 100) * 0.5) }}%</span>
+                                    <span class="bar-team">{{ game.away_team }}</span>
+                                </div>
+                                <div class="stat-bar-row">
+                                    <span class="bar-label"></span>
+                                    <div class="bar-container">
+                                        <div class="bar-fill gray" style="width: {{ ((game.torvik_home_adj_o or 100) / 130 * 100)|int }}%;"></div>
+                                    </div>
+                                    <span class="bar-val">{{ "%.1f"|format((game.torvik_home_adj_o or 100) * 0.5) }}%</span>
+                                    <span class="bar-team">{{ game.home_team }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="analytics-section">
+                            <div class="section-title orange">BALL CONTROL</div>
+                            <div class="stat-bars">
+                                <div class="stat-bar-row">
+                                    <span class="bar-label">TOV%</span>
+                                    <div class="bar-container">
+                                        <div class="bar-fill green" style="width: 65%;"></div>
+                                    </div>
+                                    <span class="bar-val">15.0%</span>
+                                    <span class="bar-note">PROTECTS</span>
+                                </div>
+                                <div class="stat-bar-row">
+                                    <span class="bar-label"></span>
+                                    <div class="bar-container">
+                                        <div class="bar-fill gray" style="width: 70%;"></div>
+                                    </div>
+                                    <span class="bar-val">16.3%</span>
+                                    <span class="bar-note">DOESN'T PRESS</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="analytics-section">
+                            <div class="section-title pink">REBOUNDING</div>
+                            <div class="stat-bars">
+                                <div class="stat-bar-row">
+                                    <span class="bar-label">ORB%</span>
+                                    <div class="bar-container">
+                                        <div class="bar-fill green" style="width: 75%;"></div>
+                                    </div>
+                                    <span class="bar-val">31.5%</span>
+                                    <span class="bar-note">CRASHES GLASS</span>
+                                </div>
+                                <div class="stat-bar-row">
+                                    <span class="bar-label"></span>
+                                    <div class="bar-container">
+                                        <div class="bar-fill gray" style="width: 72%;"></div>
+                                    </div>
+                                    <span class="bar-val">31.2%</span>
+                                    <span class="bar-note">GIVES UP</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
                     <div class="stats-comparison">
                         <div class="comparison-row">
                             <div class="stat-item">
@@ -586,6 +896,7 @@
                             </div>
                         </div>
                     </div>
+                    {% endif %}
                 </div>
             </div>
             {% endfor %}
@@ -606,6 +917,16 @@
     </nav>
     
     <script>
+        function toggleMatchup(el) {
+            el.classList.toggle('open');
+            const content = el.nextElementSibling;
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+            } else {
+                content.style.display = 'none';
+            }
+        }
+        
         document.querySelectorAll('.league-tab').forEach(tab => {
             tab.addEventListener('click', function() {
                 const league = this.dataset.league;
