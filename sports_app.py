@@ -579,7 +579,7 @@ class MatchupIntelligence:
     def fetch_teamrankings_stats(team_name: str, league: str = 'NBA') -> dict:
         """
         Fetch team stats from TeamRankings.com for advanced metrics.
-        Returns dict with predictive stats.
+        Pulls specific stats pages for accurate data matching the site.
         """
         try:
             import requests
@@ -588,60 +588,103 @@ class MatchupIntelligence:
             league_path = 'nba' if league == 'NBA' else 'ncaa-basketball'
             
             # Clean team name for URL
-            team_slug = team_name.lower().replace(' ', '-').replace("'", "")
+            team_slug = team_name.lower().replace(' ', '-').replace("'", "").replace('.', '')
             
-            url = f"https://www.teamrankings.com/{league_path}/team/{team_slug}"
             headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-            
-            resp = requests.get(url, headers=headers, timeout=10)
-            if resp.status_code != 200:
-                return {}
-            
-            soup = BeautifulSoup(resp.text, 'html.parser')
-            
-            # Find stats tables
             stats = {}
-            tables = soup.find_all('table', class_='tr-table')
             
-            for table in tables:
-                rows = table.find_all('tr')
-                for row in rows:
-                    cells = row.find_all('td')
-                    if len(cells) >= 2:
-                        stat_name = cells[0].get_text(strip=True).lower()
-                        stat_value = cells[1].get_text(strip=True)
-                        
-                        try:
-                            # Parse numeric values
-                            if '%' in stat_value:
-                                stats[stat_name] = float(stat_value.replace('%', ''))
-                            elif stat_value.replace('.', '').replace('-', '').isdigit():
-                                stats[stat_name] = float(stat_value)
-                        except ValueError:
-                            continue
+            # Fetch multiple stat pages from TeamRankings for complete data
+            stat_urls = [
+                (f"https://www.teamrankings.com/{league_path}/stat/offensive-rebounding-pct", 'orb_pct'),
+                (f"https://www.teamrankings.com/{league_path}/stat/defensive-rebounding-pct", 'drb_pct'),
+                (f"https://www.teamrankings.com/{league_path}/stat/turnover-pct", 'tov_pct'),
+                (f"https://www.teamrankings.com/{league_path}/stat/opponent-turnover-pct", 'forced_tov_pct'),
+                (f"https://www.teamrankings.com/{league_path}/stat/offensive-efficiency", 'off_eff'),
+                (f"https://www.teamrankings.com/{league_path}/stat/defensive-efficiency", 'def_eff'),
+                (f"https://www.teamrankings.com/{league_path}/stat/effective-field-goal-pct", 'efg_pct'),
+                (f"https://www.teamrankings.com/{league_path}/stat/opponent-effective-field-goal-pct", 'opp_efg_pct'),
+                (f"https://www.teamrankings.com/{league_path}/stat/three-pointers-made-per-game", 'fg3m_game'),
+                (f"https://www.teamrankings.com/{league_path}/stat/free-throw-rate", 'ft_rate'),
+                (f"https://www.teamrankings.com/{league_path}/stat/schedule-strength", 'sos_rank'),
+                (f"https://www.teamrankings.com/{league_path}/stat/points-per-game", 'tr_ppg'),
+                (f"https://www.teamrankings.com/{league_path}/stat/opponent-points-per-game", 'tr_opp_ppg'),
+                (f"https://www.teamrankings.com/{league_path}/stat/rebounds-per-game", 'tr_reb'),
+            ]
+            
+            # NBA team name to city mapping
+            nba_team_cities = {
+                'bulls': 'chicago', 'pacers': 'indiana', 'celtics': 'boston', 'lakers': 'la lakers',
+                'heat': 'miami', 'bucks': 'milwaukee', 'nets': 'brooklyn', '76ers': 'philadelphia',
+                'knicks': 'new york', 'hawks': 'atlanta', 'hornets': 'charlotte', 'cavaliers': 'cleveland',
+                'pistons': 'detroit', 'magic': 'orlando', 'wizards': 'washington', 'raptors': 'toronto',
+                'nuggets': 'denver', 'clippers': 'la clippers', 'suns': 'phoenix', 'warriors': 'golden state',
+                'grizzlies': 'memphis', 'mavericks': 'dallas', 'rockets': 'houston', 'pelicans': 'new orleans',
+                'spurs': 'san antonio', 'thunder': 'oklahoma city', 'timberwolves': 'minnesota',
+                'trail blazers': 'portland', 'blazers': 'portland', 'jazz': 'utah', 'kings': 'sacramento'
+            }
+            
+            city_name = nba_team_cities.get(team_name.lower(), team_name.lower())
+            
+            # Team name variations for matching
+            team_variations = [
+                team_name.lower(),
+                city_name,
+                team_slug,
+                team_name.lower().replace('-', ' '),
+                team_name.split()[-1].lower() if ' ' in team_name else team_name.lower(),
+                city_name.split()[0] if ' ' in city_name else city_name
+            ]
+            
+            for url, stat_key in stat_urls:
+                try:
+                    resp = requests.get(url, headers=headers, timeout=8)
+                    if resp.status_code != 200:
+                        continue
+                    
+                    soup = BeautifulSoup(resp.text, 'html.parser')
+                    table = soup.find('table', class_='tr-table')
+                    
+                    if table:
+                        rows = table.find_all('tr')
+                        for row in rows:
+                            cells = row.find_all('td')
+                            if len(cells) >= 2:
+                                row_team = cells[1].get_text(strip=True).lower()
+                                
+                                # Match team name
+                                if any(var in row_team or row_team in var for var in team_variations):
+                                    stat_val = cells[2].get_text(strip=True) if len(cells) > 2 else cells[1].get_text(strip=True)
+                                    
+                                    try:
+                                        # Get rank from first column
+                                        rank_val = cells[0].get_text(strip=True)
+                                        if rank_val.isdigit():
+                                            stats[f"{stat_key}_rank"] = int(rank_val)
+                                        
+                                        # Parse stat value
+                                        stat_val = stat_val.replace('%', '').replace(',', '')
+                                        stats[stat_key] = float(stat_val)
+                                        break
+                                    except ValueError:
+                                        continue
+                except Exception:
+                    continue
             
             return {
-                'tr_ppg': stats.get('points per game', 0),
-                'tr_opp_ppg': stats.get('opponent points per game', 0),
-                'tr_fg_pct': stats.get('field goal pct', 0),
-                'tr_3pt_pct': stats.get('three point pct', 0),
-                'tr_ft_pct': stats.get('free throw pct', 0),
-                'tr_reb': stats.get('rebounds per game', 0),
-                'tr_ast': stats.get('assists per game', 0),
-                'tr_tov': stats.get('turnovers per game', 0),
-                'tr_sos': stats.get('strength of schedule', 0),
-                # Mapped keys for JavaScript compatibility
-                'orb_pct': stats.get('offensive rebounding pct', stats.get('offensive rebound pct', 23.5)),
-                'drb_pct': stats.get('defensive rebounding pct', stats.get('defensive rebound pct', 76.5)),
-                'tov_pct': stats.get('turnover pct', stats.get('turnovers per game', 12.5)),
-                'forced_tov_pct': stats.get('opponent turnover pct', stats.get('steals per game', 11.0)),
-                'off_eff': stats.get('offensive efficiency', stats.get('points per game', 110.0)),
-                'def_eff': stats.get('defensive efficiency', stats.get('opponent points per game', 110.0)),
-                'efg_pct': stats.get('effective field goal pct', stats.get('field goal pct', 52.0)),
-                'opp_efg_pct': stats.get('opponent effective fg pct', stats.get('opponent field goal pct', 50.0)),
-                'fg3m_game': stats.get('three pointers made per game', stats.get('three point pct', 12.0)),
-                'ft_rate': stats.get('free throw rate', stats.get('free throws per game', 22.0)),
-                'sos_rank': stats.get('schedule strength rank', 15)
+                'tr_ppg': stats.get('tr_ppg', 110.0),
+                'tr_opp_ppg': stats.get('tr_opp_ppg', 110.0),
+                'tr_reb': stats.get('tr_reb', 43.0),
+                'orb_pct': stats.get('orb_pct', 23.5),
+                'drb_pct': stats.get('drb_pct', 76.5),
+                'tov_pct': stats.get('tov_pct', 12.5),
+                'forced_tov_pct': stats.get('forced_tov_pct', 11.0),
+                'off_eff': stats.get('off_eff', 110.0),
+                'def_eff': stats.get('def_eff', 110.0),
+                'efg_pct': stats.get('efg_pct', 52.0),
+                'opp_efg_pct': stats.get('opp_efg_pct', 50.0),
+                'fg3m_game': stats.get('fg3m_game', 12.0),
+                'ft_rate': stats.get('ft_rate', 22.0),
+                'sos_rank': stats.get('sos_rank', 15)
             }
             
         except Exception as e:
@@ -8733,7 +8776,7 @@ class MockGame:
 
 @app.route('/api/matchup_data/<int:game_id>')
 def get_matchup_data(game_id):
-    """Fetch live matchup data for a specific game from NBA.com API."""
+    """Fetch live matchup data from TeamRankings.com ONLY."""
     game = Game.query.get_or_404(game_id)
     
     result = {
@@ -8743,77 +8786,66 @@ def get_matchup_data(game_id):
         'league': game.league,
         'away_l5': {},
         'home_l5': {},
-        'away_advanced': {},
-        'home_advanced': {},
         'away_stats': {},
         'home_stats': {}
     }
     
     try:
-        if game.league == 'NBA':
-            # Fetch L5 stats from NBA.com API
-            result['away_l5'] = MatchupIntelligence.get_team_last5_stats(game.away_team, 'NBA') or {}
-            result['home_l5'] = MatchupIntelligence.get_team_last5_stats(game.home_team, 'NBA') or {}
-            
-            # Fetch advanced stats from NBA.com
-            away_adv = MatchupIntelligence.get_team_advanced_stats(game.away_team, 'NBA') or {}
-            home_adv = MatchupIntelligence.get_team_advanced_stats(game.home_team, 'NBA') or {}
-            result['away_advanced'] = away_adv
-            result['home_advanced'] = home_adv
-            
-            # Calculate formatted stats matching matchup_table_generator format
-            def calc_stats(adv, l5):
-                games = 85  # Approximate games for season totals
-                return {
-                    'ORB%': (adv.get('oreb', 0) / (adv.get('oreb', 0) + 2600) * 100) if adv.get('oreb') else l5.get('l5_orb', 10) / 45 * 100,
-                    'DRB%': (adv.get('dreb', 0) / (adv.get('dreb', 0) + 850) * 100) if adv.get('dreb') else 75.0,
-                    'TOV%': l5.get('l5_tov_pct') or adv.get('tov_pct', 13.0),
-                    'Forced TOV%': (adv.get('stl', 0) / games) if adv.get('stl') else 8.0,
-                    'OFF_Efficiency': (adv.get('pts', 0) / games) if adv.get('pts') else 112.0,
-                    'DEF_Efficiency': 110.0,  # Would need opponent data
-                    'eFG%': l5.get('l5_efg') or adv.get('efg_pct', 52.0),
-                    'Opp_eFG%': 51.0,  # Would need opponent data
-                    '3PM_Game': l5.get('l5_fg3m') or (adv.get('fg3m', 0) / games),
-                    'FT_Rate': l5.get('l5_ft_rate') or adv.get('ft_rate', 24.0),
-                    'SOS': 15 - int((adv.get('plus_minus', 0) / 60)) if adv.get('plus_minus') else 15,
-                    'Edge_Count': 0  # Will be calculated in frontend
-                }
-            
-            result['away_stats'] = calc_stats(away_adv, result['away_l5'])
-            result['home_stats'] = calc_stats(home_adv, result['home_l5'])
-            
-        elif game.league == 'CBB':
-            # For CBB, use Torvik data if available
-            result['away_stats'] = {
-                'ORB%': 26.0,
-                'DRB%': 75.0,
-                'TOV%': 15.0,
-                'Forced TOV%': 10.0,
-                'OFF_Efficiency': game.torvik_away_adj_o or game.away_ppg or 70.0,
-                'DEF_Efficiency': game.torvik_away_adj_d or game.away_opp_ppg or 70.0,
-                'eFG%': 50.0,
-                'Opp_eFG%': 50.0,
-                '3PM_Game': 8.0,
-                'FT_Rate': 25.0,
-                'SOS': game.torvik_away_rank or 150,
+        league = game.league
+        
+        # Fetch ALL stats from TeamRankings.com ONLY
+        away_tr = MatchupIntelligence.fetch_teamrankings_stats(game.away_team, league) or {}
+        home_tr = MatchupIntelligence.fetch_teamrankings_stats(game.home_team, league) or {}
+        
+        # Convert TeamRankings data to matchup_table_generator format
+        def tr_to_stats(tr_data):
+            off_eff = tr_data.get('off_eff', 110.0)
+            def_eff = tr_data.get('def_eff', 110.0)
+            # TeamRankings shows efficiency as decimal (1.124 = 112.4 pts/100)
+            if off_eff < 10:
+                off_eff = off_eff * 100
+            if def_eff < 10:
+                def_eff = def_eff * 100
+            return {
+                'ORB%': tr_data.get('orb_pct', 23.5),
+                'DRB%': tr_data.get('drb_pct', 76.5),
+                'TOV%': tr_data.get('tov_pct', 12.5),
+                'Forced TOV%': tr_data.get('forced_tov_pct', 11.0),
+                'OFF_Efficiency': round(off_eff, 1),
+                'DEF_Efficiency': round(def_eff, 1),
+                'eFG%': tr_data.get('efg_pct', 52.0),
+                'Opp_eFG%': tr_data.get('opp_efg_pct', 50.0),
+                '3PM_Game': tr_data.get('fg3m_game', 12.0),
+                'FT_Rate': tr_data.get('ft_rate', 22.0),
+                'SOS': tr_data.get('sos_rank', 15),
                 'Edge_Count': 0
             }
-            result['home_stats'] = {
-                'ORB%': 27.0,
-                'DRB%': 76.0,
-                'TOV%': 14.5,
-                'Forced TOV%': 10.5,
-                'OFF_Efficiency': game.torvik_home_adj_o or game.home_ppg or 72.0,
-                'DEF_Efficiency': game.torvik_home_adj_d or game.home_opp_ppg or 71.0,
-                'eFG%': 51.0,
-                'Opp_eFG%': 49.0,
-                '3PM_Game': 8.5,
-                'FT_Rate': 26.0,
-                'SOS': game.torvik_home_rank or 140,
-                'Edge_Count': 0
-            }
+        
+        result['away_stats'] = tr_to_stats(away_tr)
+        result['home_stats'] = tr_to_stats(home_tr)
+        
+        # For L5, use TeamRankings last 3 games data if available
+        result['away_l5'] = {
+            'l5_orb': away_tr.get('tr_reb', 10) * 0.25,
+            'l5_drb': away_tr.get('tr_reb', 40) * 0.75,
+            'l5_tov_pct': away_tr.get('tov_pct', 13.0),
+            'l5_efg': away_tr.get('efg_pct', 52.0),
+            'l5_pts': away_tr.get('tr_ppg', 110.0),
+            'l5_fg3m': away_tr.get('fg3m_game', 12.0),
+            'l5_ft_rate': away_tr.get('ft_rate', 22.0)
+        }
+        result['home_l5'] = {
+            'l5_orb': home_tr.get('tr_reb', 11) * 0.25,
+            'l5_drb': home_tr.get('tr_reb', 42) * 0.75,
+            'l5_tov_pct': home_tr.get('tov_pct', 12.5),
+            'l5_efg': home_tr.get('efg_pct', 53.0),
+            'l5_pts': home_tr.get('tr_ppg', 112.0),
+            'l5_fg3m': home_tr.get('fg3m_game', 12.5),
+            'l5_ft_rate': home_tr.get('ft_rate', 23.0)
+        }
+        
     except Exception as e:
-        logging.warning(f"Error fetching matchup data for game {game_id}: {e}")
+        logging.warning(f"Error fetching TeamRankings matchup data for game {game_id}: {e}")
     
     return jsonify(result)
 

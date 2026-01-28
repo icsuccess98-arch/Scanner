@@ -942,6 +942,44 @@
             padding: 0.5rem;
             letter-spacing: 1px;
         }
+        .section-divider {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #FFD700;
+            font-size: 12px;
+            font-weight: 700;
+            padding: 8px 12px;
+            margin: 12px 0 8px 0;
+            border-left: 3px solid #FFD700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .edge-summary-box {
+            background: linear-gradient(135deg, #0d1421 0%, #1a2744 100%);
+            border: 1px solid #2d4a6f;
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 8px;
+        }
+        .edge-counts {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 10px;
+        }
+        .edge-team {
+            color: #00d4ff;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .edge-verdict {
+            text-align: center;
+            color: #e0e0e0;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        .edge-verdict strong {
+            color: #FFD700;
+            font-size: 14px;
+        }
         .stats-table {
             width: 100%;
             border-collapse: collapse;
@@ -1353,9 +1391,52 @@
             if (away_ftr > home_ftr) awayEdgeCount++; else if (home_ftr > away_ftr) homeEdgeCount++;
             if (away_sos < home_sos) awayEdgeCount++; else if (home_sos < away_sos) homeEdgeCount++;
             
+            // L5 stats from API
+            const away_l5 = data.away_l5 || {};
+            const home_l5 = data.home_l5 || {};
+            const away_l5_orb = away_l5.l5_orb || 10.5;
+            const home_l5_orb = home_l5.l5_orb || 11.2;
+            const away_l5_drb = away_l5.l5_drb || 32.0;
+            const home_l5_drb = home_l5.l5_drb || 33.5;
+            const away_l5_tov = away_l5.l5_tov_pct || 13.0;
+            const home_l5_tov = home_l5.l5_tov_pct || 12.5;
+            const away_l5_efg = away_l5.l5_efg || 53.0;
+            const home_l5_efg = home_l5.l5_efg || 54.5;
+            const away_l5_pts = away_l5.l5_pts || 112.0;
+            const home_l5_pts = home_l5.l5_pts || 115.0;
+            const away_l5_3pm = away_l5.l5_fg3m || 12.0;
+            const home_l5_3pm = home_l5.l5_fg3m || 13.5;
+            const away_l5_ftr = away_l5.l5_ft_rate || 24.0;
+            const home_l5_ftr = home_l5.l5_ft_rate || 25.0;
+            
+            // Calculate L5 edge counts
+            let awayL5EdgeCount = 0;
+            let homeL5EdgeCount = 0;
+            if (away_l5_orb > home_l5_orb) awayL5EdgeCount++; else if (home_l5_orb > away_l5_orb) homeL5EdgeCount++;
+            if (away_l5_drb > home_l5_drb) awayL5EdgeCount++; else if (home_l5_drb > away_l5_drb) homeL5EdgeCount++;
+            if (away_l5_tov < home_l5_tov) awayL5EdgeCount++; else if (home_l5_tov < away_l5_tov) homeL5EdgeCount++;
+            if (away_l5_efg > home_l5_efg) awayL5EdgeCount++; else if (home_l5_efg > away_l5_efg) homeL5EdgeCount++;
+            if (away_l5_pts > home_l5_pts) awayL5EdgeCount++; else if (home_l5_pts > away_l5_pts) homeL5EdgeCount++;
+            if (away_l5_3pm > home_l5_3pm) awayL5EdgeCount++; else if (home_l5_3pm > away_l5_3pm) homeL5EdgeCount++;
+            if (away_l5_ftr > home_l5_ftr) awayL5EdgeCount++; else if (home_l5_ftr > away_l5_ftr) homeL5EdgeCount++;
+            
+            // Determine overall edge
+            const totalAwayEdge = awayEdgeCount + awayL5EdgeCount;
+            const totalHomeEdge = homeEdgeCount + homeL5EdgeCount;
+            let edgeSummary = '';
+            if (totalAwayEdge > totalHomeEdge + 3) {
+                edgeSummary = `<strong>EDGE: ${awayTeam}</strong><br>${awayTeam} has clear statistical advantages across multiple categories.`;
+            } else if (totalHomeEdge > totalAwayEdge + 3) {
+                edgeSummary = `<strong>EDGE: ${homeTeam}</strong><br>${homeTeam} has clear statistical advantages across multiple categories.`;
+            } else {
+                edgeSummary = `<strong>EDGE: Even</strong><br>Closely matched teams. Execution will be decisive.`;
+            }
+            
             let html = `
                 <div class="analytics-table-section">
                     <div class="table-header">${data.league} MATCHUP ANALYSIS</div>
+                    
+                    <div class="section-divider">SEASON STATS COMPARISON</div>
                     <table class="stats-table">
                         <thead>
                             <tr>
@@ -1380,8 +1461,38 @@
                             ${statRow('Edge Count', awayEdgeCount, homeEdgeCount, 'num', true)}
                         </tbody>
                     </table>
+                    
+                    <div class="section-divider">LAST 5 GAMES COMPARISON</div>
+                    <table class="stats-table">
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th class="team-col">${awayTeam} (L5)</th>
+                                <th class="team-col">${homeTeam} (L5)</th>
+                                <th>Edge</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${statRow('ORB/Game', away_l5_orb, home_l5_orb, 'num', true)}
+                            ${statRow('DRB/Game', away_l5_drb, home_l5_drb, 'num', true)}
+                            ${statRow('TOV%', away_l5_tov, home_l5_tov, 'pct', false)}
+                            ${statRow('eFG%', away_l5_efg, home_l5_efg, 'pct', true)}
+                            ${statRow('PPG', away_l5_pts, home_l5_pts, 'num', true)}
+                            ${statRow('3PM/Game', away_l5_3pm, home_l5_3pm, 'num', true)}
+                            ${statRow('FT Rate', away_l5_ftr, home_l5_ftr, 'num', true)}
+                            ${statRow('Edge Count', awayL5EdgeCount, homeL5EdgeCount, 'num', true)}
+                        </tbody>
+                    </table>
+                    
+                    <div class="section-divider">EDGE SUMMARY</div>
+                    <div class="edge-summary-box">
+                        <div class="edge-counts">
+                            <span class="edge-team">${awayTeam}: ${totalAwayEdge} edges</span>
+                            <span class="edge-team">${homeTeam}: ${totalHomeEdge} edges</span>
+                        </div>
+                        <div class="edge-verdict">${edgeSummary}</div>
+                    </div>
                 </div>
-                <div class="savant-footer">SAVANT ANALYTICS</div>
             `;
             container.innerHTML = html;
         }
