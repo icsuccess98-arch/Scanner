@@ -42,17 +42,27 @@ Only one app can run at a time. Configure the workflow to switch between apps.
         -   Barthag and Rankings
         -   Projection formula uses adjusted efficiency + tempo for more accurate CBB totals
     -   **Matchup Intelligence Feature** (Jan 2026): Advanced analytics dropdown on game cards showing:
+        -   **Edge Summary** (NEW): Overall edge calculation with category breakdowns:
+            -   Overall Edge display with team advantage (+X.X | Team)
+            -   NET RATING bar - Net rating differential
+            -   REBOUNDING bar - Rebounding advantage
+            -   TURNOVERS bar - Turnover differential  
+            -   SHOOTING EFF bar - Offensive efficiency edge
+            -   DEFENSIVE EFF bar - Defensive efficiency edge
+            -   Visual bars showing direction/magnitude of advantage
         -   Power Rating comparison with team ranks, percentiles, and colored bars
         -   Offensive/Defensive Efficiency comparisons (pts/100 possessions)
         -   Efficiency Comparison section with flip button showing offense vs defense matchups
-        -   **Shooting Profile**: 2PT%, 3PT%, 3PT Rate, eFG%, Opp eFG%, 3PM/Game, Opp 3PM/Game with D1 averages
-        -   **Ball Control**: TOV% (Turnover Rate), Forced TOV% with PROTECTS/FORCES ERRORS indicators
-        -   **Rebounding**: ORB% (Offensive), DRB% (Defensive) with CRASHES GLASS/LOCKS OUT indicators
-        -   **Pace & Free Throws**: FT Rate, Opp FT Rate, Tempo display with expected possessions
+        -   **Shooting Profile**: eFG%, Opp eFG%, 3PM/Game, Opp 3PM/Game (Season + L5 columns)
+        -   **Ball Control**: TOV%, Forced TOV% (Season + L5 columns)
+        -   **Rebounding**: ORB%, DRB% (Season + L5 columns)
+        -   **Pace & Free Throws**: FT Rate, Opp FT Rate, Tempo display (Season + L5 columns)
+        -   **Season vs L5**: All stats show both season averages and last 5 games performance
         -   **Strength of Schedule (SOS)**: Schedule difficulty rankings for context
         -   **Analyst Insight**: AI-generated summary of matchup advantages
         -   Data Sources: NBA.com API, Bart Torvik (CBB), ESPN stats
         -   Only shows for CBB/NBA games with advanced data available
+        -   Mobile-optimized responsive design for iPhone
     -   **Formulas (STRICT - NO MODIFICATIONS)**:
         -   `Expected_A = (Team A PPG + Team B Opp PPG) / 2`
         -   `Expected_B = (Team B PPG + Team A Opp PPG) / 2`
