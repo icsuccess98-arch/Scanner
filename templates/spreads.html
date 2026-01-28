@@ -1498,6 +1498,18 @@
                             ${statRow('SOS', awaySeason['SOS'], homeSeason['SOS'], 'num', false)}
                         </tbody>
                     </table>
+                    
+                    <div class="section-divider">EDGE SUMMARY</div>
+                    <div class="edge-summary-box">
+                        <div class="edge-counts">
+                            <div class="edge-team">${awayTeam}: ${totalAwayEdge} edges</div>
+                            <div class="edge-team">${homeTeam}: ${totalHomeEdge} edges</div>
+                        </div>
+                        <div class="edge-verdict">
+                            <div class="edge-winner">${edgeWinner}</div>
+                            <div class="edge-desc">${edgeDesc}</div>
+                        </div>
+                    </div>
                 </div>
             `;
             container.innerHTML = html;

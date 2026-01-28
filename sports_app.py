@@ -706,7 +706,8 @@ class MatchupIntelligence:
                             if home_val is not None:
                                 result['home_season'][stat_name] = home_val
                     
-                    logger.info(f"Efficiency page added stats")
+                    eff_keys = [k for k in result['away_season'].keys() if 'eff' in k.lower()]
+                    logger.info(f"Efficiency page added stats. Efficiency keys found: {eff_keys}")
             except Exception as e:
                 logger.warning(f"Efficiency page error: {e}")
             
@@ -9034,8 +9035,8 @@ def get_matchup_data(game_id):
                 'Blocks': find_stat(away_season, 'blocks/game'),
                 'Steals': find_stat(away_season, 'steals/game'),
                 'Fouls': find_stat(away_season, 'personal fouls/gm'),
-                'O Eff': find_stat(away_season, 'off efficiency'),
-                'D Eff': find_stat(away_season, 'def efficiency'),
+                'O Eff': round(find_stat(away_season, 'off efficiency') * 100, 1) if find_stat(away_season, 'off efficiency') else None,
+                'D Eff': round(find_stat(away_season, 'def efficiency') * 100, 1) if find_stat(away_season, 'def efficiency') else None,
                 'Pts in Paint': find_stat(away_season, 'pts in paint/gm'),
                 'Fastbreak Pts': find_stat(away_season, 'fastbreak pts/gm'),
                 'FTA/FGA': find_stat(away_season, 'fta/fga'),
@@ -9068,8 +9069,8 @@ def get_matchup_data(game_id):
                 'Blocks': find_stat(home_season, 'blocks/game'),
                 'Steals': find_stat(home_season, 'steals/game'),
                 'Fouls': find_stat(home_season, 'personal fouls/gm'),
-                'O Eff': find_stat(home_season, 'off efficiency'),
-                'D Eff': find_stat(home_season, 'def efficiency'),
+                'O Eff': round(find_stat(home_season, 'off efficiency') * 100, 1) if find_stat(home_season, 'off efficiency') else None,
+                'D Eff': round(find_stat(home_season, 'def efficiency') * 100, 1) if find_stat(home_season, 'def efficiency') else None,
                 'Pts in Paint': find_stat(home_season, 'pts in paint/gm'),
                 'Fastbreak Pts': find_stat(home_season, 'fastbreak pts/gm'),
                 'FTA/FGA': find_stat(home_season, 'fta/fga'),
