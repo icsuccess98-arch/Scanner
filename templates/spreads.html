@@ -1471,9 +1471,8 @@
             
             let html = `
                 <div class="analytics-table-section">
-                    <div class="table-header">${data.league} MATCHUP ANALYSIS</div>
+                    <div class="table-header">${data.league} KEY METRICS</div>
                     
-                    <div class="section-divider">KEY METRICS</div>
                     <table class="stats-table">
                         <thead>
                             <tr>
@@ -1484,101 +1483,21 @@
                             </tr>
                         </thead>
                         <tbody>
-                            ${statRow('Points/Game', awaySeason['PPG'], homeSeason['PPG'], 'num', true)}
-                            ${statRow('Field Goal %', awaySeason['FG%'], homeSeason['FG%'], 'pct', true)}
-                            ${statRow('Opp Field Goal %', awaySeason['Opp FG%'], homeSeason['Opp FG%'], 'pct', false)}
-                            ${statRow('3-Point %', awaySeason['3PT%'], homeSeason['3PT%'], 'pct', true)}
-                            ${statRow('Opp 3-Point %', awaySeason['Opp 3PT%'], homeSeason['Opp 3PT%'], 'pct', false)}
-                            ${statRow('Free Throw %', awaySeason['FT%'], homeSeason['FT%'], 'pct', true)}
-                            ${statRow('Opp Free Throw %', awaySeason['Opp FT%'], homeSeason['Opp FT%'], 'pct', false)}
-                            ${statRow('PACE', awaySeason['PACE'], homeSeason['PACE'], 'num', true)}
-                            ${statRow('Assists/Turnover', awaySeason['Assists/TO'], homeSeason['Assists/TO'], 'num', true)}
+                            ${statRow('ORB%', awaySeason['ORB%'], homeSeason['ORB%'], 'pct', true)}
+                            ${statRow('DRB%', awaySeason['DRB%'], homeSeason['DRB%'], 'pct', true)}
+                            ${statRow('TOV%', awaySeason['TOV%'], homeSeason['TOV%'], 'pct', false)}
+                            ${statRow('F-TOV%', awaySeason['Opp TOV%'] || awaySeason['opp turnovers/play'], homeSeason['Opp TOV%'] || homeSeason['opp turnovers/play'], 'pct', true)}
+                            ${statRow('O Eff', awaySeason['O Eff'], homeSeason['O Eff'], 'num', true)}
+                            ${statRow('D Eff', awaySeason['D Eff'], homeSeason['D Eff'], 'num', false)}
+                            ${statRow('eFG%', awaySeason['eFG%'], homeSeason['eFG%'], 'pct', true)}
+                            ${statRow('Opp eFG%', awaySeason['Opp eFG%'], homeSeason['Opp eFG%'], 'pct', false)}
+                            ${statRow('3PM/Gm', awaySeason['3PM/Game'], homeSeason['3PM/Game'], 'num', true)}
+                            ${statRow('Opp 3PM/Gm', awaySeason['Opp 3PM/Game'] || awaySeason['opp 3pm/game'], homeSeason['Opp 3PM/Game'] || homeSeason['opp 3pm/game'], 'num', false)}
+                            ${statRow('FT Rate', awaySeason['FTA/FGA'], homeSeason['FTA/FGA'], 'num', true)}
+                            ${statRow('Opp FT Rate', awaySeason['Opp FTA/FGA'] || awaySeason['opp fta/fga'], homeSeason['Opp FTA/FGA'] || homeSeason['opp fta/fga'], 'num', false)}
+                            ${statRow('SOS', awaySeason['SOS'], homeSeason['SOS'], 'num', false)}
                         </tbody>
                     </table>
-                    
-                    <div class="section-divider">OFFENSIVE METRICS</div>
-                    <table class="stats-table">
-                        <thead>
-                            <tr>
-                                <th>Metric</th>
-                                <th class="team-col">${awayTeam}</th>
-                                <th class="team-col">${homeTeam}</th>
-                                <th>Edge</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${statRow('Off. Efficiency', awaySeason['O Eff'], homeSeason['O Eff'], 'num', true)}
-                            ${statRow('Effective FG%', awaySeason['eFG%'], homeSeason['eFG%'], 'pct', true)}
-                            ${statRow('Off. Rebounds', awaySeason['ORB'], homeSeason['ORB'], 'num', true)}
-                            ${statRow('Assists', awaySeason['Assists'], homeSeason['Assists'], 'num', true)}
-                            ${statRow('Fastbreak Pts', awaySeason['Fastbreak Pts'], homeSeason['Fastbreak Pts'], 'num', true)}
-                            ${statRow('Pts in Paint', awaySeason['Pts in Paint'], homeSeason['Pts in Paint'], 'num', true)}
-                        </tbody>
-                    </table>
-                    
-                    <div class="section-divider">DEFENSIVE METRICS</div>
-                    <table class="stats-table">
-                        <thead>
-                            <tr>
-                                <th>Metric</th>
-                                <th class="team-col">${awayTeam}</th>
-                                <th class="team-col">${homeTeam}</th>
-                                <th>Edge</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${statRow('Def. Efficiency', awaySeason['D Eff'], homeSeason['D Eff'], 'num', false)}
-                            ${statRow('Opp Points/Game', awaySeason['Opp PPG'], homeSeason['Opp PPG'], 'num', false)}
-                            ${statRow('Def. Rebounds', awaySeason['DRB'], homeSeason['DRB'], 'num', true)}
-                            ${statRow('Blocks', awaySeason['Blocks'], homeSeason['Blocks'], 'num', true)}
-                            ${statRow('Steals', awaySeason['Steals'], homeSeason['Steals'], 'num', true)}
-                            ${statRow('Turnovers Forced', awaySeason['TOV'], homeSeason['TOV'], 'num', false)}
-                        </tbody>
-                    </table>
-                    
-                    <div class="section-divider">STRENGTH OF SCHEDULE</div>
-                    <table class="stats-table">
-                        <tbody>
-                            ${statRow('SOS Rank', awaySeason['SOS'], homeSeason['SOS'], 'num', false)}
-                        </tbody>
-                    </table>
-                    
-                    <div class="section-divider">LAST 3 GAMES</div>
-                    <table class="stats-table">
-                        <thead>
-                            <tr>
-                                <th>Metric</th>
-                                <th class="team-col">${awayTeam} (L3)</th>
-                                <th class="team-col">${homeTeam} (L3)</th>
-                                <th>Edge</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${statRow('Points/Game', awayL3['PPG'], homeL3['PPG'], 'num', true)}
-                            ${statRow('Opp Points/Game', awayL3['Opp PPG'], homeL3['Opp PPG'], 'num', false)}
-                            ${statRow('Field Goal %', awayL3['FG%'], homeL3['FG%'], 'pct', true)}
-                            ${statRow('3-Point %', awayL3['3PT%'], homeL3['3PT%'], 'pct', true)}
-                            ${statRow('Effective FG%', awayL3['eFG%'], homeL3['eFG%'], 'pct', true)}
-                            ${statRow('Off. Rebounds', awayL3['ORB'], homeL3['ORB'], 'num', true)}
-                            ${statRow('Def. Rebounds', awayL3['DRB'], homeL3['DRB'], 'num', true)}
-                            ${statRow('Assists', awayL3['Assists'], homeL3['Assists'], 'num', true)}
-                            ${statRow('Blocks', awayL3['Blocks'], homeL3['Blocks'], 'num', true)}
-                            ${statRow('Steals', awayL3['Steals'], homeL3['Steals'], 'num', true)}
-                            ${statRow('Edge Count', awayL3Edge, homeL3Edge, 'num', true)}
-                        </tbody>
-                    </table>
-                    
-                    <div class="section-divider">EDGE SUMMARY</div>
-                    <div class="edge-summary-box">
-                        <div class="edge-counts">
-                            <div class="edge-team">${awayTeam}: ${totalAwayEdge} edges <span class="breakdown">(Season: ${awaySeasonEdge}, L3: ${awayL3Edge})</span></div>
-                            <div class="edge-team">${homeTeam}: ${totalHomeEdge} edges <span class="breakdown">(Season: ${homeSeasonEdge}, L3: ${homeL3Edge})</span></div>
-                        </div>
-                        <div class="edge-verdict">
-                            <div class="edge-winner">${edgeWinner}</div>
-                            <div class="edge-desc">${edgeDesc}</div>
-                        </div>
-                    </div>
                 </div>
             `;
             container.innerHTML = html;

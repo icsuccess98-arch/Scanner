@@ -9040,7 +9040,10 @@ def get_matchup_data(game_id):
                 'Fastbreak Pts': find_stat(away_season, 'fastbreak pts/gm'),
                 'FTA/FGA': find_stat(away_season, 'fta/fga'),
                 '3PM/Game': find_stat(away_season, '3pm/game'),
-                'Opp TOV': find_stat(away_season, 'opp turnovers/game')
+                'Opp TOV': find_stat(away_season, 'opp turnovers/game'),
+                'Opp TOV%': find_stat(away_season, 'opp turnovers/play'),
+                'Opp 3PM/Game': find_stat(away_season, 'opp 3pm/game'),
+                'Opp FTA/FGA': find_stat(away_season, 'opp fta/fga')
             }
             result['home_season'] = {
                 'PPG': find_stat(home_season, 'points/game'),
@@ -9071,7 +9074,10 @@ def get_matchup_data(game_id):
                 'Fastbreak Pts': find_stat(home_season, 'fastbreak pts/gm'),
                 'FTA/FGA': find_stat(home_season, 'fta/fga'),
                 '3PM/Game': find_stat(home_season, '3pm/game'),
-                'Opp TOV': find_stat(home_season, 'opp turnovers/game')
+                'Opp TOV': find_stat(home_season, 'opp turnovers/game'),
+                'Opp TOV%': find_stat(home_season, 'opp turnovers/play'),
+                'Opp 3PM/Game': find_stat(home_season, 'opp 3pm/game'),
+                'Opp FTA/FGA': find_stat(home_season, 'opp fta/fga')
             }
             
             # SOS Rank comes from the power-ratings page scraper
