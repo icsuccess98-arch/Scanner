@@ -156,11 +156,28 @@
             cursor: pointer;
             border: 1px solid var(--border);
             transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .league-tab .tab-logo {
+            width: 18px;
+            height: 18px;
+            object-fit: contain;
         }
         .league-tab.active {
             background: linear-gradient(135deg, var(--purple) 0%, var(--purple-light) 100%);
             color: white;
             border-color: var(--purple);
+        }
+        .league-tab.qualifying-tab {
+            background: linear-gradient(135deg, var(--emerald) 0%, #3da35d 100%);
+            color: white;
+            border-color: var(--emerald);
+        }
+        .league-tab.qualifying-tab.active {
+            background: linear-gradient(135deg, #3da35d 0%, var(--emerald) 100%);
+            box-shadow: 0 0 12px rgba(80, 200, 120, 0.4);
         }
         .league-tab .count {
             background: rgba(255,255,255,0.2);
@@ -1204,19 +1221,25 @@
         </a>
     </header>
     
-    <section class="header-section">
-        <div class="control-panel">
-            <div class="date-display">{{ today.strftime('%B %d, %Y') }}</div>
-        </div>
-    </section>
-    
     <div class="league-tabs">
         <div class="league-tab active" data-league="all">All <span class="count">{{ total_games }}</span></div>
         {% for league, games in games_by_league.items() %}
         {% if games|length > 0 and league != 'NHL' %}
-        <div class="league-tab" data-league="{{ league }}">{{ league }} <span class="count">{{ games|length }}</span></div>
+        <div class="league-tab" data-league="{{ league }}">
+            {% if league == 'NBA' %}
+            <img src="https://a.espncdn.com/i/teamlogos/leagues/500/nba.png" class="tab-logo" alt="NBA">
+            {% elif league == 'CBB' %}
+            <i class="bi bi-mortarboard-fill" style="font-size: 16px; color: var(--cbb);"></i>
+            {% endif %}
+            {{ league }} <span class="count">{{ games|length }}</span>
+        </div>
         {% endif %}
         {% endfor %}
+        {% if qualifying_picks|length > 0 %}
+        <div class="league-tab qualifying-tab" data-league="qualifying">
+            <i class="bi bi-check-circle-fill"></i> Qualifying <span class="count">{{ qualifying_picks|length }}</span>
+        </div>
+        {% endif %}
     </div>
     
     <div class="games-container">
@@ -1272,7 +1295,7 @@
                 {% if league == 'NBA' %}
                 <img src="https://a.espncdn.com/i/teamlogos/leagues/500/nba.png" class="league-logo" alt="NBA">
                 {% elif league == 'CBB' %}
-                <img src="https://a.espncdn.com/i/teamlogos/ncaa/500/ncaa.png" class="league-logo" alt="NCAA">
+                <i class="bi bi-mortarboard-fill league-icon" style="font-size: 28px; color: var(--cbb);"></i>
                 {% elif league == 'NFL' %}
                 <img src="https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png" class="league-logo" alt="NFL">
                 {% elif league == 'CFB' %}
@@ -1594,13 +1617,28 @@
                 document.querySelectorAll('.league-tab').forEach(t => t.classList.remove('active'));
                 this.classList.add('active');
                 
-                document.querySelectorAll('.league-section').forEach(section => {
-                    if (league === 'all' || section.dataset.league === league) {
-                        section.classList.remove('hidden');
-                    } else {
-                        section.classList.add('hidden');
-                    }
-                });
+                // Handle qualifying tab specially
+                const qualSection = document.querySelector('.qualifying-section');
+                
+                if (league === 'qualifying') {
+                    // Show only qualifying section
+                    document.querySelectorAll('.league-section').forEach(s => s.classList.add('hidden'));
+                    if (qualSection) qualSection.classList.remove('hidden');
+                } else if (league === 'all') {
+                    // Show all sections
+                    document.querySelectorAll('.league-section').forEach(s => s.classList.remove('hidden'));
+                    if (qualSection) qualSection.classList.remove('hidden');
+                } else {
+                    // Show only selected league
+                    document.querySelectorAll('.league-section').forEach(section => {
+                        if (section.dataset.league === league) {
+                            section.classList.remove('hidden');
+                        } else {
+                            section.classList.add('hidden');
+                        }
+                    });
+                    if (qualSection) qualSection.classList.add('hidden');
+                }
             });
         });
     </script>
