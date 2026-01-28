@@ -808,6 +808,87 @@ class MatchupIntelligence:
             logger.warning(f"Error fetching TeamRankings matchup: {e}")
             return {'away_season': {}, 'home_season': {}, 'away_l3': {}, 'home_l3': {}}
     
+    # Cleaning the Glass team IDs (NBA only)
+    CTG_TEAM_IDS = {
+        'hawks': 1, 'celtics': 2, 'nets': 3, 'hornets': 4, 'bulls': 5,
+        'cavaliers': 6, 'mavericks': 7, 'nuggets': 8, 'pistons': 9, 'warriors': 10,
+        'rockets': 11, 'pacers': 12, 'clippers': 13, 'lakers': 14, 'grizzlies': 15,
+        'heat': 16, 'bucks': 17, 'timberwolves': 18, 'pelicans': 19, 'knicks': 20,
+        'thunder': 21, 'magic': 22, '76ers': 23, 'suns': 24, 'trail blazers': 25,
+        'blazers': 25, 'kings': 26, 'spurs': 27, 'raptors': 28, 'jazz': 29, 'wizards': 30
+    }
+    
+    @staticmethod
+    def fetch_ctg_four_factors(team_name: str) -> dict:
+        """
+        Fetch Four Factors data from Cleaning the Glass (FREE tier).
+        Returns eFG%, TOV%, ORB%, FT Rate for offense and defense.
+        """
+        try:
+            import requests
+            from bs4 import BeautifulSoup
+            
+            # Find team ID
+            team_id = None
+            for name, tid in MatchupIntelligence.CTG_TEAM_IDS.items():
+                if name in team_name.lower():
+                    team_id = tid
+                    break
+            
+            if not team_id:
+                logger.warning(f"CTG team ID not found for: {team_name}")
+                return {}
+            
+            url = f"https://cleaningtheglass.com/stats/team/{team_id}/team"
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+            
+            resp = requests.get(url, headers=headers, timeout=15)
+            if resp.status_code != 200:
+                return {}
+            
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            table = soup.find('table', {'id': 'team_stats_four_factors'})
+            
+            if not table:
+                return {}
+            
+            result = {}
+            tbody = table.find('tbody')
+            if tbody:
+                rows = tbody.find_all('tr')
+                if rows:
+                    # Get current season (first row)
+                    cells = rows[0].find_all('td')
+                    data = [c.get_text(strip=True) for c in cells]
+                    
+                    # Parse the data - CTG format: Year, rankings interspersed with values
+                    # Structure: Year, Rank, Diff, Rank, ExpW82... Offense: Pts/Poss, eFG%, TOV%, ORB%, FT Rate... Defense: same
+                    # Based on our test: indices for offense eFG% value, TOV% value, ORB% value, FT Rate value
+                    # Then defense versions
+                    
+                    if len(data) >= 31:
+                        # Offense four factors - CTG format: rank, value alternating
+                        # Positions: efg=13, tov=15, orb=17, ft_rate=19
+                        result['off_efg'] = data[13].replace('%', '') if '%' in data[13] else data[13]
+                        result['off_tov'] = data[15].replace('%', '') if '%' in data[15] else data[15]
+                        result['off_orb'] = data[17].replace('%', '') if '%' in data[17] else data[17]
+                        result['off_ft_rate'] = data[19]
+                        
+                        # Defense four factors - shifted by 1 for value positions
+                        # Positions: efg=24, tov=26, orb=28, ft_rate=30
+                        result['def_efg'] = data[24].replace('%', '') if '%' in data[24] else data[24]
+                        result['def_tov'] = data[26].replace('%', '') if '%' in data[26] else data[26]
+                        result['def_orb'] = data[28].replace('%', '') if '%' in data[28] else data[28]
+                        result['def_ft_rate'] = data[30]
+                        
+                        logger.info(f"CTG Four Factors for {team_name}: eFG={result.get('off_efg')}, FT Rate={result.get('off_ft_rate')}, Opp FT Rate={result.get('def_ft_rate')}")
+            
+            return result
+            
+        except Exception as e:
+            logger.warning(f"Error fetching CTG four factors for {team_name}: {e}")
+            return {}
+    
     @staticmethod
     def fetch_teamrankings_stats(team_name: str, league: str = 'NBA') -> dict:
         """
@@ -9011,6 +9092,17 @@ def get_matchup_data(game_id):
             # Log what stats we got for debugging
             logging.info(f"TeamRankings stats for {game.away_team} vs {game.home_team}: {list(away_season.keys())[:10]}...")
             
+            # Fetch Cleaning the Glass Four Factors (NBA only) - more accurate for eFG%, TOV%, ORB%, FT Rate
+            away_ctg = {}
+            home_ctg = {}
+            if game.league == 'NBA':
+                try:
+                    away_ctg = MatchupIntelligence.fetch_ctg_four_factors(game.away_team)
+                    home_ctg = MatchupIntelligence.fetch_ctg_four_factors(game.home_team)
+                    logging.info(f"CTG data: away={away_ctg}, home={home_ctg}")
+                except Exception as e:
+                    logging.warning(f"CTG fetch error: {e}")
+            
             # Convert to display format - Season Stats using exact TeamRankings stat names
             result['away_season'] = {
                 'PPG': find_stat(away_season, 'points/game'),
@@ -9039,12 +9131,12 @@ def get_matchup_data(game_id):
                 'D Eff': find_stat(away_season, 'def efficiency'),
                 'Pts in Paint': find_stat(away_season, 'pts in paint/gm'),
                 'Fastbreak Pts': find_stat(away_season, 'fastbreak pts/gm'),
-                'FTA/FGA': find_stat(away_season, 'fta/fga'),
+                'FTA/FGA': away_ctg.get('off_ft_rate') or find_stat(away_season, 'fta/fga'),
                 '3PM/Game': find_stat(away_season, '3pm/game'),
                 'Opp TOV': find_stat(away_season, 'opp turnovers/game'),
                 'Opp TOV%': find_stat(away_season, 'opp turnovers/play'),
                 'Opp 3PM/Game': find_stat(away_season, 'opp 3pm/game'),
-                'Opp FTA/FGA': find_stat(away_season, 'opp fta/fga')
+                'Opp FTA/FGA': away_ctg.get('def_ft_rate') or find_stat(away_season, 'opp fta/fga')
             }
             result['home_season'] = {
                 'PPG': find_stat(home_season, 'points/game'),
@@ -9073,12 +9165,12 @@ def get_matchup_data(game_id):
                 'D Eff': find_stat(home_season, 'def efficiency'),
                 'Pts in Paint': find_stat(home_season, 'pts in paint/gm'),
                 'Fastbreak Pts': find_stat(home_season, 'fastbreak pts/gm'),
-                'FTA/FGA': find_stat(home_season, 'fta/fga'),
+                'FTA/FGA': home_ctg.get('off_ft_rate') or find_stat(home_season, 'fta/fga'),
                 '3PM/Game': find_stat(home_season, '3pm/game'),
                 'Opp TOV': find_stat(home_season, 'opp turnovers/game'),
                 'Opp TOV%': find_stat(home_season, 'opp turnovers/play'),
                 'Opp 3PM/Game': find_stat(home_season, 'opp 3pm/game'),
-                'Opp FTA/FGA': find_stat(home_season, 'opp fta/fga')
+                'Opp FTA/FGA': home_ctg.get('def_ft_rate') or find_stat(home_season, 'opp fta/fga')
             }
             
             # SOS Rank comes from the power-ratings page scraper
