@@ -8626,8 +8626,15 @@ def spreads():
     eliminated_bad_defense = []
     qualifying_picks = []
     
-    # Bottom 5 defenses (L5) - these allow more points
-    bad_defense_teams = ['Spurs', 'Pelicans', 'Nuggets', 'Wizards', 'Blazers', 'Trail Blazers', 'Hornets', 'Nets']
+    # Bottom 5 defenses (L5) with rankings - these allow more points
+    bad_defense_teams = {
+        'Spurs': '30th',
+        'Pelicans': '28th', 
+        'Nuggets': '26th',
+        'Wizards': '29th',
+        'Trail Blazers': '27th',
+        'Blazers': '27th'
+    }
     
     for g in all_games:
         # Mark away team as favorite if spread is negative
@@ -8669,7 +8676,11 @@ def spreads():
                 continue
             
             # 3. Eliminate games with bad defense matchups (bottom 5 defenses)
-            if g.away_team in bad_defense_teams or g.home_team in bad_defense_teams:
+            away_def_rank = bad_defense_teams.get(g.away_team)
+            home_def_rank = bad_defense_teams.get(g.home_team)
+            if away_def_rank or home_def_rank:
+                g.defense_rank = away_def_rank or home_def_rank
+                g.bad_defense_team = g.away_team if away_def_rank else g.home_team
                 eliminated_bad_defense.append(g)
                 g.elimination_reason = 'BAD DEFENSE'
                 continue

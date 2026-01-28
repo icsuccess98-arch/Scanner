@@ -411,6 +411,22 @@
         @media (max-width: 768px) {
             .mobile-bottom-nav { display: block; }
             body { padding-bottom: 70px; }
+            .game-card { margin-bottom: 0.75rem; }
+            .game-content { padding: 0.75rem; }
+            .team-name { font-size: 0.95rem; white-space: nowrap; }
+            .team-stats { font-size: 0.7rem; white-space: nowrap; }
+            .spread-value { font-size: 1.25rem; }
+            .teams-matchup { gap: 0.5rem; }
+            .stats-table { font-size: 0.65rem; }
+            .stats-table th, .stats-table td { padding: 0.35rem 0.25rem; }
+            .section-divider { font-size: 0.7rem; padding: 6px 10px; }
+            .edge-summary-box { padding: 12px; }
+            .edge-team { font-size: 13px; }
+            .edge-winner { font-size: 14px; }
+            .edge-desc { font-size: 12px; }
+            .qualifying-section { padding: 0.75rem; }
+            .qualifying-header { font-size: 0.8rem; }
+            .elim-row { font-size: 0.65rem; }
         }
         
         .stats-comparison {
@@ -954,31 +970,43 @@
             letter-spacing: 0.5px;
         }
         .edge-summary-box {
-            background: linear-gradient(135deg, #0d1421 0%, #1a2744 100%);
+            background: linear-gradient(135deg, #0a1628 0%, #162438 100%);
             border: 1px solid #2d4a6f;
-            border-radius: 6px;
-            padding: 12px;
-            margin-top: 8px;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 12px;
         }
         .edge-counts {
             display: flex;
-            justify-content: space-around;
-            margin-bottom: 10px;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 16px;
         }
         .edge-team {
-            color: #00d4ff;
-            font-size: 13px;
+            color: #FFD700;
+            font-size: 14px;
             font-weight: 600;
+            line-height: 1.5;
+        }
+        .edge-team .breakdown {
+            color: #00d4ff;
+            font-weight: 500;
         }
         .edge-verdict {
             text-align: center;
-            color: #e0e0e0;
-            font-size: 12px;
-            line-height: 1.4;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255,255,255,0.1);
         }
-        .edge-verdict strong {
-            color: #FFD700;
-            font-size: 14px;
+        .edge-verdict .edge-winner {
+            color: #10B981;
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+        .edge-verdict .edge-desc {
+            color: #d0d0d0;
+            font-size: 13px;
+            line-height: 1.5;
         }
         .stats-table {
             width: 100%;
@@ -1080,13 +1108,18 @@
         }
         .elim-label i.red { color: #EF4444; font-size: 0.65rem; }
         .elim-teams {
-            color: var(--text-muted);
-            font-size: 0.65rem;
+            color: #a0a0a0;
+            font-size: 0.7rem;
             text-align: right;
-            max-width: 60%;
+            flex: 1;
+            white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            margin-left: 0.5rem;
+        }
+        .elim-label {
             white-space: nowrap;
+            flex-shrink: 0;
         }
         .remaining-label {
             font-size: 0.75rem;
@@ -1198,7 +1231,7 @@
                 </div>
                 <div class="elim-row">
                     <span class="elim-label"><i class="bi bi-x-circle-fill red"></i> Bad Defense L5: {{ eliminated_bad_defense|length }}</span>
-                    <span class="elim-teams">{% for g in eliminated_bad_defense[:3] %}{{ g.away_team }} @ {{ g.home_team }}{% if not loop.last %}, {% endif %}{% endfor %}{% if eliminated_bad_defense|length > 3 %} +{{ eliminated_bad_defense|length - 3 }} more{% endif %}</span>
+                    <span class="elim-teams">{% for g in eliminated_bad_defense[:3] %}{{ g.bad_defense_team }} ({{ g.defense_rank }}){% if not loop.last %}, {% endif %}{% endfor %}{% if eliminated_bad_defense|length > 3 %} +{{ eliminated_bad_defense|length - 3 }} more{% endif %}</span>
                 </div>
             </div>
             <div class="remaining-label">
@@ -1383,13 +1416,17 @@
             // Determine overall edge
             const totalAwayEdge = awaySeasonEdge + awayL3Edge;
             const totalHomeEdge = homeSeasonEdge + homeL3Edge;
-            let edgeSummary = '';
-            if (totalAwayEdge > totalHomeEdge + 4) {
-                edgeSummary = `<strong>EDGE: ${awayTeam}</strong><br>${awayTeam} has clear statistical advantages across multiple categories.`;
-            } else if (totalHomeEdge > totalAwayEdge + 4) {
-                edgeSummary = `<strong>EDGE: ${homeTeam}</strong><br>${homeTeam} has clear statistical advantages across multiple categories.`;
+            let edgeWinner = '';
+            let edgeDesc = '';
+            if (totalAwayEdge > totalHomeEdge + 2) {
+                edgeWinner = `EDGE: ${awayTeam}`;
+                edgeDesc = `${awayTeam} has clear statistical advantages across multiple categories.`;
+            } else if (totalHomeEdge > totalAwayEdge + 2) {
+                edgeWinner = `EDGE: ${homeTeam}`;
+                edgeDesc = `${homeTeam} has clear statistical advantages across multiple categories.`;
             } else {
-                edgeSummary = `<strong>EDGE: Even</strong><br>Closely matched teams. Execution will be decisive.`;
+                edgeWinner = 'EDGE: Even';
+                edgeDesc = 'Closely matched teams. Execution will be decisive.';
             }
             
             let html = `
@@ -1451,10 +1488,13 @@
                     <div class="section-divider">EDGE SUMMARY</div>
                     <div class="edge-summary-box">
                         <div class="edge-counts">
-                            <span class="edge-team">${awayTeam}: ${totalAwayEdge} edges (Season: ${awaySeasonEdge}, L3: ${awayL3Edge})</span>
-                            <span class="edge-team">${homeTeam}: ${totalHomeEdge} edges (Season: ${homeSeasonEdge}, L3: ${homeL3Edge})</span>
+                            <div class="edge-team">${awayTeam}: ${totalAwayEdge} edges <span class="breakdown">(Season: ${awaySeasonEdge}, L3: ${awayL3Edge})</span></div>
+                            <div class="edge-team">${homeTeam}: ${totalHomeEdge} edges <span class="breakdown">(Season: ${homeSeasonEdge}, L3: ${homeL3Edge})</span></div>
                         </div>
-                        <div class="edge-verdict">${edgeSummary}</div>
+                        <div class="edge-verdict">
+                            <div class="edge-winner">${edgeWinner}</div>
+                            <div class="edge-desc">${edgeDesc}</div>
+                        </div>
                     </div>
                 </div>
             `;
