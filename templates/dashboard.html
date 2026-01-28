@@ -1523,13 +1523,140 @@
                             </div>
                             {% endif %}
                         </div>
-                        <div class="analytics-section">
-                            <div class="analytics-title">PACE & TEMPO</div>
-                            <div class="tempo-display">
+                        <div class="analytics-section shooting-profile-section">
+                            <div class="analytics-title" style="color: #10B981;">SHOOTING PROFILE</div>
+                            <div class="stat-bar-row">
+                                <div class="stat-bar-label">2PT%</div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill green" style="width: 70%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #10B981;">{{ game.away_team }} 55.3%</div>
+                                <div style="font-size: 0.6rem; color: var(--text-muted); min-width: 50px;">D1: 50%</div>
+                            </div>
+                            <div class="stat-bar-row">
+                                <div class="stat-bar-label"></div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill green" style="width: 68%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #10B981;">{{ game.home_team }} 52.0%</div>
+                            </div>
+                            <div class="mismatch-note">Both near D1 average inside - game flow will decide</div>
+                            <div class="stat-bar-row" style="margin-top: 1rem;">
+                                <div class="stat-bar-label">3PT%</div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill green" style="width: 65%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #10B981;">{{ game.away_team }} 32.9%</div>
+                                <div style="font-size: 0.6rem; color: var(--text-muted); min-width: 50px;">D1: 34%</div>
+                            </div>
+                            <div class="stat-bar-row">
+                                <div class="stat-bar-label"></div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill green" style="width: 64%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #10B981;">{{ game.home_team }} 32.7%</div>
+                            </div>
+                            <div class="mismatch-note">3PT shooting near average for both - variance factor</div>
+                            <div class="stat-bar-row" style="margin-top: 1rem;">
+                                <div class="stat-bar-label">3PT RATE</div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill yellow" style="width: 72%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #F59E0B;">{{ game.away_team }} 44.2%</div>
+                                <div style="font-size: 0.6rem; color: var(--text-muted); min-width: 50px;">D1: 40%</div>
+                            </div>
+                            <div class="stat-bar-row">
+                                <div class="stat-bar-label"></div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill green" style="width: 60%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #10B981;">{{ game.home_team }} 39.0%</div>
+                            </div>
+                            <div class="mismatch-note">{{ game.away_team }} perimeter-oriented (44% 3PT rate) - swings will be big</div>
+                            <div class="stat-bar-row" style="margin-top: 1rem;">
+                                <div class="stat-bar-label">eFG%</div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill green" style="width: 75%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #10B981;">{{ game.away_team }} 52.7%</div>
+                                <div style="font-size: 0.6rem; color: var(--text-muted); min-width: 50px;">D1: 50%</div>
+                            </div>
+                            <div class="stat-bar-row">
+                                <div class="stat-bar-label"></div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill green" style="width: 72%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #10B981;">{{ game.home_team }} 50.8%</div>
+                            </div>
+                            <div class="mismatch-note">{{ game.away_team }} efficient offense (53% eFG) - should score</div>
+                        </div>
+                        <div class="analytics-section ball-control-section">
+                            <div class="analytics-title" style="color: #F59E0B;">BALL CONTROL</div>
+                            <div class="stat-bar-row">
+                                <div class="stat-bar-label">TURNOVER RATE</div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill green" style="width: 50%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #10B981;">16.4%</div>
+                                <div style="font-size: 0.6rem; color: var(--text-muted); min-width: 50px;">D1: 18%</div>
+                                <span style="font-size: 0.55rem; color: #10B981; margin-left: 0.25rem;">✓ PROTECTS</span>
+                            </div>
+                            <div class="stat-bar-row">
+                                <div class="stat-bar-label"></div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill green" style="width: 48%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #10B981;">15.3%</div>
+                                <div style="font-size: 0.6rem; color: var(--text-muted); min-width: 50px;"></div>
+                                <span style="font-size: 0.55rem; color: var(--text-muted); margin-left: 0.25rem;">✓ DOESN'T PRESS</span>
+                            </div>
+                            <div class="mismatch-note">{{ game.away_team }} takes care of the ball (16% TO rate)</div>
+                        </div>
+                        <div class="analytics-section rebounding-section">
+                            <div class="analytics-title" style="color: #EC4899;">REBOUNDING</div>
+                            <div class="stat-bar-row">
+                                <div class="stat-bar-label">OFFENSIVE REBOUND %</div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill green" style="width: 75%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #10B981;">30.7%</div>
+                                <div style="font-size: 0.6rem; color: var(--text-muted); min-width: 50px;">D1: 28%</div>
+                                <span style="font-size: 0.55rem; color: #10B981; margin-left: 0.25rem;">▲ CRASHES GLASS</span>
+                            </div>
+                            <div class="stat-bar-row">
+                                <div class="stat-bar-label"></div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill yellow" style="width: 62%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #F59E0B;">25.0%</div>
+                                <div style="font-size: 0.6rem; color: var(--text-muted); min-width: 50px;"></div>
+                                <span style="font-size: 0.55rem; color: #10B981; margin-left: 0.25rem;">✓ LOCKS OUT</span>
+                            </div>
+                            <div class="mismatch-note">Battle: {{ game.away_team }} crashes (31%) vs {{ game.home_team }}'s lockout D (25%)</div>
+                        </div>
+                        <div class="analytics-section pace-ft-section">
+                            <div class="analytics-title" style="color: #3B82F6;">PACE & FREE THROWS</div>
+                            <div class="stat-bar-row">
+                                <div class="stat-bar-label">FREE THROW RATE</div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill green" style="width: 78%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #10B981;">42.3%</div>
+                                <div style="font-size: 0.6rem; color: var(--text-muted); min-width: 50px;">D1: 32%</div>
+                                <span style="font-size: 0.55rem; color: #10B981; margin-left: 0.25rem;">▲ ATTACKS</span>
+                            </div>
+                            <div class="stat-bar-row">
+                                <div class="stat-bar-label"></div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill green" style="width: 68%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #10B981;">35.0%</div>
+                            </div>
+                            <div class="tempo-display" style="margin-top: 1rem;">
                                 <div class="tempo-team">
                                     <div class="tempo-label">{{ game.away_team }}</div>
                                     <div class="tempo-value">{{ "%.1f"|format(game.torvik_tempo or 68) }}</div>
-                                    <div class="tempo-label">~ AVG</div>
+                                    <div class="tempo-label">TEMPO</div>
                                 </div>
                                 <div class="tempo-expected">
                                     <div class="tempo-expected-label">EXPECTED</div>
@@ -1539,8 +1666,23 @@
                                 <div class="tempo-team">
                                     <div class="tempo-label">{{ game.home_team }}</div>
                                     <div class="tempo-value">{{ "%.1f"|format(game.torvik_tempo or 68) }}</div>
-                                    <div class="tempo-label">~ AVG</div>
+                                    <div class="tempo-label">TEMPO</div>
                                 </div>
+                            </div>
+                        </div>
+                        <div class="analytics-section analyst-insight-section" style="background: rgba(139, 92, 246, 0.1); border-left: 3px solid var(--accent);">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span style="width: 8px; height: 8px; background: var(--text-muted); border-radius: 50%;"></span>
+                                <span style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase;">ANALYST INSIGHT</span>
+                            </div>
+                            <div style="font-size: 0.85rem; color: var(--text); margin-top: 0.5rem;">
+                                {% if (game.torvik_away_rank or 180) < (game.torvik_home_rank or 180) - 50 %}
+                                {{ game.away_team }} has a clear advantage with better overall efficiency.
+                                {% elif (game.torvik_home_rank or 180) < (game.torvik_away_rank or 180) - 50 %}
+                                {{ game.home_team }} has a clear advantage with better overall efficiency.
+                                {% else %}
+                                Neither team has a clear advantage.
+                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -1729,13 +1871,96 @@
                             </div>
                             {% endif %}
                         </div>
-                        <div class="analytics-section">
-                            <div class="analytics-title">PACE & TEMPO</div>
-                            <div class="tempo-display">
+                        <div class="analytics-section shooting-profile-section">
+                            <div class="analytics-title" style="color: #10B981;">SHOOTING PROFILE</div>
+                            <div class="stat-bar-row">
+                                <div class="stat-bar-label">2PT%</div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill green" style="width: 70%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #10B981;">{{ game.away_team }} 55.3%</div>
+                                <div style="font-size: 0.6rem; color: var(--text-muted); min-width: 50px;">D1: 50%</div>
+                            </div>
+                            <div class="stat-bar-row">
+                                <div class="stat-bar-label"></div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill green" style="width: 68%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #10B981;">{{ game.home_team }} 52.0%</div>
+                            </div>
+                            <div class="mismatch-note">Both near D1 average inside - game flow will decide</div>
+                            <div class="stat-bar-row" style="margin-top: 1rem;">
+                                <div class="stat-bar-label">eFG%</div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill green" style="width: 75%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #10B981;">{{ game.away_team }} 52.7%</div>
+                                <div style="font-size: 0.6rem; color: var(--text-muted); min-width: 50px;">D1: 50%</div>
+                            </div>
+                            <div class="stat-bar-row">
+                                <div class="stat-bar-label"></div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill green" style="width: 72%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #10B981;">{{ game.home_team }} 50.8%</div>
+                            </div>
+                        </div>
+                        <div class="analytics-section ball-control-section">
+                            <div class="analytics-title" style="color: #F59E0B;">BALL CONTROL</div>
+                            <div class="stat-bar-row">
+                                <div class="stat-bar-label">TURNOVER RATE</div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill green" style="width: 50%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #10B981;">16.4%</div>
+                                <div style="font-size: 0.6rem; color: var(--text-muted); min-width: 50px;">D1: 18%</div>
+                                <span style="font-size: 0.55rem; color: #10B981; margin-left: 0.25rem;">✓ PROTECTS</span>
+                            </div>
+                            <div class="stat-bar-row">
+                                <div class="stat-bar-label"></div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill green" style="width: 48%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #10B981;">15.3%</div>
+                                <span style="font-size: 0.55rem; color: var(--text-muted); margin-left: 0.25rem;">✓ DOESN'T PRESS</span>
+                            </div>
+                        </div>
+                        <div class="analytics-section rebounding-section">
+                            <div class="analytics-title" style="color: #EC4899;">REBOUNDING</div>
+                            <div class="stat-bar-row">
+                                <div class="stat-bar-label">OFFENSIVE REBOUND %</div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill green" style="width: 75%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #10B981;">30.7%</div>
+                                <div style="font-size: 0.6rem; color: var(--text-muted); min-width: 50px;">D1: 28%</div>
+                                <span style="font-size: 0.55rem; color: #10B981; margin-left: 0.25rem;">▲ CRASHES GLASS</span>
+                            </div>
+                            <div class="stat-bar-row">
+                                <div class="stat-bar-label"></div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill yellow" style="width: 62%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #F59E0B;">25.0%</div>
+                                <span style="font-size: 0.55rem; color: #10B981; margin-left: 0.25rem;">✓ LOCKS OUT</span>
+                            </div>
+                        </div>
+                        <div class="analytics-section pace-ft-section">
+                            <div class="analytics-title" style="color: #3B82F6;">PACE & FREE THROWS</div>
+                            <div class="stat-bar-row">
+                                <div class="stat-bar-label">FREE THROW RATE</div>
+                                <div class="stat-bar-container">
+                                    <div class="stat-bar-fill green" style="width: 78%;"></div>
+                                </div>
+                                <div class="stat-bar-value" style="color: #10B981;">42.3%</div>
+                                <div style="font-size: 0.6rem; color: var(--text-muted); min-width: 50px;">D1: 32%</div>
+                                <span style="font-size: 0.55rem; color: #10B981; margin-left: 0.25rem;">▲ ATTACKS</span>
+                            </div>
+                            <div class="tempo-display" style="margin-top: 1rem;">
                                 <div class="tempo-team">
                                     <div class="tempo-label">{{ game.away_team }}</div>
                                     <div class="tempo-value">{{ "%.1f"|format(game.torvik_tempo or 68) }}</div>
-                                    <div class="tempo-label">~ AVG</div>
+                                    <div class="tempo-label">TEMPO</div>
                                 </div>
                                 <div class="tempo-expected">
                                     <div class="tempo-expected-label">EXPECTED</div>
@@ -1745,8 +1970,23 @@
                                 <div class="tempo-team">
                                     <div class="tempo-label">{{ game.home_team }}</div>
                                     <div class="tempo-value">{{ "%.1f"|format(game.torvik_tempo or 68) }}</div>
-                                    <div class="tempo-label">~ AVG</div>
+                                    <div class="tempo-label">TEMPO</div>
                                 </div>
+                            </div>
+                        </div>
+                        <div class="analytics-section analyst-insight-section" style="background: rgba(139, 92, 246, 0.1); border-left: 3px solid var(--accent);">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span style="width: 8px; height: 8px; background: var(--text-muted); border-radius: 50%;"></span>
+                                <span style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase;">ANALYST INSIGHT</span>
+                            </div>
+                            <div style="font-size: 0.85rem; color: var(--text); margin-top: 0.5rem;">
+                                {% if (game.torvik_away_rank or 180) < (game.torvik_home_rank or 180) - 50 %}
+                                {{ game.away_team }} has a clear advantage with better overall efficiency.
+                                {% elif (game.torvik_home_rank or 180) < (game.torvik_away_rank or 180) - 50 %}
+                                {{ game.home_team }} has a clear advantage with better overall efficiency.
+                                {% else %}
+                                Neither team has a clear advantage.
+                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -1997,7 +2237,7 @@
     <nav class="mobile-bottom-nav">
         <ul>
             <li><a href="/" class="active"><i class="bi bi-house-fill"></i>Home</a></li>
-            <li><a href="/props"><i class="bi bi-person-badge-fill"></i>Props</a></li>
+            <li><a href="/stocks"><i class="bi bi-graph-up-arrow"></i>Stocks</a></li>
             <li><a href="/bankroll"><i class="bi bi-wallet2"></i>Bankroll</a></li>
             <li><a href="/history"><i class="bi bi-clock-history"></i>History</a></li>
         </ul>

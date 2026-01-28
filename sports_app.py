@@ -302,6 +302,383 @@ class GameConstants:
 THRESHOLDS = GameConstants.EDGE_THRESHOLDS
 
 
+class MatchupIntelligence:
+    """
+    Advanced Matchup Intelligence engine for NBA/CBB games.
+    Fetches and computes advanced analytics from NBA.com and other sources.
+    Based on CleaningTheGlass methodology.
+    """
+    
+    # D1 averages for comparison (approximate)
+    D1_AVERAGES = {
+        '2PT%': 50.0,
+        '3PT%': 34.0,
+        '3PT_RATE': 40.0,
+        'eFG%': 50.0,
+        'TOV%': 18.0,
+        'ORB%': 28.0,
+        'FT_RATE': 32.0
+    }
+    
+    # NBA team ID mapping for NBA.com API
+    NBA_TEAM_IDS = {
+        'ATL': 1610612737, 'BOS': 1610612738, 'BKN': 1610612751, 'CHA': 1610612766,
+        'CHI': 1610612741, 'CLE': 1610612739, 'DAL': 1610612742, 'DEN': 1610612743,
+        'DET': 1610612765, 'GSW': 1610612744, 'HOU': 1610612745, 'IND': 1610612754,
+        'LAC': 1610612746, 'LAL': 1610612747, 'MEM': 1610612763, 'MIA': 1610612748,
+        'MIL': 1610612749, 'MIN': 1610612750, 'NOP': 1610612740, 'NYK': 1610612752,
+        'OKC': 1610612760, 'ORL': 1610612753, 'PHI': 1610612755, 'PHX': 1610612756,
+        'POR': 1610612757, 'SAC': 1610612758, 'SAS': 1610612759, 'TOR': 1610612761,
+        'UTA': 1610612762, 'WAS': 1610612764, 
+        'Hawks': 1610612737, 'Celtics': 1610612738, 'Nets': 1610612751, 'Hornets': 1610612766,
+        'Bulls': 1610612741, 'Cavaliers': 1610612739, 'Mavericks': 1610612742, 'Nuggets': 1610612743,
+        'Pistons': 1610612765, 'Warriors': 1610612744, 'Rockets': 1610612745, 'Pacers': 1610612754,
+        'Clippers': 1610612746, 'Lakers': 1610612747, 'Grizzlies': 1610612763, 'Heat': 1610612748,
+        'Bucks': 1610612749, 'Timberwolves': 1610612750, 'Pelicans': 1610612740, 'Knicks': 1610612752,
+        'Thunder': 1610612760, 'Magic': 1610612753, '76ers': 1610612755, 'Suns': 1610612756,
+        'Trail Blazers': 1610612757, 'Kings': 1610612758, 'Spurs': 1610612759, 'Raptors': 1610612761,
+        'Jazz': 1610612762, 'Wizards': 1610612764
+    }
+    
+    @staticmethod
+    def get_team_advanced_stats(team_name: str, league: str = 'NBA') -> dict:
+        """
+        Fetch advanced team stats from NBA.com API.
+        Returns dict with shooting, rebounding, turnover, pace metrics.
+        """
+        try:
+            from nba_api.stats.endpoints import teamdashboardbygeneralsplits, leaguedashteamstats
+            from nba_api.stats.static import teams as nba_teams_static
+            import time
+            
+            # Find team ID
+            team_id = None
+            for abbr, tid in MatchupIntelligence.NBA_TEAM_IDS.items():
+                if abbr.lower() in team_name.lower() or team_name.lower() in abbr.lower():
+                    team_id = tid
+                    break
+            
+            if not team_id:
+                # Try to find by full name
+                all_teams = nba_teams_static.get_teams()
+                for t in all_teams:
+                    if team_name.lower() in t['full_name'].lower() or t['nickname'].lower() in team_name.lower():
+                        team_id = t['id']
+                        break
+            
+            if not team_id:
+                logger.warning(f"Could not find NBA team ID for: {team_name}")
+                return {}
+            
+            time.sleep(0.6)  # Rate limiting
+            
+            # Fetch advanced stats
+            stats = teamdashboardbygeneralsplits.TeamDashboardByGeneralSplits(
+                team_id=team_id,
+                season='2024-25',
+                season_type_all_star='Regular Season'
+            )
+            
+            overall = stats.overall_team_dashboard.get_dict()
+            if overall and overall.get('data'):
+                row = overall['data'][0]
+                headers = overall['headers']
+                stats_dict = dict(zip(headers, row))
+                
+                return {
+                    'fgm': stats_dict.get('FGM', 0),
+                    'fga': stats_dict.get('FGA', 0),
+                    'fg_pct': stats_dict.get('FG_PCT', 0) * 100,
+                    'fg3m': stats_dict.get('FG3M', 0),
+                    'fg3a': stats_dict.get('FG3A', 0),
+                    'fg3_pct': stats_dict.get('FG3_PCT', 0) * 100,
+                    'ftm': stats_dict.get('FTM', 0),
+                    'fta': stats_dict.get('FTA', 0),
+                    'ft_pct': stats_dict.get('FT_PCT', 0) * 100,
+                    'oreb': stats_dict.get('OREB', 0),
+                    'dreb': stats_dict.get('DREB', 0),
+                    'reb': stats_dict.get('REB', 0),
+                    'ast': stats_dict.get('AST', 0),
+                    'tov': stats_dict.get('TOV', 0),
+                    'stl': stats_dict.get('STL', 0),
+                    'blk': stats_dict.get('BLK', 0),
+                    'pts': stats_dict.get('PTS', 0),
+                    'plus_minus': stats_dict.get('PLUS_MINUS', 0),
+                    # Calculated metrics
+                    '2pt_pct': ((stats_dict.get('FGM', 0) - stats_dict.get('FG3M', 0)) / 
+                               max(1, stats_dict.get('FGA', 1) - stats_dict.get('FG3A', 0))) * 100 if stats_dict.get('FGA', 0) > 0 else 0,
+                    '3pt_rate': (stats_dict.get('FG3A', 0) / max(1, stats_dict.get('FGA', 1))) * 100 if stats_dict.get('FGA', 0) > 0 else 0,
+                    'efg_pct': ((stats_dict.get('FGM', 0) + 0.5 * stats_dict.get('FG3M', 0)) / 
+                               max(1, stats_dict.get('FGA', 1))) * 100 if stats_dict.get('FGA', 0) > 0 else 0,
+                    'tov_pct': (stats_dict.get('TOV', 0) / 
+                               max(1, stats_dict.get('FGA', 0) + 0.44 * stats_dict.get('FTA', 0) + stats_dict.get('TOV', 0))) * 100,
+                    'orb_pct': 0,  # Will need box score data
+                    'ft_rate': (stats_dict.get('FTA', 0) / max(1, stats_dict.get('FGA', 1))) * 100 if stats_dict.get('FGA', 0) > 0 else 0
+                }
+            
+            return {}
+            
+        except Exception as e:
+            logger.warning(f"Error fetching NBA.com stats for {team_name}: {e}")
+            return {}
+    
+    @staticmethod
+    def get_team_rankings(league: str = 'NBA') -> dict:
+        """
+        Fetch team power rankings and efficiency ratings.
+        Returns dict mapping team names to their rankings.
+        """
+        try:
+            from nba_api.stats.endpoints import leaguedashteamstats
+            import time
+            
+            time.sleep(0.6)
+            
+            # Get league-wide stats for rankings
+            team_stats = leaguedashteamstats.LeagueDashTeamStats(
+                season='2024-25',
+                season_type_all_star='Regular Season',
+                per_mode_detailed='PerGame'
+            )
+            
+            data = team_stats.league_dash_team_stats.get_dict()
+            if data and data.get('data'):
+                headers = data['headers']
+                rankings = {}
+                
+                # Sort teams by NET_RATING for power ranking
+                team_data = []
+                for row in data['data']:
+                    stats = dict(zip(headers, row))
+                    team_data.append({
+                        'team_id': stats.get('TEAM_ID'),
+                        'team_name': stats.get('TEAM_NAME'),
+                        'off_rating': stats.get('OFF_RATING', 0),
+                        'def_rating': stats.get('DEF_RATING', 0),
+                        'net_rating': stats.get('NET_RATING', 0),
+                        'pace': stats.get('PACE', 0),
+                        'wins': stats.get('W', 0),
+                        'losses': stats.get('L', 0)
+                    })
+                
+                # Sort by net rating for power ranking
+                team_data.sort(key=lambda x: x['net_rating'], reverse=True)
+                for i, team in enumerate(team_data, 1):
+                    team['power_rank'] = i
+                    rankings[team['team_name']] = team
+                
+                # Sort by offensive rating
+                team_data.sort(key=lambda x: x['off_rating'], reverse=True)
+                for i, team in enumerate(team_data, 1):
+                    rankings[team['team_name']]['off_rank'] = i
+                
+                # Sort by defensive rating (lower is better)
+                team_data.sort(key=lambda x: x['def_rating'])
+                for i, team in enumerate(team_data, 1):
+                    rankings[team['team_name']]['def_rank'] = i
+                
+                return rankings
+            
+            return {}
+            
+        except Exception as e:
+            logger.warning(f"Error fetching team rankings: {e}")
+            return {}
+    
+    @staticmethod
+    def compute_matchup_stats(away_team: str, home_team: str, away_stats: dict, home_stats: dict, 
+                             away_ppg: float, home_ppg: float, away_opp_ppg: float, home_opp_ppg: float,
+                             rankings: dict = None) -> dict:
+        """
+        Compute comprehensive matchup intelligence for a game.
+        Returns structured data for UI display.
+        """
+        result = {
+            'has_data': False,
+            'away_team': away_team,
+            'home_team': home_team
+        }
+        
+        # Get rankings data
+        away_rank_data = rankings.get(away_team, {}) if rankings else {}
+        home_rank_data = rankings.get(home_team, {}) if rankings else {}
+        
+        # Power Rating section
+        away_power_rank = away_rank_data.get('power_rank', 0)
+        home_power_rank = home_rank_data.get('power_rank', 0)
+        
+        if away_power_rank and home_power_rank:
+            result['power_rating'] = {
+                'away': {
+                    'rank': away_power_rank,
+                    'percentile': round((30 - away_power_rank + 1) / 30 * 100),
+                    'label': f"Top {round((away_power_rank / 30) * 100)}%"
+                },
+                'home': {
+                    'rank': home_power_rank,
+                    'percentile': round((30 - home_power_rank + 1) / 30 * 100),
+                    'label': f"Top {round((home_power_rank / 30) * 100)}%"
+                },
+                'diff': home_power_rank - away_power_rank,
+                'edge': 'away' if away_power_rank < home_power_rank else ('home' if home_power_rank < away_power_rank else 'even')
+            }
+            result['has_data'] = True
+        
+        # Offensive Efficiency (pts/100 possessions)
+        away_off = away_rank_data.get('off_rating', away_ppg)
+        home_off = home_rank_data.get('off_rating', home_ppg)
+        away_off_rank = away_rank_data.get('off_rank', 0)
+        home_off_rank = home_rank_data.get('off_rank', 0)
+        
+        if away_off and home_off:
+            result['offensive_efficiency'] = {
+                'away': {
+                    'value': round(away_off, 1),
+                    'rank': away_off_rank,
+                    'percentile': round((30 - away_off_rank + 1) / 30 * 100) if away_off_rank else 0
+                },
+                'home': {
+                    'value': round(home_off, 1),
+                    'rank': home_off_rank,
+                    'percentile': round((30 - home_off_rank + 1) / 30 * 100) if home_off_rank else 0
+                },
+                'diff': round(away_off - home_off, 1),
+                'edge': 'away' if away_off > home_off else ('home' if home_off > away_off else 'even')
+            }
+            result['has_data'] = True
+        
+        # Defensive Efficiency (pts allowed/100 possessions)
+        away_def = away_rank_data.get('def_rating', away_opp_ppg)
+        home_def = home_rank_data.get('def_rating', home_opp_ppg)
+        away_def_rank = away_rank_data.get('def_rank', 0)
+        home_def_rank = home_rank_data.get('def_rank', 0)
+        
+        if away_def and home_def:
+            result['defensive_efficiency'] = {
+                'away': {
+                    'value': round(away_def, 1),
+                    'rank': away_def_rank,
+                    'percentile': round((30 - away_def_rank + 1) / 30 * 100) if away_def_rank else 0
+                },
+                'home': {
+                    'value': round(home_def, 1),
+                    'rank': home_def_rank,
+                    'percentile': round((30 - home_def_rank + 1) / 30 * 100) if home_def_rank else 0
+                },
+                'diff': round(home_def - away_def, 1),  # Lower is better for defense
+                'edge': 'away' if away_def < home_def else ('home' if home_def < away_def else 'even')
+            }
+            result['has_data'] = True
+        
+        # Efficiency Comparison (Offense vs Defense matchup)
+        if away_off and home_def:
+            result['efficiency_comparison'] = {
+                'away_off_vs_home_def': {
+                    'off_value': round(away_off, 1),
+                    'def_value': round(home_def, 1),
+                    'diff': round(away_off - home_def, 1),
+                    'insight': 'expect scoring' if away_off > home_def + 5 else ('defensive edge' if home_def < away_off - 5 else 'even matchup')
+                },
+                'home_off_vs_away_def': {
+                    'off_value': round(home_off, 1),
+                    'def_value': round(away_def, 1),
+                    'diff': round(home_off - away_def, 1),
+                    'insight': 'expect scoring' if home_off > away_def + 5 else ('defensive edge' if away_def < home_off - 5 else 'even matchup')
+                }
+            }
+        
+        # Shooting Profile
+        if away_stats and home_stats:
+            result['shooting_profile'] = {
+                '2pt_pct': {
+                    'away': round(away_stats.get('2pt_pct', 0), 1),
+                    'home': round(home_stats.get('2pt_pct', 0), 1),
+                    'd1_avg': MatchupIntelligence.D1_AVERAGES['2PT%']
+                },
+                '3pt_pct': {
+                    'away': round(away_stats.get('fg3_pct', 0), 1),
+                    'home': round(home_stats.get('fg3_pct', 0), 1),
+                    'd1_avg': MatchupIntelligence.D1_AVERAGES['3PT%']
+                },
+                '3pt_rate': {
+                    'away': round(away_stats.get('3pt_rate', 0), 1),
+                    'home': round(home_stats.get('3pt_rate', 0), 1),
+                    'd1_avg': MatchupIntelligence.D1_AVERAGES['3PT_RATE']
+                },
+                'efg_pct': {
+                    'away': round(away_stats.get('efg_pct', 0), 1),
+                    'home': round(home_stats.get('efg_pct', 0), 1),
+                    'd1_avg': MatchupIntelligence.D1_AVERAGES['eFG%']
+                }
+            }
+            result['has_data'] = True
+        
+        # Ball Control
+        if away_stats and home_stats:
+            away_tov_pct = away_stats.get('tov_pct', 0)
+            home_tov_pct = home_stats.get('tov_pct', 0)
+            result['ball_control'] = {
+                'tov_pct': {
+                    'away': round(away_tov_pct, 1),
+                    'home': round(home_tov_pct, 1),
+                    'd1_avg': MatchupIntelligence.D1_AVERAGES['TOV%'],
+                    'away_protects': away_tov_pct < MatchupIntelligence.D1_AVERAGES['TOV%'],
+                    'home_protects': home_tov_pct < MatchupIntelligence.D1_AVERAGES['TOV%'],
+                    'away_presses': away_tov_pct > MatchupIntelligence.D1_AVERAGES['TOV%'] + 2,
+                    'home_presses': home_tov_pct > MatchupIntelligence.D1_AVERAGES['TOV%'] + 2
+                }
+            }
+        
+        # Rebounding
+        if away_stats and home_stats:
+            away_orb_pct = away_stats.get('orb_pct', 0)
+            home_orb_pct = home_stats.get('orb_pct', 0)
+            result['rebounding'] = {
+                'orb_pct': {
+                    'away': round(away_orb_pct, 1),
+                    'home': round(home_orb_pct, 1),
+                    'd1_avg': MatchupIntelligence.D1_AVERAGES['ORB%'],
+                    'away_crashes': away_orb_pct > MatchupIntelligence.D1_AVERAGES['ORB%'] + 2,
+                    'home_crashes': home_orb_pct > MatchupIntelligence.D1_AVERAGES['ORB%'] + 2,
+                    'away_locks_out': away_orb_pct < MatchupIntelligence.D1_AVERAGES['ORB%'] - 2,
+                    'home_locks_out': home_orb_pct < MatchupIntelligence.D1_AVERAGES['ORB%'] - 2
+                }
+            }
+        
+        # Pace & Free Throws
+        if away_stats and home_stats:
+            away_ft_rate = away_stats.get('ft_rate', 0)
+            home_ft_rate = home_stats.get('ft_rate', 0)
+            away_pace = away_rank_data.get('pace', 100)
+            home_pace = home_rank_data.get('pace', 100)
+            result['pace_ft'] = {
+                'ft_rate': {
+                    'away': round(away_ft_rate, 1),
+                    'home': round(home_ft_rate, 1),
+                    'd1_avg': MatchupIntelligence.D1_AVERAGES['FT_RATE'],
+                    'away_attacks': away_ft_rate > MatchupIntelligence.D1_AVERAGES['FT_RATE'] + 5,
+                    'home_attacks': home_ft_rate > MatchupIntelligence.D1_AVERAGES['FT_RATE'] + 5
+                },
+                'pace': {
+                    'away': round(away_pace, 1),
+                    'home': round(home_pace, 1),
+                    'expected': round((away_pace + home_pace) / 2, 1)
+                }
+            }
+        
+        # Analyst Insight based on overall comparison
+        if result.get('power_rating'):
+            power_diff = abs(result['power_rating']['diff'])
+            if power_diff <= 5:
+                result['analyst_insight'] = "Neither team has a clear advantage."
+            elif result['power_rating']['edge'] == 'away':
+                result['analyst_insight'] = f"{away_team} has the edge with better overall efficiency."
+            else:
+                result['analyst_insight'] = f"{home_team} has the edge with better overall efficiency."
+        
+        return result
+
+
 def get_display_spread(game, use_alt=True) -> tuple:
     """
     FOOLPROOF SPREAD DISPLAY HELPER
@@ -7890,910 +8267,6 @@ def history():
 def bankroll():
     """52 Week Bankroll Builder tracker."""
     return render_template('bankroll.html')
-
-@app.route('/props')
-def props():
-    """Player Props Streak Tracker page."""
-    return render_template('props.html')
-
-@app.route('/api/player_props')
-def api_player_props():
-    """
-    Fetch NBA player props with streak data.
-    Uses bulk game log fetch for efficiency.
-    Analyzes last 20 games for each player to find hot streaks.
-    Uses 100-game simulation for AI projections.
-    Filters out injured and questionable players.
-    """
-    try:
-        from nba_api.stats.endpoints import playergamelogs, leaguedashplayerstats, scoreboardv2
-        from nba_api.stats.static import teams as nba_teams
-        import random
-        import time
-        
-        et = pytz.timezone('America/New_York')
-        today = datetime.now(et).strftime('%Y-%m-%d')
-        
-        logger.info("Starting player props fetch...")
-        
-        # Fetch injury report to exclude injured/questionable players
-        injured_players = set()
-        try:
-            injury_url = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/injuries"
-            injury_resp = requests.get(injury_url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
-            if injury_resp.status_code == 200:
-                injury_data = injury_resp.json()
-                teams_data = injury_data.get('injuries', [])
-                for team in teams_data:
-                    players = team.get('injuries', [])
-                    for player in players:
-                        status = player.get('status', '').lower()
-                        # Only exclude players who are OUT or DOUBTFUL
-                        # Include QUESTIONABLE and DAY-TO-DAY as they often still play
-                        if status in ['out', 'doubtful']:
-                            player_name = player.get('athlete', {}).get('displayName', '')
-                            if player_name:
-                                injured_players.add(player_name.lower())
-                logger.info(f"Found {len(injured_players)} injured/questionable players to exclude")
-        except Exception as e:
-            logger.warning(f"Could not fetch injury report: {e}")
-        
-        # Helper function to normalize player names for matching
-        def normalize_name(name):
-            """Normalize player name for consistent matching between APIs."""
-            if not name:
-                return ''
-            # Lowercase and strip whitespace
-            n = name.lower().strip()
-            # Remove suffixes like Jr., III, IV, II
-            for suffix in [' jr.', ' jr', ' iii', ' iv', ' ii', ' sr.', ' sr']:
-                if n.endswith(suffix):
-                    n = n[:-len(suffix)]
-            # Common name variations
-            replacements = {
-                'demarr': 'demar',  # DeMar vs DeMarr
-                '\'': '',  # Remove apostrophes (O'Brien -> OBrien)
-            }
-            for old, new in replacements.items():
-                n = n.replace(old, new)
-            return n.strip()
-        
-        # Fetch Bovada player prop lines from The Odds API
-        bovada_lines = {}
-        bovada_lines_normalized = {}  # Secondary lookup with normalized names
-        try:
-            odds_api_key = os.environ.get('BOVADA_API_KEY') or os.environ.get('ODDS_API_KEY') or os.environ.get('API_KEY')
-            key_prefix = odds_api_key[:4] if odds_api_key else 'NONE'
-            logger.info(f"ODDS API KEY loaded: {'YES' if odds_api_key else 'NO'} (length: {len(odds_api_key) if odds_api_key else 0}, starts with: {key_prefix})")
-            if odds_api_key:
-                # First get today's events
-                events_url = f"https://api.the-odds-api.com/v4/sports/basketball_nba/events?apiKey={odds_api_key}"
-                events_resp = requests.get(events_url, timeout=15)
-                if events_resp.status_code == 200:
-                    events = events_resp.json()
-                    logger.info(f"Found {len(events)} NBA events for props")
-                    
-                    # Fetch player props for each event
-                    for event in events[:12]:  # Limit to avoid API quota
-                        event_id = event.get('id')
-                        if not event_id:
-                            continue
-                        
-                        # All prop markets including combos AND alternate lines (Joe's full cheat sheet)
-                        # Joe uses ALT LINES with lower thresholds (e.g., O8.5 points instead of O18.5)
-                        props_markets = [
-                            # Single stat props
-                            'player_points', 'player_points_alternate',
-                            'player_rebounds', 'player_rebounds_alternate', 
-                            'player_assists', 'player_assists_alternate',
-                            'player_threes', 'player_threes_alternate',
-                            'player_steals', 'player_steals_alternate',
-                            'player_blocks', 'player_blocks_alternate',
-                            # Combo props (PTS+REB, PTS+AST, REB+AST, PTS+REB+AST)
-                            'player_points_rebounds', 'player_points_rebounds_alternate',
-                            'player_points_assists', 'player_points_assists_alternate',
-                            'player_rebounds_assists', 'player_rebounds_assists_alternate',
-                            'player_points_rebounds_assists', 'player_points_rebounds_assists_alternate'
-                        ]
-                        props_url = f"https://api.the-odds-api.com/v4/sports/basketball_nba/events/{event_id}/odds?apiKey={odds_api_key}&regions=us&markets={','.join(props_markets)}&bookmakers=fanduel,draftkings,bet365_us,fanatics"
-                        
-                        try:
-                            props_resp = requests.get(props_url, timeout=10)
-                            logger.info(f"Props API response status: {props_resp.status_code} for event {event_id}")
-                            if props_resp.status_code == 200:
-                                props_data = props_resp.json()
-                                bookmakers = props_data.get('bookmakers', [])
-                                logger.info(f"Event {event_id}: Found {len(bookmakers)} bookmakers")
-                                for bm in bookmakers:
-                                    # Accept all major sportsbooks (FanDuel, DraftKings, Bovada, etc.)
-                                    # Joe's preferred bookmakers: DraftKings, FanDuel, Fanatics, Bet365
-                                    if bm.get('key') in ['fanduel', 'draftkings', 'fanatics', 'bet365', 'bet365_us']:
-                                        for market in bm.get('markets', []):
-                                            # Normalize market key (remove player_ prefix and _alternate suffix)
-                                            market_key = market.get('key', '').replace('player_', '').replace('_alternate', '')
-                                            for outcome in market.get('outcomes', []):
-                                                # Only get OVER lines, not UNDER
-                                                outcome_name = outcome.get('name', '').lower()
-                                                if outcome_name != 'over':
-                                                    continue
-                                                    
-                                                player_name = outcome.get('description', '')
-                                                line = outcome.get('point')
-                                                odds = outcome.get('price', 0)
-                                                
-                                                # Debug logging for key players
-                                                if player_name and ('derozan' in player_name.lower() or 'raynaud' in player_name.lower()):
-                                                    logger.info(f"ODDS CHECK: {player_name} {market_key} line={line} odds={odds}")
-                                                
-                                                if player_name and line and odds:
-                                                    # Store with both raw and normalized name keys (no odds filter)
-                                                    key = f"{player_name.lower()}_{market_key}_{line}"
-                                                    norm_key = f"{normalize_name(player_name)}_{market_key}_{line}"
-                                                    line_data = {'line': line, 'odds': odds, 'player': player_name}
-                                                    if key not in bovada_lines:
-                                                        bovada_lines[key] = line_data
-                                                    if norm_key not in bovada_lines_normalized:
-                                                        bovada_lines_normalized[norm_key] = line_data
-                        except Exception as e:
-                            logger.warning(f"Error fetching props for event {event_id}: {e}")
-                            continue
-                    
-                    logger.info(f"Fetched {len(bovada_lines)} prop lines from bookmakers")
-                    # Count market types - combo markets have underscores in the market key
-                    market_counts = {}
-                    combo_markets = ['points_rebounds', 'points_assists', 'rebounds_assists', 'points_rebounds_assists']
-                    for k in bovada_lines.keys():
-                        # Key format: playername_market_line
-                        for combo in combo_markets:
-                            if f"_{combo}_" in k:
-                                market_counts[combo] = market_counts.get(combo, 0) + 1
-                                break
-                        else:
-                            # Single stat market
-                            for single in ['points', 'rebounds', 'assists', 'threes', 'steals', 'blocks']:
-                                if f"_{single}_" in k and not any(f"_{c}_" in k for c in combo_markets):
-                                    market_counts[single] = market_counts.get(single, 0) + 1
-                                    break
-                    logger.info(f"Market type counts: {market_counts}")
-                    # Log sample keys and unique player names for debugging
-                    sample_keys = list(bovada_lines.keys())[:5]
-                    logger.info(f"Sample keys: {sample_keys}")
-                    # Extract unique player names from keys
-                    unique_players = set()
-                    for k in bovada_lines.keys():
-                        # Key format: player_name_market_line (e.g., 'lebron james_points_24.5')
-                        parts = k.rsplit('_', 2)  # Split off line and market
-                        if len(parts) >= 3:
-                            unique_players.add(parts[0])
-                    logger.info(f"Sample API players: {list(unique_players)[:10]}")
-                else:
-                    logger.warning(f"Events API returned status {events_resp.status_code}")
-        except Exception as e:
-            logger.warning(f"Could not fetch Bovada lines: {e}")
-        
-        # Team ID to name mapping
-        team_id_to_name = {t['id']: t['full_name'] for t in nba_teams.get_teams()}
-        team_id_to_abbrev = {t['id']: t['abbreviation'] for t in nba_teams.get_teams()}
-        
-        # Get today's games to find active players
-        today_games = []
-        teams_playing = set()
-        try:
-            scoreboard = scoreboardv2.ScoreboardV2(game_date=today, timeout=15)
-            games_data = scoreboard.get_normalized_dict()
-            today_games = games_data.get('GameHeader', [])
-            for game in today_games:
-                teams_playing.add(game.get('HOME_TEAM_ID'))
-                teams_playing.add(game.get('VISITOR_TEAM_ID'))
-            logger.info(f"Found {len(today_games)} games today with {len(teams_playing)} teams")
-        except Exception as e:
-            logger.warning(f"Could not fetch today's games: {e}")
-        
-        # Build opponent lookup from today's games
-        team_opponents = {}
-        for game in today_games:
-            home_id = game.get('HOME_TEAM_ID')
-            away_id = game.get('VISITOR_TEAM_ID')
-            team_opponents[home_id] = away_id
-            team_opponents[away_id] = home_id
-        
-        # Fetch ALL player game logs at once (more efficient than individual calls)
-        # CROSS-SEASON: Fetch both current AND previous season to calculate cross-season streaks
-        all_game_logs = {}
-        try:
-            logger.info("Fetching bulk player game logs (cross-season)...")
-            
-            # Current season (2025-26)
-            bulk_logs_current = playergamelogs.PlayerGameLogs(
-                season_nullable='2025-26',
-                last_n_games_nullable=100,
-                timeout=90
-            )
-            logs_current = bulk_logs_current.get_data_frames()[0]
-            
-            # Previous season (2024-25) for cross-season streaks
-            try:
-                bulk_logs_previous = playergamelogs.PlayerGameLogs(
-                    season_nullable='2024-25',
-                    last_n_games_nullable=50,
-                    timeout=90
-                )
-                logs_previous = bulk_logs_previous.get_data_frames()[0]
-                # Combine both seasons
-                import pandas as pd
-                logs_df = pd.concat([logs_current, logs_previous], ignore_index=True)
-                
-                # Filter out preseason games (GAME_ID starting with '001')
-                # NBA GAME_ID format: 001=preseason, 002=regular, 003=allstar, 004=playoffs
-                original_count = len(logs_df)
-                logs_df = logs_df[~logs_df['GAME_ID'].astype(str).str.startswith('001')]
-                filtered_count = len(logs_df)
-                logger.info(f"Cross-season data: {filtered_count} regular season games (filtered {original_count - filtered_count} preseason games)")
-            except Exception as e:
-                logger.warning(f"Could not fetch previous season, using current only: {e}")
-                logs_df = logs_current
-            
-            # Group by player and sort by date (most recent first)
-            for player_id, group in logs_df.groupby('PLAYER_ID'):
-                all_game_logs[player_id] = group.sort_values('GAME_DATE', ascending=False)
-            
-            logger.info(f"Fetched game logs for {len(all_game_logs)} players")
-        except Exception as e:
-            logger.error(f"Could not fetch bulk game logs: {e}")
-            return jsonify({'success': False, 'message': f'Error fetching game logs: {str(e)}', 'props': []})
-        
-        # Get player stats for the season
-        try:
-            player_stats = leaguedashplayerstats.LeagueDashPlayerStats(
-                season='2025-26',
-                per_mode_detailed='PerGame',
-                timeout=30
-            )
-            stats_df = player_stats.get_data_frames()[0]
-            logger.info(f"Fetched stats for {len(stats_df)} players")
-        except Exception as e:
-            logger.error(f"Could not fetch player stats: {e}")
-            return jsonify({'success': False, 'message': f'Error fetching player stats: {str(e)}', 'props': []})
-        
-        # Filter to players on teams playing today with meaningful minutes
-        if teams_playing:
-            active_players = stats_df[
-                (stats_df['TEAM_ID'].isin(teams_playing)) & 
-                (stats_df['MIN'] >= 15) &
-                (stats_df['GP'] >= 10)
-            ]
-        else:
-            # If no games today, get top players by minutes
-            active_players = stats_df[
-                (stats_df['MIN'] >= 20) &
-                (stats_df['GP'] >= 15)
-            ].head(100)
-        
-        logger.info(f"Processing {len(active_players)} active players")
-        
-        props_found = []
-        
-        # Define prop types to check with multiple thresholds (market_key for Bovada lookup)
-        # Joe's exact thresholds from his sheets (expanded to match his methodology)
-        prop_types = [
-            {'key': 'points', 'name': 'Points', 'thresholds': [8, 10, 12, 15, 17, 20, 25], 'stat': 'PTS', 'market_key': 'points', 'priority': 5},
-            {'key': 'rebounds', 'name': 'Rebounds', 'thresholds': [2, 3, 4, 5, 7, 10], 'stat': 'REB', 'market_key': 'rebounds', 'priority': 3},
-            {'key': 'assists', 'name': 'Assists', 'thresholds': [2, 3, 4, 5, 6, 8], 'stat': 'AST', 'market_key': 'assists', 'priority': 4},
-            {'key': 'threes', 'name': '3 Point Made', 'thresholds': [1, 2, 3, 4], 'stat': 'FG3M', 'market_key': 'threes', 'priority': 2},
-            {'key': 'blocks', 'name': 'Blocks', 'thresholds': [1, 2, 3], 'stat': 'BLK', 'market_key': 'blocks', 'priority': 1},
-            {'key': 'steals', 'name': 'Steals', 'thresholds': [1, 2, 3], 'stat': 'STL', 'market_key': 'steals', 'priority': 1},
-            {'key': 'pts_reb_ast', 'name': 'PTS+AST+REB', 'thresholds': [18, 20, 23, 25, 28, 30, 35], 'stats': ['PTS', 'REB', 'AST'], 'market_key': 'points_rebounds_assists', 'priority': 6},
-            {'key': 'pts_reb', 'name': 'PTS+REB', 'thresholds': [10, 11, 12, 13, 15, 18, 20], 'stats': ['PTS', 'REB'], 'market_key': 'points_rebounds', 'priority': 5},
-            {'key': 'pts_ast', 'name': 'PTS+AST', 'thresholds': [10, 12, 15, 18, 20], 'stats': ['PTS', 'AST'], 'market_key': 'points_assists', 'priority': 5},
-            {'key': 'reb_ast', 'name': 'REB+AST', 'thresholds': [5, 6, 8, 10, 12], 'stats': ['REB', 'AST'], 'market_key': 'rebounds_assists', 'priority': 4},
-        ]
-        
-        # Fetch STAT-SPECIFIC defensive rankings (Joe's methodology)
-        # Each stat type has its own ranking (e.g., "16th most points allowed")
-        # Using NBA API's built-in rank columns for accuracy
-        stat_def_rankings = {
-            'PTS': {},      # Points allowed ranking
-            'REB': {},      # Rebounds allowed ranking
-            'AST': {},      # Assists allowed ranking
-            'BLK': {},      # Blocks allowed ranking
-            'STL': {},      # Steals allowed ranking
-            'FG3M': {},     # 3PM allowed ranking
-        }
-        try:
-            from nba_api.stats.endpoints import leaguedashteamstats
-            # Use PerGame mode to match Joe's methodology (per-game averages, not totals)
-            team_stats = leaguedashteamstats.LeagueDashTeamStats(
-                season='2025-26',
-                measure_type_detailed_defense='Opponent',
-                per_mode_detailed='PerGame',
-                timeout=30
-            )
-            team_df = team_stats.get_data_frames()[0]
-            
-            # Use built-in rank columns from NBA API
-            # Higher rank number = allows MORE of that stat = worse defense = better for OVER bets
-            stat_rank_columns = {
-                'PTS': 'OPP_PTS_RANK',
-                'REB': 'OPP_REB_RANK', 
-                'AST': 'OPP_AST_RANK',
-                'BLK': 'OPP_BLK_RANK',
-                'STL': 'OPP_STL_RANK',
-                'FG3M': 'OPP_FG3M_RANK',
-            }
-            
-            for stat_key, rank_column in stat_rank_columns.items():
-                if rank_column in team_df.columns:
-                    for _, row in team_df.iterrows():
-                        # NBA API rank: 1 = allows LEAST (best defense), 30 = allows MOST (worst defense)
-                        # Joe's format is the same: higher rank = worse defense = more favorable for OVER bets
-                        # Ranks 21-30 = bottom 10 defenses (worst) = favorable matchups
-                        stat_def_rankings[stat_key][row['TEAM_ID']] = int(row[rank_column])
-            
-            logger.info(f"Fetched stat-specific defensive rankings for {len(team_df)} teams")
-        except Exception as e:
-            logger.warning(f"Could not fetch defensive rankings: {e}")
-        
-        def get_def_rank(opponent_team_id, stat_key='PTS'):
-            """Get opponent's defensive rank for a specific stat category"""
-            # For combo stats, use the primary stat's ranking
-            if stat_key in ['Pts+Reb+Ast', 'Pts+Reb', 'Pts+Ast']:
-                stat_key = 'PTS'
-            elif stat_key in ['Reb+Ast']:
-                stat_key = 'REB'
-            return stat_def_rankings.get(stat_key, {}).get(opponent_team_id, None)
-        
-        # Process each player using pre-fetched data
-        player_count = 0
-        skipped_injured = 0
-        for _, player in active_players.iterrows():
-            player_id = player['PLAYER_ID']
-            player_name = player['PLAYER_NAME']
-            team_id = player['TEAM_ID']
-            team_full_name = team_id_to_name.get(team_id, 'Unknown')
-            
-            # Skip injured/questionable players
-            if player_name.lower() in injured_players:
-                skipped_injured += 1
-                continue
-            
-            # Get pre-fetched game logs
-            if player_id not in all_game_logs:
-                continue
-            
-            logs_df = all_game_logs[player_id]
-            games_available = len(logs_df)
-            if games_available < 10:
-                continue
-            
-            # Get opponent ID for defensive rankings
-            opponent_id = team_opponents.get(team_id)
-            
-            # Check ALL prop types through 100-game simulation
-            for prop in prop_types:
-                # Get stat-specific defensive rank (Joe's methodology)
-                # e.g., "16th most points allowed" for points props
-                stat_key = prop.get('stat', 'PTS')
-                if 'stats' in prop:
-                    stat_key = prop['stats'][0]  # Use primary stat for combos
-                opp_def_rank = get_def_rank(opponent_id, stat_key) if opponent_id else None
-                # Get stat values from game logs
-                try:
-                    if 'stats' in prop:
-                        values = logs_df[prop['stats']].sum(axis=1).tolist()
-                    else:
-                        values = logs_df[prop['stat']].tolist()
-                except:
-                    continue
-                
-                # Need at least 10 games for analysis
-                if len(values) < 10:
-                    continue
-                
-                # === 100-GAME SIMULATION MODEL ===
-                # Use all available games (up to 100) for projection
-                simulation_values = values[:min(100, len(values))]
-                
-                # Calculate base projection from weighted average (recent games weighted more)
-                weights = []
-                for i, v in enumerate(simulation_values):
-                    # Exponential decay: most recent = 1.0, older games = less weight
-                    weight = 0.95 ** i
-                    weights.append(weight)
-                
-                weighted_sum = sum(v * w for v, w in zip(simulation_values, weights))
-                total_weight = sum(weights)
-                base_projection = weighted_sum / total_weight if total_weight > 0 else 0
-                
-                # Calculate standard deviation for variance modeling
-                if len(simulation_values) >= 2:
-                    std_dev = statistics.stdev(simulation_values)
-                else:
-                    std_dev = 0
-                
-                # Defense adjustment (rank 16-30 = boost, rank 1-15 = penalty)
-                if opp_def_rank:
-                    if opp_def_rank > 15:
-                        defense_boost = 1.0 + ((opp_def_rank - 15) * 0.012)  # Up to 18% boost
-                    else:
-                        defense_boost = 1.0 - ((15 - opp_def_rank) * 0.008)  # Up to 12% penalty
-                else:
-                    defense_boost = 1.0
-                
-                ai_proj = base_projection * defense_boost
-                
-                # Look up ALL Bovada lines for this player/prop (including alternates)
-                # Try both raw name and normalized name lookups
-                market_key = prop.get('market_key', prop['key'])
-                player_key_prefix = f"{player_name.lower()}_{market_key}_"
-                norm_player_key_prefix = f"{normalize_name(player_name)}_{market_key}_"
-                
-                # Find all lines for this player/prop - try raw first, then normalized
-                available_lines = []
-                for key, val in bovada_lines.items():
-                    if key.startswith(player_key_prefix):
-                        available_lines.append(val)
-                
-                # If no matches with raw name, try normalized lookup
-                if not available_lines:
-                    for key, val in bovada_lines_normalized.items():
-                        if key.startswith(norm_player_key_prefix):
-                            available_lines.append(val)
-                
-                # Debug: Log lookups for specific players
-                if 'derozan' in player_name.lower() or 'kornet' in player_name.lower():
-                    matching_keys = [k for k in bovada_lines.keys() if 'derozan' in k.lower() or 'kornet' in k.lower()][:5]
-                    logger.info(f"DEBUG {player_name} {prop['name']}: raw='{player_key_prefix}', norm='{norm_player_key_prefix}', found {len(available_lines)}")
-                    if matching_keys:
-                        logger.info(f"DEBUG API keys sample: {matching_keys}")
-                
-                # === JOE'S METHODOLOGY: Generate streaks from game logs ===
-                # When API lines available, use them; otherwise test our own thresholds
-                # This ensures we always show hot streaks regardless of API availability
-                
-                # Need at least 10 games for analysis
-                if len(values) < 10:
-                    continue
-                
-                best_line_data = None
-                best_streak_for_line = 0
-                bovada_line = None
-                
-                # JOE'S METHODOLOGY: ONLY use actual sportsbook lines (no generated thresholds)
-                # "I use DraftKings, FanDuel, Fanatics and Bet365 to make the wagers"
-                # Find the line with the LONGEST streak (10+ games)
-                if not available_lines:
-                    continue  # Skip if no sportsbook line available
-                
-                # Test all available sportsbook lines, pick the one with longest streak
-                for line_data in available_lines:
-                    test_line = line_data['line']
-                    test_odds = line_data.get('odds', -110)
-                    
-                    # Joe's rule: keep odds at -500 or better (decimal 1.2 = -500)
-                    if test_odds < 1.2:
-                        continue
-                    
-                    # For O8.5 line, player needs 9+ to hit
-                    threshold_check = int(test_line) + 1
-                    test_streak = 0
-                    for v in values:
-                        if v >= threshold_check:
-                            test_streak += 1
-                        else:
-                            break
-                    
-                    # Joe's sheets: 10+ games in a row hitting that line
-                    if test_streak >= 10 and test_streak > best_streak_for_line:
-                        best_streak_for_line = test_streak
-                        best_line_data = line_data
-                        bovada_line = test_line
-                
-                # Skip if no qualifying streak found
-                if not bovada_line or best_streak_for_line < 10:
-                    continue
-                # For .5 lines: O0.5 needs 1+, O3.5 needs 4+ (ceiling)
-                threshold = int(bovada_line) + 1 if bovada_line == int(bovada_line) + 0.5 else int(bovada_line) + 1
-                
-                # Log when we find a good match
-                if player_count <= 10:
-                    logger.info(f"MATCH: {player_name} - {prop['name']} - line: {bovada_line} (threshold: {threshold}, streak: {best_streak_for_line})")
-                
-                # Calculate CONSECUTIVE hit streak
-                consecutive_streak = best_streak_for_line
-                
-                # Calculate hit rates for display
-                l5_values = values[:5]
-                l5_hits = sum(1 for v in l5_values if v >= threshold)
-                
-                l10_values = values[:10]
-                l10_hits = sum(1 for v in l10_values if v >= threshold)
-                
-                l20_values = values[:min(20, len(values))]
-                l20_hits = sum(1 for v in l20_values if v >= threshold)
-                
-                # Debug: Log L20 85%+ qualified streaks
-                current_l20_pct = (l20_hits / len(l20_values)) * 100 if l20_values else 0
-                if current_l20_pct >= 85 and len(l20_values) >= 20:
-                    logger.info(f"QUALIFIED: {player_name} - {prop['name']} - {consecutive_streak}/{len(l20_values)} consecutive, L20: {l20_hits}/20 ({current_l20_pct:.0f}%), line: {bovada_line}")
-                
-                # Debug key players even without 10+ streak
-                if 'derozan' in player_name.lower() or 'raynaud' in player_name.lower() or 'lebron' in player_name.lower() or 'james' in player_name.lower():
-                    l20_pct_debug = (l20_hits / len(l20_values)) * 100 if l20_values else 0
-                    logger.info(f"DEBUG FILTER {player_name} {prop['name']} line={bovada_line}: streak={consecutive_streak}, L5={l5_hits}/5, L20={l20_hits}/{len(l20_values)} ({l20_pct_debug:.0f}%)")
-                
-                # Calculate L20 percentage for filtering
-                l20_pct = (l20_hits / len(l20_values)) * 100 if l20_values else 0
-                
-                # === JOE'S METHODOLOGY - STREAK ONLY ===
-                # Joe shows ANY prop with 10+ consecutive game streak
-                # No L10 100% or L20 85% requirement - just the streak matters
-                # The streak IS the filter (10+ games in a row hitting the line)
-                
-                # 1. Must have at least 10 games of data
-                if len(values) < 10:
-                    continue
-                
-                # 2. Must have 10+ consecutive game streak (already checked above)
-                if consecutive_streak < 10:
-                    continue
-                
-                # Track the streak - Joe's format shows consecutive streak on both sides
-                # e.g., "30/L30" means 30 consecutive games hit, "25/L25" means 25 consecutive
-                best_streak = consecutive_streak
-                best_sample = consecutive_streak
-                
-                # === EDGE CALCULATION ===
-                # Edge = (AI_Projection - Prop_Line) / Prop_Line × 100
-                edge_pct = ((ai_proj - bovada_line) / bovada_line) * 100 if bovada_line > 0 else 0
-                
-                # Show all props with positive edge (AI projection > line)
-                # Edge is for display/sorting, not filtering
-                
-                # === STREAK PERCENTAGE ===
-                streak_pct = l20_pct
-                
-                # No classification badges - only ELITE star for favorable defense matchups
-                play_classification = None
-                confidence_color = None
-                
-                # Create defensive rank display with proper ordinal (just the rank number)
-                stat_name = prop['name']
-                # Get ordinal suffix (handles 11th, 12th, 13th, 21st, 22nd, 23rd, etc.)
-                def get_ordinal(n):
-                    if 11 <= n % 100 <= 13:
-                        return f"{n}th"
-                    elif n % 10 == 1:
-                        return f"{n}st"
-                    elif n % 10 == 2:
-                        return f"{n}nd"
-                    elif n % 10 == 3:
-                        return f"{n}rd"
-                    else:
-                        return f"{n}th"
-                def_rank_display = get_ordinal(opp_def_rank) if opp_def_rank else "N/A"
-                
-                # Create display with hit rates
-                # Display as ceiling value (5.5 → "6+", 0.5 → "1+")
-                display_threshold = int(bovada_line) + 1 if bovada_line == int(bovada_line) + 0.5 else int(bovada_line)
-                prop_display = f"{display_threshold}+ {prop['name']}"
-                hit_rates = f"L5: {l5_hits}/5 | L10: {l10_hits}/10 | L20: {l20_hits}/20"
-                
-                # Calculate implied probability from standard over odds (-110)
-                standard_odds = -110
-                implied_prob = abs(standard_odds) / (abs(standard_odds) + 100) * 100
-                
-                # Calculate model probability from hit rate
-                model_prob = (l20_hits / 20) * 100
-                
-                # Calculate EV% (model probability - implied probability)
-                ev_pct = round(model_prob - implied_prob, 1)
-                ev_positive = ev_pct >= 0
-                
-                # Last 5 results visual (✓/✗)
-                l5_visual = ''.join(['✓' if v >= threshold else '✗' for v in l5_values])
-                
-                # Trend arrow based on L5 vs L10 average
-                l5_avg = sum(l5_values) / len(l5_values) if l5_values else 0
-                l10_avg = sum(l10_values) / len(l10_values) if l10_values else 0
-                if l5_avg > l10_avg * 1.05:
-                    trend = '↑'  # Trending up
-                elif l5_avg < l10_avg * 0.95:
-                    trend = '↓'  # Trending down
-                else:
-                    trend = '→'  # Stable
-                
-                # VALUE SCORE based on edge thresholds
-                # 35%+ Edge = 100 points (Premium)
-                # 25-34% Edge = 80 points (Strong)
-                # 15-24% Edge = 60 points (Standard)
-                if edge_pct >= 35:
-                    value_score = 100
-                elif edge_pct >= 25:
-                    value_score = 80 + int((edge_pct - 25) * 2)  # 80-99
-                else:
-                    value_score = 60 + int((edge_pct - 15) * 2)  # 60-79
-                
-                # Elite pick = bottom 10 defense (ranks 21-30 are worst defenses)
-                is_elite = opp_def_rank and opp_def_rank >= 21
-                
-                props_found.append({
-                    'team': team_full_name,
-                    'player': player_name,
-                    'prop_type': prop['key'],
-                    'prop_priority': prop.get('priority', 1),  # For sorting - higher = more impressive prop
-                    'prop_display': prop_display,
-                    'streak': best_streak,
-                    'sample': best_sample,
-                    'streak_display': f"{best_streak}/L{best_sample}",
-                    'streak_pct': round(streak_pct, 0),
-                    'hit_rates': hit_rates,
-                    'l5': f"{l5_hits}/5",
-                    'l10': f"{l10_hits}/10",
-                    'l20': f"{l20_hits}/20",
-                    'l5_visual': l5_visual,
-                    'trend': trend,
-                    'implied_prob': round(implied_prob, 1),
-                    'model_prob': round(model_prob, 1),
-                    'ev_pct': ev_pct,
-                    'ev_positive': ev_positive,
-                    'edge_pct': round(edge_pct, 1),
-                    'value_score': value_score,
-                    'confidence_color': confidence_color,
-                    'play_classification': play_classification,
-                    'def_rank': opp_def_rank,
-                    'def_rank_display': def_rank_display,
-                    'is_elite': is_elite,
-                    'stat_name': stat_name,
-                    'ai_proj': round(ai_proj, 1),
-                    'bovada_line': bovada_line,
-                    'edge': round(ai_proj - bovada_line, 1) if bovada_line else None,
-                    'status': None
-                })
-            
-            player_count += 1
-        
-        # Deduplicate exact same props (same player, prop type, line)
-        # Can happen when same line appears from multiple sportsbooks
-        seen_prop_keys = set()
-        deduped_props = []
-        for prop in props_found:
-            prop_key = f"{prop['player']}_{prop['prop_display']}_{prop['bovada_line']}"
-            if prop_key not in seen_prop_keys:
-                deduped_props.append(prop)
-                seen_prop_keys.add(prop_key)
-        props_found = deduped_props
-        
-        # Joe's methodology: Max 2 props per player
-        # Sort: Elite (favorable defense 21-30) first, then streak, then L20, then def rank
-        def sort_key(x):
-            def_rank = x.get('opp_def_rank') or 99
-            is_elite = 1 if def_rank >= 21 else 0  # Elite = favorable defense (ranks 21-30)
-            l20_rate = x.get('l20_hit_rate', 0)
-            streak = x.get('streak', 0)
-            return (-is_elite, -streak, -l20_rate, -def_rank)
-        
-        props_found.sort(key=sort_key)
-        
-        # Keep max 2 props per player (Joe's rule)
-        player_prop_counts = {}
-        filtered_props = []
-        for prop in props_found:
-            player = prop['player']
-            if player not in player_prop_counts:
-                player_prop_counts[player] = 0
-            if player_prop_counts[player] < 2:
-                filtered_props.append(prop)
-                player_prop_counts[player] += 1
-        
-        props_found = filtered_props
-        
-        # Get Elite 10 - top picks with favorable defense AND L20 85%+ (unique players)
-        elite_picks = []
-        seen_players = set()
-        for prop in props_found:
-            if len(elite_picks) >= 10:
-                break
-            # All qualified props have L20 85%+, prioritize unique players
-            if prop['player'] not in seen_players:
-                elite_picks.append(prop)
-                seen_players.add(prop['player'])
-        
-        logger.info(f"Found {len(props_found)} player props with hot streaks from {player_count} players (skipped {skipped_injured} injured)")
-        
-        return jsonify({
-            'success': True,
-            'props': props_found,
-            'elite': elite_picks,
-            'count': len(props_found),
-            'message': f'Found {len(props_found)} hot streaks from {player_count} active players'
-        })
-        
-    except Exception as e:
-        logger.error(f"Error in player props API: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({'success': False, 'message': str(e), 'props': []})
-
-@app.route('/api/euroleague_props')
-def api_euroleague_props():
-    """
-    Fetch EuroLeague player props with streak data.
-    Uses euroleague-api package for player game logs.
-    """
-    try:
-        from euroleague_api.player_stats import PlayerStats
-        from euroleague_api.game_stats import GameStats
-        import pandas as pd
-        
-        logger.info("Starting EuroLeague player props fetch...")
-        
-        # Initialize EuroLeague API ("E" for EuroLeague, "U" for EuroCup)
-        competition = request.args.get('competition', 'E')  # Default to EuroLeague
-        player_stats_api = PlayerStats(competition)
-        
-        # Get current season stats (2024-25 season = 2024)
-        season = 2024
-        
-        try:
-            # Fetch player stats for the season (2024-25 = season 2024)
-            stats_df = player_stats_api.get_player_stats_single_season(
-                endpoint='traditional',
-                season=season,
-                phase_type_code='RS',  # Regular season
-                statistic_mode='PerGame'
-            )
-            logger.info(f"Fetched stats for {len(stats_df)} EuroLeague players")
-        except Exception as e:
-            logger.error(f"Could not fetch EuroLeague player stats: {e}")
-            return jsonify({'success': False, 'message': f'Error fetching EuroLeague stats: {str(e)}', 'props': []})
-        
-        # Filter to players with meaningful minutes (15+ min avg, 10+ games)
-        if 'minutesPlayed' in stats_df.columns and 'gamesPlayed' in stats_df.columns:
-            active_players = stats_df[
-                (stats_df['minutesPlayed'] >= 15) &
-                (stats_df['gamesPlayed'] >= 10)
-            ]
-        else:
-            # Fallback
-            active_players = stats_df.head(100)
-        
-        logger.info(f"Processing {len(active_players)} active EuroLeague players")
-        
-        props_found = []
-        
-        # Define prop types to check (EuroLeague column names)
-        prop_types = [
-            {'key': 'points', 'name': 'Points', 'thresholds': [8, 10, 12, 15, 20], 'stat': 'pointsScored'},
-            {'key': 'rebounds', 'name': 'Rebounds', 'thresholds': [2, 3, 4, 5, 7], 'stat': 'totalRebounds'},
-            {'key': 'assists', 'name': 'Assists', 'thresholds': [2, 3, 4, 5, 6], 'stat': 'assists'},
-        ]
-        
-        # Process each player
-        for _, player in active_players.iterrows():
-            player_name = player.get('player.name', 'Unknown')
-            team_name = player.get('player.team.name', 'Unknown')
-            
-            # Get season averages as proxy for streaks (EuroLeague API doesn't have game logs per player easily)
-            for prop in prop_types:
-                stat_col = prop['stat']
-                if stat_col not in player.index:
-                    continue
-                    
-                season_avg = player.get(stat_col, 0)
-                if not season_avg or season_avg < 1:
-                    continue
-                
-                # Find best threshold based on season average
-                best_threshold = None
-                for t in sorted(prop['thresholds'], reverse=True):
-                    if season_avg >= t * 1.1:  # 10% above threshold
-                        best_threshold = t
-                        break
-                
-                if not best_threshold:
-                    continue
-                
-                # Calculate synthetic metrics based on season average
-                ai_proj = round(season_avg, 1)
-                edge = round(season_avg - best_threshold, 1)
-                
-                # === NEW PROTOCOL: EDGE CALCULATION ===
-                # Edge = (AI_Projection - Prop_Line) / Prop_Line × 100
-                edge_pct = ((ai_proj - best_threshold) / best_threshold) * 100 if best_threshold > 0 else 0
-                
-                # Filter: Minimum 15%+ Edge required
-                if edge_pct < 15:
-                    continue
-                
-                # Assume 90%+ hit rate for EuroLeague (less variance)
-                hit_rate = min(98, 75 + (edge_pct * 0.5))
-                streak_pct = hit_rate
-                
-                # === CLASSIFICATION (PLAY / STRONG PLAY / PREMIUM PLAY) ===
-                if edge_pct >= 25 and hit_rate >= 95:
-                    play_classification = 'STRONG PLAY'
-                    confidence_color = 'green'
-                elif edge_pct >= 35:
-                    play_classification = 'PREMIUM PLAY'
-                    confidence_color = 'gold'
-                else:
-                    play_classification = 'PLAY'
-                    confidence_color = 'yellow' if edge_pct >= 20 else 'lime'
-                
-                # Calculate EV and value score
-                implied_prob = 52.38
-                model_prob = hit_rate
-                ev_pct = round(model_prob - implied_prob, 1)
-                
-                # VALUE SCORE based on edge thresholds
-                if edge_pct >= 35:
-                    value_score = 100
-                elif edge_pct >= 25:
-                    value_score = 80 + int((edge_pct - 25) * 2)
-                else:
-                    value_score = 60 + int((edge_pct - 15) * 2)
-                
-                props_found.append({
-                    'team': str(team_name),
-                    'player': str(player_name),
-                    'prop_type': prop['key'],
-                    'prop_display': f"{best_threshold}+ {prop['name']}",
-                    'streak': int(hit_rate),
-                    'sample': 20,
-                    'streak_display': f"{int(hit_rate)}% season",
-                    'streak_pct': round(streak_pct, 0),
-                    'hit_rates': f"Season avg: {season_avg:.1f}",
-                    'l5': "N/A",
-                    'l10': "N/A",
-                    'l20': f"{int(hit_rate)}%",
-                    'l5_visual': '●●●●●',
-                    'trend': '→',
-                    'implied_prob': round(implied_prob, 1),
-                    'model_prob': round(model_prob, 1),
-                    'ev_pct': ev_pct,
-                    'ev_positive': ev_pct >= 0,
-                    'edge_pct': round(edge_pct, 1),
-                    'value_score': value_score,
-                    'confidence_color': confidence_color,
-                    'play_classification': play_classification,
-                    'def_rank': None,
-                    'ai_proj': ai_proj,
-                    'bovada_line': best_threshold,
-                    'edge': edge,
-                    'status': None,
-                    'league': 'EURO' if competition == 'E' else 'EUROCUP'
-                })
-        
-        # Sort by edge_pct (highest edge = best pick per protocol)
-        props_found.sort(key=lambda x: (-x['edge_pct'], -x['value_score'], -x['ai_proj']))
-        
-        # Get Elite 10
-        elite_picks = []
-        seen_players = set()
-        for prop in props_found:
-            if len(elite_picks) >= 10:
-                break
-            if prop['player'] not in seen_players:
-                elite_picks.append(prop)
-                seen_players.add(prop['player'])
-        
-        comp_name = "EuroLeague" if competition == 'E' else "EuroCup"
-        logger.info(f"Found {len(props_found)} {comp_name} player props")
-        
-        return jsonify({
-            'success': True,
-            'props': props_found,
-            'elite': elite_picks,
-            'count': len(props_found),
-            'message': f'Found {len(props_found)} {comp_name} player props',
-            'league': comp_name
-        })
-        
-    except Exception as e:
-        logger.error(f"Error in EuroLeague props API: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({'success': False, 'message': str(e), 'props': []})
 
 @app.route('/download/codebase_structure')
 def download_codebase_structure():

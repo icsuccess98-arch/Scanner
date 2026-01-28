@@ -14,7 +14,7 @@ This project develops and manages trading systems including a Sports Betting Cal
 
 ## Separate Applications
 This project has two separate apps that run independently on port 5000:
-1. **Sports App** (`python sports_app.py`) - Sports betting with props and totals
+1. **Sports App** (`python sports_app.py`) - Sports betting TOTALS only with Matchup Intelligence
 2. **Stocks App** (`python stocks_app.py`) - Stock setups using The Strat methodology
 
 Only one app can run at a time. Configure the workflow to switch between apps.
@@ -41,13 +41,17 @@ Only one app can run at a time. Configure the workflow to switch between apps.
         -   Tempo (possessions per game)
         -   Barthag and Rankings
         -   Projection formula uses adjusted efficiency + tempo for more accurate CBB totals
-    -   **Model Breakdown Feature**: Clickable dropdown on game cards showing advanced analytics:
-        -   Power Rating comparison with team ranks and colored bars
-        -   Offensive/Defensive Efficiency comparisons with visual indicators
-        -   Efficiency Comparison section showing offense vs defense matchups
-        -   Mismatch analysis with insights (e.g., "expect scoring", "defensive edge")
-        -   Pace & Tempo display with expected possessions
-        -   Only shows for CBB/NBA games with Torvik data available
+    -   **Matchup Intelligence Feature** (Jan 2026): Advanced analytics dropdown on game cards showing:
+        -   Power Rating comparison with team ranks, percentiles, and colored bars
+        -   Offensive/Defensive Efficiency comparisons (pts/100 possessions)
+        -   Efficiency Comparison section with flip button showing offense vs defense matchups
+        -   **Shooting Profile**: 2PT%, 3PT%, 3PT Rate, eFG% with D1 averages and insight notes
+        -   **Ball Control**: Turnover Rate with PROTECTS/DOESN'T PRESS indicators
+        -   **Rebounding**: Offensive Rebound % with CRASHES GLASS/LOCKS OUT indicators
+        -   **Pace & Free Throws**: Free Throw Rate with ATTACKS indicator, tempo display
+        -   **Analyst Insight**: AI-generated summary of matchup advantages
+        -   Data Sources: NBA.com API, Bart Torvik (CBB), ESPN stats
+        -   Only shows for CBB/NBA games with advanced data available
     -   **Formulas (STRICT - NO MODIFICATIONS)**:
         -   `Expected_A = (Team A PPG + Team B Opp PPG) / 2`
         -   `Expected_B = (Team B PPG + Team A Opp PPG) / 2`
@@ -96,62 +100,6 @@ Only one app can run at a time. Configure the workflow to switch between apps.
     2. **Away Favorite Badge**: Games where away team is favorite AND meets O/U threshold (orange badge)
     3. **Defense Edge Badge**: Games where pick direction aligns with defensive matchup (blue badge)
 
-### Player Props Analysis Protocol (Jan 2026) - Joe's Methodology
--   **Separate Tab**: /props route with dedicated "Fetch Player Stats" button
--   **Prop Types (Full Coverage)**:
-    -   Single stats: Points, Rebounds, Assists, 3PM, Steals, Blocks (with alternates)
-    -   Combo props: PTS+REB, PTS+AST, REB+AST, PTS+REB+AST (with alternates)
--   **Sportsbooks**: DraftKings, FanDuel, Fanatics, Bet365 (priority order)
--   **Stat-Specific Defensive Rankings**: 
-    -   Uses NBA API PerGame opponent stats (OPP_*_RANK columns)
-    -   Each stat has its own ranking (e.g., assists defense rank for assists props)
-    -   Rank 1 = best defense (allows least), Rank 30 = worst defense (allows most)
-    -   Ranks 21-30 = bottom 10 defenses = favorable for OVER bets
--   **Multi-League Support**: League selector dropdown for NBA, EuroLeague, and EuroCup
-    -   NBA: Uses nba_api for player game logs with sportsbook lines
-    -   EuroLeague/EuroCup: Uses euroleague-api package for European basketball
--   **EDGE CALCULATION**:
-    -   `Edge% = (AI_Projection - Prop_Line) / Prop_Line × 100`
-    -   AI Projection = 20-game average with defensive adjustment (100-game simulation)
-    -   Sorted by: Favorable defense > L20 hit rate > Streak > AI Proj
--   **L20 HIT RATE METHODOLOGY** (Updated Jan 2026):
-    -   Primary filter: L20 hit rate 85%+ (17/20 or better)
-    -   Consecutive streak tracked for display (e.g., 36/L36 = 36 in a row)
-    -   Streak format: X/LY where X = consecutive hits, Y = sample size
-    -   **Cross-Season Streaks**: Fetches both current (2025-26) and previous (2024-25) seasons
-    -   **Preseason Filter**: Excludes preseason games (GAME_ID starting with '001') for accurate streaks
--   **PLAY CLASSIFICATION** (Based on L20 hit rate):
-    -   **PREMIUM PLAY**: 100% L20 (20/20) - gold glow
-    -   **STRONG PLAY**: 95%+ L20 (19/20) - green
-    -   **PLAY**: 85%+ L20 (17-18/20) - purple
--   **MANDATORY FILTER**: L20 hit rate 85%+ (17/20 minimum) - matches Joe's methodology
-    -   Players must have 20+ games of data
-    -   Line exists from Bovada (priority) or backup books (betonlineag, lowvig)
-    -   Line selection: Pick line with LONGEST consecutive streak (higher line wins ties)
--   **ELITE PICKS**: Bottom 10 defenses (ranks 21-30) = favorable matchups
-    -   Picks against worst defenses prioritized at top
-    -   Golden ELITE badge for favorable defense matchups
--   **DISQUALIFICATION RULES (Auto-AVOID)**:
-    -   L20 hit rate below 85%
-    -   Fewer than 20 games of data
-    -   No sportsbook line available
--   **Defensive Rank Display**: Shows "Xth" - rank 21-30 = worst defenses (favorable for OVER)
--   **Elite 10 Section**: Top 10 picks by L20 hit rate with defense priority
-    -   Favorable defense matchups sorted first
-    -   Shows streak display (e.g., "36/L36"), L5/L10/L20 hit rates, Edge%, Def Rank, AI Proj
--   **Display Columns**: Team, Player, Prop, Bovada, Streak, Edge%, Class, Def Rank vs Stat, AI Proj, Trend
--   **Prop Types**: Points, Rebounds, Assists, P+R, P+A, R+A, P+R+A, 3PM, Steals, Blocks, Steal+Block
--   **Mobile Layout**: Card-based responsive design with Edge% and Classification badges
--   **UI Theme**: Royal gold theme with dark background matching dashboard aesthetics
--   **Mobile Tabs** (screens ≤992px):
-    -   **All Tab**: Shows all qualified props in card format
-    -   **Elite Tab**: Filters to show only elite picks (def rank 21-30)
-    -   **Superlocks Tab**: Shows top 3 picks on a single premium card, prioritized by:
-        1. Streak length (HIGHEST STREAKS = most reliable picks)
-        2. Defense rank (tiebreaker - higher = more favorable)
-    -   Sticky tab bar with haptic feedback on mobile
-    -   Superlock card features golden glow, numbered picks, and streak/defense stats
-
 ### Stock Setups Scanner (Jan 2026)
 -   **The Strat Methodology**: Implements Rob Smith's Strat trading patterns
 -   **Mobile App**: /stocks route with responsive mobile-first design
@@ -168,7 +116,7 @@ Only one app can run at a time. Configure the workflow to switch between apps.
 -   **Data Source**: yfinance (Yahoo Finance) for real-time stock data
 -   **Category Tabs**: All, A++, Inside (1), Outside (3), 2U/2D, Failed 2, FTFC
 -   **Timeframe Handling**: FTFC and A++ tabs hidden for weekly/monthly (only calculated for daily)
--   **Bottom Navigation**: Links to Home, Props, Stocks, History pages
+-   **Bottom Navigation**: Links to Home, Stocks, Bankroll, History pages
 
 ### Feature Specifications
 -   **Sports Scanner**: Fetches NBA, CBB, NFL, CFB, NHL games, stats, and odds to identify qualified TOTALS picks.
