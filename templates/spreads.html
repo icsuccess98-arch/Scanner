@@ -1287,49 +1287,35 @@
         }
         
         function updateMatchupStats(container, data) {
-            const away_l5 = data.away_l5 || {};
-            const home_l5 = data.home_l5 || {};
-            const away_adv = data.away_advanced || {};
-            const home_adv = data.home_advanced || {};
-            const away_tr = data.away_teamrankings || {};
-            const home_tr = data.home_teamrankings || {};
-            
+            // Use pre-calculated stats from API matching matchup_table_generator format
+            const awayStats = data.away_stats || {};
+            const homeStats = data.home_stats || {};
             const awayTeam = data.away_team;
             const homeTeam = data.home_team;
             
-            // Extract stats with proper fallbacks - use L5 data for ORB%, DRB%, then advanced, then teamrankings
-            // ORB% - calculate from raw data if available
-            const away_orb = away_l5.l5_orb ? (away_l5.l5_orb / (away_l5.l5_orb + 33) * 100) : (away_adv.oreb ? (away_adv.oreb / (away_adv.oreb + 2500) * 100) : 23.4);
-            const home_orb = home_l5.l5_orb ? (home_l5.l5_orb / (home_l5.l5_orb + 33) * 100) : (home_adv.oreb ? (home_adv.oreb / (home_adv.oreb + 2500) * 100) : 26.8);
-            // DRB% - estimate from data
-            const away_drb = away_l5.l5_drb ? (away_l5.l5_drb / (away_l5.l5_drb + 10) * 100) : (away_adv.dreb ? (away_adv.dreb / (away_adv.dreb + 800) * 100) : 73.2);
-            const home_drb = home_l5.l5_drb ? (home_l5.l5_drb / (home_l5.l5_drb + 10) * 100) : (home_adv.dreb ? (home_adv.dreb / (home_adv.dreb + 800) * 100) : 77.8);
-            // TOV% - use L5 first, then advanced
-            const away_tov = away_l5.l5_tov_pct || away_adv.tov_pct || 13.5;
-            const home_tov = home_l5.l5_tov_pct || home_adv.tov_pct || 12.8;
-            // Forced TOV% - estimate from steals or use default
-            const away_ftov = away_adv.stl ? (away_adv.stl / 80) : 12.5;
-            const home_ftov = home_adv.stl ? (home_adv.stl / 80) : 13.0;
-            // OFF/DEF Efficiency - use pts/game or calculate from advanced stats
-            const away_off_eff = away_adv.pts ? (away_adv.pts / 85) : 112.0;
-            const home_off_eff = home_adv.pts ? (home_adv.pts / 85) : 114.5;
-            const away_def_eff = home_adv.pts ? (home_adv.pts / 85) : 112.0;  // Opponent's offense = our defense
-            const home_def_eff = away_adv.pts ? (away_adv.pts / 85) : 112.0;
-            // eFG% - use L5 or advanced
-            const away_efg = away_l5.l5_efg || away_adv.efg_pct || 52.5;
-            const home_efg = home_l5.l5_efg || home_adv.efg_pct || 54.2;
-            // Opp eFG% - estimate from opponent data (default for now)
-            const away_opp_efg = 52.0;  // Would need opponent-specific data
-            const home_opp_efg = 51.5;
-            // 3PM/Game - use L5 data
-            const away_3pm = away_l5.l5_fg3m || (away_adv.fg3m ? away_adv.fg3m / 85 : 11.5);
-            const home_3pm = home_l5.l5_fg3m || (home_adv.fg3m ? home_adv.fg3m / 85 : 12.8);
-            // FT Rate - use L5 or advanced
-            const away_ftr = away_l5.l5_ft_rate || away_adv.ft_rate || 25.0;
-            const home_ftr = home_l5.l5_ft_rate || home_adv.ft_rate || 24.5;
-            // SOS - use team rankings or calculate based on plus_minus
-            const away_sos = away_adv.plus_minus ? (15 - Math.floor(away_adv.plus_minus / 50)) : 15;
-            const home_sos = home_adv.plus_minus ? (15 - Math.floor(home_adv.plus_minus / 50)) : 10;
+            // Extract stats with proper keys matching the provided format
+            const away_orb = awayStats['ORB%'] || 23.4;
+            const home_orb = homeStats['ORB%'] || 26.8;
+            const away_drb = awayStats['DRB%'] || 73.2;
+            const home_drb = homeStats['DRB%'] || 77.8;
+            const away_tov = awayStats['TOV%'] || 13.5;
+            const home_tov = homeStats['TOV%'] || 12.8;
+            const away_ftov = awayStats['Forced TOV%'] || 8.0;
+            const home_ftov = homeStats['Forced TOV%'] || 8.5;
+            const away_off_eff = awayStats['OFF_Efficiency'] || 112.0;
+            const home_off_eff = homeStats['OFF_Efficiency'] || 114.5;
+            const away_def_eff = awayStats['DEF_Efficiency'] || 112.0;
+            const home_def_eff = homeStats['DEF_Efficiency'] || 110.0;
+            const away_efg = awayStats['eFG%'] || 52.5;
+            const home_efg = homeStats['eFG%'] || 54.2;
+            const away_opp_efg = awayStats['Opp_eFG%'] || 52.0;
+            const home_opp_efg = homeStats['Opp_eFG%'] || 51.5;
+            const away_3pm = awayStats['3PM_Game'] || 11.5;
+            const home_3pm = homeStats['3PM_Game'] || 12.8;
+            const away_ftr = awayStats['FT_Rate'] || 25.0;
+            const home_ftr = homeStats['FT_Rate'] || 24.5;
+            const away_sos = awayStats['SOS'] || 15;
+            const home_sos = homeStats['SOS'] || 10;
             
             // Build comprehensive stats table like the reference image
             function statRow(metric, awayVal, homeVal, format = 'pct', higherIsBetter = true) {
