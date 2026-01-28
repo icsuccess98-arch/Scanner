@@ -8590,7 +8590,7 @@ def spreads():
         if g.league in games_by_league:
             games_by_league[g.league].append(g)
     
-    # Calculate spread picks for each game
+    # Set up basic attributes for all games (data fetched on-demand via API)
     for g in all_games:
         # Mark away team as favorite if spread is negative
         g.away_is_favorite = g.spread_line is not None and g.spread_line < 0
@@ -8606,6 +8606,11 @@ def spreads():
                 g.spread_display = "PICK"
         else:
             g.spread_display = "N/A"
+        
+        # Initialize empty - data fetched via AJAX when user clicks Model Breakdown
+        g.matchup_l5 = {}
+        g.away_advanced = {}
+        g.home_advanced = {}
     
     return render_template('spreads.html', 
                            games_by_league=games_by_league,
@@ -8673,6 +8678,57 @@ class MockGame:
         for k, v in defaults.items():
             setattr(self, k, v)
 
+
+@app.route('/api/matchup_data/<int:game_id>')
+def get_matchup_data(game_id):
+    """Fetch live matchup data for a specific game from NBA.com, TeamRankings, Covers."""
+    game = Game.query.get_or_404(game_id)
+    
+    result = {
+        'game_id': game_id,
+        'away_team': game.away_team,
+        'home_team': game.home_team,
+        'league': game.league,
+        'away_l5': {},
+        'home_l5': {},
+        'away_advanced': {},
+        'home_advanced': {},
+        'away_teamrankings': {},
+        'home_teamrankings': {},
+        'away_covers': {},
+        'home_covers': {}
+    }
+    
+    try:
+        if game.league == 'NBA':
+            # Fetch L5 stats from NBA.com API
+            result['away_l5'] = MatchupIntelligence.get_team_last5_stats(game.away_team, 'NBA') or {}
+            result['home_l5'] = MatchupIntelligence.get_team_last5_stats(game.home_team, 'NBA') or {}
+            
+            # Fetch advanced stats from NBA.com
+            result['away_advanced'] = MatchupIntelligence.get_team_advanced_stats(game.away_team, 'NBA') or {}
+            result['home_advanced'] = MatchupIntelligence.get_team_advanced_stats(game.home_team, 'NBA') or {}
+            
+            # Fetch TeamRankings stats
+            result['away_teamrankings'] = MatchupIntelligence.fetch_teamrankings_stats(game.away_team, 'NBA') or {}
+            result['home_teamrankings'] = MatchupIntelligence.fetch_teamrankings_stats(game.home_team, 'NBA') or {}
+            
+            # Fetch Covers.com trends
+            result['away_covers'] = MatchupIntelligence.fetch_covers_trends(game.away_team, 'NBA') or {}
+            result['home_covers'] = MatchupIntelligence.fetch_covers_trends(game.home_team, 'NBA') or {}
+            
+        elif game.league == 'CBB':
+            # Fetch TeamRankings stats for CBB
+            result['away_teamrankings'] = MatchupIntelligence.fetch_teamrankings_stats(game.away_team, 'CBB') or {}
+            result['home_teamrankings'] = MatchupIntelligence.fetch_teamrankings_stats(game.home_team, 'CBB') or {}
+            
+            # Fetch Covers.com trends for CBB
+            result['away_covers'] = MatchupIntelligence.fetch_covers_trends(game.away_team, 'CBB') or {}
+            result['home_covers'] = MatchupIntelligence.fetch_covers_trends(game.home_team, 'CBB') or {}
+    except Exception as e:
+        logging.warning(f"Error fetching matchup data for game {game_id}: {e}")
+    
+    return jsonify(result)
 
 @app.route('/api/deep_test')
 def deep_test():
