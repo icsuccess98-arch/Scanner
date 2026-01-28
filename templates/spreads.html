@@ -445,9 +445,9 @@
                 </div>
             </div>
             <div style="text-align: center;">
-                <a href="/" class="fetch-link" style="background: var(--bg-input); border: 1px solid var(--border);">
-                    <i class="bi bi-arrow-repeat"></i> Fetch Games on Dashboard
-                </a>
+                <button id="fetchSpreadsBtn" class="fetch-link" onclick="fetchSpreads()">
+                    <i class="bi bi-arrow-repeat"></i> Fetch Spreads
+                </button>
             </div>
         </div>
     </section>
@@ -586,6 +586,33 @@
                 });
             });
         });
+        
+        async function fetchSpreads() {
+            const btn = document.getElementById('fetchSpreadsBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Fetching...';
+            btn.disabled = true;
+            
+            try {
+                // Fetch games
+                const gamesResp = await fetch('/fetch_games', { method: 'POST' });
+                const gamesData = await gamesResp.json();
+                
+                // Fetch odds
+                const oddsResp = await fetch('/fetch_odds', { method: 'POST' });
+                const oddsData = await oddsResp.json();
+                
+                // Reload page to show new data
+                window.location.reload();
+            } catch (error) {
+                console.error('Error fetching spreads:', error);
+                btn.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Error';
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }, 2000);
+            }
+        }
     </script>
 </body>
 </html>
