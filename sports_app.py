@@ -1011,117 +1011,161 @@ class MatchupIntelligence:
             return {}
     
     @staticmethod
-    def fetch_h2h_and_records(away_team: str, home_team: str, league: str = 'NBA') -> dict:
+    def fetch_covers_h2h(away_team: str, home_team: str, league: str = 'NBA') -> dict:
         """
-        Fetch H2H L10 W/L and team W/L records from ESPN.
-        Returns: {h2h_record: "6-4", h2h_leader: "Lakers", away_record: "24-20", home_record: "30-15"}
+        Fetch H2H L10 W/L and ATS records from Covers.com matchup page.
+        Returns: {h2h_record: "6-4", h2h_leader: "Pacers", h2h_ats: "4-6-0", ats_leader: "Bulls"}
         """
         import requests
+        from bs4 import BeautifulSoup
+        import re
         
         result = {
             'h2h_record': 'N/A',
             'h2h_leader': 'Even',
+            'h2h_ats': 'N/A',
+            'ats_leader': 'Even',
             'away_record': 'N/A',
-            'home_record': 'N/A'
+            'home_record': 'N/A',
+            'away_ats': 'N/A',
+            'home_ats': 'N/A'
         }
         
         try:
             headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
             
-            away_id = get_espn_team_id(away_team, league)
-            home_id = get_espn_team_id(home_team, league)
+            # Team name aliases for matching
+            team_aliases = {
+                'bulls': ['bulls', 'chicago', 'chi'],
+                'pacers': ['pacers', 'indiana', 'ind'],
+                'celtics': ['celtics', 'boston', 'bos'],
+                'lakers': ['lakers', 'l.a. lakers', 'la lakers', 'los angeles lakers', 'lal'],
+                'heat': ['heat', 'miami', 'mia'],
+                'bucks': ['bucks', 'milwaukee', 'mil'],
+                'nets': ['nets', 'brooklyn', 'bkn'],
+                '76ers': ['76ers', 'sixers', 'philadelphia', 'phi'],
+                'knicks': ['knicks', 'new york', 'ny', 'nyk'],
+                'hawks': ['hawks', 'atlanta', 'atl'],
+                'hornets': ['hornets', 'charlotte', 'cha'],
+                'cavaliers': ['cavaliers', 'cavs', 'cleveland', 'cle'],
+                'pistons': ['pistons', 'detroit', 'det'],
+                'magic': ['magic', 'orlando', 'orl'],
+                'wizards': ['wizards', 'washington', 'was'],
+                'raptors': ['raptors', 'toronto', 'tor'],
+                'nuggets': ['nuggets', 'denver', 'den'],
+                'clippers': ['clippers', 'l.a. clippers', 'la clippers', 'lac'],
+                'suns': ['suns', 'phoenix', 'phx'],
+                'warriors': ['warriors', 'golden state', 'gs', 'gsw'],
+                'grizzlies': ['grizzlies', 'memphis', 'mem'],
+                'mavericks': ['mavericks', 'mavs', 'dallas', 'dal'],
+                'rockets': ['rockets', 'houston', 'hou'],
+                'pelicans': ['pelicans', 'new orleans', 'nop'],
+                'spurs': ['spurs', 'san antonio', 'sa', 'sas'],
+                'thunder': ['thunder', 'oklahoma city', 'okc'],
+                'timberwolves': ['timberwolves', 'wolves', 'minnesota', 'min'],
+                'trail blazers': ['trail blazers', 'blazers', 'portland', 'por'],
+                'jazz': ['jazz', 'utah', 'uta'],
+                'kings': ['kings', 'sacramento', 'sac']
+            }
             
-            if not away_id or not home_id:
-                return result
+            def matches_team(text, team_name):
+                """Check if text matches any alias for team"""
+                text_lower = text.lower()
+                team_lower = team_name.lower()
+                aliases = team_aliases.get(team_lower, [team_lower])
+                return any(alias in text_lower for alias in aliases)
             
-            sport_map = {"NBA": "basketball/nba", "CBB": "basketball/mens-college-basketball"}
-            sport = sport_map.get(league, "basketball/nba")
+            # Fetch NBA matchups page to get all matchup IDs
+            matchups_url = "https://www.covers.com/sports/nba/matchups"
+            resp = requests.get(matchups_url, headers=headers, timeout=15)
             
-            # Get team records from ESPN team endpoint
-            for team_name, team_id, key in [(away_team, away_id, 'away_record'), (home_team, home_id, 'home_record')]:
-                try:
-                    team_url = f"https://site.api.espn.com/apis/site/v2/sports/{sport}/teams/{team_id}"
-                    resp = requests.get(team_url, headers=headers, timeout=10)
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        team_data = data.get('team', {})
-                        record = team_data.get('record', {})
-                        if isinstance(record, dict):
-                            items = record.get('items', [])
-                            if items:
-                                overall = next((r for r in items if r.get('type') == 'total'), items[0] if items else None)
-                                if overall:
-                                    summary = overall.get('summary', '')
-                                    if summary:
-                                        result[key] = summary
-                except Exception as e:
-                    logger.debug(f"Could not fetch record for {team_name}: {e}")
+            matchup_id = None
+            if resp.status_code == 200:
+                soup = BeautifulSoup(resp.text, 'html.parser')
+                
+                # Get all unique matchup IDs from the page
+                all_ids = list(set(re.findall(r'/matchup/(\d+)', str(soup))))
+                
+                # Check each matchup page title to find the correct game
+                for mid in all_ids:
+                    try:
+                        check_url = f"https://www.covers.com/sport/basketball/nba/matchup/{mid}"
+                        check_resp = requests.get(check_url, headers=headers, timeout=8)
+                        if check_resp.status_code == 200:
+                            check_soup = BeautifulSoup(check_resp.text, 'html.parser')
+                            title = check_soup.find('title')
+                            if title:
+                                title_text = title.get_text().lower()
+                                # Title format: "Bulls vs Pacers Game Overview..."
+                                if matches_team(title_text, away_team) and matches_team(title_text, home_team):
+                                    matchup_id = mid
+                                    break
+                    except Exception:
+                        continue
             
-            # Fetch H2H from away team's schedule
-            try:
-                url = f"https://site.api.espn.com/apis/site/v2/sports/{sport}/teams/{away_id}/schedule"
-                resp = requests.get(url, headers=headers, timeout=15)
+            # If we found a matchup ID, fetch the matchup page
+            if matchup_id:
+                matchup_url = f"https://www.covers.com/sport/basketball/nba/matchup/{matchup_id}"
+                resp = requests.get(matchup_url, headers=headers, timeout=15)
                 
                 if resp.status_code == 200:
-                    events = resp.json().get("events", [])
-                    h2h_games = []
+                    soup = BeautifulSoup(resp.text, 'html.parser')
+                    text = soup.get_text(' ', strip=True)
                     
-                    for event in events:
-                        status = event.get("competitions", [{}])[0].get("status", {}).get("type", {}).get("name", "")
-                        if status != "STATUS_FINAL":
-                            continue
+                    # Parse H2H section - look for "Win / Loss X-Y" pattern
+                    # H2H record is from away team's perspective
+                    wl_pattern = re.search(r'Win\s*/?\s*Loss\s*(\d+)-(\d+)', text, re.IGNORECASE)
+                    if wl_pattern:
+                        wins, losses = int(wl_pattern.group(1)), int(wl_pattern.group(2))
+                        result['h2h_record'] = f"{wins}-{losses}"
                         
-                        comps = event.get("competitions", [{}])[0]
-                        competitors = comps.get("competitors", [])
-                        if len(competitors) < 2:
-                            continue
-                        
-                        # Check if this game is between our two teams
-                        team_ids = [str(c.get("team", {}).get("id", "")) for c in competitors]
-                        if str(home_id) not in team_ids:
-                            continue
-                        
-                        # Found a H2H game
-                        home_comp = next((c for c in competitors if c.get("homeAway") == "home"), None)
-                        away_comp = next((c for c in competitors if c.get("homeAway") == "away"), None)
-                        
-                        if home_comp and away_comp:
-                            h_score = int(home_comp.get("score", 0) or 0)
-                            a_score = int(away_comp.get("score", 0) or 0)
-                            h_id = str(home_comp.get("team", {}).get("id", ""))
-                            a_id = str(away_comp.get("team", {}).get("id", ""))
-                            
-                            # Track which of our teams won
-                            winner_id = h_id if h_score > a_score else a_id
-                            
-                            h2h_games.append({
-                                'winner_id': winner_id,
-                                'away_team_id': str(away_id),
-                                'home_team_id': str(home_id)
-                            })
-                    
-                    # Take last 10 H2H games
-                    h2h_games = h2h_games[-10:]
-                    
-                    if h2h_games:
-                        away_wins = sum(1 for g in h2h_games if g['winner_id'] == str(away_id))
-                        home_wins = sum(1 for g in h2h_games if g['winner_id'] == str(home_id))
-                        
-                        result['h2h_record'] = f"{away_wins}-{home_wins}"
-                        if away_wins > home_wins:
+                        if wins > losses:
                             result['h2h_leader'] = away_team
-                        elif home_wins > away_wins:
+                        elif losses > wins:
                             result['h2h_leader'] = home_team
                         else:
                             result['h2h_leader'] = 'Even'
-            except Exception as e:
-                logger.debug(f"Could not fetch H2H: {e}")
+                    
+                    # Parse ATS section - look for "ATS X-Y-Z" pattern
+                    ats_pattern = re.search(r'ATS\s*Against the Spread\s*(\d+)-(\d+)-(\d+)', text, re.IGNORECASE)
+                    if not ats_pattern:
+                        ats_pattern = re.search(r'ATS\s*(\d+)-(\d+)-(\d+)', text, re.IGNORECASE)
+                    
+                    if ats_pattern:
+                        wins, losses, pushes = int(ats_pattern.group(1)), int(ats_pattern.group(2)), int(ats_pattern.group(3))
+                        result['h2h_ats'] = f"{wins}-{losses}-{pushes}"
+                        
+                        if wins > losses:
+                            result['ats_leader'] = away_team
+                        elif losses > wins:
+                            result['ats_leader'] = home_team
+                        else:
+                            result['ats_leader'] = 'Even'
+                    
+                    # Parse team records from the Records table
+                    # Format: "LAL 28-17 24-20-1" and "CLE 28-20 18-30-0"
+                    records_section = re.findall(r'([A-Z]{2,3})\s+(\d+-\d+)\s+(?:W/L\s+)?(?:Win/Loss\s+)?(\d+-\d+)', text)
+                    if not records_section:
+                        records_section = re.findall(r'(\d+-\d+)\s+(?:W/L|Win/Loss)\s+(\d+-\d+)', text)
+                    
+                    # Alternative parsing for records
+                    away_rec_match = re.search(r'(\d+-\d+)\s+(?:\(\d+-\d+\s+Road\))', text)
+                    home_rec_match = re.search(r'(?:\(\d+-\d+\s+Home\))\s+(\d+-\d+)', text)
+                    
+                    # Try to extract individual team records
+                    for abbr, record, ats in records_section[:2]:
+                        if matches_team(abbr, away_team):
+                            result['away_record'] = record
+                            result['away_ats'] = ats
+                        elif matches_team(abbr, home_team):
+                            result['home_record'] = record
+                            result['home_ats'] = ats
             
-            logger.info(f"H2H {away_team} vs {home_team}: {result['h2h_record']} ({result['h2h_leader']}), Records: {result['away_record']} vs {result['home_record']}")
+            logger.info(f"Covers H2H {away_team} vs {home_team}: W/L={result['h2h_record']} ({result['h2h_leader']}), ATS={result['h2h_ats']} ({result['ats_leader']})")
             return result
             
         except Exception as e:
-            logger.warning(f"Error fetching H2H for {away_team} vs {home_team}: {e}")
+            logger.warning(f"Error fetching Covers H2H for {away_team} vs {home_team}: {e}")
             return result
     
     @staticmethod
@@ -9231,21 +9275,25 @@ def get_matchup_data(game_id):
                 except Exception as e:
                     logging.warning(f"CTG fetch error: {e}")
                 
-                # Fetch H2H L10 and team records from ESPN
+                # Fetch H2H L10 W/L and ATS from Covers.com
                 try:
-                    h2h_data = MatchupIntelligence.fetch_h2h_and_records(game.away_team, game.home_team, game.league)
-                    logging.info(f"H2H data: {h2h_data}")
+                    h2h_data = MatchupIntelligence.fetch_covers_h2h(game.away_team, game.home_team, game.league)
+                    logging.info(f"Covers H2H data: {h2h_data}")
                 except Exception as e:
-                    logging.warning(f"H2H fetch error: {e}")
+                    logging.warning(f"Covers H2H fetch error: {e}")
                     h2h_data = {}
             else:
                 h2h_data = {}
             
-            # Add H2H and records to result
+            # Add H2H, ATS and records to result
             result['h2h_record'] = h2h_data.get('h2h_record', 'N/A')
             result['h2h_leader'] = h2h_data.get('h2h_leader', 'Even')
+            result['h2h_ats'] = h2h_data.get('h2h_ats', 'N/A')
+            result['ats_leader'] = h2h_data.get('ats_leader', 'Even')
             result['away_record'] = h2h_data.get('away_record', 'N/A')
             result['home_record'] = h2h_data.get('home_record', 'N/A')
+            result['away_ats'] = h2h_data.get('away_ats', 'N/A')
+            result['home_ats'] = h2h_data.get('home_ats', 'N/A')
             
             # Convert to display format - Season Stats using exact TeamRankings stat names
             result['away_season'] = {

@@ -91,8 +91,9 @@ Only one app can run at a time. Configure the workflow to switch between apps.
             -   **Free Throws**: FT Rate, Opp FT Rate (with ranks from CTG)
             -   **Schedule**: SOS Rank (from TeamRankings)
             -   **Footer Stats** (Jan 2026): Additional context in table footer:
-                -   H2H L10: Head-to-head last 10 games record from ESPN
-                -   Record: Team W/L records from ESPN
+                -   H2H L10: Head-to-head last 10 W/L from Covers.com matchup pages (e.g., "6-4" with leader name)
+                -   ATS L10: Against the spread record from Covers.com (e.g., "4-6-0" with leader name)
+                -   Record: Team W/L records (e.g., "23-23" vs "11-36")
                 -   Edge Count: X/15 format showing statistical edges
         -   Only shows for CBB/NBA games with advanced data available
         -   Mobile-optimized responsive design for iPhone

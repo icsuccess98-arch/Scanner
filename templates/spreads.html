@@ -1505,6 +1505,11 @@
                                 <td class="${data.h2h_leader === awayTeam ? 'edge-away' : (data.h2h_leader === homeTeam ? 'edge-home' : '')}">${data.h2h_leader || 'Even'}</td>
                             </tr>
                             <tr>
+                                <td class="metric-name">ATS L10</td>
+                                <td colspan="2" style="text-align: center; font-weight: 600;">${data.h2h_ats || 'N/A'}</td>
+                                <td class="${data.ats_leader === awayTeam ? 'edge-away' : (data.ats_leader === homeTeam ? 'edge-home' : '')}">${data.ats_leader || 'Even'}</td>
+                            </tr>
+                            <tr>
                                 <td class="metric-name">Record</td>
                                 <td style="font-weight: 500;">${data.away_record || 'N/A'}</td>
                                 <td style="font-weight: 500;">${data.home_record || 'N/A'}</td>
