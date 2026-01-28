@@ -661,9 +661,57 @@ class MatchupIntelligence:
     @staticmethod
     def fetch_teamrankings_stats(team_name: str, league: str = 'NBA') -> dict:
         """
-        Fetch team stats from TeamRankings.com individual stat pages.
+        Fetch comprehensive team stats from TeamRankings.com including rankings and SOS.
         """
-        return {}
+        try:
+            import requests
+            from bs4 import BeautifulSoup
+            
+            # Team name to slug mapping
+            team_slugs = {
+                'bulls': 'chicago-bulls', 'pacers': 'indiana-pacers', 'celtics': 'boston-celtics',
+                'lakers': 'los-angeles-lakers', 'heat': 'miami-heat', 'bucks': 'milwaukee-bucks',
+                'nets': 'brooklyn-nets', '76ers': 'philadelphia-76ers', 'knicks': 'new-york-knicks',
+                'hawks': 'atlanta-hawks', 'hornets': 'charlotte-hornets', 'cavaliers': 'cleveland-cavaliers',
+                'pistons': 'detroit-pistons', 'magic': 'orlando-magic', 'wizards': 'washington-wizards',
+                'raptors': 'toronto-raptors', 'nuggets': 'denver-nuggets', 'clippers': 'los-angeles-clippers',
+                'suns': 'phoenix-suns', 'warriors': 'golden-state-warriors', 'grizzlies': 'memphis-grizzlies',
+                'mavericks': 'dallas-mavericks', 'rockets': 'houston-rockets', 'pelicans': 'new-orleans-pelicans',
+                'spurs': 'san-antonio-spurs', 'thunder': 'oklahoma-city-thunder', 'timberwolves': 'minnesota-timberwolves',
+                'trail blazers': 'portland-trail-blazers', 'blazers': 'portland-trail-blazers',
+                'jazz': 'utah-jazz', 'kings': 'sacramento-kings'
+            }
+            
+            team_slug = team_slugs.get(team_name.lower(), team_name.lower().replace(' ', '-'))
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+            
+            result = {}
+            
+            # Fetch schedule strength (SOS)
+            sos_url = f"https://www.teamrankings.com/nba/team/{team_slug}"
+            try:
+                resp = requests.get(sos_url, headers=headers, timeout=10)
+                if resp.status_code == 200:
+                    soup = BeautifulSoup(resp.text, 'html.parser')
+                    # Look for SOS in team profile
+                    for row in soup.find_all('tr'):
+                        cells = row.find_all('td')
+                        if len(cells) >= 2:
+                            label = cells[0].get_text(strip=True).lower()
+                            if 'sos' in label or 'schedule' in label:
+                                val = cells[1].get_text(strip=True)
+                                try:
+                                    result['sos'] = float(val)
+                                except:
+                                    result['sos_rank'] = val
+            except:
+                pass
+            
+            return result
+            
+        except Exception as e:
+            logger.warning(f"Error fetching TeamRankings stats for {team_name}: {e}")
+            return {}
     
     @staticmethod
     def fetch_covers_trends(team_name: str, league: str = 'NBA') -> dict:
@@ -8790,60 +8838,102 @@ def get_matchup_data(game_id):
             away_l3 = matchup_data.get('away_l3', {})
             home_l3 = matchup_data.get('home_l3', {})
             
-            # Convert to display format - Season Stats
+            # Convert to display format - Season Stats (Key Metrics)
             result['away_season'] = {
-                'PPG': away_season.get('points/game', 110.0),
-                'Opp PPG': away_season.get('opp points/game', 110.0),
-                'eFG%': away_season.get('effective fg %', 52.0),
-                '3PT%': away_season.get('three point %', 35.0),
-                '2PT%': away_season.get('two point %', 52.0),
-                'FT%': away_season.get('free throw %', 78.0),
-                'Assists/Game': away_season.get('assists/game', 25.0),
-                'Assists/TO': away_season.get('assists/turnover', 1.8),
-                'Shooting Eff': away_season.get('shooting efficiency', 1.1),
-                'Fastbreak Pts': away_season.get('fastbreak pts/gm', 15.0),
-                'Pts in Paint': away_season.get('pts in paint/gm', 48.0)
+                'PPG': away_season.get('points/game', 0) or away_season.get('ppg', 0),
+                'Opp PPG': away_season.get('opp points/game', 0) or away_season.get('opp ppg', 0),
+                'FG%': away_season.get('field goal %', 0) or away_season.get('fg%', 0),
+                'Opp FG%': away_season.get('opponent field goal %', 0) or away_season.get('opp fg%', 0),
+                '3PT%': away_season.get('three point %', 0) or away_season.get('3pt%', 0),
+                'Opp 3PT%': away_season.get('opponent three point %', 0) or away_season.get('opp 3pt%', 0),
+                'FT%': away_season.get('free throw %', 0) or away_season.get('ft%', 0),
+                'Opp FT%': away_season.get('opponent free throw %', 0) or away_season.get('opp ft%', 0),
+                'PACE': away_season.get('pace', 0),
+                'Assists/TO': away_season.get('assists/turnover', 0) or away_season.get('ast/to', 0),
+                'eFG%': away_season.get('effective fg %', 0) or away_season.get('efg%', 0),
+                'TOV': away_season.get('total turnover', 0) or away_season.get('turnovers', 0),
+                'Off TOV': away_season.get('offensive turnovers', 0),
+                'Def TOV': away_season.get('defensive turnovers', 0),
+                'ORB': away_season.get('offensive rebounds', 0) or away_season.get('orb', 0),
+                'DRB': away_season.get('defensive rebounds', 0) or away_season.get('drb', 0),
+                'Assists': away_season.get('assists/game', 0) or away_season.get('assists', 0),
+                'Blocks': away_season.get('blocks', 0) or away_season.get('blocks/game', 0),
+                'Steals': away_season.get('steals', 0) or away_season.get('steals/game', 0),
+                'Fouls': away_season.get('personal fouls', 0) or away_season.get('fouls', 0),
+                'O Eff': away_season.get('offensive efficiency', 0) or away_season.get('o eff', 0),
+                'D Eff': away_season.get('defensive efficiency', 0) or away_season.get('d eff', 0),
+                'Pts in Paint': away_season.get('pts in paint/gm', 0) or away_season.get('pts in paint', 0),
+                'Fastbreak Pts': away_season.get('fastbreak pts/gm', 0) or away_season.get('fastbreak pts', 0)
             }
             result['home_season'] = {
-                'PPG': home_season.get('points/game', 112.0),
-                'Opp PPG': home_season.get('opp points/game', 108.0),
-                'eFG%': home_season.get('effective fg %', 53.0),
-                '3PT%': home_season.get('three point %', 36.0),
-                '2PT%': home_season.get('two point %', 53.0),
-                'FT%': home_season.get('free throw %', 79.0),
-                'Assists/Game': home_season.get('assists/game', 26.0),
-                'Assists/TO': home_season.get('assists/turnover', 1.9),
-                'Shooting Eff': home_season.get('shooting efficiency', 1.12),
-                'Fastbreak Pts': home_season.get('fastbreak pts/gm', 16.0),
-                'Pts in Paint': home_season.get('pts in paint/gm', 50.0)
+                'PPG': home_season.get('points/game', 0) or home_season.get('ppg', 0),
+                'Opp PPG': home_season.get('opp points/game', 0) or home_season.get('opp ppg', 0),
+                'FG%': home_season.get('field goal %', 0) or home_season.get('fg%', 0),
+                'Opp FG%': home_season.get('opponent field goal %', 0) or home_season.get('opp fg%', 0),
+                '3PT%': home_season.get('three point %', 0) or home_season.get('3pt%', 0),
+                'Opp 3PT%': home_season.get('opponent three point %', 0) or home_season.get('opp 3pt%', 0),
+                'FT%': home_season.get('free throw %', 0) or home_season.get('ft%', 0),
+                'Opp FT%': home_season.get('opponent free throw %', 0) or home_season.get('opp ft%', 0),
+                'PACE': home_season.get('pace', 0),
+                'Assists/TO': home_season.get('assists/turnover', 0) or home_season.get('ast/to', 0),
+                'eFG%': home_season.get('effective fg %', 0) or home_season.get('efg%', 0),
+                'TOV': home_season.get('total turnover', 0) or home_season.get('turnovers', 0),
+                'Off TOV': home_season.get('offensive turnovers', 0),
+                'Def TOV': home_season.get('defensive turnovers', 0),
+                'ORB': home_season.get('offensive rebounds', 0) or home_season.get('orb', 0),
+                'DRB': home_season.get('defensive rebounds', 0) or home_season.get('drb', 0),
+                'Assists': home_season.get('assists/game', 0) or home_season.get('assists', 0),
+                'Blocks': home_season.get('blocks', 0) or home_season.get('blocks/game', 0),
+                'Steals': home_season.get('steals', 0) or home_season.get('steals/game', 0),
+                'Fouls': home_season.get('personal fouls', 0) or home_season.get('fouls', 0),
+                'O Eff': home_season.get('offensive efficiency', 0) or home_season.get('o eff', 0),
+                'D Eff': home_season.get('defensive efficiency', 0) or home_season.get('d eff', 0),
+                'Pts in Paint': home_season.get('pts in paint/gm', 0) or home_season.get('pts in paint', 0),
+                'Fastbreak Pts': home_season.get('fastbreak pts/gm', 0) or home_season.get('fastbreak pts', 0)
             }
             
-            # Last 3 Games Stats
+            # Fetch SOS for both teams
+            away_extra = MatchupIntelligence.fetch_teamrankings_stats(game.away_team, game.league)
+            home_extra = MatchupIntelligence.fetch_teamrankings_stats(game.home_team, game.league)
+            result['away_season']['SOS'] = away_extra.get('sos', 0) or away_extra.get('sos_rank', 'N/A')
+            result['home_season']['SOS'] = home_extra.get('sos', 0) or home_extra.get('sos_rank', 'N/A')
+            
+            # Last 3 Games Stats (same comprehensive format)
             result['away_l3'] = {
-                'PPG': away_l3.get('points/game', 115.0),
-                'Opp PPG': away_l3.get('opp points/game', 112.0),
-                'eFG%': away_l3.get('effective fg %', 54.0),
-                '3PT%': away_l3.get('three point %', 37.0),
-                '2PT%': away_l3.get('two point %', 54.0),
-                'FT%': away_l3.get('free throw %', 80.0),
-                'Assists/Game': away_l3.get('assists/game', 27.0),
-                'Assists/TO': away_l3.get('assists/turnover', 2.0),
-                'Shooting Eff': away_l3.get('shooting efficiency', 1.15),
-                'Fastbreak Pts': away_l3.get('fastbreak pts/gm', 17.0),
-                'Pts in Paint': away_l3.get('pts in paint/gm', 52.0)
+                'PPG': away_l3.get('points/game', 0) or away_l3.get('ppg', 0),
+                'Opp PPG': away_l3.get('opp points/game', 0) or away_l3.get('opp ppg', 0),
+                'FG%': away_l3.get('field goal %', 0) or away_l3.get('fg%', 0),
+                'Opp FG%': away_l3.get('opponent field goal %', 0),
+                '3PT%': away_l3.get('three point %', 0) or away_l3.get('3pt%', 0),
+                'Opp 3PT%': away_l3.get('opponent three point %', 0),
+                'FT%': away_l3.get('free throw %', 0) or away_l3.get('ft%', 0),
+                'PACE': away_l3.get('pace', 0),
+                'Assists/TO': away_l3.get('assists/turnover', 0),
+                'eFG%': away_l3.get('effective fg %', 0) or away_l3.get('efg%', 0),
+                'TOV': away_l3.get('total turnover', 0) or away_l3.get('turnovers', 0),
+                'ORB': away_l3.get('offensive rebounds', 0) or away_l3.get('orb', 0),
+                'DRB': away_l3.get('defensive rebounds', 0) or away_l3.get('drb', 0),
+                'Assists': away_l3.get('assists/game', 0) or away_l3.get('assists', 0),
+                'Blocks': away_l3.get('blocks', 0),
+                'Steals': away_l3.get('steals', 0)
             }
             result['home_l3'] = {
-                'PPG': home_l3.get('points/game', 114.0),
-                'Opp PPG': home_l3.get('opp points/game', 110.0),
-                'eFG%': home_l3.get('effective fg %', 55.0),
-                '3PT%': home_l3.get('three point %', 38.0),
-                '2PT%': home_l3.get('two point %', 55.0),
-                'FT%': home_l3.get('free throw %', 81.0),
-                'Assists/Game': home_l3.get('assists/game', 28.0),
-                'Assists/TO': home_l3.get('assists/turnover', 2.1),
-                'Shooting Eff': home_l3.get('shooting efficiency', 1.18),
-                'Fastbreak Pts': home_l3.get('fastbreak pts/gm', 18.0),
-                'Pts in Paint': home_l3.get('pts in paint/gm', 54.0)
+                'PPG': home_l3.get('points/game', 0) or home_l3.get('ppg', 0),
+                'Opp PPG': home_l3.get('opp points/game', 0) or home_l3.get('opp ppg', 0),
+                'FG%': home_l3.get('field goal %', 0) or home_l3.get('fg%', 0),
+                'Opp FG%': home_l3.get('opponent field goal %', 0),
+                '3PT%': home_l3.get('three point %', 0) or home_l3.get('3pt%', 0),
+                'Opp 3PT%': home_l3.get('opponent three point %', 0),
+                'FT%': home_l3.get('free throw %', 0) or home_l3.get('ft%', 0),
+                'PACE': home_l3.get('pace', 0),
+                'Assists/TO': home_l3.get('assists/turnover', 0),
+                'eFG%': home_l3.get('effective fg %', 0) or home_l3.get('efg%', 0),
+                'TOV': home_l3.get('total turnover', 0) or home_l3.get('turnovers', 0),
+                'ORB': home_l3.get('offensive rebounds', 0) or home_l3.get('orb', 0),
+                'DRB': home_l3.get('defensive rebounds', 0) or home_l3.get('drb', 0),
+                'Assists': home_l3.get('assists/game', 0) or home_l3.get('assists', 0),
+                'Blocks': home_l3.get('blocks', 0),
+                'Steals': home_l3.get('steals', 0)
             }
         
     except Exception as e:

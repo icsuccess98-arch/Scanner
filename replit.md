@@ -72,6 +72,12 @@ Only one app can run at a time. Configure the workflow to switch between apps.
             -   **Covers.com**: ATS/O/U betting trends and historical records (web scraping)
             -   **CTG-Style Metrics**: Cleaning-the-Glass style efficiency calculations (eFG%, TS%, TOV%, etc.)
             -   Cache layer prevents API rate limiting and speeds up page loads
+        -   **Matchup Breakdown Sections** (Jan 2026): Organized stat tables:
+            -   **KEY METRICS**: PPG, FG%, Opp FG%, 3PT%, Opp 3PT%, FT%, Opp FT%, PACE, Assists/TO
+            -   **OFFENSIVE METRICS**: Off. Efficiency, eFG%, Off. Rebounds, Assists, Fastbreak Pts, Pts in Paint
+            -   **DEFENSIVE METRICS**: Def. Efficiency, Opp PPG, Def. Rebounds, Blocks, Steals, TOV Forced
+            -   **STRENGTH OF SCHEDULE**: SOS Rank from TeamRankings team profile pages
+            -   **LAST 3 GAMES**: Recent performance comparison with same stats
         -   Only shows for CBB/NBA games with advanced data available
         -   Mobile-optimized responsive design for iPhone
     -   **Formulas (STRICT - NO MODIFICATIONS)**:
