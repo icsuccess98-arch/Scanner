@@ -486,6 +486,235 @@ class MatchupIntelligence:
             return {}
     
     @staticmethod
+    def get_team_last5_stats(team_name: str, league: str = 'NBA') -> dict:
+        """
+        Fetch last 5 games stats from NBA.com API for trend analysis.
+        Returns dict with L5 averages for key metrics.
+        """
+        try:
+            from nba_api.stats.endpoints import teamgamelog
+            import time
+            
+            # Find team ID
+            team_id = None
+            for abbr, tid in MatchupIntelligence.NBA_TEAM_IDS.items():
+                if abbr.lower() in team_name.lower() or team_name.lower() in abbr.lower():
+                    team_id = tid
+                    break
+            
+            if not team_id:
+                return {}
+            
+            time.sleep(0.6)  # Rate limiting
+            
+            # Fetch game log
+            game_log = teamgamelog.TeamGameLog(
+                team_id=team_id,
+                season='2024-25',
+                season_type_all_star='Regular Season'
+            )
+            
+            data = game_log.team_game_log.get_dict()
+            if data and data.get('data'):
+                headers = data['headers']
+                games = data['data'][:5]  # Last 5 games
+                
+                if len(games) < 5:
+                    return {}
+                
+                # Calculate L5 averages
+                totals = {'FGM': 0, 'FGA': 0, 'FG3M': 0, 'FG3A': 0, 'FTM': 0, 'FTA': 0,
+                         'OREB': 0, 'DREB': 0, 'REB': 0, 'AST': 0, 'TOV': 0, 'STL': 0,
+                         'BLK': 0, 'PTS': 0}
+                
+                for game in games:
+                    stats = dict(zip(headers, game))
+                    for key in totals:
+                        totals[key] += stats.get(key, 0)
+                
+                n = len(games)
+                avg_fga = totals['FGA'] / n if n > 0 else 1
+                avg_fta = totals['FTA'] / n if n > 0 else 1
+                avg_fg3a = totals['FG3A'] / n if n > 0 else 1
+                
+                return {
+                    'l5_efg': ((totals['FGM'] + 0.5 * totals['FG3M']) / max(1, totals['FGA'])) * 100,
+                    'l5_fg_pct': (totals['FGM'] / max(1, totals['FGA'])) * 100,
+                    'l5_fg3_pct': (totals['FG3M'] / max(1, totals['FG3A'])) * 100,
+                    'l5_ft_pct': (totals['FTM'] / max(1, totals['FTA'])) * 100,
+                    'l5_orb': totals['OREB'] / n,
+                    'l5_drb': totals['DREB'] / n,
+                    'l5_ast': totals['AST'] / n,
+                    'l5_tov': totals['TOV'] / n,
+                    'l5_pts': totals['PTS'] / n,
+                    'l5_fg3m': totals['FG3M'] / n,
+                    'l5_tov_pct': (totals['TOV'] / max(1, totals['FGA'] + 0.44 * totals['FTA'] + totals['TOV'])) * 100,
+                    'l5_ft_rate': (totals['FTA'] / max(1, totals['FGA'])) * 100,
+                    'games_played': n
+                }
+            
+            return {}
+            
+        except Exception as e:
+            logger.warning(f"Error fetching L5 stats for {team_name}: {e}")
+            return {}
+    
+    @staticmethod
+    def fetch_teamrankings_stats(team_name: str, league: str = 'NBA') -> dict:
+        """
+        Fetch team stats from TeamRankings.com for advanced metrics.
+        Returns dict with predictive stats.
+        """
+        try:
+            import requests
+            from bs4 import BeautifulSoup
+            
+            league_path = 'nba' if league == 'NBA' else 'ncaa-basketball'
+            
+            # Clean team name for URL
+            team_slug = team_name.lower().replace(' ', '-').replace("'", "")
+            
+            url = f"https://www.teamrankings.com/{league_path}/team/{team_slug}"
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+            
+            resp = requests.get(url, headers=headers, timeout=10)
+            if resp.status_code != 200:
+                return {}
+            
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            
+            # Find stats tables
+            stats = {}
+            tables = soup.find_all('table', class_='tr-table')
+            
+            for table in tables:
+                rows = table.find_all('tr')
+                for row in rows:
+                    cells = row.find_all('td')
+                    if len(cells) >= 2:
+                        stat_name = cells[0].get_text(strip=True).lower()
+                        stat_value = cells[1].get_text(strip=True)
+                        
+                        try:
+                            # Parse numeric values
+                            if '%' in stat_value:
+                                stats[stat_name] = float(stat_value.replace('%', ''))
+                            elif stat_value.replace('.', '').replace('-', '').isdigit():
+                                stats[stat_name] = float(stat_value)
+                        except ValueError:
+                            continue
+            
+            return {
+                'tr_ppg': stats.get('points per game', 0),
+                'tr_opp_ppg': stats.get('opponent points per game', 0),
+                'tr_fg_pct': stats.get('field goal pct', 0),
+                'tr_3pt_pct': stats.get('three point pct', 0),
+                'tr_ft_pct': stats.get('free throw pct', 0),
+                'tr_reb': stats.get('rebounds per game', 0),
+                'tr_ast': stats.get('assists per game', 0),
+                'tr_tov': stats.get('turnovers per game', 0),
+                'tr_sos': stats.get('strength of schedule', 0)
+            }
+            
+        except Exception as e:
+            logger.warning(f"Error fetching TeamRankings stats for {team_name}: {e}")
+            return {}
+    
+    @staticmethod
+    def fetch_covers_trends(team_name: str, league: str = 'NBA') -> dict:
+        """
+        Fetch betting trends from Covers.com.
+        Returns dict with ATS, O/U records and trends.
+        """
+        try:
+            import requests
+            from bs4 import BeautifulSoup
+            
+            league_path = 'nba' if league == 'NBA' else 'ncaab'
+            team_slug = team_name.lower().replace(' ', '-').replace("'", "")
+            
+            url = f"https://www.covers.com/sport/{league_path}/teams/{team_slug}"
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+            
+            resp = requests.get(url, headers=headers, timeout=10)
+            if resp.status_code != 200:
+                return {}
+            
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            
+            trends = {}
+            
+            # Look for ATS and O/U records
+            record_sections = soup.find_all(class_='covers-CoversRecords')
+            for section in record_sections:
+                text = section.get_text()
+                if 'ATS' in text:
+                    # Parse ATS record
+                    import re
+                    ats_match = re.search(r'(\d+)-(\d+)(?:-(\d+))?', text)
+                    if ats_match:
+                        wins, losses = int(ats_match.group(1)), int(ats_match.group(2))
+                        trends['ats_wins'] = wins
+                        trends['ats_losses'] = losses
+                        trends['ats_pct'] = wins / max(1, wins + losses) * 100
+                
+                if 'O/U' in text or 'Over' in text:
+                    import re
+                    ou_match = re.search(r'(\d+)-(\d+)(?:-(\d+))?', text)
+                    if ou_match:
+                        overs, unders = int(ou_match.group(1)), int(ou_match.group(2))
+                        trends['over_hits'] = overs
+                        trends['under_hits'] = unders
+                        trends['over_pct'] = overs / max(1, overs + unders) * 100
+            
+            return trends
+            
+        except Exception as e:
+            logger.warning(f"Error fetching Covers trends for {team_name}: {e}")
+            return {}
+    
+    @staticmethod
+    def compute_ctg_metrics(team_stats: dict, league: str = 'NBA') -> dict:
+        """
+        Compute Cleaning-the-Glass style efficiency metrics.
+        Uses NBA.com data to calculate CTG-style advanced stats.
+        """
+        try:
+            if not team_stats:
+                return {}
+            
+            fga = team_stats.get('fga', 0) or 1
+            fta = team_stats.get('fta', 0) or 1
+            fg3a = team_stats.get('fg3a', 0) or 1
+            fgm = team_stats.get('fgm', 0)
+            fg3m = team_stats.get('fg3m', 0)
+            ftm = team_stats.get('ftm', 0)
+            tov = team_stats.get('tov', 0)
+            oreb = team_stats.get('oreb', 0)
+            dreb = team_stats.get('dreb', 0)
+            
+            # Possessions estimate
+            possessions = fga + 0.44 * fta + tov - oreb
+            possessions = max(possessions, 1)
+            
+            # CTG-style metrics
+            return {
+                'efg_pct': ((fgm + 0.5 * fg3m) / max(1, fga)) * 100,
+                'ts_pct': (team_stats.get('pts', 0) / max(1, 2 * (fga + 0.44 * fta))) * 100,
+                'tov_pct': (tov / possessions) * 100,
+                'orb_pct': (oreb / max(1, oreb + dreb)) * 100 if oreb + dreb > 0 else 0,
+                'drb_pct': (dreb / max(1, oreb + dreb)) * 100 if oreb + dreb > 0 else 0,
+                'ft_rate': (fta / max(1, fga)) * 100,
+                '3pt_rate': (fg3a / max(1, fga)) * 100,
+                'ast_rate': (team_stats.get('ast', 0) / max(1, fgm)) * 100,
+                'pace': possessions
+            }
+            
+        except Exception as e:
+            logger.warning(f"Error computing CTG metrics: {e}")
+            return {}
+    
+    @staticmethod
     def compute_matchup_stats(away_team: str, home_team: str, away_stats: dict, home_stats: dict, 
                              away_ppg: float, home_ppg: float, away_opp_ppg: float, home_opp_ppg: float,
                              rankings: dict = None) -> dict:
