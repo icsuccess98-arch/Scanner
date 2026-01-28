@@ -413,6 +413,43 @@
             body { padding-bottom: 70px; }
         }
         
+        .stats-comparison {
+            background: linear-gradient(145deg, rgba(45, 38, 64, 0.4) 0%, rgba(26, 24, 37, 0.6) 100%);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 0.75rem;
+        }
+        .comparison-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 0.5rem;
+        }
+        .comparison-row:last-child {
+            margin-bottom: 0;
+        }
+        .stat-item {
+            text-align: center;
+            padding: 0.5rem;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+        }
+        .stat-label {
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.25rem;
+        }
+        .stat-val {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+        .stat-val.highlight {
+            color: var(--emerald);
+        }
+        
         .hidden { display: none !important; }
         
         @media (max-width: 374px) {
@@ -519,34 +556,33 @@
                         </div>
                     </div>
                     
-                    <div class="spread-box">
-                        <div class="spread-label">Spread Line</div>
-                        <div class="spread-value {% if not game.spread_line %}na{% endif %}">
-                            {% if game.spread_line %}
-                                {% if game.spread_line < 0 %}
-                                    {{ game.away_team }} {{ game.spread_line }}
-                                {% elif game.spread_line > 0 %}
-                                    {{ game.home_team }} -{{ game.spread_line }}
-                                {% else %}
-                                    PICK
-                                {% endif %}
-                            {% else %}
-                                Not Available
-                            {% endif %}
-                        </div>
-                    </div>
-                    
-                    <div class="totals-grid">
-                        <div class="total-box">
-                            <div class="total-label">Total (O/U)</div>
-                            <div class="total-value">
-                                {% if game.line %}{{ game.line }}{% else %}--{% endif %}
+                    <div class="stats-comparison">
+                        <div class="comparison-row">
+                            <div class="stat-item">
+                                <div class="stat-label">PPG</div>
+                                <div class="stat-val {% if game.away_ppg and game.home_ppg and game.away_ppg > game.home_ppg %}highlight{% endif %}">
+                                    {% if game.away_ppg %}{{ "%.1f"|format(game.away_ppg) }}{% else %}--{% endif %}
+                                </div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-label">PPG</div>
+                                <div class="stat-val {% if game.away_ppg and game.home_ppg and game.home_ppg > game.away_ppg %}highlight{% endif %}">
+                                    {% if game.home_ppg %}{{ "%.1f"|format(game.home_ppg) }}{% else %}--{% endif %}
+                                </div>
                             </div>
                         </div>
-                        <div class="total-box">
-                            <div class="total-label">Projection</div>
-                            <div class="total-value {% if game.projection and game.line and game.projection > game.line %}over{% elif game.projection and game.line and game.projection < game.line %}under{% endif %}">
-                                {% if game.projection %}{{ "%.1f"|format(game.projection) }}{% else %}--{% endif %}
+                        <div class="comparison-row">
+                            <div class="stat-item">
+                                <div class="stat-label">OPP PPG</div>
+                                <div class="stat-val {% if game.away_opp_ppg and game.home_opp_ppg and game.away_opp_ppg < game.home_opp_ppg %}highlight{% endif %}">
+                                    {% if game.away_opp_ppg %}{{ "%.1f"|format(game.away_opp_ppg) }}{% else %}--{% endif %}
+                                </div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-label">OPP PPG</div>
+                                <div class="stat-val {% if game.away_opp_ppg and game.home_opp_ppg and game.home_opp_ppg < game.away_opp_ppg %}highlight{% endif %}">
+                                    {% if game.home_opp_ppg %}{{ "%.1f"|format(game.home_opp_ppg) }}{% else %}--{% endif %}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -594,13 +630,9 @@
             btn.disabled = true;
             
             try {
-                // Fetch games
+                // Fetch games only (no odds/totals needed for spreads)
                 const gamesResp = await fetch('/fetch_games', { method: 'POST' });
                 const gamesData = await gamesResp.json();
-                
-                // Fetch odds
-                const oddsResp = await fetch('/fetch_odds', { method: 'POST' });
-                const oddsData = await oddsResp.json();
                 
                 // Reload page to show new data
                 window.location.reload();
