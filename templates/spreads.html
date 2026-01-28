@@ -1078,23 +1078,6 @@
             background: rgba(139, 92, 246, 0.08);
         }
         
-        /* Key Metric Highlighting - Orange highlight for most impactful stats */
-        .stats-table tr.key-metric-row {
-            background: rgba(255, 165, 0, 0.08) !important;
-            border-left: 3px solid #FFA500;
-        }
-        .stats-table tr.key-metric-row:hover {
-            background: rgba(255, 165, 0, 0.15) !important;
-        }
-        .stats-table td.key-metric {
-            color: #FFA500 !important;
-            font-weight: 700 !important;
-        }
-        .stats-table td.key-metric::before {
-            content: "★ ";
-            color: #FFA500;
-        }
-        
         .hidden { display: none !important; }
         
         .qualifying-section {
@@ -1390,17 +1373,6 @@
             const awayTeam = data.away_team;
             const homeTeam = data.home_team;
             
-            // Key metrics to highlight in orange (most impactful for betting)
-            const keyMetrics = [
-                'Off. Rebounds', 'ORB%', 'Def. Rebounds', 'DRB%',
-                'Turnovers', 'TOV%', 'Forced TOV', 'Turnovers Forced',
-                'Off. Efficiency', 'Def. Efficiency', 
-                'Effective FG%', 'eFG%', 'Opp eFG%',
-                '3PM/Game', 'Opp 3PM/Game',
-                'FT Rate', 'Opp FT Rate',
-                'SOS Rank', 'SOS'
-            ];
-            
             // Build stats table row helper
             function statRow(metric, awayVal, homeVal, format = 'num', higherIsBetter = true) {
                 const aw = parseFloat(awayVal) || 0;
@@ -1415,58 +1387,47 @@
                 const valFormat = format === 'pct' ? `${aw.toFixed(1)}%` : aw.toFixed(1);
                 const valFormat2 = format === 'pct' ? `${hm.toFixed(1)}%` : hm.toFixed(1);
                 
-                // Check if this is a key metric to highlight
-                const isKeyMetric = keyMetrics.some(km => metric.toLowerCase().includes(km.toLowerCase()) || km.toLowerCase().includes(metric.toLowerCase()));
-                const rowClass = isKeyMetric ? 'key-metric-row' : '';
-                const metricClass = isKeyMetric ? 'metric-name key-metric' : 'metric-name';
-                
-                return `<tr class="${rowClass}">
-                    <td class="${metricClass}">${metric}</td>
+                return `<tr>
+                    <td class="metric-name">${metric}</td>
                     <td class="${awayClass}">${valFormat}</td>
                     <td class="${homeClass}">${valFormat2}</td>
                     <td class="${edgeClass}">${edge}</td>
                 </tr>`;
             }
             
-            // Calculate edge counts from season stats
-            let awaySeasonEdge = 0;
-            let homeSeasonEdge = 0;
-            const seasonMetrics = [
-                ['PPG', true], ['Opp PPG', false], ['eFG%', true], ['3PT%', true],
-                ['2PT%', true], ['FT%', true], ['Assists/Game', true], ['Assists/TO', true],
-                ['Shooting Eff', true], ['Fastbreak Pts', true], ['Pts in Paint', true]
-            ];
-            seasonMetrics.forEach(([m, higher]) => {
-                const aw = awaySeason[m] || 0;
-                const hm = homeSeason[m] || 0;
-                if (higher ? aw > hm : aw < hm) awaySeasonEdge++;
-                else if (higher ? hm > aw : hm < aw) homeSeasonEdge++;
-            });
+            // Calculate edge counts from 13 key metrics
+            let awayEdgeCount = 0;
+            let homeEdgeCount = 0;
             
-            // Calculate edge counts from L3 stats
-            let awayL3Edge = 0;
-            let homeL3Edge = 0;
-            seasonMetrics.forEach(([m, higher]) => {
-                const aw = awayL3[m] || 0;
-                const hm = homeL3[m] || 0;
-                if (higher ? aw > hm : aw < hm) awayL3Edge++;
-                else if (higher ? hm > aw : hm < aw) homeL3Edge++;
+            // [stat_key, higherIsBetter]
+            const edgeMetrics = [
+                ['ORB%', true], ['DRB%', true], ['TOV%', false], 
+                ['Opp TOV%', true], ['O Eff', true], ['D Eff', false],
+                ['eFG%', true], ['Opp eFG%', false], ['3PM/Game', true],
+                ['Opp 3PM/Game', false], ['FTA/FGA', true], ['Opp FTA/FGA', false],
+                ['SOS', false]
+            ];
+            
+            edgeMetrics.forEach(([m, higher]) => {
+                const aw = parseFloat(awaySeason[m]) || 0;
+                const hm = parseFloat(homeSeason[m]) || 0;
+                if (Math.abs(aw - hm) < 0.3) return; // Skip if too close
+                if (higher ? aw > hm : aw < hm) awayEdgeCount++;
+                else if (higher ? hm > aw : hm < aw) homeEdgeCount++;
             });
             
             // Determine overall edge
-            const totalAwayEdge = awaySeasonEdge + awayL3Edge;
-            const totalHomeEdge = homeSeasonEdge + homeL3Edge;
             let edgeWinner = '';
             let edgeDesc = '';
-            if (totalAwayEdge > totalHomeEdge + 2) {
+            if (awayEdgeCount > homeEdgeCount + 2) {
                 edgeWinner = `EDGE: ${awayTeam}`;
-                edgeDesc = `${awayTeam} has clear statistical advantages across multiple categories.`;
-            } else if (totalHomeEdge > totalAwayEdge + 2) {
+                edgeDesc = `${awayTeam} has clear statistical advantages.`;
+            } else if (homeEdgeCount > awayEdgeCount + 2) {
                 edgeWinner = `EDGE: ${homeTeam}`;
-                edgeDesc = `${homeTeam} has clear statistical advantages across multiple categories.`;
+                edgeDesc = `${homeTeam} has clear statistical advantages.`;
             } else {
                 edgeWinner = 'EDGE: Even';
-                edgeDesc = 'Closely matched teams. Execution will be decisive.';
+                edgeDesc = 'Closely matched teams.';
             }
             
             let html = `
@@ -1502,8 +1463,8 @@
                     <div class="section-divider">EDGE SUMMARY</div>
                     <div class="edge-summary-box">
                         <div class="edge-counts">
-                            <div class="edge-team">${awayTeam}: ${totalAwayEdge} edges</div>
-                            <div class="edge-team">${homeTeam}: ${totalHomeEdge} edges</div>
+                            <div class="edge-team">${awayTeam}: ${awayEdgeCount}/13</div>
+                            <div class="edge-team">${homeTeam}: ${homeEdgeCount}/13</div>
                         </div>
                         <div class="edge-verdict">
                             <div class="edge-winner">${edgeWinner}</div>
@@ -1513,15 +1474,6 @@
                 </div>
             `;
             container.innerHTML = html;
-        }
-        
-        function flipEfficiency(btn) {
-            const section = btn.closest('.efficiency-compare');
-            const stats = section.querySelectorAll('.eff-stat');
-            if (stats.length === 2) {
-                const parent = stats[0].parentNode;
-                parent.insertBefore(stats[1], stats[0]);
-            }
         }
         
         document.querySelectorAll('.league-tab').forEach(tab => {
