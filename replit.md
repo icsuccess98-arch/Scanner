@@ -14,10 +14,16 @@ This project develops and manages trading systems including a Sports Betting Cal
 
 ## Separate Applications
 This project has two separate apps that run independently on port 5000:
-1. **Sports App** (`python sports_app.py`) - Sports betting TOTALS only with Matchup Intelligence
+1. **Sports App** (`python sports_app.py`) - Sports betting with Matchup Intelligence
 2. **Stocks App** (`python stocks_app.py`) - Stock setups using The Strat methodology
 
 Only one app can run at a time. Configure the workflow to switch between apps.
+
+### Sports App Pages
+- **Dashboard (/)**: TOTALS picks with edge qualification filters
+- **Spreads (/spreads)**: Full daily slate showing ALL games with spread data (no totals filtering)
+- **Bankroll (/bankroll)**: 52-week bankroll builder tracker
+- **History (/history)**: Pick history and results tracking
 
 ## System Architecture
 

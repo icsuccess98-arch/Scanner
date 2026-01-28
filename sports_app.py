@@ -8568,6 +8568,51 @@ def bankroll():
     """52 Week Bankroll Builder tracker."""
     return render_template('bankroll.html')
 
+@app.route('/spreads')
+def spreads():
+    """Spreads page - shows all upcoming games with spread data (no totals filtering)."""
+    et = pytz.timezone('America/New_York')
+    today = datetime.now(et).date()
+    
+    # Get ALL games for today without any totals filtering
+    all_games = Game.query.filter_by(date=today).order_by(Game.game_time.asc()).all()
+    
+    # Group games by league
+    games_by_league = {
+        'NBA': [],
+        'CBB': [],
+        'NFL': [],
+        'CFB': [],
+        'NHL': []
+    }
+    
+    for g in all_games:
+        if g.league in games_by_league:
+            games_by_league[g.league].append(g)
+    
+    # Calculate spread picks for each game
+    for g in all_games:
+        # Mark away team as favorite if spread is negative
+        g.away_is_favorite = g.spread_line is not None and g.spread_line < 0
+        g.home_is_favorite = g.spread_line is not None and g.spread_line > 0
+        
+        # Format spread display
+        if g.spread_line is not None:
+            if g.spread_line < 0:
+                g.spread_display = f"{g.away_team} {g.spread_line}"
+            elif g.spread_line > 0:
+                g.spread_display = f"{g.home_team} -{g.spread_line}"
+            else:
+                g.spread_display = "PICK"
+        else:
+            g.spread_display = "N/A"
+    
+    return render_template('spreads.html', 
+                           games_by_league=games_by_league,
+                           all_games=all_games,
+                           today=today,
+                           total_games=len(all_games))
+
 @app.route('/download/codebase_structure')
 def download_codebase_structure():
     """Download the codebase structure CSV."""
