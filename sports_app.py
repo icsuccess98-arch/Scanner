@@ -578,10 +578,11 @@ class MatchupIntelligence:
     @staticmethod
     def fetch_teamrankings_matchup(away_team: str, home_team: str, game_date: str, league: str = 'NBA') -> dict:
         """
-        Fetch matchup data from ALL TeamRankings matchup pages:
+        Fetch matchup data from ALL TeamRankings FREE matchup pages:
         - /stats: Basic stats (PPG, rebounds, assists, etc.)
         - /efficiency: Off/Def Efficiency, eFG%, Turnover rates, Rebound %
         - /splits: Season + Last 3 Games columns
+        - /power-ratings: SOS Rank, Predictive Rating, etc.
         """
         try:
             import requests
@@ -601,21 +602,7 @@ class MatchupIntelligence:
             
             away_slug = team_slugs.get(away_team.lower(), away_team.lower().replace(' ', '-'))
             home_slug = team_slugs.get(home_team.lower(), home_team.lower().replace(' ', '-'))
-            base_url = f"https://www.teamrankings.com/nba/matchup/{away_slug}-{home_slug}-{game_date}"
-            
-            # City abbreviations used in TeamRankings tables
-            city_abbrevs = {
-                'bulls': 'CHI', 'pacers': 'IND', 'celtics': 'BOS', 'lakers': 'LAL',
-                'heat': 'MIA', 'bucks': 'MIL', 'nets': 'BKN', '76ers': 'PHI',
-                'knicks': 'NYK', 'hawks': 'ATL', 'hornets': 'CHA', 'cavaliers': 'CLE',
-                'pistons': 'DET', 'magic': 'ORL', 'wizards': 'WAS', 'raptors': 'TOR',
-                'nuggets': 'DEN', 'clippers': 'LAC', 'suns': 'PHX', 'warriors': 'GSW',
-                'grizzlies': 'MEM', 'mavericks': 'DAL', 'rockets': 'HOU', 'pelicans': 'NOP',
-                'spurs': 'SAS', 'thunder': 'OKC', 'timberwolves': 'MIN',
-                'trail blazers': 'POR', 'blazers': 'POR', 'jazz': 'UTA', 'kings': 'SAC'
-            }
-            away_abbrev = city_abbrevs.get(away_team.lower(), away_team[:3].upper())
-            home_abbrev = city_abbrevs.get(home_team.lower(), home_team[:3].upper())
+            base_url = f"https://www.teamrankings.com/{league.lower()}/matchup/{away_slug}-{home_slug}-{game_date}"
             
             headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
             
@@ -633,7 +620,15 @@ class MatchupIntelligence:
                         pass
                 return None
             
-            # 1. STATS PAGE - Format: StatName | CHI Value(rank) | IND Value(rank) | OppStatName
+            def extract_rank(val_str):
+                if not val_str:
+                    return None
+                match = re.search(r'#(\d+)', val_str)
+                if match:
+                    return int(match.group(1))
+                return None
+            
+            # 1. STATS PAGE - Format: StatName | Value(rank) | Value(rank) | OppStatName
             try:
                 resp = requests.get(f"{base_url}/stats", headers=headers, timeout=15)
                 if resp.status_code == 200:
@@ -647,13 +642,10 @@ class MatchupIntelligence:
                         header = rows[0].find_all(['td', 'th'])
                         if len(header) < 4:
                             continue
-                        
                         h0 = header[0].get_text(strip=True).upper()
                         h3 = header[3].get_text(strip=True).upper() if len(header) > 3 else ''
-                        
-                        # Check for city abbreviation match (e.g., CHI, IND)
-                        is_away_first = away_abbrev in h0 or away_team[:3].upper() in h0
-                        is_home_first = home_abbrev in h0 or home_team[:3].upper() in h0
+                        is_away_table = away_team.upper()[:3] in h0 or 'CHI' in h0 or 'BOS' in h0 or away_slug.upper()[:3] in h0
+                        is_home_table = home_team.upper()[:3] in h0 or 'IND' in h0 or home_slug.upper()[:3] in h0
                         
                         for row in rows[1:]:
                             cells = row.find_all(['td', 'th'])
@@ -664,17 +656,22 @@ class MatchupIntelligence:
                             val2 = parse_value(cells[2].get_text(strip=True))
                             stat2 = cells[3].get_text(strip=True).lower()
                             
-                            if 'subscribe' in stat1.lower():
+                            if 'subscribe' in stat1.lower() or not stat1:
                                 continue
                             
-                            if is_away_first:
+                            if is_away_table and not is_home_table:
                                 if val1 is not None:
                                     result['away_season'][stat1] = val1
                                 if val2 is not None:
-                                    result['away_season'][stat2] = val2
-                            elif is_home_first:
+                                    result['home_season'][stat2] = val2
+                            elif is_home_table and not is_away_table:
                                 if val1 is not None:
                                     result['home_season'][stat1] = val1
+                                if val2 is not None:
+                                    result['away_season'][stat2] = val2
+                            else:
+                                if val1 is not None:
+                                    result['away_season'][stat1] = val1
                                 if val2 is not None:
                                     result['home_season'][stat2] = val2
                     
@@ -682,7 +679,7 @@ class MatchupIntelligence:
             except Exception as e:
                 logger.warning(f"Stats page error: {e}")
             
-            # 2. EFFICIENCY PAGE - Format: Stat | CHI | adv | IND
+            # 2. EFFICIENCY PAGE - Format: Stat | CHI | adv | IND (4 columns)
             try:
                 resp = requests.get(f"{base_url}/efficiency", headers=headers, timeout=15)
                 if resp.status_code == 200:
@@ -693,9 +690,6 @@ class MatchupIntelligence:
                         rows = table.find_all('tr')
                         if len(rows) < 2:
                             continue
-                        header = rows[0].find_all(['td', 'th'])
-                        if len(header) < 4:
-                            continue
                         
                         for row in rows[1:]:
                             cells = row.find_all(['td', 'th'])
@@ -705,7 +699,7 @@ class MatchupIntelligence:
                             away_val = parse_value(cells[1].get_text(strip=True))
                             home_val = parse_value(cells[3].get_text(strip=True))
                             
-                            if 'subscribe' in stat_name:
+                            if 'subscribe' in stat_name or not stat_name:
                                 continue
                             if away_val is not None:
                                 result['away_season'][stat_name] = away_val
@@ -716,7 +710,7 @@ class MatchupIntelligence:
             except Exception as e:
                 logger.warning(f"Efficiency page error: {e}")
             
-            # 3. SPLITS PAGE - Format: Stat | CHI Season | adv | IND | CHI L3 | adv | IND L3
+            # 3. SPLITS PAGE - Multi-header format with Season + Last 3 Games columns
             try:
                 resp = requests.get(f"{base_url}/splits", headers=headers, timeout=15)
                 if resp.status_code == 200:
@@ -728,18 +722,19 @@ class MatchupIntelligence:
                         if len(rows) < 3:
                             continue
                         
-                        for row in rows[2:]:
+                        for row in rows:
                             cells = row.find_all(['td', 'th'])
                             if len(cells) < 7:
                                 continue
                             stat_name = cells[0].get_text(strip=True).lower()
+                            if not stat_name or 'stat' in stat_name or 'subscribe' in stat_name:
+                                continue
+                            
                             away_season = parse_value(cells[1].get_text(strip=True))
                             home_season = parse_value(cells[3].get_text(strip=True))
                             away_l3 = parse_value(cells[4].get_text(strip=True))
                             home_l3 = parse_value(cells[6].get_text(strip=True))
                             
-                            if 'subscribe' in stat_name:
-                                continue
                             if away_season is not None:
                                 result['away_season'][stat_name] = away_season
                             if home_season is not None:
@@ -753,12 +748,13 @@ class MatchupIntelligence:
             except Exception as e:
                 logger.warning(f"Splits page error: {e}")
             
-            # 4. POWER-RATINGS PAGE - Get SOS Rank
+            # 4. POWER-RATINGS PAGE - Format: Rating | CHI Value(#rank) | adv | IND Value(#rank)
             try:
                 resp = requests.get(f"{base_url}/power-ratings", headers=headers, timeout=15)
                 if resp.status_code == 200:
                     soup = BeautifulSoup(resp.text, 'html.parser')
                     tables = soup.find_all('table')
+                    sos_found = False
                     
                     for table in tables:
                         rows = table.find_all('tr')
@@ -766,14 +762,41 @@ class MatchupIntelligence:
                             cells = row.find_all(['td', 'th'])
                             if len(cells) >= 4:
                                 stat_name = cells[0].get_text(strip=True).lower()
-                                if 'strength of schedule' in stat_name or stat_name == 'sos':
-                                    # Format: Stat | Away Value | Away Rank | Home Rank
-                                    away_rank_text = cells[2].get_text(strip=True)
-                                    home_rank_text = cells[3].get_text(strip=True)
-                                    result['away_season']['sos rank'] = away_rank_text
-                                    result['home_season']['sos rank'] = home_rank_text
-                                    logger.info(f"SOS Rank: away={away_rank_text}, home={home_rank_text}")
-                                    break
+                                cell1_text = cells[1].get_text(strip=True)
+                                cell3_text = cells[3].get_text(strip=True)
+                                
+                                if not sos_found and 'schedule strength (past)' in stat_name:
+                                    away_rank = extract_rank(cell1_text)
+                                    home_rank = extract_rank(cell3_text)
+                                    if away_rank and home_rank:
+                                        result['away_season']['sos rank'] = away_rank
+                                        result['home_season']['sos rank'] = home_rank
+                                        sos_found = True
+                                        logger.info(f"SOS Rank: away=#{away_rank}, home=#{home_rank}")
+                                
+                                if 'predictive' in stat_name and 'predictive rating' not in result['away_season']:
+                                    away_val = parse_value(cell1_text)
+                                    home_val = parse_value(cell3_text)
+                                    if away_val is not None:
+                                        result['away_season']['predictive rating'] = away_val
+                                    if home_val is not None:
+                                        result['home_season']['predictive rating'] = home_val
+                                
+                                if 'last 10' in stat_name and 'last 10 rating' not in result['away_season']:
+                                    away_val = parse_value(cell1_text)
+                                    home_val = parse_value(cell3_text)
+                                    if away_val is not None:
+                                        result['away_season']['last 10 rating'] = away_val
+                                    if home_val is not None:
+                                        result['home_season']['last 10 rating'] = home_val
+                                
+                                if 'luck' in stat_name and 'luck rating' not in result['away_season']:
+                                    away_val = parse_value(cell1_text)
+                                    home_val = parse_value(cell3_text)
+                                    if away_val is not None:
+                                        result['away_season']['luck rating'] = away_val
+                                    if home_val is not None:
+                                        result['home_season']['luck rating'] = home_val
             except Exception as e:
                 logger.warning(f"Power-ratings page error: {e}")
             

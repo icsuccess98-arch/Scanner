@@ -67,9 +67,14 @@ Only one app can run at a time. Configure the workflow to switch between apps.
         -   **Strength of Schedule (SOS)**: Schedule difficulty rankings for context
         -   **Analyst Insight**: AI-generated summary of matchup advantages
         -   **Live Data Integration** (Jan 2026): Multiple data sources for bulletproof stats:
+            -   **TeamRankings.com Matchup Pages** (PRIMARY): Scrapes 4 FREE matchup pages per game:
+                -   `/stats` - Basic stats (PPG, rebounds, assists, shooting %, etc.) ~39 stats per team
+                -   `/efficiency` - Off/Def Efficiency, eFG%, Turnover rates, Rebound %
+                -   `/splits` - Season + Last 3 Games performance comparison ~30 L3 stats per team
+                -   `/power-ratings` - SOS Rank, Predictive Rating, Last 10 Rating, Luck Rating
+                -   URL format: `teamrankings.com/{league}/matchup/{away}-{home}-{date}/{page}`
+                -   TOTAL: 74+ away stats, 85+ home stats scraped per matchup
             -   **NBA.com API** (nba_api): L5 game stats via TeamGameLog endpoint with 30-min cache
-            -   **TeamRankings.com**: Advanced team metrics and predictive stats (web scraping)
-            -   **Covers.com**: ATS/O/U betting trends and historical records (web scraping)
             -   **CTG-Style Metrics**: Cleaning-the-Glass style efficiency calculations (eFG%, TS%, TOV%, etc.)
             -   Cache layer prevents API rate limiting and speeds up page loads
         -   **Matchup Breakdown Sections** (Jan 2026): Organized stat tables:
