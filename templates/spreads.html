@@ -1760,30 +1760,6 @@
         }
         
         // Store last 5 data for each game
-        const last5GameData = {};
-        
-        // Switch Last 5 tab between teams
-        function switchLast5Tab(tabEl, gameId, teamType, teamName) {
-            const container = tabEl.closest('.last5-section');
-            if (!container) return;
-            
-            // Update active tab styling
-            container.querySelectorAll('.last5-tab').forEach(t => {
-                t.classList.remove('active');
-                t.style.background = 'transparent';
-                t.style.color = '#9ca3af';
-            });
-            tabEl.classList.add('active');
-            tabEl.style.background = '#1e293b';
-            tabEl.style.color = '#fff';
-            
-            // Get data and update table
-            const data = last5GameData[gameId];
-            if (data) {
-                const games = teamType === 'away' ? data.last5_away : data.last5_home;
-                renderLast5Games(gameId, games);
-            }
-        }
         
         // Handle team toggle button clicks in Spread/ML tabs
         function handleTeamToggle(btn, gameId, tabType, teamType, teamName, line, odds) {
@@ -1846,25 +1822,6 @@
         }
         
         // Render Last 5 games table content
-        function renderLast5Games(gameId, games) {
-            const container = document.getElementById(`last5-body-${gameId}`);
-            if (!container || !games || !games.length) return;
-            
-            container.innerHTML = games.map(game => `
-                <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; background: rgba(30,30,45,0.6); border-radius: 6px;">
-                    <div style="display: flex; align-items: center; gap: 6px;">
-                        <span style="color: #666; font-size: 10px; min-width: 40px;">${game.date}</span>
-                        <span style="color: #888; font-size: 10px;">${game.location}</span>
-                        <img src="${game.opp_logo}" style="width: 18px; height: 18px; border-radius: 3px;" onerror="this.style.display='none'"/>
-                        <span style="color: #fff; font-size: 11px; font-weight: 500;">${game.opp}</span>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 6px;">
-                        <span style="background: ${game.result === 'W' ? '#22c55e' : '#ef4444'}; color: #fff; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700;">${game.result}</span>
-                        <span style="color: #fff; font-size: 11px; min-width: 50px; text-align: right;">${game.score}</span>
-                    </div>
-                </div>
-            `).join('');
-        }
         
         // Store refresh intervals for live data
         const liveRefreshIntervals = {};
@@ -2009,7 +1966,6 @@
             const awayTeam = gameCard.dataset.away;
             const homeTeam = gameCard.dataset.home;
             const league = gameCard.dataset.league;
-            console.log('Pikkit: Loading content for', gameId, tabType, awayTeam, 'vs', homeTeam);
             
             // Use XMLHttpRequest for more reliable loading
             const xhr = new XMLHttpRequest();
@@ -2020,7 +1976,6 @@
                 if (xhr.status === 200) {
                     try {
                         const data = JSON.parse(xhr.responseText);
-                        console.log('Pikkit: Got data for', gameId, 'RLM:', !!data.rlm);
                         renderPikkitContent(gameId, tabType, data, awayTeam, homeTeam);
                         pikkitLoadedContent[key] = true;
                     } catch (e) {
@@ -2410,7 +2365,6 @@
         
         // Show placeholder content on page load - data loads on tab click
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('Pikkit tabs: DOMContentLoaded - Placeholder mode');
             // Add placeholder content to all tab containers
             document.querySelectorAll('.pikkit-total-content, .pikkit-spread-content, .pikkit-ml-content').forEach(container => {
                 if (container.id && container.innerHTML.includes('Loading')) {
@@ -2580,28 +2534,6 @@
                             ${statRow('SOS Rank', awaySeason['SOS'], homeSeason['SOS'], 'num', false)}
                         </tbody>
                         <tfoot>
-                            <tr>
-                                <td class="metric-name">Record</td>
-                                <td style="font-weight: 500;">${data.away_record || 'N/A'}</td>
-                                <td style="font-weight: 500;">${data.home_record || 'N/A'}</td>
-                                <td>-</td>
-                            </tr>
-                            <tr>
-                                <td class="metric-name">ATS Record</td>
-                                <td style="font-weight: 500;">${data.away_ats || 'N/A'}</td>
-                                <td style="font-weight: 500;">${data.home_ats || 'N/A'}</td>
-                                <td>-</td>
-                            </tr>
-                            <tr style="background: rgba(16, 185, 129, 0.1);">
-                                <td class="metric-name">H2H L10 W/L</td>
-                                <td colspan="2" style="font-weight: 600; text-align: center; color: #10B981;">${data.h2h_record || 'N/A'} ${data.h2h_leader && data.h2h_leader !== 'Even' ? data.h2h_leader : ''}</td>
-                                <td class="${data.h2h_leader === awayTeam ? 'edge-away' : (data.h2h_leader === homeTeam ? 'edge-home' : '')}" style="font-weight: 600;">${data.h2h_leader || 'Even'}</td>
-                            </tr>
-                            <tr style="background: rgba(59, 130, 246, 0.1);">
-                                <td class="metric-name">ATS L10</td>
-                                <td colspan="2" style="font-weight: 600; text-align: center; color: #3B82F6;">${data.h2h_ats || 'N/A'} ${data.ats_leader && data.ats_leader !== 'Even' ? data.ats_leader : ''}</td>
-                                <td class="${data.ats_leader === awayTeam ? 'edge-away' : (data.ats_leader === homeTeam ? 'edge-home' : '')}" style="font-weight: 600;">${data.ats_leader || 'Even'}</td>
-                            </tr>
                             <tr style="background: rgba(139, 92, 246, 0.15); border-top: 1px solid rgba(139, 92, 246, 0.3);">
                                 <td class="metric-name" style="font-weight: 700;">Edge Count</td>
                                 <td style="font-weight: 600;">${awayEdgeCount}/15</td>
@@ -2610,60 +2542,6 @@
                             </tr>
                         </tfoot>
                     </table>
-                </div>
-                
-                <!-- COVERS-STYLE H2H INTERACTIVE TABLE -->
-                <div class="h2h-interactive-section" style="margin-top: 12px; background: linear-gradient(145deg, rgba(20, 20, 35, 0.95), rgba(15, 15, 25, 0.98)); border-radius: 10px; padding: 12px; border: 1px solid rgba(59, 130, 246, 0.3);">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-                        <div style="font-size: 12px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 6px;">
-                            📊 LAST 10 GAMES
-                        </div>
-                    </div>
-                    
-                    <!-- Tab Buttons with Team Logos -->
-                    <div class="h2h-tabs" style="display: flex; gap: 6px; margin-bottom: 10px;" data-game-id="${data.game_id || ''}">
-                        <button class="h2h-tab active" data-tab="h2h" onclick="switchH2HTab(this, 'h2h')" style="flex: 1; padding: 8px 10px; background: rgba(59, 130, 246, 0.3); border: 1px solid rgba(59, 130, 246, 0.5); border-radius: 8px; color: #3B82F6; font-size: 11px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
-                            🤝 HEAD-TO-HEAD
-                        </button>
-                        <button class="h2h-tab" data-tab="away" onclick="switchH2HTab(this, 'away')" style="flex: 1; padding: 8px 10px; background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: var(--text-muted); font-size: 11px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
-                            <img src="${data.away_logo || ''}" style="width: 16px; height: 16px;" onerror="this.style.display='none'">
-                            ${awayTeam}
-                        </button>
-                        <button class="h2h-tab" data-tab="home" onclick="switchH2HTab(this, 'home')" style="flex: 1; padding: 8px 10px; background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: var(--text-muted); font-size: 11px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
-                            <img src="${data.home_logo || ''}" style="width: 16px; height: 16px;" onerror="this.style.display='none'">
-                            ${homeTeam}
-                        </button>
-                    </div>
-                    
-                    <!-- Summary Stats Row -->
-                    <div class="h2h-summary" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; padding: 8px; background: rgba(0,0,0,0.2); border-radius: 8px;">
-                        <div style="text-align: center;">
-                            <div style="font-size: 9px; color: var(--text-muted); margin-bottom: 2px;">W/L</div>
-                            <div class="h2h-wl" style="font-size: 14px; font-weight: 700; color: #10B981;">${data.h2h_record || 'N/A'}</div>
-                        </div>
-                        <div style="text-align: center;">
-                            <div style="font-size: 9px; color: var(--text-muted); margin-bottom: 2px;">ATS</div>
-                            <div class="h2h-ats" style="font-size: 14px; font-weight: 700; color: #3B82F6;">${data.h2h_ats || 'N/A'}</div>
-                        </div>
-                        <div style="text-align: center;">
-                            <div style="font-size: 9px; color: var(--text-muted); margin-bottom: 2px;">O/U</div>
-                            <div class="h2h-ou" style="font-size: 14px; font-weight: 700; color: #F59E0B;">${data.h2h_ou || 'N/A'}</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Games Table -->
-                    <div class="h2h-games-table" style="font-size: 10px;">
-                        <div style="display: grid; grid-template-columns: 55px 1fr 70px 45px 50px; gap: 4px; padding: 6px 8px; background: rgba(255,255,255,0.05); border-radius: 6px 6px 0 0; font-weight: 600; color: var(--text-muted);">
-                            <div>📅 Date</div>
-                            <div>🏟️ vs</div>
-                            <div>📊 Result</div>
-                            <div>📈 ATS</div>
-                            <div>🎯 O/U</div>
-                        </div>
-                        <div class="h2h-games-list" style="max-height: 200px; overflow-y: auto;">
-                            <div style="text-align: center; padding: 16px; color: var(--text-muted); font-size: 10px;">Click HEAD-TO-HEAD to load games</div>
-                        </div>
-                    </div>
                 </div>
                 
                 <!-- BETTING ACTION - COMPACT -->
@@ -2855,93 +2733,6 @@
                 });
             });
         });
-        
-        function switchH2HTab(tab, tabType) {
-            const container = tab.closest('.h2h-tabs');
-            const section = tab.closest('.h2h-interactive-section');
-            const gameId = container.dataset.gameId;
-            const awayTeam = container.querySelectorAll('.h2h-tab')[1]?.textContent.trim() || 'Away';
-            const homeTeam = container.querySelectorAll('.h2h-tab')[2]?.textContent.trim() || 'Home';
-            
-            container.querySelectorAll('.h2h-tab').forEach(t => {
-                t.style.background = 'transparent';
-                t.style.borderColor = 'rgba(255,255,255,0.1)';
-                t.style.color = 'var(--text-muted)';
-                t.classList.remove('active');
-            });
-            tab.style.background = 'rgba(59, 130, 246, 0.3)';
-            tab.style.borderColor = 'rgba(59, 130, 246, 0.5)';
-            tab.style.color = '#3B82F6';
-            tab.classList.add('active');
-            
-            const wlBox = section.querySelector('.h2h-wl');
-            const atsBox = section.querySelector('.h2h-ats');
-            const ouBox = section.querySelector('.h2h-ou');
-            const gamesList = section.querySelector('.h2h-games-list');
-            
-            if (tabType === 'h2h') {
-                gamesList.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">⏳ Loading...</div>';
-                
-                fetch(`/api/covers_h2h/${gameId}`)
-                    .then(r => r.json())
-                    .then(data => {
-                        if (wlBox) wlBox.textContent = data.wl_record || 'N/A';
-                        if (atsBox) atsBox.textContent = data.ats_record || 'N/A';
-                        if (ouBox) ouBox.textContent = data.ou_record || 'N/A';
-                        
-                        if (data.games && data.games.length > 0) {
-                            let html = '';
-                            data.games.slice(0, 10).forEach(game => {
-                                const wColor = (game.score || '').includes('W') ? '#10B981' : '#EF4444';
-                                const atsColor = (game.ats || '').includes('W') ? '#10B981' : '#EF4444';
-                                const ouVal = (game.ou || '').toLowerCase();
-                                const ouColor = ouVal.includes('o') ? '#10B981' : (ouVal.includes('u') ? '#EF4444' : '#F59E0B');
-                                html += `<div style="display:grid; grid-template-columns:55px 1fr 70px 45px 50px; gap:4px; padding:8px; border-bottom:1px solid rgba(255,255,255,0.05); align-items:center; font-size:10px;">
-                                    <div style="color:var(--text-muted);">${game.date || '--'}</div>
-                                    <div style="color:#fff; font-weight:500;">${game.matchup || '--'}</div>
-                                    <div style="color:${wColor}; font-weight:600;">${game.score || '--'}</div>
-                                    <div style="color:${atsColor};">${game.ats || '--'}</div>
-                                    <div style="color:${ouColor};">${game.ou || '--'}</div>
-                                </div>`;
-                            });
-                            gamesList.innerHTML = html;
-                        } else {
-                            gamesList.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">No H2H games found</div>';
-                        }
-                    })
-                    .catch(err => {
-                        console.error('H2H fetch error:', err);
-                        gamesList.innerHTML = '<div style="text-align:center;padding:20px;color:#EF4444;">❌ Failed to load data</div>';
-                    });
-            } else {
-                const teamName = tabType === 'away' ? awayTeam : homeTeam;
-                if (wlBox) wlBox.textContent = '--';
-                if (atsBox) atsBox.textContent = '--';
-                if (ouBox) ouBox.textContent = '--';
-                
-                const slug = teamName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-                const sectionCard = section.closest('.analytics-modal, .game-card, [data-league]');
-                const cardText = sectionCard ? sectionCard.textContent : '';
-                let sport = 'basketball';
-                let league = 'nba';
-                if (cardText.includes('CBB') || cardText.includes('NCAA')) {
-                    sport = 'basketball'; league = 'ncaab';
-                } else if (cardText.includes('NHL')) {
-                    sport = 'hockey'; league = 'nhl';
-                } else if (cardText.includes('NFL')) {
-                    sport = 'football'; league = 'nfl';
-                } else if (cardText.includes('CFB')) {
-                    sport = 'football'; league = 'ncaaf';
-                }
-                
-                gamesList.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:11px;">
-                    <div style="margin-bottom:10px;">📊 View ${teamName}'s last 10 games</div>
-                    <a href="https://www.covers.com/sport/${sport}/${league}/teams/main/${slug}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:rgba(59,130,246,0.2);border:1px solid rgba(59,130,246,0.4);border-radius:8px;color:#3B82F6;text-decoration:none;font-weight:600;font-size:12px;">
-                        🔗 Open on Covers.com
-                    </a>
-                </div>`;
-            }
-        }
     </script>
 </body>
 </html>
