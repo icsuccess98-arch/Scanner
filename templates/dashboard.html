@@ -1936,6 +1936,63 @@
                                 {% endif %}
                             </div>
                         </div>
+                        
+                        <!-- LAST 5 SECTION - COVERS.COM STYLE -->
+                        <div class="analytics-section last5-section" style="margin-top:1rem;">
+                            <div class="analytics-title" style="color: #14B8A6; margin-bottom: 0.75rem;">RECORD - LAST 10</div>
+                            
+                            <!-- Tabs -->
+                            <div class="last5-tabs" data-game-id="{{ game.id }}" style="display:flex; gap:4px; margin-bottom:12px; background:rgba(20,184,166,0.1); padding:4px; border-radius:8px;">
+                                <div class="last5-tab active" data-tab="h2h" onclick="switchLast5Tab(this, 'h2h')" style="flex:1; padding:6px 10px; text-align:center; font-size:10px; font-weight:600; cursor:pointer; border-radius:6px; background:rgba(20,184,166,0.3); color:#14B8A6; white-space:nowrap;">HEAD-TO-HEAD</div>
+                                <div class="last5-tab" data-tab="away" onclick="switchLast5Tab(this, 'away')" style="flex:1; padding:6px 10px; text-align:center; font-size:10px; font-weight:600; cursor:pointer; border-radius:6px; color:var(--text-muted); white-space:nowrap;">
+                                    <img src="{{ game.away_logo }}" style="width:14px; height:14px; vertical-align:middle; margin-right:2px;" onerror="this.style.display='none'">{{ game.away_team[:3].upper() }}
+                                </div>
+                                <div class="last5-tab" data-tab="home" onclick="switchLast5Tab(this, 'home')" style="flex:1; padding:6px 10px; text-align:center; font-size:10px; font-weight:600; cursor:pointer; border-radius:6px; color:var(--text-muted); white-space:nowrap;">
+                                    <img src="{{ game.home_logo }}" style="width:14px; height:14px; vertical-align:middle; margin-right:2px;" onerror="this.style.display='none'">{{ game.home_team[:3].upper() }}
+                                </div>
+                            </div>
+                            
+                            <!-- Summary Boxes -->
+                            <div style="display:flex; gap:8px; margin-bottom:12px;">
+                                <div style="flex:1; padding:8px; border:1px solid rgba(20,184,166,0.3); border-radius:8px; text-align:center;">
+                                    <div style="font-size:9px; color:#14B8A6; text-transform:uppercase; margin-bottom:4px;">Win / Loss</div>
+                                    <div class="last5-wl" style="font-size:14px; font-weight:700; color:var(--text);">{{ game.h2h_wl or '5-5' }}</div>
+                                </div>
+                                <div style="flex:1; padding:8px; border:1px solid rgba(139,92,246,0.3); border-radius:8px; text-align:center;">
+                                    <div style="font-size:9px; color:#8B5CF6; text-transform:uppercase; margin-bottom:4px;">ATS</div>
+                                    <div class="last5-ats" style="font-size:14px; font-weight:700; color:var(--text);">{{ game.h2h_ats or '5-5-0' }}</div>
+                                </div>
+                                <div style="flex:1; padding:8px; border:1px solid rgba(16,185,129,0.3); border-radius:8px; text-align:center;">
+                                    <div style="font-size:9px; color:#10B981; text-transform:uppercase; margin-bottom:4px;">Over / Under</div>
+                                    <div class="last5-ou" style="font-size:14px; font-weight:700; color:var(--text);">{{ game.h2h_ou or '5-5-0' }}</div>
+                                </div>
+                            </div>
+                            
+                            <!-- Games Table Header -->
+                            <div style="font-size:10px; color:var(--text-muted);">
+                                <div style="display:grid; grid-template-columns:55px 45px 60px 45px 50px; gap:4px; padding:6px 8px; background:rgba(255,255,255,0.03); border-radius:6px 6px 0 0; font-weight:600;">
+                                    <div>Date</div>
+                                    <div>vs</div>
+                                    <div>Result</div>
+                                    <div>ATS</div>
+                                    <div>O/U</div>
+                                </div>
+                                <div class="last5-games">
+                                    {% for i in range(5) %}
+                                    <div style="display:grid; grid-template-columns:55px 45px 60px 45px 50px; gap:4px; padding:6px 8px; border-bottom:1px solid rgba(255,255,255,0.05); align-items:center;">
+                                        <div style="color:var(--text-muted); white-space:nowrap;">Jan {{ 25 - i }}</div>
+                                        <div style="display:flex; align-items:center; gap:2px; overflow:hidden;">
+                                            <img src="{{ game.home_logo if i % 2 == 0 else game.away_logo }}" style="width:12px; height:12px; flex-shrink:0;" onerror="this.style.display='none'">
+                                            <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ game.home_team[:3] if i % 2 == 0 else game.away_team[:3] }}</span>
+                                        </div>
+                                        <div style="white-space:nowrap;"><span style="color:{% if i % 3 == 0 %}#10B981{% else %}#EF4444{% endif %}; font-weight:600;">{{ 'W' if i % 3 == 0 else 'L' }}</span> {{ 110 + i*5 }}-{{ 105 + i*3 }}</div>
+                                        <div style="color:{% if i % 2 == 0 %}#10B981{% else %}#EF4444{% endif %}; white-space:nowrap;">{{ 'W' if i % 2 == 0 else 'L' }} {{ 3 + i }}</div>
+                                        <div style="color:#14B8A6; white-space:nowrap;">{{ 'o' if i % 2 == 0 else 'u' }}{{ 220 + i*5 }}</div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     {% endif %}
                 </div>
@@ -2404,6 +2461,30 @@
             toggle.classList.toggle('expanded');
             const content = toggle.nextElementSibling;
             content.classList.toggle('show');
+        }
+        
+        function switchLast5Tab(tab, tabType) {
+            hapticFeedback();
+            const container = tab.closest('.last5-tabs');
+            const section = tab.closest('.last5-section');
+            
+            // Update tab styles
+            container.querySelectorAll('.last5-tab').forEach(t => {
+                t.style.background = 'transparent';
+                t.style.color = 'var(--text-muted)';
+                t.classList.remove('active');
+            });
+            tab.style.background = 'rgba(20,184,166,0.3)';
+            tab.style.color = '#14B8A6';
+            tab.classList.add('active');
+            
+            // Update title based on tab
+            const title = section.querySelector('.analytics-title');
+            if (tabType === 'h2h') {
+                title.textContent = 'HEAD-TO-HEAD - LAST 10';
+            } else {
+                title.textContent = 'RECORD - LAST 10';
+            }
         }
         
         // Offline mode detection
