@@ -95,23 +95,20 @@ Only one app can run at a time. Configure the workflow to switch between apps.
                 -   ATS L10: Against the spread record from Covers.com (e.g., "4-6-0" with leader name)
                 -   Record: Team W/L records (e.g., "23-23" vs "11-36")
                 -   Edge Count: X/15 format showing statistical edges
-        -   **Betting Checklist** (Jan 2026): Public betting and lopsided action detection:
+        -   **Betting Checklist** (Jan 2026): Gamified Pikkit-style betting action display:
             -   Data source: ScoresAndOdds main page + consensus-picks page (via Playwright headless browser)
             -   Scrapes BOTH main page (opening/current lines) AND consensus page (bets/money percentages)
             -   Auto-refresh: Updates every 30 minutes, force refreshes 2 hours before game time
-            -   Sharp money detection: When money % diverges from bets % (e.g., 40% bets but 60% money = sharp action)
-            -   9-step checklist displayed under stats table:
-                1. Edge Leader: Which team has more statistical edges (X/15)
-                2. Current Line: Current spread from ScoresAndOdds (auto-updates)
-                3. Opening Line: Opening spread from ScoresAndOdds (scraped automatically)
-                4. Line Movement: Difference between current and opening (e.g., "-3.0" = moved 3 points)
-                5. Bets Split: Betting percentage split (e.g., "56% / 44%")
-                6. Money Split: Handle percentage split for sharp money detection
-                7. RLM: Reverse Line Movement detection (≥60% lopsided)
-                8. Trap Game: Warns when ≥70% one-sided betting
-                9. Injuries: Manual check 2h before game
-            -   Lopsided betting (60%+) indicates public heavily favoring one side (fade or follow)
-            -   Visual indicators: Green checkmarks, blue arrows for movement, red/orange warnings
+            -   **Gamified UI Design** (Pikkit-inspired):
+                -   LIVE badge with purple gradient header
+                -   Line Movement card with Open/Current display and movement indicator
+                -   Bet % bars with team names and colored bars (red/green) showing percentage split
+                -   Money % bars with team names and colored bars (amber/purple) for handle split
+                -   Quick checklist grid (2x2): Edge Leader, RLM Check, Trap Game, Sharp Money
+                -   Status badge at bottom ("LOOKING GOOD" or "PROCEED WITH CAUTION")
+            -   Sharp money detection: When money % diverges from bets % by ≥10%
+            -   Lopsided betting (60%+) indicates public heavily favoring one side
+            -   Visual indicators: Colored bars, emojis, gradient backgrounds
         -   Only shows for CBB/NBA games with advanced data available
         -   Mobile-optimized responsive design for iPhone
     -   **Formulas (STRICT - NO MODIFICATIONS)**:
