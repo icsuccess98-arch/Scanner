@@ -20,6 +20,13 @@ import requests
 import pytz
 from bs4 import BeautifulSoup
 from enhanced_scraping import get_cbb_logo, CBB_TEAM_LOGOS
+from automated_loading_system import (
+    setup_automatic_loading, 
+    get_transparent_cbb_logo, 
+    CBB_TEAM_LOGOS_COMPLETE,
+    TeamRankingsScraper,
+    EliminationFilterSystem
+)
 
 
 class QualificationStatus(Enum):
@@ -9978,9 +9985,9 @@ def spreads():
                 g.away_standing = away_stand.get('standing', '')
                 g.home_standing = home_stand.get('standing', '')
             else:
-                # CBB uses team-specific logos from enhanced_scraping
-                g.away_logo = get_cbb_logo(g.away_team) or 'https://a.espncdn.com/i/teamlogos/ncaa/500/ncaa.png'
-                g.home_logo = get_cbb_logo(g.home_team) or 'https://a.espncdn.com/i/teamlogos/ncaa/500/ncaa.png'
+                # CBB uses transparent team-specific logos from automated_loading_system
+                g.away_logo = get_transparent_cbb_logo(g.away_team) or get_cbb_logo(g.away_team) or 'https://a.espncdn.com/i/teamlogos/ncaa/500-dark/ncaa.png'
+                g.home_logo = get_transparent_cbb_logo(g.home_team) or get_cbb_logo(g.home_team) or 'https://a.espncdn.com/i/teamlogos/ncaa/500-dark/ncaa.png'
                 g.away_record = '--'
                 g.home_record = '--'
                 g.away_standing = ''
@@ -10907,6 +10914,10 @@ ON CONFLICT DO NOTHING;"""
 
 with app.app_context():
     db.create_all()
+
+# Initialize automatic game loading system
+auto_loader = setup_automatic_loading(app, db)
+logger.info("Automatic game loading enabled - games will load on new day automatically")
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
