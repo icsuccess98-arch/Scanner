@@ -1753,12 +1753,13 @@
         
         // Expand Line Movement to detailed view
         function expandLineMovement(gameId, tabType) {
-            const summary = document.getElementById(`lm-summary-${gameId}`);
             const detail = document.getElementById(`lm-detail-${gameId}`);
             
-            if (summary) summary.style.display = 'none';
             if (detail) {
                 detail.style.display = 'block';
+                // Scroll to the detail view
+                detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                
                 // Switch to the correct tab
                 const gameCard = document.querySelector(`.game-card[data-game-id="${gameId}"]`);
                 if (gameCard) {
@@ -1781,13 +1782,12 @@
             expandLineMovement(gameId, 'total');
         }
         
-        // Hide/collapse line movement back to summary
+        // Hide/collapse line movement detail view
         function hideLineMovement(gameId) {
-            const summary = document.getElementById(`lm-summary-${gameId}`);
             const detail = document.getElementById(`lm-detail-${gameId}`);
-            
-            if (detail) detail.style.display = 'none';
-            if (summary) summary.style.display = 'block';
+            if (detail) {
+                detail.style.display = 'none';
+            }
         }
         
         // Store last 5 data for each game
