@@ -9565,14 +9565,14 @@ def spreads():
     eliminated_bad_defense = []
     qualifying_picks = []
     
-    # Bottom 5 defenses (L5) with rankings - these allow more points
+    # Bottom 5 defenses (L5) based on NBA.com defense stats - worst net rating
+    # Updated from nba.com/stats/teams/defense-dash-overall?LastNGames=5
     bad_defense_teams = {
-        'Spurs': '30th',
-        'Pelicans': '28th', 
-        'Nuggets': '26th',
-        'Wizards': '29th',
-        'Trail Blazers': '27th',
-        'Blazers': '27th'
+        'Nets': '30th',      # 7.0 diff - worst
+        'Magic': '29th',     # 6.1 diff
+        'Suns': '28th',      # 1.6 diff
+        'Kings': '27th',     # 1.2 diff
+        'Warriors': '26th',  # 1.1 diff
     }
     
     for g in all_games:

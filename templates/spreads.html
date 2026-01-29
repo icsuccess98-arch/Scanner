@@ -1552,14 +1552,6 @@
                 <!-- Rules Table -->
                 <div style="display: flex; flex-direction: column; gap: 6px;">
                     
-                    <!-- Large Spread 10+ -->
-                    <div style="display: flex; align-items: flex-start; background: rgba(139, 92, 246, 0.08); border-radius: 8px; padding: 8px 10px; border-left: 3px solid #a78bfa;">
-                        <div style="min-width: 130px;">
-                            <span style="font-size: 10px; font-weight: 700; color: #a78bfa;">Large Spread 10+</span>
-                        </div>
-                        <div style="flex: 1; font-size: 10px; color: #e2e8f0;">{{ large_spread_teams|default('None', true) }}</div>
-                    </div>
-                    
                     <!-- Cold Teams (L10 Record) -->
                     <div style="display: flex; align-items: flex-start; background: rgba(139, 92, 246, 0.08); border-radius: 8px; padding: 8px 10px; border-left: 3px solid #a78bfa;">
                         <div style="min-width: 130px;">
@@ -1590,14 +1582,6 @@
                             <span style="font-size: 10px; font-weight: 700; color: #a78bfa;">Back-to-Back</span>
                         </div>
                         <div style="flex: 1; font-size: 10px; color: #e2e8f0;">{{ b2b_teams|default('None', true) }}</div>
-                    </div>
-                    
-                    <!-- Home/Away Trends -->
-                    <div style="display: flex; align-items: flex-start; background: rgba(139, 92, 246, 0.08); border-radius: 8px; padding: 8px 10px; border-left: 3px solid #a78bfa;">
-                        <div style="min-width: 130px;">
-                            <span style="font-size: 10px; font-weight: 700; color: #a78bfa;">Home/Away Edge</span>
-                        </div>
-                        <div style="flex: 1; font-size: 10px; color: #e2e8f0;">{{ home_away_edge|default('Check game cards', true) }}</div>
                     </div>
                 </div>
                 
