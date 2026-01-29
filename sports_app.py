@@ -192,6 +192,12 @@ compress = Compress()
 compress.init_app(app)
 logger.info("Response compression enabled")
 
+# Fast health check endpoint for production deployments
+@app.route('/health')
+def health_check():
+    """Simple health check that returns immediately - no database queries."""
+    return jsonify({"status": "healthy", "version": "2.0.0"}), 200
+
 last_game_count = {}
 
 _live_scores_cache = {"data": {}, "timestamp": 0}
