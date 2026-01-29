@@ -130,17 +130,38 @@ def _parse_cell_rows(text: str) -> tuple:
 
 async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
     """Async function to fetch WagerTalk data with Playwright."""
-    from playwright.async_api import async_playwright
+    import traceback
+    import os
     
     result = {}
+    browser = None
     
     try:
+        from playwright.async_api import async_playwright
+        logger.info(f"[WagerTalk-Async] Starting async fetch for {league}")
+        
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
+            logger.info("[WagerTalk-Async] Playwright context created")
+            
+            # Try to launch browser with multiple fallback options
+            try:
+                browser = await p.chromium.launch(
+                    headless=True,
+                    args=['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+                )
+                logger.info("[WagerTalk-Async] Browser launched successfully")
+            except Exception as browser_err:
+                logger.error(f"[WagerTalk-Async] Browser launch failed: {browser_err}")
+                # Try with executable path from env
+                chromium_path = os.environ.get('PLAYWRIGHT_BROWSERS_PATH', '')
+                logger.info(f"[WagerTalk-Async] PLAYWRIGHT_BROWSERS_PATH: {chromium_path}")
+                raise
+            
             context = await browser.new_context(
                 viewport={'width': 1920, 'height': 1080},
                 user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             )
+            logger.info("[WagerTalk-Async] Browser context created")
             
             # Stealth mode
             await context.add_init_script("""
@@ -149,13 +170,15 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
             """)
             
             page = await context.new_page()
+            logger.info("[WagerTalk-Async] New page created")
             
             cb = random.random()
             url = f'https://www.wagertalk.com/odds?sport=today&cb={cb}'
             
-            logger.info(f"Fetching WagerTalk: {url}")
+            logger.info(f"[WagerTalk-Async] Navigating to: {url}")
             
-            await page.goto(url, wait_until='domcontentloaded', timeout=30000)
+            await page.goto(url, wait_until='domcontentloaded', timeout=45000)
+            logger.info("[WagerTalk-Async] Page loaded, waiting for JS...")
             await asyncio.sleep(8)  # Wait for JS to load percentages
             
             rows = await page.query_selector_all('tr.reg, tr.alt')
@@ -357,11 +380,19 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                     continue
             
             await browser.close()
-            logger.info(f"WagerTalk scraped {games_found} {league} games with spread+totals data")
+            logger.info(f"[WagerTalk-Async] SUCCESS - Scraped {games_found} {league} games with spread+totals data")
             
     except Exception as e:
-        logger.error(f"Error fetching WagerTalk: {e}")
+        import traceback
+        logger.error(f"[WagerTalk-Async] CRITICAL ERROR: {type(e).__name__}: {e}")
+        logger.error(f"[WagerTalk-Async] Full traceback:\n{traceback.format_exc()}")
+        if browser:
+            try:
+                await browser.close()
+            except:
+                pass
     
+    logger.info(f"[WagerTalk-Async] Returning {len(result)} games for {league}")
     return result
 
 
@@ -369,28 +400,90 @@ def fetch_wagertalk_data(league: str = 'NBA') -> Dict[str, Dict]:
     """
     Fetch betting data from WagerTalk using Playwright.
     Returns Tickets %, Money %, and Line Movement for Spreads and Totals.
+    Enhanced with production-ready error handling and diagnostics.
     """
+    import os
+    import traceback
+    import sys
+    
     cache_key = f"wagertalk_{league}_{datetime.now().strftime('%Y%m%d_%H')}"
     
+    # Log environment info for debugging
+    is_production = os.environ.get('REPL_DEPLOYMENT', '') != ''
+    logger.info(f"[WagerTalk] Starting fetch for {league} | Production: {is_production} | Cache key: {cache_key}")
+    
     if _is_cache_valid(cache_key):
-        logger.debug(f"Using cached WagerTalk data for {league}")
-        return _wagertalk_cache[cache_key]
+        cached_data = _wagertalk_cache[cache_key]
+        logger.info(f"[WagerTalk] Using cached data for {league}: {len(cached_data)} games")
+        return cached_data
+    
+    # Check if Playwright is available
+    playwright_available = False
+    try:
+        from playwright.async_api import async_playwright
+        playwright_available = True
+        logger.info("[WagerTalk] Playwright module imported successfully")
+    except ImportError as e:
+        logger.error(f"[WagerTalk] Playwright import failed: {e}")
+    except Exception as e:
+        logger.error(f"[WagerTalk] Playwright import error: {type(e).__name__}: {e}")
+    
+    if not playwright_available:
+        logger.warning("[WagerTalk] Playwright not available - returning empty data")
+        return {}
+    
+    result = {}
     
     try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        result = loop.run_until_complete(_fetch_wagertalk_async(league))
-        loop.close()
+        logger.info(f"[WagerTalk] Creating async event loop for {league}")
+        
+        # Handle existing event loop in production (gunicorn)
+        try:
+            loop = asyncio.get_running_loop()
+            logger.info("[WagerTalk] Using existing event loop")
+            # If there's already a running loop, we need to use it differently
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(_run_async_in_thread, league)
+                result = future.result(timeout=60)
+        except RuntimeError:
+            # No running loop, create a new one
+            logger.info("[WagerTalk] Creating new event loop")
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                result = loop.run_until_complete(_fetch_wagertalk_async(league))
+            finally:
+                loop.close()
         
         if result:
             _wagertalk_cache[cache_key] = result
             _wagertalk_cache_time[cache_key] = time.time()
+            logger.info(f"[WagerTalk] SUCCESS - Fetched {len(result)} games for {league}")
+        else:
+            logger.warning(f"[WagerTalk] No data returned for {league}")
         
         return result
         
     except Exception as e:
-        logger.error(f"Error in fetch_wagertalk_data: {e}")
+        logger.error(f"[WagerTalk] CRITICAL ERROR for {league}: {type(e).__name__}: {e}")
+        logger.error(f"[WagerTalk] Traceback: {traceback.format_exc()}")
+        
+        # Log system info for debugging
+        logger.error(f"[WagerTalk] Python version: {sys.version}")
+        logger.error(f"[WagerTalk] Platform: {sys.platform}")
+        
         return {}
+
+
+def _run_async_in_thread(league: str) -> Dict[str, Dict]:
+    """Run async fetch in a separate thread for gunicorn compatibility."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        return loop.run_until_complete(_fetch_wagertalk_async(league))
+    finally:
+        loop.close()
 
 
 def _get_league_teams(league: str) -> list:
