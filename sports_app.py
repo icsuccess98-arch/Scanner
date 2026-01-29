@@ -10192,6 +10192,8 @@ def get_matchup_data(game_id):
             away_ctg = {}
             home_ctg = {}
             covers_data = {}
+            h2h_data = {}
+            
             if game.league == 'NBA':
                 try:
                     away_ctg = MatchupIntelligence.fetch_ctg_four_factors(game.away_team)
@@ -10199,15 +10201,13 @@ def get_matchup_data(game_id):
                     logging.info(f"CTG data: away={away_ctg}, home={home_ctg}")
                 except Exception as e:
                     logging.warning(f"CTG fetch error: {e}")
-                
-                # Fetch H2H L10 W/L and ATS from Covers.com
-                try:
-                    h2h_data = MatchupIntelligence.fetch_covers_h2h(game.away_team, game.home_team, game.league)
-                    logging.info(f"Covers H2H data: {h2h_data}")
-                except Exception as e:
-                    logging.warning(f"Covers H2H fetch error: {e}")
-                    h2h_data = {}
-            else:
+            
+            # Fetch H2H L10 W/L and ATS from Covers.com (NBA and CBB)
+            try:
+                h2h_data = MatchupIntelligence.fetch_covers_h2h(game.away_team, game.home_team, game.league)
+                logging.info(f"Covers H2H data for {game.league}: {h2h_data}")
+            except Exception as e:
+                logging.warning(f"Covers H2H fetch error: {e}")
                 h2h_data = {}
             
             # Add H2H, ATS and records to result

@@ -2575,6 +2575,22 @@
                                 <td style="font-weight: 500;">${data.home_record || 'N/A'}</td>
                                 <td>-</td>
                             </tr>
+                            <tr>
+                                <td class="metric-name">ATS Record</td>
+                                <td style="font-weight: 500;">${data.away_ats || 'N/A'}</td>
+                                <td style="font-weight: 500;">${data.home_ats || 'N/A'}</td>
+                                <td>-</td>
+                            </tr>
+                            <tr style="background: rgba(16, 185, 129, 0.1);">
+                                <td class="metric-name">H2H L10 W/L</td>
+                                <td colspan="2" style="font-weight: 600; text-align: center; color: #10B981;">${data.h2h_record || 'N/A'} ${data.h2h_leader && data.h2h_leader !== 'Even' ? data.h2h_leader : ''}</td>
+                                <td class="${data.h2h_leader === awayTeam ? 'edge-away' : (data.h2h_leader === homeTeam ? 'edge-home' : '')}" style="font-weight: 600;">${data.h2h_leader || 'Even'}</td>
+                            </tr>
+                            <tr style="background: rgba(59, 130, 246, 0.1);">
+                                <td class="metric-name">ATS L10</td>
+                                <td colspan="2" style="font-weight: 600; text-align: center; color: #3B82F6;">${data.h2h_ats || 'N/A'} ${data.ats_leader && data.ats_leader !== 'Even' ? data.ats_leader : ''}</td>
+                                <td class="${data.ats_leader === awayTeam ? 'edge-away' : (data.ats_leader === homeTeam ? 'edge-home' : '')}" style="font-weight: 600;">${data.ats_leader || 'Even'}</td>
+                            </tr>
                             <tr style="background: rgba(139, 92, 246, 0.15); border-top: 1px solid rgba(139, 92, 246, 0.3);">
                                 <td class="metric-name" style="font-weight: 700;">Edge Count</td>
                                 <td style="font-weight: 600;">${awayEdgeCount}/15</td>
