@@ -2557,6 +2557,67 @@
                     </div>
                 </div>
                 
+                <!-- LINE MOVEMENT SECTION - BEFORE CHECKLIST -->
+                <div class="line-movement-section" style="margin-top: 16px; background: rgba(20,20,30,0.95); border-radius: 12px; padding: 16px; border: 1px solid rgba(139, 92, 246, 0.3);">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                        <img src="/static/images/730_logo.png" alt="730" style="width: 24px; height: 24px; object-fit: contain;">
+                        <span style="color: #fff; font-size: 16px; font-weight: 600;">Line Movement</span>
+                    </div>
+                    
+                    <!-- Mini chart rows -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.1); cursor: pointer;">
+                        <div>
+                            <div style="color: #fff; font-size: 14px; font-weight: 500;">Moneyline</div>
+                            <div style="color: #6b7280; font-size: 12px;">Underdog</div>
+                        </div>
+                        <div style="flex: 1; margin: 0 16px; height: 30px;">
+                            <svg viewBox="0 0 100 30" style="width: 100%; height: 30px;">
+                                <path d="M0,25 Q10,25 15,20 T25,15 T35,18 T45,10 T55,12 T65,8 T75,10 T85,6 T100,8" fill="none" stroke="#10b981" stroke-width="1.5" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="color: #fff; font-size: 16px; font-weight: 600;">+440</div>
+                            <div style="color: #10b981; font-size: 12px;">↗ 169.6%</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.1); cursor: pointer;">
+                        <div>
+                            <div style="color: #fff; font-size: 14px; font-weight: 500;">Spread</div>
+                            <div style="color: #6b7280; font-size: 12px;">Main line</div>
+                        </div>
+                        <div style="flex: 1; margin: 0 16px; height: 30px;">
+                            <svg viewBox="0 0 100 30" style="width: 100%; height: 30px;">
+                                <path d="M0,15 Q15,5 25,15 T50,15 T75,15 T100,15" fill="none" stroke="#10b981" stroke-width="1.5" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="color: #fff; font-size: 16px; font-weight: 600;">12.5</div>
+                            <div style="color: #10b981; font-size: 12px;">↗ 1.1%</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; cursor: pointer;">
+                        <div>
+                            <div style="color: #fff; font-size: 14px; font-weight: 500;">Total</div>
+                            <div style="color: #6b7280; font-size: 12px;">Over/Under</div>
+                        </div>
+                        <div style="flex: 1; margin: 0 16px; height: 30px;">
+                            <svg viewBox="0 0 100 30" style="width: 100%; height: 30px;">
+                                <path d="M0,20 Q15,5 30,20 T60,20 T90,25 T100,22" fill="none" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="color: #fff; font-size: 16px; font-weight: 600;">227.5</div>
+                            <div style="color: #ef4444; font-size: 12px;">↘ -2.1%</div>
+                        </div>
+                    </div>
+                    
+                    <!-- View All Button -->
+                    <div onclick="showAllLineMovement('${data.game_id}')" style="display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px; margin-top: 12px; background: rgba(40,40,50,0.8); border-radius: 8px; cursor: pointer;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17l3-3-3-3"/><path d="M6 17l3-3-3-3"/></svg>
+                        <span style="color: #fff; font-size: 14px; font-weight: 500;">View all Line Movement</span>
+                    </div>
+                </div>
+                
                 <!-- GAMIFIED BETTING CHECKLIST - PIKKIT STYLE -->
                 ${data.rlm ? (() => {
                     const awayBetPct = parseInt(data.rlm.away_bet_pct) || 50;
@@ -2565,6 +2626,8 @@
                     const homeMoneyPct = parseInt(data.rlm.home_money_pct) || 50;
                     const awayName = awayTeam;
                     const homeName = homeTeam;
+                    const awayColor = getTeamColor(awayTeam, 'primary');
+                    const homeColor = getTeamColor(homeTeam, 'primary');
                     const openSpread = data.rlm.open_spread || 'N/A';
                     const currentSpread = data.rlm.away_spread || 'N/A';
                     const lineMove = data.rlm.line_movement || 'N/A';
@@ -2612,14 +2675,14 @@
                         `}
                     </div>
                     
-                    <!-- BET % BARS - PIKKIT STYLE -->
+                    <!-- BET % BARS - TEAM COLORS -->
                     <div style="background: rgba(30, 30, 50, 0.6); border-radius: 12px; padding: 12px; margin-bottom: 12px; border: 1px solid rgba(220, 20, 60, 0.3);">
                         <div style="font-weight: 700; font-size: 11px; color: #888; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px;">Bet % <span style="color: #666; font-weight: 400;">(Tickets)</span></div>
                         
                         <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 6px;">
                             <div style="min-width: 55px; font-size: 10px; font-weight: 600; color: #fff;">${awayName}</div>
                             <div style="flex: 1; height: 24px; background: rgba(40, 40, 60, 0.8); border-radius: 6px; overflow: hidden; display: flex;">
-                                <div style="width: ${awayBetPct}%; background: linear-gradient(90deg, #DC143C, #ff4d6d); display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; transition: width 0.5s ease;">
+                                <div style="width: ${awayBetPct}%; background: ${awayColor}; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; transition: width 0.5s ease;">
                                     <span style="font-size: 11px; font-weight: 800; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.5);">${awayBetPct}%</span>
                                 </div>
                             </div>
@@ -2627,29 +2690,29 @@
                         <div style="display: flex; align-items: center; gap: 4px;">
                             <div style="min-width: 55px; font-size: 10px; font-weight: 600; color: #fff;">${homeName}</div>
                             <div style="flex: 1; height: 24px; background: rgba(40, 40, 60, 0.8); border-radius: 6px; overflow: hidden; display: flex;">
-                                <div style="width: ${homeBetPct}%; background: linear-gradient(90deg, #10b981, #34d399); display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; transition: width 0.5s ease;">
+                                <div style="width: ${homeBetPct}%; background: ${homeColor}; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; transition: width 0.5s ease;">
                                     <span style="font-size: 11px; font-weight: 800; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.5);">${homeBetPct}%</span>
                                 </div>
                             </div>
                         </div>
                     </div>
                     
-                    <!-- MONEY % BARS - PIKKIT STYLE -->
+                    <!-- MONEY % BARS - TEAM COLORS -->
                     <div style="background: rgba(30, 30, 50, 0.6); border-radius: 12px; padding: 12px; margin-bottom: 12px; border: 1px solid rgba(255, 215, 0, 0.3);">
                         <div style="font-weight: 700; font-size: 11px; color: #888; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px;">Money % <span style="color: #666; font-weight: 400;">(Handle)</span></div>
                         
                         <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 6px;">
                             <div style="min-width: 55px; font-size: 10px; font-weight: 600; color: #fff;">${awayName}</div>
                             <div style="flex: 1; height: 24px; background: rgba(40, 40, 60, 0.8); border-radius: 6px; overflow: hidden; display: flex;">
-                                <div style="width: ${awayMoneyPct}%; background: linear-gradient(90deg, #f59e0b, #fbbf24); display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; transition: width 0.5s ease;">
-                                    <span style="font-size: 11px; font-weight: 800; color: #000; text-shadow: 0 1px 0 rgba(255,255,255,0.3);">${awayMoneyPct}%</span>
+                                <div style="width: ${awayMoneyPct}%; background: ${awayColor}; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; transition: width 0.5s ease;">
+                                    <span style="font-size: 11px; font-weight: 800; color: #fff; text-shadow: 0 1px 0 rgba(255,255,255,0.3);">${awayMoneyPct}%</span>
                                 </div>
                             </div>
                         </div>
                         <div style="display: flex; align-items: center; gap: 4px;">
                             <div style="min-width: 55px; font-size: 10px; font-weight: 600; color: #fff;">${homeName}</div>
                             <div style="flex: 1; height: 24px; background: rgba(40, 40, 60, 0.8); border-radius: 6px; overflow: hidden; display: flex;">
-                                <div style="width: ${homeMoneyPct}%; background: linear-gradient(90deg, #8b5cf6, #a78bfa); display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; transition: width 0.5s ease;">
+                                <div style="width: ${homeMoneyPct}%; background: ${homeColor}; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; transition: width 0.5s ease;">
                                     <span style="font-size: 11px; font-weight: 800; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.5);">${homeMoneyPct}%</span>
                                 </div>
                             </div>
@@ -2697,34 +2760,6 @@
                 </div>
                 `;
                 })() : ''}
-                
-                <!-- COMPACT LINE MOVEMENT - VIEW ALL BUTTON -->
-                <div style="margin-top: 16px; background: rgba(20,20,30,0.95); border-radius: 12px; padding: 16px; border: 1px solid rgba(139, 92, 246, 0.3);">
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-                        <img src="/static/images/730_logo.png" alt="730" style="width: 24px; height: 24px; object-fit: contain;">
-                        <span style="color: #fff; font-size: 16px; font-weight: 600;">Line Movement</span>
-                    </div>
-                    
-                    <!-- Mini summary rows -->
-                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
-                        <span style="color: #9ca3af; font-size: 13px;">Moneyline</span>
-                        <span style="color: #10b981; font-size: 13px; font-weight: 600;">↗ 169.6%</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
-                        <span style="color: #9ca3af; font-size: 13px;">Spread</span>
-                        <span style="color: #10b981; font-size: 13px; font-weight: 600;">↗ 1.1%</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; padding: 8px 0;">
-                        <span style="color: #9ca3af; font-size: 13px;">Total</span>
-                        <span style="color: #ef4444; font-size: 13px; font-weight: 600;">↘ -2.1%</span>
-                    </div>
-                    
-                    <!-- View All Button -->
-                    <div onclick="showAllLineMovement('${data.game_id}')" style="display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px; margin-top: 12px; background: rgba(40,40,50,0.8); border-radius: 8px; cursor: pointer;">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17l3-3-3-3"/><path d="M6 17l3-3-3-3"/></svg>
-                        <span style="color: #fff; font-size: 14px; font-weight: 500;">View all Line Movement</span>
-                    </div>
-                </div>
             `;
             container.innerHTML = html;
         }
