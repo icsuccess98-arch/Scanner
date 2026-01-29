@@ -63,6 +63,77 @@ nba_team_logos = {
     'Wizards': 'https://a.espncdn.com/i/teamlogos/nba/500/wsh.png'
 }
 
+nhl_team_logos = {
+    'Bruins': 'https://a.espncdn.com/i/teamlogos/nhl/500/bos.png',
+    'Sabres': 'https://a.espncdn.com/i/teamlogos/nhl/500/buf.png',
+    'Red Wings': 'https://a.espncdn.com/i/teamlogos/nhl/500/det.png',
+    'Panthers': 'https://a.espncdn.com/i/teamlogos/nhl/500/fla.png',
+    'Florida': 'https://a.espncdn.com/i/teamlogos/nhl/500/fla.png',
+    'Canadiens': 'https://a.espncdn.com/i/teamlogos/nhl/500/mtl.png',
+    'Montreal': 'https://a.espncdn.com/i/teamlogos/nhl/500/mtl.png',
+    'Senators': 'https://a.espncdn.com/i/teamlogos/nhl/500/ott.png',
+    'Ottawa': 'https://a.espncdn.com/i/teamlogos/nhl/500/ott.png',
+    'Lightning': 'https://a.espncdn.com/i/teamlogos/nhl/500/tb.png',
+    'Tampa Bay': 'https://a.espncdn.com/i/teamlogos/nhl/500/tb.png',
+    'Maple Leafs': 'https://a.espncdn.com/i/teamlogos/nhl/500/tor.png',
+    'Toronto': 'https://a.espncdn.com/i/teamlogos/nhl/500/tor.png',
+    'Hurricanes': 'https://a.espncdn.com/i/teamlogos/nhl/500/car.png',
+    'Carolina': 'https://a.espncdn.com/i/teamlogos/nhl/500/car.png',
+    'Blue Jackets': 'https://a.espncdn.com/i/teamlogos/nhl/500/cbj.png',
+    'Columbus': 'https://a.espncdn.com/i/teamlogos/nhl/500/cbj.png',
+    'Devils': 'https://a.espncdn.com/i/teamlogos/nhl/500/njd.png',
+    'New Jersey': 'https://a.espncdn.com/i/teamlogos/nhl/500/njd.png',
+    'Islanders': 'https://a.espncdn.com/i/teamlogos/nhl/500/nyi.png',
+    'NY Islanders': 'https://a.espncdn.com/i/teamlogos/nhl/500/nyi.png',
+    'New York Islanders': 'https://a.espncdn.com/i/teamlogos/nhl/500/nyi.png',
+    'Rangers': 'https://a.espncdn.com/i/teamlogos/nhl/500/nyr.png',
+    'NY Rangers': 'https://a.espncdn.com/i/teamlogos/nhl/500/nyr.png',
+    'New York Rangers': 'https://a.espncdn.com/i/teamlogos/nhl/500/nyr.png',
+    'New York': 'https://a.espncdn.com/i/teamlogos/nhl/500/nyr.png',
+    'Flyers': 'https://a.espncdn.com/i/teamlogos/nhl/500/phi.png',
+    'Philadelphia': 'https://a.espncdn.com/i/teamlogos/nhl/500/phi.png',
+    'Penguins': 'https://a.espncdn.com/i/teamlogos/nhl/500/pit.png',
+    'Pittsburgh': 'https://a.espncdn.com/i/teamlogos/nhl/500/pit.png',
+    'Capitals': 'https://a.espncdn.com/i/teamlogos/nhl/500/wsh.png',
+    'Washington': 'https://a.espncdn.com/i/teamlogos/nhl/500/wsh.png',
+    'Blackhawks': 'https://a.espncdn.com/i/teamlogos/nhl/500/chi.png',
+    'Chicago': 'https://a.espncdn.com/i/teamlogos/nhl/500/chi.png',
+    'Avalanche': 'https://a.espncdn.com/i/teamlogos/nhl/500/col.png',
+    'Colorado': 'https://a.espncdn.com/i/teamlogos/nhl/500/col.png',
+    'Stars': 'https://a.espncdn.com/i/teamlogos/nhl/500/dal.png',
+    'Dallas': 'https://a.espncdn.com/i/teamlogos/nhl/500/dal.png',
+    'Wild': 'https://a.espncdn.com/i/teamlogos/nhl/500/min.png',
+    'Minnesota': 'https://a.espncdn.com/i/teamlogos/nhl/500/min.png',
+    'Predators': 'https://a.espncdn.com/i/teamlogos/nhl/500/nsh.png',
+    'Nashville': 'https://a.espncdn.com/i/teamlogos/nhl/500/nsh.png',
+    'Blues': 'https://a.espncdn.com/i/teamlogos/nhl/500/stl.png',
+    'St. Louis': 'https://a.espncdn.com/i/teamlogos/nhl/500/stl.png',
+    'Jets': 'https://a.espncdn.com/i/teamlogos/nhl/500/wpg.png',
+    'Winnipeg': 'https://a.espncdn.com/i/teamlogos/nhl/500/wpg.png',
+    'Ducks': 'https://a.espncdn.com/i/teamlogos/nhl/500/ana.png',
+    'Anaheim': 'https://a.espncdn.com/i/teamlogos/nhl/500/ana.png',
+    'Coyotes': 'https://a.espncdn.com/i/teamlogos/nhl/500/ari.png',
+    'Arizona': 'https://a.espncdn.com/i/teamlogos/nhl/500/ari.png',
+    'Utah Hockey Club': 'https://a.espncdn.com/i/teamlogos/nhl/500/uta.png',
+    'Utah': 'https://a.espncdn.com/i/teamlogos/nhl/500/uta.png',
+    'Flames': 'https://a.espncdn.com/i/teamlogos/nhl/500/cgy.png',
+    'Calgary': 'https://a.espncdn.com/i/teamlogos/nhl/500/cgy.png',
+    'Oilers': 'https://a.espncdn.com/i/teamlogos/nhl/500/edm.png',
+    'Edmonton': 'https://a.espncdn.com/i/teamlogos/nhl/500/edm.png',
+    'Kings': 'https://a.espncdn.com/i/teamlogos/nhl/500/la.png',
+    'LA Kings': 'https://a.espncdn.com/i/teamlogos/nhl/500/la.png',
+    'Los Angeles': 'https://a.espncdn.com/i/teamlogos/nhl/500/la.png',
+    'Sharks': 'https://a.espncdn.com/i/teamlogos/nhl/500/sj.png',
+    'San Jose': 'https://a.espncdn.com/i/teamlogos/nhl/500/sj.png',
+    'Kraken': 'https://a.espncdn.com/i/teamlogos/nhl/500/sea.png',
+    'Seattle': 'https://a.espncdn.com/i/teamlogos/nhl/500/sea.png',
+    'Canucks': 'https://a.espncdn.com/i/teamlogos/nhl/500/van.png',
+    'Vancouver': 'https://a.espncdn.com/i/teamlogos/nhl/500/van.png',
+    'Golden Knights': 'https://a.espncdn.com/i/teamlogos/nhl/500/vgk.png',
+    'Vegas': 'https://a.espncdn.com/i/teamlogos/nhl/500/vgk.png',
+    'Vegas Golden Knights': 'https://a.espncdn.com/i/teamlogos/nhl/500/vgk.png',
+}
+
 
 class QualificationStatus(Enum):
     """
@@ -7697,6 +7768,9 @@ def dashboard():
         elif g.league == 'CBB':
             g.away_logo = get_transparent_cbb_logo(g.away_team) or get_cbb_logo(g.away_team) or 'https://a.espncdn.com/i/teamlogos/ncaa/500-dark/ncaa.png'
             g.home_logo = get_transparent_cbb_logo(g.home_team) or get_cbb_logo(g.home_team) or 'https://a.espncdn.com/i/teamlogos/ncaa/500-dark/ncaa.png'
+        elif g.league == 'NHL':
+            g.away_logo = nhl_team_logos.get(g.away_team, 'https://a.espncdn.com/i/teamlogos/nhl/500/nhl.png')
+            g.home_logo = nhl_team_logos.get(g.home_team, 'https://a.espncdn.com/i/teamlogos/nhl/500/nhl.png')
         else:
             g.away_logo = ''
             g.home_logo = ''
