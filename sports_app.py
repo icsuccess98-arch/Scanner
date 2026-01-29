@@ -1169,6 +1169,144 @@ class MatchupIntelligence:
             return result
     
     @staticmethod
+    def fetch_rlm_data(league: str = 'NBA') -> dict:
+        """
+        Fetch betting consensus data from OddsShark consensus page.
+        Returns betting percentages and current lines for all games.
+        Detects lopsided betting when ≥60% of bets are on one side.
+        """
+        import requests
+        from bs4 import BeautifulSoup
+        import re
+        
+        result = {}
+        
+        try:
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+            
+            league_urls = {
+                'NBA': 'https://www.oddsshark.com/nba/consensus-picks',
+                'CBB': 'https://www.oddsshark.com/ncaab/consensus-picks'
+            }
+            
+            url = league_urls.get(league)
+            if not url:
+                return result
+            
+            resp = requests.get(url, headers=headers, timeout=15)
+            if resp.status_code != 200:
+                return result
+            
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            tables = soup.find_all('table')
+            
+            for table in tables:
+                rows = table.find_all('tr')
+                if len(rows) < 2:
+                    continue
+                
+                # Parse header to identify columns
+                header = rows[0].find_all(['th', 'td'])
+                header_text = [h.get_text(strip=True).lower() for h in header]
+                
+                # Skip if not a consensus table
+                if 'spread consensus' not in ' '.join(header_text) and 'consensus' not in ' '.join(header_text):
+                    continue
+                
+                # Process all game pairs in the table (2 rows per game: away then home)
+                data_rows = rows[1:]  # Skip header
+                for row_idx in range(0, len(data_rows), 2):
+                    if row_idx + 1 >= len(data_rows):
+                        break
+                        
+                    game_data = {'away': {}, 'home': {}}
+                    
+                    for i, row in enumerate([data_rows[row_idx], data_rows[row_idx + 1]]):
+                        cells = row.find_all(['td', 'th'])
+                        cell_text = [c.get_text(strip=True) for c in cells]
+                        
+                        if not cell_text:
+                            continue
+                        
+                        # First cell contains team name
+                        first_cell = cell_text[0] if cell_text else ''
+                        
+                        # Parse team name - format: "LA LakersVSCleveland" or "LAL+3.556%"
+                        team_match = re.match(r'([A-Za-z.\s]+?)(?:VS|vs|@|\+|-)', first_cell)
+                        if team_match:
+                            team_name = team_match.group(1).strip()
+                        else:
+                            team_name = re.sub(r'[+-]?\d.*', '', first_cell).strip()
+                        
+                        # Parse spread and percentage from spread column
+                        # Format: "LAL+3.556%" means spread=+3.5, bet_pct=56%
+                        spread_match = re.search(r'([+-]\d+\.?\d?)(\d{1,2})%', first_cell)
+                        if spread_match:
+                            spread = spread_match.group(1)
+                            bet_pct = spread_match.group(2)
+                        else:
+                            # Try second cell
+                            if len(cell_text) > 1:
+                                spread_match = re.search(r'([+-]\d+\.?\d?)(\d{1,2})%', cell_text[1])
+                                if spread_match:
+                                    spread = spread_match.group(1)
+                                    bet_pct = spread_match.group(2)
+                                else:
+                                    spread = 'N/A'
+                                    bet_pct = 'N/A'
+                            else:
+                                spread = 'N/A'
+                                bet_pct = 'N/A'
+                        
+                        # Parse O/U percentage
+                        ou_pct = 'N/A'
+                        for cell in cell_text:
+                            ou_match = re.search(r'[OU](\d{3}\.?\d*)(\d{1,3})%', cell)
+                            if ou_match:
+                                ou_pct = ou_match.group(2)
+                                break
+                        
+                        key = 'away' if i == 0 else 'home'
+                        game_data[key] = {
+                            'team': team_name,
+                            'spread': spread,
+                            'bet_pct': bet_pct,
+                            'ou_pct': ou_pct
+                        }
+                    
+                    # Create game key and compute lopsided betting only if both teams exist
+                    if game_data['away'].get('team') and game_data['home'].get('team'):
+                        away_team = game_data['away']['team']
+                        home_team = game_data['home']['team']
+                        game_key = f"{away_team}_vs_{home_team}".lower().replace(' ', '_').replace('.', '')
+                        
+                        # Determine if lopsided betting exists (≥60% on one side)
+                        try:
+                            away_pct = int(game_data['away'].get('bet_pct', 0) or 0)
+                            home_pct = int(game_data['home'].get('bet_pct', 0) or 0)
+                            
+                            majority_team = 'away' if away_pct > home_pct else 'home'
+                            majority_pct = max(away_pct, home_pct)
+                            
+                            game_data['majority_team'] = majority_team
+                            game_data['majority_pct'] = majority_pct
+                            game_data['rlm_potential'] = majority_pct >= 60  # Flag if lopsided betting
+                            
+                        except (ValueError, TypeError):
+                            game_data['majority_team'] = 'N/A'
+                            game_data['majority_pct'] = 0
+                            game_data['rlm_potential'] = False
+                        
+                        result[game_key] = game_data
+            
+            logger.info(f"Betting consensus data fetched for {league}: {len(result)} games")
+            return result
+            
+        except Exception as e:
+            logger.warning(f"Error fetching RLM data for {league}: {e}")
+            return result
+    
+    @staticmethod
     def compute_ctg_metrics(team_stats: dict, league: str = 'NBA') -> dict:
         """
         Compute Cleaning-the-Glass style efficiency metrics.
@@ -9294,6 +9432,74 @@ def get_matchup_data(game_id):
             result['home_record'] = h2h_data.get('home_record', 'N/A')
             result['away_ats'] = h2h_data.get('away_ats', 'N/A')
             result['home_ats'] = h2h_data.get('home_ats', 'N/A')
+            
+            # Fetch RLM (Reverse Line Movement) data for the checklist
+            rlm_data = {}
+            try:
+                all_rlm = MatchupIntelligence.fetch_rlm_data(game.league)
+                
+                # Team name mappings for matching (all 30 NBA teams)
+                team_keywords = {
+                    'bulls': ['bulls', 'chicago', 'chi'],
+                    'pacers': ['pacers', 'indiana', 'ind'],
+                    'lakers': ['lakers', 'la lakers', 'l.a. lakers', 'los angeles'],
+                    'cavaliers': ['cavaliers', 'cavs', 'cleveland', 'cle'],
+                    'celtics': ['celtics', 'boston', 'bos'],
+                    'hawks': ['hawks', 'atlanta', 'atl'],
+                    'heat': ['heat', 'miami', 'mia'],
+                    'magic': ['magic', 'orlando', 'orl'],
+                    'knicks': ['knicks', 'new york', 'ny'],
+                    'raptors': ['raptors', 'toronto', 'tor'],
+                    'hornets': ['hornets', 'charlotte', 'cha'],
+                    'grizzlies': ['grizzlies', 'memphis', 'mem'],
+                    'timberwolves': ['timberwolves', 'wolves', 'minnesota', 'min'],
+                    'mavericks': ['mavericks', 'mavs', 'dallas', 'dal'],
+                    'warriors': ['warriors', 'golden state', 'gsw', 'gs'],
+                    'jazz': ['jazz', 'utah', 'uta'],
+                    'spurs': ['spurs', 'san antonio', 'sa'],
+                    'rockets': ['rockets', 'houston', 'hou'],
+                    'pelicans': ['pelicans', 'new orleans', 'nop', 'no'],
+                    'nets': ['nets', 'brooklyn', 'bkn'],
+                    '76ers': ['76ers', 'sixers', 'philadelphia', 'phi'],
+                    'pistons': ['pistons', 'detroit', 'det'],
+                    'clippers': ['clippers', 'la clippers', 'lac'],
+                    'nuggets': ['nuggets', 'denver', 'den'],
+                    'trail blazers': ['trail blazers', 'blazers', 'portland', 'por'],
+                    'thunder': ['thunder', 'oklahoma', 'okc'],
+                    'kings': ['kings', 'sacramento', 'sac'],
+                    'suns': ['suns', 'phoenix', 'phx'],
+                    'bucks': ['bucks', 'milwaukee', 'mil'],
+                    'wizards': ['wizards', 'washington', 'was', 'wiz']
+                }
+                
+                def matches_team(text, team):
+                    text = text.lower()
+                    team = team.lower()
+                    keywords = team_keywords.get(team, [team])
+                    return any(kw in text for kw in keywords)
+                
+                for key, data in all_rlm.items():
+                    away_match = matches_team(key, game.away_team) or matches_team(data.get('away', {}).get('team', ''), game.away_team)
+                    home_match = matches_team(key, game.home_team) or matches_team(data.get('home', {}).get('team', ''), game.home_team)
+                    
+                    if away_match and home_match:
+                        rlm_data = data
+                        break
+                
+                logging.info(f"RLM data for {game.away_team} vs {game.home_team}: {rlm_data}")
+            except Exception as e:
+                logging.warning(f"RLM fetch error: {e}")
+            
+            # Add RLM checklist data to result
+            result['rlm'] = {
+                'away_spread': rlm_data.get('away', {}).get('spread', 'N/A'),
+                'home_spread': rlm_data.get('home', {}).get('spread', 'N/A'),
+                'away_bet_pct': rlm_data.get('away', {}).get('bet_pct', 'N/A'),
+                'home_bet_pct': rlm_data.get('home', {}).get('bet_pct', 'N/A'),
+                'majority_team': rlm_data.get('majority_team', 'N/A'),
+                'majority_pct': rlm_data.get('majority_pct', 0),
+                'rlm_potential': rlm_data.get('rlm_potential', False)
+            }
             
             # Convert to display format - Season Stats using exact TeamRankings stat names
             result['away_season'] = {

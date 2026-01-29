@@ -95,6 +95,17 @@ Only one app can run at a time. Configure the workflow to switch between apps.
                 -   ATS L10: Against the spread record from Covers.com (e.g., "4-6-0" with leader name)
                 -   Record: Team W/L records (e.g., "23-23" vs "11-36")
                 -   Edge Count: X/15 format showing statistical edges
+        -   **Betting Checklist** (Jan 2026): Public betting and lopsided action detection:
+            -   Data source: OddsShark consensus picks page for betting percentages
+            -   6-step checklist displayed under stats table:
+                1. Edge Leader: Which team has more statistical edges (X/15)
+                2. Current Line: Current spread from OddsShark
+                3. Bets Split: Betting percentage split (e.g., "56% / 44%")
+                4. Lopsided Bets: Flags when ≥60% of bets on one side (potential sharp money indicator)
+                5. Trap Game: Warns when ≥70% one-sided betting
+                6. Injuries: Placeholder for RotoWire integration (2h before game)
+            -   Lopsided betting (60%+) indicates public heavily favoring one side (fade or follow)
+            -   Visual indicators: Green checkmarks, red/orange warnings for lopsided action
         -   Only shows for CBB/NBA games with advanced data available
         -   Mobile-optimized responsive design for iPhone
     -   **Formulas (STRICT - NO MODIFICATIONS)**:
