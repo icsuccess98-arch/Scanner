@@ -268,26 +268,6 @@ def calculate_travel_distance(team1: str, team2: str) -> float:
     
     return round(distance, 0)
 
-def get_travel_impact(away_team: str, home_team: str, league: str) -> float:
-    """Calculate travel fatigue penalty for away team."""
-    distance = calculate_travel_distance(away_team, home_team)
-    
-    penalty = 0.0
-    
-    if league == "NBA":
-        if distance >= 2500:
-            penalty = -2.0
-        elif distance >= 1500:
-            penalty = -1.0
-    elif league == "NFL":
-        if distance >= 2000:
-            penalty = -1.5
-    elif league == "NHL":
-        if distance >= 2000:
-            penalty = -1.0
-    
-    return penalty
-
 def get_rest_days_impact(team: str, league: str, game_date: date) -> dict:
     """
     Calculate rest days impact with fatigue factors.
@@ -3060,43 +3040,6 @@ class LineMovementTracker:
 
 line_tracker = LineMovementTracker()
 
-class ClosingLineValue:
-    """Calculate Closing Line Value - measures betting edge quality."""
-    
-    @staticmethod
-    def calculate_clv(
-        opening_line: float,
-        closing_line: float,
-        bet_line: float,
-        direction: str
-    ) -> dict:
-        """
-        Calculate CLV metrics.
-        
-        For OVER/AWAY bets: lower closing line = beat the close
-        For UNDER/HOME bets: higher closing line = beat the close
-        """
-        if opening_line is None or closing_line is None or bet_line is None:
-            return {'clv_points': None, 'clv_percentage': None, 'beat_close': None}
-        
-        if direction in ('O', 'OVER', 'AWAY'):
-            clv_points = closing_line - bet_line
-            beat_close = closing_line > bet_line
-        else:
-            clv_points = bet_line - closing_line
-            beat_close = closing_line < bet_line
-        
-        clv_percentage = (clv_points / bet_line * 100) if bet_line != 0 else 0
-        
-        return {
-            'clv_points': round(clv_points, 2),
-            'clv_percentage': round(clv_percentage, 2),
-            'beat_close': beat_close,
-            'opening_line': opening_line,
-            'closing_line': closing_line,
-            'line_movement': round(closing_line - opening_line, 2)
-        }
-
 def game_has_started(pick) -> bool:
     """Check if game has started based on game_start time."""
     if not pick.game_start:
@@ -4358,25 +4301,6 @@ def validate_game_data(game) -> dict:
     return {'valid': len(errors) == 0, 'errors': errors, 'warnings': warnings}
 
 
-def log_qualification_decision(game, qual_result: QualificationResult):
-    """Structured logging for qualification decisions."""
-    log_data = {
-        'game': f"{game.away_team} @ {game.home_team}",
-        'league': game.league,
-        'qualified': qual_result.qualified,
-        'confidence': qual_result.confidence,
-        'true_edge': qual_result.true_edge,
-        'ev_pct': qual_result.ev_pct,
-        'recommendation': qual_result.recommendation
-    }
-    
-    if qual_result.qualified:
-        logger.info(f"QUALIFIED: {log_data['game']} - {log_data['confidence']} "
-                   f"(Edge:{log_data['true_edge']}, EV:{log_data['ev_pct']}%)")
-    else:
-        logger.debug(f"REJECTED: {log_data['game']} - {qual_result.reasons_fail[:2]}")
-
-
 def calculate_spread_edge_sharp(projected_margin: float, spread_line: float,
                                 home_odds: int, away_odds: int, 
                                 league: str, is_home_pick: bool) -> EdgeResult:
@@ -5033,86 +4957,6 @@ class BulletproofPickValidator:
         return best_picks
 
 
-class DashboardFilter:
-    """
-    Filters picks for dashboard display
-    
-    RULE: Only FULLY_QUALIFIED picks are shown
-    NO EXCEPTIONS
-    """
-    
-    @staticmethod
-    def filter_for_dashboard(validation_results: list) -> dict:
-        """
-        Filter validation results for dashboard display
-        
-        Args:
-            validation_results: List of validation dicts from BulletproofPickValidator
-        
-        Returns:
-            {
-                'qualified': List[Dict],        # Only FULLY_QUALIFIED
-                'rejected': List[Dict],         # Everything else
-                'stats': {
-                    'total': int,
-                    'qualified': int,
-                    'edge_only': int,
-                    'negative_ev': int,
-                    'history_only': int,
-                    'not_qualified': int,
-                },
-            }
-        """
-        qualified = []
-        rejected = []
-        stats = {
-            'total': 0,
-            'qualified': 0,
-            'edge_only': 0,
-            'negative_ev': 0,
-            'history_only': 0,
-            'not_qualified': 0
-        }
-        
-        for result in validation_results:
-            stats['total'] += 1
-            status = result.get('status', 'NOT_QUALIFIED')
-            
-            if status == QualificationStatus.FULLY_QUALIFIED.value:
-                qualified.append(result)
-                stats['qualified'] += 1
-            else:
-                rejected.append(result)
-                if status == QualificationStatus.EDGE_ONLY.value:
-                    stats['edge_only'] += 1
-                elif status == QualificationStatus.NEGATIVE_EV.value:
-                    stats['negative_ev'] += 1
-                elif status == QualificationStatus.HISTORY_ONLY.value:
-                    stats['history_only'] += 1
-                else:
-                    stats['not_qualified'] += 1
-        
-        # Sort qualified by edge descending
-        qualified.sort(key=lambda x: x.get('edge', 0), reverse=True)
-        
-        return {
-            'qualified': qualified,
-            'rejected': rejected,
-            'stats': stats
-        }
-    
-    @staticmethod
-    def get_rejection_summary(rejected: list) -> str:
-        """Get a summary of why picks were rejected"""
-        reasons = {}
-        for r in rejected:
-            status = r.get('status', 'UNKNOWN')
-            reasons[status] = reasons.get(status, 0) + 1
-        
-        summary_parts = [f"{count} {status}" for status, count in reasons.items()]
-        return ", ".join(summary_parts) if summary_parts else "None rejected"
-
-
 def calculate_recent_form_ppg(games: list) -> dict:
     """
     Calculate PPG and Opp PPG from last 5 games for recent form.
@@ -5144,84 +4988,6 @@ def calculate_blended_stats(season_ppg: float, season_opp: float,
     blended_opp = (recent_opp * recent_weight) + (season_opp * season_weight)
     
     return blended_ppg, blended_opp
-
-def calculate_sos_factor(opp_ppg: float, league: str) -> float:
-    """
-    Calculate strength of schedule adjustment factor.
-    League average defensive ratings used as baseline.
-    Returns: multiplier (>1 = tough schedule, <1 = easy schedule)
-    """
-    league_avg_def = {
-        "NBA": 114.0,
-        "CBB": 70.0,
-        "NFL": 22.0,
-        "CFB": 25.0,
-        "NHL": 3.0
-    }
-    avg = league_avg_def.get(league, 100)
-    if avg == 0:
-        return 1.0
-    
-    return opp_ppg / avg
-
-def check_line_movement_sharp(opening: float, current: float, threshold: float = 1.5) -> bool:
-    """
-    Detect sharp money movement (significant line shift).
-    Sharp move = line moved 1.5+ points in either direction.
-    """
-    if opening is None or current is None:
-        return False
-    movement = abs(current - opening)
-    return movement >= threshold
-
-def calculate_advanced_qualification_score(game, away_games: list, home_games: list) -> dict:
-    """
-    Calculate advanced qualification factors for a game.
-    Incorporates recent form, opponent strength, injuries, and line movement.
-    Returns: {
-        "recent_form_boost": float (-2 to +2),
-        "injury_penalty": float (0 to -3),
-        "sharp_money_aligned": bool,
-        "sos_adjusted_edge": float,
-        "total_adjustment": float
-    }
-    """
-    adjustments = {
-        "recent_form_boost": 0,
-        "injury_penalty": 0,
-        "sharp_money_aligned": False,
-        "sos_factor": 1.0,
-        "total_adjustment": 0
-    }
-    
-    try:
-        if len(away_games) >= 3:
-            away_recent = calculate_recent_form_ppg(away_games)
-            away_margin_recent = sum(g["margin"] for g in away_games[-5:]) / min(5, len(away_games))
-            away_margin_season = sum(g["margin"] for g in away_games) / len(away_games)
-            
-            if away_margin_recent > away_margin_season + 3:
-                adjustments["recent_form_boost"] += 1.0
-            elif away_margin_recent < away_margin_season - 3:
-                adjustments["recent_form_boost"] -= 1.0
-        
-        if len(home_games) >= 3:
-            home_recent = calculate_recent_form_ppg(home_games)
-            home_margin_recent = sum(g["margin"] for g in home_games[-5:]) / min(5, len(home_games))
-            home_margin_season = sum(g["margin"] for g in home_games) / len(home_games)
-            
-            if home_margin_recent > home_margin_season + 3:
-                adjustments["recent_form_boost"] -= 0.5
-            elif home_margin_recent < home_margin_season - 3:
-                adjustments["recent_form_boost"] += 0.5
-        
-        # Injury checks removed for speed - no longer impacts qualification
-        adjustments["total_adjustment"] = adjustments["recent_form_boost"]
-        
-    except Exception as e:
-        logger.debug(f"Advanced qualification error: {e}")
-    
-    return adjustments
 
 DIRECTIONAL_PREFIXES = {'eastern', 'western', 'central', 'northern', 'southern', 
                          'southeast', 'southwest', 'northeast', 'northwest'}
