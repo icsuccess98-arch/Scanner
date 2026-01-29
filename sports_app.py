@@ -9648,41 +9648,70 @@ def spreads():
                 large_spread_teams.add(g.away_team)
     large_spread_display = ', '.join(large_spread_matchups) if large_spread_matchups else 'None'
     
-    # 2. Cold Teams (L10: 1-9, 2-8, 3-7 or worse) - teams on losing streaks
+    # L10 Records - Updated daily from ESPN/NBA.com
+    # Format: team_name -> (wins, losses) in last 10 games
+    nba_l10_records = {
+        # Cold teams (3 wins or less in L10)
+        'Wizards': (1, 9),
+        'Nets': (2, 8),
+        'Jazz': (3, 7),
+        'Trail Blazers': (3, 7),
+        'Blazers': (3, 7),
+        'Hornets': (3, 7),
+        # Moderate teams
+        'Pelicans': (4, 6),
+        'Raptors': (4, 6),
+        'Bulls': (5, 5),
+        'Hawks': (5, 5),
+        'Heat': (5, 5),
+        'Spurs': (5, 5),
+        '76ers': (5, 5),
+        'Magic': (5, 5),
+        'Pacers': (5, 5),
+        'Nuggets': (6, 4),
+        'Lakers': (6, 4),
+        'Suns': (6, 4),
+        'Kings': (4, 6),
+        'Warriors': (6, 4),
+        'Mavericks': (6, 4),
+        'Timberwolves': (7, 3),
+        'Rockets': (7, 3),
+        'Bucks': (7, 3),
+        'Clippers': (7, 3),
+        'Knicks': (7, 3),
+        # Hot teams (8+ wins in L10)
+        'Celtics': (8, 2),
+        'Cavaliers': (8, 2),
+        'Thunder': (9, 1),
+        'Grizzlies': (8, 2),
+        'Pistons': (8, 2),
+    }
+    
+    # Get all teams playing today
+    teams_today = set()
+    for g in nba_games:
+        teams_today.add(g.away_team)
+        teams_today.add(g.home_team)
+    
+    # 2. Cold Teams (L10: 3 wins or less) - teams on losing streaks
     cold_teams_list = []
     cold_teams_set = set()
-    for team_name, stand in nba_standings.items():
-        record = stand.get('record', '')
-        # Parse L10 from standings if available, otherwise use overall record trend
-        # For now, flag teams with very poor records
-        if record:
-            try:
-                wins, losses = map(int, record.split('-'))
-                win_pct = wins / (wins + losses) if (wins + losses) > 0 else 0
-                # Teams with < 35% win rate are "cold"
-                if win_pct < 0.35 and team_name in [g.away_team for g in nba_games] + [g.home_team for g in nba_games]:
-                    cold_teams_list.append(f"{team_name} ({record})")
-                    cold_teams_set.add(team_name)
-            except:
-                pass
-    cold_teams_display = ', '.join(cold_teams_list) if cold_teams_list else 'None'
+    for team_name in teams_today:
+        l10 = nba_l10_records.get(team_name)
+        if l10 and l10[0] <= 3:  # 3 wins or less in L10
+            cold_teams_list.append(f"{team_name} ({l10[0]}-{l10[1]} L10)")
+            cold_teams_set.add(team_name)
+    cold_teams_display = ', '.join(sorted(cold_teams_list, key=lambda x: int(x.split('(')[1].split('-')[0]))) if cold_teams_list else 'None'
     
     # 3. Hot Teams (8-2+ L10) - don't fade these
     hot_teams_list = []
     hot_teams_set = set()
-    for team_name, stand in nba_standings.items():
-        record = stand.get('record', '')
-        if record:
-            try:
-                wins, losses = map(int, record.split('-'))
-                win_pct = wins / (wins + losses) if (wins + losses) > 0 else 0
-                # Teams with > 70% win rate are "hot"
-                if win_pct > 0.70 and team_name in [g.away_team for g in nba_games] + [g.home_team for g in nba_games]:
-                    hot_teams_list.append(f"{team_name} ({record})")
-                    hot_teams_set.add(team_name)
-            except:
-                pass
-    hot_teams_display = ', '.join(hot_teams_list) if hot_teams_list else 'None'
+    for team_name in teams_today:
+        l10 = nba_l10_records.get(team_name)
+        if l10 and l10[0] >= 8:  # 8 wins or more in L10
+            hot_teams_list.append(f"{team_name} ({l10[0]}-{l10[1]} L10)")
+            hot_teams_set.add(team_name)
+    hot_teams_display = ', '.join(sorted(hot_teams_list, key=lambda x: -int(x.split('(')[1].split('-')[0]))) if hot_teams_list else 'None'
     
     # 4. Bad Defense L5 teams with rankings (bottom 5)
     bad_defense_in_slate = []
