@@ -470,7 +470,10 @@
             flex-wrap: wrap;
             gap: 4px;
             justify-content: center;
-            padding: 0 12px 10px;
+            padding: 6px 12px;
+            background: rgba(0, 0, 0, 0.15);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            margin: 0;
         }
         .pikkit-badge {
             font-size: 9px;
@@ -1992,7 +1995,7 @@
                             
                             <!-- Games Table Header -->
                             <div style="font-size:10px; color:var(--text-muted);">
-                                <div style="display:grid; grid-template-columns:55px 45px 60px 45px 50px; gap:4px; padding:6px 8px; background:rgba(255,255,255,0.03); border-radius:6px 6px 0 0; font-weight:600;">
+                                <div style="display:grid; grid-template-columns:60px 50px 70px 50px 55px; gap:4px; padding:6px 8px; background:rgba(255,255,255,0.03); border-radius:6px 6px 0 0; font-weight:600;">
                                     <div>Date</div>
                                     <div>vs</div>
                                     <div>Result</div>
@@ -2000,18 +2003,7 @@
                                     <div>O/U</div>
                                 </div>
                                 <div class="last5-games">
-                                    {% for i in range(5) %}
-                                    <div style="display:grid; grid-template-columns:55px 45px 60px 45px 50px; gap:4px; padding:6px 8px; border-bottom:1px solid rgba(255,255,255,0.05); align-items:center;">
-                                        <div style="color:var(--text-muted); white-space:nowrap;">Jan {{ 25 - i }}</div>
-                                        <div style="display:flex; align-items:center; gap:2px; overflow:hidden;">
-                                            <img src="{{ game.home_logo if i % 2 == 0 else game.away_logo }}" style="width:12px; height:12px; flex-shrink:0;" onerror="this.style.display='none'">
-                                            <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ game.home_team[:3] if i % 2 == 0 else game.away_team[:3] }}</span>
-                                        </div>
-                                        <div style="white-space:nowrap;"><span style="color:{% if i % 3 == 0 %}#10B981{% else %}#EF4444{% endif %}; font-weight:600;">{{ 'W' if i % 3 == 0 else 'L' }}</span> {{ 110 + i*5 }}-{{ 105 + i*3 }}</div>
-                                        <div style="color:{% if i % 2 == 0 %}#10B981{% else %}#EF4444{% endif %}; white-space:nowrap;">{{ 'W' if i % 2 == 0 else 'L' }} {{ 3 + i }}</div>
-                                        <div style="color:#14B8A6; white-space:nowrap;">{{ 'o' if i % 2 == 0 else 'u' }}{{ 220 + i*5 }}</div>
-                                    </div>
-                                    {% endfor %}
+                                    <div style="text-align:center;padding:16px;color:var(--text-muted);font-size:10px;">Click HEAD-TO-HEAD to load data</div>
                                 </div>
                             </div>
                         </div>
@@ -2489,6 +2481,8 @@
             hapticFeedback();
             const container = tab.closest('.last5-tabs');
             const section = tab.closest('.last5-section');
+            const gameCard = tab.closest('.game-card');
+            const gameId = container.dataset.gameId;
             
             // Update tab styles
             container.querySelectorAll('.last5-tab').forEach(t => {
@@ -2502,10 +2496,101 @@
             
             // Update title based on tab
             const title = section.querySelector('.analytics-title');
+            const awayTeam = gameCard.dataset.away || 'Away';
+            const homeTeam = gameCard.dataset.home || 'Home';
+            
             if (tabType === 'h2h') {
-                title.textContent = 'HEAD-TO-HEAD - LAST 10';
+                title.textContent = 'HEAD-TO-HEAD • LAST 10';
+                fetchAndDisplayH2H(gameId, section, 'h2h');
+            } else if (tabType === 'away') {
+                title.innerHTML = '<img src="" class="title-logo" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;" onerror="this.style.display=\'none\'">' + awayTeam + ' • RECORD LAST 10';
+                showTeamLast10Placeholder(section, awayTeam, 'away');
             } else {
-                title.textContent = 'RECORD - LAST 10';
+                title.innerHTML = '<img src="" class="title-logo" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;" onerror="this.style.display=\'none\'">' + homeTeam + ' • RECORD LAST 10';
+                showTeamLast10Placeholder(section, homeTeam, 'home');
+            }
+        }
+        
+        function fetchAndDisplayH2H(gameId, section, type) {
+            const wlBox = section.querySelector('.last5-wl');
+            const atsBox = section.querySelector('.last5-ats');
+            const ouBox = section.querySelector('.last5-ou');
+            const gamesDiv = section.querySelector('.last5-games');
+            
+            // Show loading
+            if (gamesDiv) gamesDiv.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">Loading...</div>';
+            
+            fetch(`/api/covers_h2h/${gameId}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (wlBox) wlBox.textContent = data.wl_record || 'N/A';
+                    if (atsBox) atsBox.textContent = data.ats_record || 'N/A';
+                    if (ouBox) ouBox.textContent = data.ou_record || 'N/A';
+                    
+                    if (gamesDiv && data.games && data.games.length > 0) {
+                        let html = '';
+                        data.games.slice(0, 10).forEach(game => {
+                            const wColor = (game.score || '').includes('W') ? '#10B981' : '#EF4444';
+                            const atsColor = (game.ats || '').includes('W') ? '#10B981' : '#EF4444';
+                            const ouColor = (game.ou || '').toLowerCase().includes('o') ? '#10B981' : '#EF4444';
+                            html += `<div style="display:grid; grid-template-columns:60px 50px 70px 50px 55px; gap:4px; padding:6px 8px; border-bottom:1px solid rgba(255,255,255,0.05); align-items:center; font-size:10px;">
+                                <div style="color:var(--text-muted);">${game.date || '--'}</div>
+                                <div style="color:var(--text);">${game.matchup || '--'}</div>
+                                <div style="color:${wColor};font-weight:600;">${game.score || '--'}</div>
+                                <div style="color:${atsColor};">${game.ats || '--'}</div>
+                                <div style="color:${ouColor};">${game.ou || '--'}</div>
+                            </div>`;
+                        });
+                        gamesDiv.innerHTML = html;
+                    } else {
+                        gamesDiv.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:11px;">No H2H games found</div>';
+                    }
+                })
+                .catch(err => {
+                    console.error('H2H fetch error:', err);
+                    if (gamesDiv) gamesDiv.innerHTML = '<div style="text-align:center;padding:20px;color:#EF4444;font-size:11px;">Failed to load data</div>';
+                });
+        }
+        
+        function showTeamLast10Placeholder(section, teamName, type) {
+            const wlBox = section.querySelector('.last5-wl');
+            const atsBox = section.querySelector('.last5-ats');
+            const ouBox = section.querySelector('.last5-ou');
+            const gamesDiv = section.querySelector('.last5-games');
+            const gameCard = section.closest('.game-card');
+            
+            // Show placeholder message with link to Covers (league-aware)
+            if (wlBox) wlBox.textContent = '--';
+            if (atsBox) atsBox.textContent = '--';
+            if (ouBox) ouBox.textContent = '--';
+            
+            if (gamesDiv) {
+                const slug = teamName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+                // Detect league from game card context
+                const leagueBadge = gameCard ? gameCard.querySelector('.badge, [class*="NBA"], [class*="CBB"], [class*="NHL"]') : null;
+                const cardText = gameCard ? gameCard.textContent : '';
+                let sport = 'basketball';
+                let league = 'nba';
+                if (cardText.includes('CBB') || cardText.includes('College')) {
+                    sport = 'basketball';
+                    league = 'ncaab';
+                } else if (cardText.includes('NHL')) {
+                    sport = 'hockey';
+                    league = 'nhl';
+                } else if (cardText.includes('NFL')) {
+                    sport = 'football';
+                    league = 'nfl';
+                } else if (cardText.includes('CFB')) {
+                    sport = 'football';
+                    league = 'ncaaf';
+                }
+                
+                gamesDiv.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:11px;">
+                    <div style="margin-bottom:8px;">View ${teamName}'s last 10 games on Covers</div>
+                    <a href="https://www.covers.com/sport/${sport}/${league}/teams/main/${slug}" target="_blank" style="color:#14B8A6;text-decoration:none;font-weight:600;">
+                        <i class="bi bi-box-arrow-up-right"></i> Open on Covers.com
+                    </a>
+                </div>`;
             }
         }
         

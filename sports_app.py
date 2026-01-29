@@ -89,7 +89,6 @@ nhl_team_logos = {
     'Rangers': 'https://a.espncdn.com/i/teamlogos/nhl/500/nyr.png',
     'NY Rangers': 'https://a.espncdn.com/i/teamlogos/nhl/500/nyr.png',
     'New York Rangers': 'https://a.espncdn.com/i/teamlogos/nhl/500/nyr.png',
-    'New York': 'https://a.espncdn.com/i/teamlogos/nhl/500/nyr.png',
     'Flyers': 'https://a.espncdn.com/i/teamlogos/nhl/500/phi.png',
     'Philadelphia': 'https://a.espncdn.com/i/teamlogos/nhl/500/phi.png',
     'Penguins': 'https://a.espncdn.com/i/teamlogos/nhl/500/pit.png',
@@ -6390,8 +6389,9 @@ def check_totals_pick_result(pick: Pick) -> int:
             for game in resp.json().get("games", []):
                 if game.get("gameState") != "OFF":
                     continue
-                away_name = game.get("awayTeam", {}).get("placeName", {}).get("default", "")
-                home_name = game.get("homeTeam", {}).get("placeName", {}).get("default", "")
+                # Use commonName (team nickname) for NHL, not placeName (city)
+                away_name = game.get("awayTeam", {}).get("commonName", {}).get("default", "")
+                home_name = game.get("homeTeam", {}).get("commonName", {}).get("default", "")
                 if teams_match(away_name, away_team) and teams_match(home_name, home_team):
                     away_score = game.get("awayTeam", {}).get("score", 0)
                     home_score = game.get("homeTeam", {}).get("score", 0)
@@ -7528,8 +7528,9 @@ def check_spread_pick_result(pick) -> int:
             for game in resp.json().get("games", []):
                 if game.get("gameState") != "OFF":
                     continue
-                away_name = game.get("awayTeam", {}).get("placeName", {}).get("default", "")
-                home_name = game.get("homeTeam", {}).get("placeName", {}).get("default", "")
+                # Use commonName (team nickname) for NHL, not placeName (city)
+                away_name = game.get("awayTeam", {}).get("commonName", {}).get("default", "")
+                home_name = game.get("homeTeam", {}).get("commonName", {}).get("default", "")
                 if teams_match(away_name, away_team) and teams_match(home_name, home_team):
                     away_score = game.get("awayTeam", {}).get("score", 0)
                     home_score = game.get("homeTeam", {}).get("score", 0)
@@ -8215,8 +8216,9 @@ def api_live_scores():
         resp = requests.get(nhl_url, timeout=10)
         for game in resp.json().get("games", []):
             if game.get("gameState") == "LIVE":
-                away_name = game.get("awayTeam", {}).get("placeName", {}).get("default", "")
-                home_name = game.get("homeTeam", {}).get("placeName", {}).get("default", "")
+                # Use commonName (team nickname) for NHL, not placeName (city)
+                away_name = game.get("awayTeam", {}).get("commonName", {}).get("default", "")
+                home_name = game.get("homeTeam", {}).get("commonName", {}).get("default", "")
                 away_score = game.get("awayTeam", {}).get("score", 0)
                 home_score = game.get("homeTeam", {}).get("score", 0)
                 period = game.get("periodDescriptor", {}).get("number", 0)
@@ -8747,8 +8749,9 @@ def fetch_games():
     for gw in nhl_data.get("gameWeek", []):
         if gw.get("date") == today.strftime("%Y-%m-%d"):
             for game_data in gw.get("games", []):
-                away_name = game_data.get("awayTeam", {}).get("placeName", {}).get("default", "")
-                home_name = game_data.get("homeTeam", {}).get("placeName", {}).get("default", "")
+                # Use commonName for team nickname (Rangers, Islanders) not placeName (New York)
+                away_name = game_data.get("awayTeam", {}).get("commonName", {}).get("default", "")
+                home_name = game_data.get("homeTeam", {}).get("commonName", {}).get("default", "")
                 start_time_utc = game_data.get("startTimeUTC", "")
                 if away_name and home_name:
                     nhl_game_time = ""
