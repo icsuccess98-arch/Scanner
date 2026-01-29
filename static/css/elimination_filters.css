@@ -118,7 +118,7 @@
 .team-tags {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
+    gap: 3px;
     margin: 0;
     padding: 0;
     line-height: 1;
@@ -131,10 +131,10 @@
 .team-tag {
     display: inline-flex;
     align-items: center;
-    padding: 4px 8px;
+    padding: 3px 6px;
     background: rgba(255, 255, 255, 0.08);
-    border-radius: 12px;
-    font-size: 10px;
+    border-radius: 10px;
+    font-size: 9px;
     font-weight: 500;
     color: #e5e7eb;
     white-space: nowrap;
