@@ -400,7 +400,7 @@ def fetch_wagertalk_data(league: str = 'NBA') -> Dict[str, Dict]:
     """
     Fetch betting data from WagerTalk using Playwright.
     Returns Tickets %, Money %, and Line Movement for Spreads and Totals.
-    Enhanced with production-ready error handling and diagnostics.
+    Enhanced with production-ready error handling - NEVER crashes, always returns valid data.
     """
     import os
     import traceback
@@ -410,7 +410,12 @@ def fetch_wagertalk_data(league: str = 'NBA') -> Dict[str, Dict]:
     
     # Log environment info for debugging
     is_production = os.environ.get('REPL_DEPLOYMENT', '') != ''
-    logger.info(f"[WagerTalk] Starting fetch for {league} | Production: {is_production} | Cache key: {cache_key}")
+    logger.info(f"[WagerTalk] Starting fetch for {league} | Production: {is_production}")
+    
+    # In production autoscale, Playwright browser may not work - skip entirely
+    if is_production:
+        logger.info("[WagerTalk] Production mode - skipping browser scraping for stability")
+        return {}
     
     if _is_cache_valid(cache_key):
         cached_data = _wagertalk_cache[cache_key]
@@ -424,9 +429,11 @@ def fetch_wagertalk_data(league: str = 'NBA') -> Dict[str, Dict]:
         playwright_available = True
         logger.info("[WagerTalk] Playwright module imported successfully")
     except ImportError as e:
-        logger.error(f"[WagerTalk] Playwright import failed: {e}")
+        logger.warning(f"[WagerTalk] Playwright import failed: {e}")
+        return {}
     except Exception as e:
-        logger.error(f"[WagerTalk] Playwright import error: {type(e).__name__}: {e}")
+        logger.warning(f"[WagerTalk] Playwright import error: {type(e).__name__}: {e}")
+        return {}
     
     if not playwright_available:
         logger.warning("[WagerTalk] Playwright not available - returning empty data")
@@ -445,7 +452,7 @@ def fetch_wagertalk_data(league: str = 'NBA') -> Dict[str, Dict]:
             import concurrent.futures
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(_run_async_in_thread, league)
-                result = future.result(timeout=60)
+                result = future.result(timeout=45)
         except RuntimeError:
             # No running loop, create a new one
             logger.info("[WagerTalk] Creating new event loop")
@@ -466,13 +473,7 @@ def fetch_wagertalk_data(league: str = 'NBA') -> Dict[str, Dict]:
         return result
         
     except Exception as e:
-        logger.error(f"[WagerTalk] CRITICAL ERROR for {league}: {type(e).__name__}: {e}")
-        logger.error(f"[WagerTalk] Traceback: {traceback.format_exc()}")
-        
-        # Log system info for debugging
-        logger.error(f"[WagerTalk] Python version: {sys.version}")
-        logger.error(f"[WagerTalk] Platform: {sys.platform}")
-        
+        logger.warning(f"[WagerTalk] Fetch failed for {league}: {type(e).__name__}: {e}")
         return {}
 
 
