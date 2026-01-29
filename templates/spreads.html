@@ -1541,7 +1541,66 @@
     
     <section class="header-section">
         <div class="control-panel">
-            <div class="date-display">{{ today.strftime('%B %d, %Y') }}</div>
+            <!-- TEAMS TO AVOID - Daily Slate Analysis -->
+            <div style="background: linear-gradient(135deg, rgba(15, 20, 35, 0.95), rgba(25, 30, 50, 0.9)); border-radius: 12px; padding: 14px; border: 1px solid rgba(139, 92, 246, 0.3);">
+                <div style="text-align: center; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid rgba(139, 92, 246, 0.2);">
+                    <span style="font-weight: 800; font-size: 13px; color: #a78bfa; text-transform: uppercase; letter-spacing: 1px;">{{ today.strftime('%B %d, %Y') }} - Daily Slate</span>
+                </div>
+                
+                <!-- 80%+ Handle/Bets -->
+                <div style="margin-bottom: 8px;">
+                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                        <span style="font-size: 10px; color: #ef4444;">🚨</span>
+                        <span style="font-size: 10px; font-weight: 700; color: #ef4444;">80%+ Handle/Bets:</span>
+                        <span style="font-size: 10px; color: #fff;">{{ heavy_public_teams|default('None', true) }}</span>
+                    </div>
+                </div>
+                
+                <!-- Large Spread 10+ -->
+                <div style="margin-bottom: 8px;">
+                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                        <span style="font-size: 10px; color: #f59e0b;">⚠️</span>
+                        <span style="font-size: 10px; font-weight: 700; color: #f59e0b;">Large Spread 10+:</span>
+                        <span style="font-size: 10px; color: #fff;">{{ large_spread_teams|default('None', true) }}</span>
+                    </div>
+                </div>
+                
+                <!-- Bad Teams -->
+                <div style="margin-bottom: 8px;">
+                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                        <span style="font-size: 10px; color: #ef4444;">❌</span>
+                        <span style="font-size: 10px; font-weight: 700; color: #ef4444;">Bad Teams:</span>
+                        <span style="font-size: 10px; color: #fff;">{{ bad_teams|default('None', true) }}</span>
+                    </div>
+                </div>
+                
+                <!-- Bad Defense L5 -->
+                <div style="margin-bottom: 8px;">
+                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                        <span style="font-size: 10px; color: #f59e0b;">🛡️</span>
+                        <span style="font-size: 10px; font-weight: 700; color: #f59e0b;">Bad Defense L5:</span>
+                        <span style="font-size: 10px; color: #fff;">{{ bad_defense_teams_display|default('None', true) }}</span>
+                    </div>
+                </div>
+                
+                <!-- B2B -->
+                <div style="margin-bottom: 10px;">
+                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                        <span style="font-size: 10px; color: #3b82f6;">📅</span>
+                        <span style="font-size: 10px; font-weight: 700; color: #3b82f6;">B2B:</span>
+                        <span style="font-size: 10px; color: #fff;">{{ b2b_teams|default('None', true) }}</span>
+                    </div>
+                </div>
+                
+                <!-- Remaining Teams -->
+                <div style="background: rgba(16, 185, 129, 0.15); border-radius: 8px; padding: 8px 10px; border: 1px solid rgba(16, 185, 129, 0.3);">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="font-size: 11px; color: #10b981;">✅</span>
+                        <span style="font-size: 11px; font-weight: 700; color: #10b981;">Remaining Teams:</span>
+                        <span style="font-size: 10px; color: #fff; flex: 1;">{{ remaining_teams|default('All teams qualify', true) }}</span>
+                    </div>
+                </div>
+            </div>
         </div>
     </section>
     
