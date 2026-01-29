@@ -554,6 +554,248 @@
         .section-title.pink { color: #EC4899; }
         .section-title.blue { color: #3B82F6; }
         
+        /* PIKKIT-STYLE BETTING UI */
+        .pikkit-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: linear-gradient(180deg, rgba(30, 30, 40, 0.95) 0%, rgba(20, 20, 30, 0.98) 100%);
+            border-bottom: 1px solid rgba(139, 92, 246, 0.2);
+        }
+        .pikkit-team {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            flex: 1;
+        }
+        .pikkit-team-name {
+            font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+        }
+        .pikkit-team-record {
+            font-size: 11px;
+            color: #888;
+        }
+        .pikkit-vs {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            padding: 0 12px;
+        }
+        .pikkit-date {
+            font-size: 11px;
+            color: #888;
+        }
+        .pikkit-time {
+            font-size: 13px;
+            font-weight: 700;
+            color: #fff;
+        }
+        .bet-type-tabs {
+            display: flex;
+            border-bottom: 2px solid rgba(45, 38, 64, 0.8);
+            background: rgba(20, 18, 28, 0.9);
+        }
+        .bet-type-tab {
+            flex: 1;
+            padding: 12px 8px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 600;
+            color: #888;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.2s;
+        }
+        .bet-type-tab:hover {
+            color: #aaa;
+        }
+        .bet-type-tab.active {
+            color: #3b82f6;
+            border-bottom-color: #3b82f6;
+        }
+        .bet-tab-content {
+            display: none;
+            padding: 12px;
+        }
+        .bet-tab-content.active {
+            display: block;
+        }
+        .team-toggle-btns {
+            display: flex;
+            margin-bottom: 12px;
+            border-radius: 8px;
+            overflow: hidden;
+            background: rgba(40, 40, 50, 0.5);
+        }
+        .team-toggle-btn {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: #888;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .team-toggle-btn.active {
+            background: rgba(59, 130, 246, 0.2);
+            color: #fff;
+        }
+        .current-pick-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(30, 30, 45, 0.6);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+        }
+        .pick-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .pick-team-name {
+            font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+        }
+        .pick-odds {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: #fff;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 700;
+        }
+        .pct-section {
+            margin-bottom: 16px;
+        }
+        .pct-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 11px;
+        }
+        .pct-label {
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .pct-team-name {
+            font-weight: 600;
+            color: #fff;
+        }
+        .pct-bar-container {
+            display: flex;
+            height: 28px;
+            border-radius: 6px;
+            overflow: hidden;
+            background: rgba(40, 40, 50, 0.5);
+        }
+        .pct-bar-left {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            padding-left: 10px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #fff;
+            background: linear-gradient(90deg, #DC143C, #ff4d6d);
+            transition: width 0.5s ease;
+        }
+        .pct-bar-right {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 10px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #fff;
+            flex: 1;
+        }
+        .line-movement-section {
+            background: rgba(30, 30, 45, 0.6);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 16px;
+        }
+        .lm-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .lm-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+        }
+        .lm-chart {
+            height: 80px;
+            background: rgba(20, 20, 30, 0.5);
+            border-radius: 8px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .lm-chart-line {
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 50%, #3b82f6 100%);
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        .lm-chart-point {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: #3b82f6;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        .lm-values {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .lm-value-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: rgba(40, 40, 55, 0.5);
+            border-radius: 8px;
+        }
+        .lm-value-label {
+            font-size: 11px;
+            color: #888;
+        }
+        .lm-value-num {
+            font-size: 13px;
+            font-weight: 700;
+            color: #fff;
+        }
+        .lm-value-num.positive { color: #10b981; }
+        .lm-value-num.negative { color: #ef4444; }
+        
         .ranking-card { padding: 0.5rem 0; }
         .ranking-header {
             font-size: 0.8rem;
@@ -1291,47 +1533,84 @@
             </div>
             
             {% for game in games %}
-            <div class="game-card">
-                <div class="game-time-bar">
-                    <span>{% if game.game_time %}{{ game.game_time }} ET{% else %}TBD{% endif %}</span>
-                    <span class="league-badge {{ league|lower }}">{{ league }}</span>
+            <div class="game-card" data-game-id="{{ game.id }}" data-away="{{ game.away_team }}" data-home="{{ game.home_team }}" data-league="{{ league }}">
+                <!-- PIKKIT-STYLE HEADER -->
+                <div class="pikkit-header">
+                    <div class="pikkit-team">
+                        <div class="pikkit-team-name">{{ game.away_team }}{% if game.away_is_favorite %} <span class="favorite-tag">FAV</span>{% endif %}</div>
+                        <div class="pikkit-team-record">{% if game.away_ppg %}{{ "%.1f"|format(game.away_ppg) }} PPG{% else %}--{% endif %}</div>
+                    </div>
+                    <div class="pikkit-vs">
+                        <div class="pikkit-date">{% if game.game_time %}{{ game.game_time }}{% else %}TBD{% endif %}</div>
+                        <span class="league-badge {{ league|lower }}">{{ league }}</span>
+                    </div>
+                    <div class="pikkit-team">
+                        <div class="pikkit-team-name">{{ game.home_team }}{% if game.home_is_favorite %} <span class="favorite-tag">FAV</span>{% endif %}</div>
+                        <div class="pikkit-team-record">{% if game.home_ppg %}{{ "%.1f"|format(game.home_ppg) }} PPG{% else %}--{% endif %}</div>
+                    </div>
                 </div>
+                
+                {% if game.league in ['CBB', 'NBA'] and (game.torvik_away_adj_o or game.away_ppg) %}
+                <!-- BET TYPE TABS -->
+                <div class="bet-type-tabs" data-game-id="{{ game.id }}">
+                    <div class="bet-type-tab" data-tab="spread" onclick="switchBetTab(this, 'spread')">Spread</div>
+                    <div class="bet-type-tab active" data-tab="total" onclick="switchBetTab(this, 'total')">Total</div>
+                    <div class="bet-type-tab" data-tab="moneyline" onclick="switchBetTab(this, 'moneyline')">Moneyline</div>
+                </div>
+                
+                <!-- TAB CONTENT - SPREAD -->
+                <div class="bet-tab-content" data-content="spread" data-game-id="{{ game.id }}">
+                    <div class="pikkit-spread-content" id="spread-content-{{ game.id }}">
+                        <div class="text-center p-3" style="color: var(--text-muted); font-size: 12px;">
+                            <i class="bi bi-arrow-repeat"></i> Loading spread data...
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- TAB CONTENT - TOTAL (Default active) -->
+                <div class="bet-tab-content active" data-content="total" data-game-id="{{ game.id }}">
+                    <div class="pikkit-total-content" id="total-content-{{ game.id }}">
+                        <div class="text-center p-3" style="color: var(--text-muted); font-size: 12px;">
+                            <i class="bi bi-arrow-repeat"></i> Loading totals data...
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- TAB CONTENT - MONEYLINE -->
+                <div class="bet-tab-content" data-content="moneyline" data-game-id="{{ game.id }}">
+                    <div class="pikkit-ml-content" id="ml-content-{{ game.id }}">
+                        <div class="text-center p-3" style="color: var(--text-muted); font-size: 12px;">
+                            <i class="bi bi-arrow-repeat"></i> Loading moneyline data...
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- MODEL BREAKDOWN TOGGLE -->
+                <div class="matchup-toggle" onclick="toggleMatchup(this)" data-game-id="{{ game.id }}">
+                    <i class="bi bi-caret-right-fill"></i>
+                    <span class="toggle-text">Model Breakdown</span>
+                    <span class="advanced-badge">STATS + CHECKLIST</span>
+                </div>
+                <div class="matchup-content" style="display: none;">
+                    <div class="text-center p-3" style="color: var(--text-muted);">
+                        <i class="bi bi-hourglass-split"></i> Click to load matchup data...
+                    </div>
+                </div>
+                {% else %}
                 <div class="game-content">
                     <div class="teams-matchup">
                         <div class="team-box">
-                            <div class="team-name">
-                                {{ game.away_team }}
-                                {% if game.away_is_favorite %}<span class="favorite-tag">FAV</span>{% endif %}
-                            </div>
-                            <div class="team-stats">
-                                {% if game.away_ppg %}{{ "%.1f"|format(game.away_ppg) }} PPG{% else %}--{% endif %}
-                            </div>
+                            <div class="team-name">{{ game.away_team }}</div>
+                            <div class="team-stats">{% if game.away_ppg %}{{ "%.1f"|format(game.away_ppg) }} PPG{% else %}--{% endif %}</div>
                         </div>
                         <div class="vs-at">@</div>
                         <div class="team-box">
-                            <div class="team-name">
-                                {{ game.home_team }}
-                                {% if game.home_is_favorite %}<span class="favorite-tag">FAV</span>{% endif %}
-                            </div>
-                            <div class="team-stats">
-                                {% if game.home_ppg %}{{ "%.1f"|format(game.home_ppg) }} PPG{% else %}--{% endif %}
-                            </div>
+                            <div class="team-name">{{ game.home_team }}</div>
+                            <div class="team-stats">{% if game.home_ppg %}{{ "%.1f"|format(game.home_ppg) }} PPG{% else %}--{% endif %}</div>
                         </div>
                     </div>
-                    
-                    {% if game.league in ['CBB', 'NBA'] and (game.torvik_away_adj_o or game.away_ppg) %}
-                    <div class="matchup-toggle" onclick="toggleMatchup(this)" data-game-id="{{ game.id }}">
-                        <i class="bi bi-caret-right-fill"></i>
-                        <span class="toggle-text">Model Breakdown</span>
-                        <span class="advanced-badge">ADVANCED STATS</span>
-                    </div>
-                    <div class="matchup-content" style="display: none;">
-                        <div class="text-center p-3" style="color: var(--text-muted);">
-                            <i class="bi bi-hourglass-split"></i> Click to load matchup data...
-                        </div>
-                    </div>
-                    {% endif %}
                 </div>
+                {% endif %}
             </div>
             {% endfor %}
         </div>
@@ -1351,6 +1630,249 @@
     </nav>
     
     <script>
+        // PIKKIT TAB SWITCHING
+        function switchBetTab(tabEl, tabType) {
+            const gameCard = tabEl.closest('.game-card');
+            const gameId = gameCard.dataset.gameId;
+            
+            // Update active tab
+            gameCard.querySelectorAll('.bet-type-tab').forEach(t => t.classList.remove('active'));
+            tabEl.classList.add('active');
+            
+            // Update active content
+            gameCard.querySelectorAll('.bet-tab-content').forEach(c => c.classList.remove('active'));
+            gameCard.querySelector(`.bet-tab-content[data-content="${tabType}"]`).classList.add('active');
+            
+            // Load content if not already loaded
+            loadPikkitContent(gameId, tabType);
+        }
+        
+        // Track loaded content
+        const pikkitLoadedContent = {};
+        
+        async function loadPikkitContent(gameId, tabType) {
+            const key = `${gameId}-${tabType}`;
+            if (pikkitLoadedContent[key]) return;
+            
+            const gameCard = document.querySelector(`.game-card[data-game-id="${gameId}"]`);
+            const awayTeam = gameCard.dataset.away;
+            const homeTeam = gameCard.dataset.home;
+            const league = gameCard.dataset.league;
+            
+            try {
+                const response = await fetch(`/api/matchup_data/${gameId}`);
+                const data = await response.json();
+                
+                renderPikkitContent(gameId, tabType, data, awayTeam, homeTeam);
+                pikkitLoadedContent[key] = true;
+            } catch (error) {
+                console.error('Error loading Pikkit content:', error);
+            }
+        }
+        
+        function renderPikkitContent(gameId, tabType, data, awayTeam, homeTeam) {
+            const rlm = data.rlm || {};
+            const awayBetPct = parseInt(rlm.away_bet_pct) || 50;
+            const homeBetPct = parseInt(rlm.home_bet_pct) || 50;
+            const awayMoneyPct = parseInt(rlm.away_money_pct) || 50;
+            const homeMoneyPct = parseInt(rlm.home_money_pct) || 50;
+            const openSpread = rlm.open_spread || 'N/A';
+            const currentSpread = rlm.away_spread || 'N/A';
+            const lineMove = rlm.line_movement || 'N/A';
+            
+            let contentHtml = '';
+            
+            if (tabType === 'spread') {
+                contentHtml = `
+                    <!-- Team Toggle -->
+                    <div class="team-toggle-btns">
+                        <button class="team-toggle-btn active">${awayTeam} ${currentSpread}</button>
+                        <button class="team-toggle-btn">${homeTeam} ${currentSpread.replace('+', '-').replace('--', '+')}</button>
+                    </div>
+                    
+                    <!-- Bet % Section -->
+                    <div class="pct-section">
+                        <div class="pct-header">
+                            <span class="pct-team-name">${awayTeam}</span>
+                            <span class="pct-label">Bet %</span>
+                            <span class="pct-team-name">${homeTeam}</span>
+                        </div>
+                        <div class="pct-bar-container">
+                            <div class="pct-bar-left" style="width: ${awayBetPct}%;">${awayBetPct}%</div>
+                            <div class="pct-bar-right" style="background: linear-gradient(90deg, #10b981, #34d399);">${homeBetPct}%</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Money % Section -->
+                    <div class="pct-section">
+                        <div class="pct-header">
+                            <span class="pct-team-name">${awayTeam}</span>
+                            <span class="pct-label">Money %</span>
+                            <span class="pct-team-name">${homeTeam}</span>
+                        </div>
+                        <div class="pct-bar-container">
+                            <div class="pct-bar-left" style="width: ${awayMoneyPct}%; background: linear-gradient(90deg, #f59e0b, #fbbf24);">${awayMoneyPct}%</div>
+                            <div class="pct-bar-right" style="background: linear-gradient(90deg, #8b5cf6, #a78bfa);">${homeMoneyPct}%</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Line Movement -->
+                    <div class="line-movement-section">
+                        <div class="lm-header">
+                            <span class="lm-title">Line Movement</span>
+                        </div>
+                        <div class="lm-chart">
+                            <div class="lm-chart-line"></div>
+                            <div class="lm-chart-point"></div>
+                        </div>
+                        <div class="lm-values">
+                            <div class="lm-value-item">
+                                <span class="lm-value-label">Current</span>
+                                <span class="lm-value-num">${currentSpread}</span>
+                            </div>
+                            <div class="lm-value-item">
+                                <span class="lm-value-label">Open</span>
+                                <span class="lm-value-num">${openSpread}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (tabType === 'total') {
+                contentHtml = `
+                    <!-- Team Toggle for O/U -->
+                    <div class="team-toggle-btns">
+                        <button class="team-toggle-btn active">UNDER</button>
+                        <button class="team-toggle-btn">OVER</button>
+                    </div>
+                    
+                    <!-- Bet % Section -->
+                    <div class="pct-section">
+                        <div class="pct-header">
+                            <span class="pct-team-name">UNDER</span>
+                            <span class="pct-label">Bet %</span>
+                            <span class="pct-team-name">OVER</span>
+                        </div>
+                        <div class="pct-bar-container">
+                            <div class="pct-bar-left" style="width: 52%;">52%</div>
+                            <div class="pct-bar-right" style="background: linear-gradient(90deg, #10b981, #34d399);">48%</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Money % Section -->
+                    <div class="pct-section">
+                        <div class="pct-header">
+                            <span class="pct-team-name">UNDER</span>
+                            <span class="pct-label">Money %</span>
+                            <span class="pct-team-name">OVER</span>
+                        </div>
+                        <div class="pct-bar-container">
+                            <div class="pct-bar-left" style="width: 49%; background: linear-gradient(90deg, #f59e0b, #fbbf24);">49%</div>
+                            <div class="pct-bar-right" style="background: linear-gradient(90deg, #8b5cf6, #a78bfa);">51%</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Line Movement -->
+                    <div class="line-movement-section">
+                        <div class="lm-header">
+                            <span class="lm-title">Line Movement</span>
+                        </div>
+                        <div class="lm-chart">
+                            <div class="lm-chart-line"></div>
+                            <div class="lm-chart-point"></div>
+                        </div>
+                        <div class="lm-values">
+                            <div class="lm-value-item">
+                                <span class="lm-value-label">Current</span>
+                                <span class="lm-value-num">219.5</span>
+                            </div>
+                            <div class="lm-value-item">
+                                <span class="lm-value-label">Open</span>
+                                <span class="lm-value-num">218.0</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (tabType === 'moneyline') {
+                contentHtml = `
+                    <!-- Team Toggle -->
+                    <div class="team-toggle-btns">
+                        <button class="team-toggle-btn">${awayTeam}</button>
+                        <button class="team-toggle-btn active">${homeTeam}</button>
+                    </div>
+                    
+                    <!-- Current Pick Card -->
+                    <div class="current-pick-card">
+                        <div class="pick-info">
+                            <span class="pick-team-name">${homeTeam} · Moneyline</span>
+                        </div>
+                        <span class="pick-odds">-138</span>
+                    </div>
+                    
+                    <!-- Bet % Section -->
+                    <div class="pct-section">
+                        <div class="pct-header">
+                            <span class="pct-team-name">${awayTeam}</span>
+                            <span class="pct-label">Bet %</span>
+                            <span class="pct-team-name">${homeTeam}</span>
+                        </div>
+                        <div class="pct-bar-container">
+                            <div class="pct-bar-left" style="width: ${awayBetPct}%;">${awayBetPct}%</div>
+                            <div class="pct-bar-right" style="background: linear-gradient(90deg, #10b981, #34d399);">${homeBetPct}%</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Money % Section -->
+                    <div class="pct-section">
+                        <div class="pct-header">
+                            <span class="pct-team-name">${awayTeam}</span>
+                            <span class="pct-label">Money %</span>
+                            <span class="pct-team-name">${homeTeam}</span>
+                        </div>
+                        <div class="pct-bar-container">
+                            <div class="pct-bar-left" style="width: ${awayMoneyPct}%; background: linear-gradient(90deg, #f59e0b, #fbbf24);">${awayMoneyPct}%</div>
+                            <div class="pct-bar-right" style="background: linear-gradient(90deg, #8b5cf6, #a78bfa);">${homeMoneyPct}%</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Line Movement -->
+                    <div class="line-movement-section">
+                        <div class="lm-header">
+                            <span class="lm-title">Line Movement</span>
+                        </div>
+                        <div class="lm-chart">
+                            <div class="lm-chart-line"></div>
+                            <div class="lm-chart-point"></div>
+                        </div>
+                        <div class="lm-values">
+                            <div class="lm-value-item">
+                                <span class="lm-value-label">Current</span>
+                                <span class="lm-value-num">-138</span>
+                            </div>
+                            <div class="lm-value-item">
+                                <span class="lm-value-label">Open</span>
+                                <span class="lm-value-num">-141</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            const contentContainer = document.getElementById(`${tabType === 'moneyline' ? 'ml' : tabType}-content-${gameId}`);
+            if (contentContainer) {
+                contentContainer.innerHTML = contentHtml;
+            }
+        }
+        
+        // Auto-load Total tab content on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.game-card[data-game-id]').forEach(card => {
+                const gameId = card.dataset.gameId;
+                if (gameId && card.querySelector('.bet-type-tabs')) {
+                    loadPikkitContent(gameId, 'total');
+                }
+            });
+        });
+        
         async function toggleMatchup(el) {
             el.classList.toggle('open');
             const content = el.nextElementSibling;
