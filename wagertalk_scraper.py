@@ -129,7 +129,13 @@ def _parse_cell_rows(text: str) -> tuple:
 
 
 async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
-    """Async function to fetch WagerTalk data with Playwright."""
+    """Async function to fetch WagerTalk data with Playwright.
+    
+    Production-ready with:
+    - Multiple timeout layers (page load, element wait, overall)
+    - Graceful browser cleanup on any error
+    - Memory-efficient settings for VM deployment
+    """
     import traceback
     import os
     
@@ -143,16 +149,29 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
         async with async_playwright() as p:
             logger.info("[WagerTalk-Async] Playwright context created")
             
-            # Try to launch browser with multiple fallback options
+            # Launch browser with memory-efficient settings for VM
             try:
                 browser = await p.chromium.launch(
                     headless=True,
-                    args=['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+                    args=[
+                        '--no-sandbox',
+                        '--disable-setuid-sandbox',
+                        '--disable-dev-shm-usage',
+                        '--disable-gpu',
+                        '--single-process',
+                        '--no-zygote',
+                        '--disable-extensions',
+                        '--disable-background-networking',
+                        '--disable-default-apps',
+                        '--disable-sync',
+                        '--disable-translate',
+                        '--mute-audio',
+                        '--hide-scrollbars'
+                    ]
                 )
                 logger.info("[WagerTalk-Async] Browser launched successfully")
             except Exception as browser_err:
                 logger.error(f"[WagerTalk-Async] Browser launch failed: {browser_err}")
-                # Try with executable path from env
                 chromium_path = os.environ.get('PLAYWRIGHT_BROWSERS_PATH', '')
                 logger.info(f"[WagerTalk-Async] PLAYWRIGHT_BROWSERS_PATH: {chromium_path}")
                 raise
@@ -163,13 +182,16 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
             )
             logger.info("[WagerTalk-Async] Browser context created")
             
-            # Stealth mode
+            # Stealth mode to bypass bot detection
             await context.add_init_script("""
                 Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
                 window.chrome = { runtime: {} };
+                Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3] });
+                Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
             """)
             
             page = await context.new_page()
+            page.set_default_timeout(30000)
             logger.info("[WagerTalk-Async] New page created")
             
             cb = random.random()
@@ -177,9 +199,12 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
             
             logger.info(f"[WagerTalk-Async] Navigating to: {url}")
             
-            await page.goto(url, wait_until='domcontentloaded', timeout=45000)
+            # Navigate with explicit timeout
+            await page.goto(url, wait_until='domcontentloaded', timeout=40000)
             logger.info("[WagerTalk-Async] Page loaded, waiting for JS...")
-            await asyncio.sleep(8)  # Wait for JS to load percentages
+            
+            # Wait for content to render (JS-loaded)
+            await asyncio.sleep(6)
             
             rows = await page.query_selector_all('tr.reg, tr.alt')
             logger.info(f"WagerTalk found {len(rows)} rows")
