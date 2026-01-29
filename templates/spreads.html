@@ -1509,10 +1509,15 @@
 </head>
 <body>
     <header class="header">
-        <a href="/" class="brand">
-            <i class="bi bi-lock-fill"></i>
-            730's Locks
+        <a href="/" class="brand" style="display: flex; align-items: center; gap: 0; text-decoration: none;">
+            <img src="/static/images/730_logo.png" alt="730" class="header-logo" style="height: 42px; width: auto; filter: drop-shadow(0 0 12px rgba(139, 92, 246, 0.8)) drop-shadow(0 0 24px rgba(139, 92, 246, 0.5)); animation: logoGlow 2s ease-in-out infinite alternate;">
         </a>
+        <style>
+            @keyframes logoGlow {
+                0% { filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.6)) drop-shadow(0 0 16px rgba(139, 92, 246, 0.3)); }
+                100% { filter: drop-shadow(0 0 16px rgba(139, 92, 246, 0.9)) drop-shadow(0 0 32px rgba(139, 92, 246, 0.6)) drop-shadow(0 0 48px rgba(168, 85, 247, 0.4)); }
+            }
+        </style>
     </header>
     
     <section class="header-section">
@@ -1846,6 +1851,71 @@
                         <span style="background: ${game.result === 'W' ? '#22c55e' : '#ef4444'}; color: #fff; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700;">${game.result}</span>
                         <span style="color: #fff; font-size: 11px; min-width: 50px; text-align: right;">${game.score}</span>
                     </div>
+                </div>
+            `).join('');
+        }
+        
+        // Store Last 10 data for each game (Covers.com)
+        const last10GameData = {};
+        
+        // Switch Last 10 tab between teams
+        function switchLast10Tab(tabEl, gameId, teamType) {
+            const container = tabEl.closest('.last10-section');
+            if (!container) return;
+            
+            // Update active tab styling
+            container.querySelectorAll('.last10-tab').forEach(t => {
+                t.classList.remove('active');
+                t.style.background = 'transparent';
+                t.style.color = '#9ca3af';
+            });
+            tabEl.classList.add('active');
+            tabEl.style.background = '#1e293b';
+            tabEl.style.color = '#fff';
+            
+            // Get data and update display
+            const data = last10GameData[gameId];
+            if (data && data.covers_last10) {
+                const teamData = teamType === 'away' ? data.covers_last10.away : data.covers_last10.home;
+                renderLast10Games(gameId, teamData);
+            }
+        }
+        
+        // Render Last 10 games in Covers style
+        function renderLast10Games(gameId, teamData) {
+            const container = document.getElementById(`last10-body-${gameId}`);
+            const wlEl = document.getElementById(`last10-wl-${gameId}`);
+            const atsEl = document.getElementById(`last10-ats-${gameId}`);
+            const ouEl = document.getElementById(`last10-ou-${gameId}`);
+            
+            if (!container) return;
+            
+            // Update summary boxes
+            if (wlEl) wlEl.textContent = teamData?.record || '--';
+            if (atsEl) atsEl.textContent = teamData?.ats || '--';
+            if (ouEl) ouEl.textContent = teamData?.ou || '--';
+            
+            // Render games list
+            const games = teamData?.games || [];
+            if (!games.length) {
+                container.innerHTML = '<div style="color: #9ca3af; text-align: center; padding: 15px; font-size: 11px; font-family: \'Inter\', sans-serif;">No games found</div>';
+                return;
+            }
+            
+            container.innerHTML = games.slice(0, 10).map((game, idx) => `
+                <div style="display: grid; grid-template-columns: 60px 1fr 80px 50px 50px; gap: 4px; padding: 8px; background: ${idx % 2 === 0 ? 'rgba(30,30,45,0.6)' : 'rgba(25,25,40,0.6)'}; font-family: 'Inter', sans-serif; font-size: 11px; align-items: center;">
+                    <div style="color: #9ca3af;">${game.date || '--'}</div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="color: #666; font-size: 9px;">${game.location || 'vs'}</span>
+                        <img src="${game.opp_logo || ''}" style="width: 16px; height: 16px; border-radius: 2px;" onerror="this.style.display='none'"/>
+                        <span style="color: #fff; font-weight: 500;">${game.opp || '--'}</span>
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
+                        <span style="background: ${game.result === 'W' ? '#22c55e' : '#ef4444'}; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;">${game.result || '-'}</span>
+                        <span style="color: #fff;">${game.score || '--'}</span>
+                    </div>
+                    <div style="text-align: center; color: ${game.ats?.startsWith('W') ? '#22c55e' : game.ats?.startsWith('L') ? '#ef4444' : '#9ca3af'}; font-weight: 500;">${game.ats || '--'}</div>
+                    <div style="text-align: center; color: ${game.ou?.startsWith('o') ? '#22c55e' : game.ou?.startsWith('u') ? '#3b82f6' : '#9ca3af'}; font-weight: 500;">${game.ou || '--'}</div>
                 </div>
             `).join('');
         }
@@ -2305,6 +2375,15 @@
                             };
                         }
                         
+                        // Store Covers Last 10 data for team tabs
+                        if (data.covers_last10) {
+                            last10GameData[gameId] = {
+                                covers_last10: data.covers_last10
+                            };
+                            // Render initial away team data
+                            renderLast10Games(gameId, data.covers_last10.away);
+                        }
+                        
                         // Update the stats with real data
                         updateMatchupStats(content, data);
                         content.dataset.loaded = 'true';
@@ -2462,32 +2541,44 @@
                     </table>
                 </div>
                 
-                <!-- LAST 5 GAMES - COMPACT -->
-                <div class="last5-section" style="margin-top: 12px; background: rgba(20,20,30,0.95); border-radius: 10px; padding: 10px; border: 1px solid rgba(139, 92, 246, 0.3);">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-                        <div style="font-weight: 700; font-size: 13px; color: #fff;">Last 5</div>
-                        <div class="last5-toggle" style="display: flex; border-radius: 6px; overflow: hidden; background: rgba(40,40,50,0.8);">
-                            <button class="last5-tab active" data-team="away" onclick="switchLast5Tab(this, '${data.game_id}', 'away', '${awayTeam}')" style="padding: 6px 12px; background: #1e293b; color: #fff; border: none; font-size: 11px; font-weight: 600; cursor: pointer;">${awayTeam}</button>
-                            <button class="last5-tab" data-team="home" onclick="switchLast5Tab(this, '${data.game_id}', 'home', '${homeTeam}')" style="padding: 6px 12px; background: transparent; color: #9ca3af; border: none; font-size: 11px; font-weight: 500; cursor: pointer;">${homeTeam}</button>
+                <!-- LAST 10 GAMES - COVERS STYLE -->
+                <div class="last10-section" style="margin-top: 12px; background: rgba(20,20,30,0.95); border-radius: 10px; padding: 12px; border: 1px solid rgba(139, 92, 246, 0.3);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                        <div style="font-weight: 700; font-size: 13px; color: #fff; font-family: 'Inter', sans-serif;">Record - Last 10</div>
+                        <div class="last10-toggle" style="display: flex; border-radius: 6px; overflow: hidden; background: rgba(40,40,50,0.8);">
+                            <button class="last10-tab active" data-team="away" onclick="switchLast10Tab(this, '${data.game_id}', 'away')" style="padding: 6px 14px; background: #1e293b; color: #fff; border: none; font-size: 11px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif;">${awayTeam}</button>
+                            <button class="last10-tab" data-team="home" onclick="switchLast10Tab(this, '${data.game_id}', 'home')" style="padding: 6px 14px; background: transparent; color: #9ca3af; border: none; font-size: 11px; font-weight: 500; cursor: pointer; font-family: 'Inter', sans-serif;">${homeTeam}</button>
                         </div>
                     </div>
-                    <div class="last5-content" id="last5-${data.game_id}">
-                        <div style="display: flex; flex-direction: column; gap: 4px;" id="last5-body-${data.game_id}">
-                            ${(data.last5_away || []).map(game => `
-                                <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; background: rgba(30,30,45,0.6); border-radius: 6px;">
-                                    <div style="display: flex; align-items: center; gap: 6px;">
-                                        <span style="color: #666; font-size: 10px; min-width: 40px;">${game.date}</span>
-                                        <span style="color: #888; font-size: 10px;">${game.location}</span>
-                                        <img src="${game.opp_logo}" style="width: 18px; height: 18px; border-radius: 3px;" onerror="this.style.display='none'"/>
-                                        <span style="color: #fff; font-size: 11px; font-weight: 500;">${game.opp}</span>
-                                    </div>
-                                    <div style="display: flex; align-items: center; gap: 6px;">
-                                        <span style="background: ${game.result === 'W' ? '#22c55e' : '#ef4444'}; color: #fff; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700;">${game.result}</span>
-                                        <span style="color: #fff; font-size: 11px; min-width: 50px; text-align: right;">${game.score}</span>
-                                    </div>
-                                </div>
-                            `).join('') || '<div style="color: #9ca3af; text-align: center; padding: 10px; font-size: 11px;">Loading...</div>'}
+                    
+                    <!-- Summary Boxes -->
+                    <div id="last10-summary-${data.game_id}" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px;">
+                        <div style="background: rgba(30,30,45,0.8); border-radius: 8px; padding: 8px 10px; border-left: 3px solid #22c55e;">
+                            <div style="font-size: 9px; color: #9ca3af; font-family: 'Inter', sans-serif; margin-bottom: 2px;">Win / Loss</div>
+                            <div id="last10-wl-${data.game_id}" style="font-size: 14px; font-weight: 700; color: #fff; font-family: 'Inter', sans-serif;">--</div>
                         </div>
+                        <div style="background: rgba(30,30,45,0.8); border-radius: 8px; padding: 8px 10px; border-left: 3px solid #3b82f6;">
+                            <div style="font-size: 9px; color: #9ca3af; font-family: 'Inter', sans-serif; margin-bottom: 2px;">ATS</div>
+                            <div id="last10-ats-${data.game_id}" style="font-size: 14px; font-weight: 700; color: #fff; font-family: 'Inter', sans-serif;">--</div>
+                        </div>
+                        <div style="background: rgba(30,30,45,0.8); border-radius: 8px; padding: 8px 10px; border-left: 3px solid #f59e0b;">
+                            <div style="font-size: 9px; color: #9ca3af; font-family: 'Inter', sans-serif; margin-bottom: 2px;">Over / Under</div>
+                            <div id="last10-ou-${data.game_id}" style="font-size: 14px; font-weight: 700; color: #fff; font-family: 'Inter', sans-serif;">--</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Games Table Header -->
+                    <div style="display: grid; grid-template-columns: 60px 1fr 80px 50px 50px; gap: 4px; padding: 6px 8px; background: rgba(40,40,55,0.6); border-radius: 6px 6px 0 0; font-size: 10px; color: #9ca3af; font-weight: 600; font-family: 'Inter', sans-serif;">
+                        <div>Date</div>
+                        <div>vs</div>
+                        <div style="text-align: center;">Result</div>
+                        <div style="text-align: center;">ATS</div>
+                        <div style="text-align: center;">O/U</div>
+                    </div>
+                    
+                    <!-- Games List -->
+                    <div id="last10-body-${data.game_id}" style="display: flex; flex-direction: column;">
+                        <div style="color: #9ca3af; text-align: center; padding: 15px; font-size: 11px; font-family: 'Inter', sans-serif;">Loading...</div>
                     </div>
                 </div>
                 
@@ -2560,48 +2651,52 @@
                         ` : ''}
                     </div>
                     
-                    <!-- BET % & MONEY % - SIDE BY SIDE -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                    <!-- BET % & MONEY % - SIDE BY SIDE (Covers.com Style) -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; font-family: 'Inter', sans-serif;">
                         <!-- BET % -->
-                        <div style="background: rgba(30, 30, 50, 0.6); border-radius: 8px; padding: 8px;">
-                            <div style="font-weight: 600; font-size: 9px; color: #888; margin-bottom: 6px; text-transform: uppercase;">Bet %</div>
-                            <div style="display: flex; flex-direction: column; gap: 4px;">
-                                <div style="display: flex; align-items: center; gap: 4px;">
-                                    <div style="min-width: 40px; font-size: 9px; font-weight: 600; color: #fff;">${awayName}</div>
-                                    <div style="flex: 1; height: 16px; background: rgba(40, 40, 60, 0.8); border-radius: 4px; overflow: hidden;">
-                                        <div style="width: ${awayBetPct}%; height: 100%; background: ${awayColor}; display: flex; align-items: center; justify-content: flex-end; padding-right: 4px;">
-                                            <span style="font-size: 9px; font-weight: 700; color: #fff;">${awayBetPct}%</span>
+                        <div style="background: rgba(25, 30, 45, 0.9); border-radius: 8px; padding: 10px; border: 1px solid rgba(100, 100, 130, 0.2);">
+                            <div style="font-weight: 600; font-size: 10px; color: #9ca3af; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">BET %</div>
+                            <div style="display: flex; flex-direction: column; gap: 6px;">
+                                <div style="display: flex; align-items: center; justify-content: space-between;">
+                                    <span style="font-size: 11px; font-weight: 500; color: #e5e7eb;">${awayName}</span>
+                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                        <div style="width: 60px; height: 8px; background: rgba(40, 45, 60, 0.8); border-radius: 4px; overflow: hidden;">
+                                            <div style="width: ${awayBetPct}%; height: 100%; background: ${awayColor}; border-radius: 4px;"></div>
                                         </div>
+                                        <span style="font-size: 12px; font-weight: 700; color: #fff; min-width: 32px; text-align: right;">${awayBetPct}%</span>
                                     </div>
                                 </div>
-                                <div style="display: flex; align-items: center; gap: 4px;">
-                                    <div style="min-width: 40px; font-size: 9px; font-weight: 600; color: #fff;">${homeName}</div>
-                                    <div style="flex: 1; height: 16px; background: rgba(40, 40, 60, 0.8); border-radius: 4px; overflow: hidden;">
-                                        <div style="width: ${homeBetPct}%; height: 100%; background: ${homeColor}; display: flex; align-items: center; justify-content: flex-end; padding-right: 4px;">
-                                            <span style="font-size: 9px; font-weight: 700; color: #fff;">${homeBetPct}%</span>
+                                <div style="display: flex; align-items: center; justify-content: space-between;">
+                                    <span style="font-size: 11px; font-weight: 500; color: #e5e7eb;">${homeName}</span>
+                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                        <div style="width: 60px; height: 8px; background: rgba(40, 45, 60, 0.8); border-radius: 4px; overflow: hidden;">
+                                            <div style="width: ${homeBetPct}%; height: 100%; background: ${homeColor}; border-radius: 4px;"></div>
                                         </div>
+                                        <span style="font-size: 12px; font-weight: 700; color: #fff; min-width: 32px; text-align: right;">${homeBetPct}%</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         <!-- MONEY % -->
-                        <div style="background: rgba(30, 30, 50, 0.6); border-radius: 8px; padding: 8px;">
-                            <div style="font-weight: 600; font-size: 9px; color: #888; margin-bottom: 6px; text-transform: uppercase;">Money %</div>
-                            <div style="display: flex; flex-direction: column; gap: 4px;">
-                                <div style="display: flex; align-items: center; gap: 4px;">
-                                    <div style="min-width: 40px; font-size: 9px; font-weight: 600; color: #fff;">${awayName}</div>
-                                    <div style="flex: 1; height: 16px; background: rgba(40, 40, 60, 0.8); border-radius: 4px; overflow: hidden;">
-                                        <div style="width: ${awayMoneyPct}%; height: 100%; background: ${awayColor}; display: flex; align-items: center; justify-content: flex-end; padding-right: 4px;">
-                                            <span style="font-size: 9px; font-weight: 700; color: #fff;">${awayMoneyPct}%</span>
+                        <div style="background: rgba(25, 30, 45, 0.9); border-radius: 8px; padding: 10px; border: 1px solid rgba(100, 100, 130, 0.2);">
+                            <div style="font-weight: 600; font-size: 10px; color: #9ca3af; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">MONEY %</div>
+                            <div style="display: flex; flex-direction: column; gap: 6px;">
+                                <div style="display: flex; align-items: center; justify-content: space-between;">
+                                    <span style="font-size: 11px; font-weight: 500; color: #e5e7eb;">${awayName}</span>
+                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                        <div style="width: 60px; height: 8px; background: rgba(40, 45, 60, 0.8); border-radius: 4px; overflow: hidden;">
+                                            <div style="width: ${awayMoneyPct}%; height: 100%; background: ${awayColor}; border-radius: 4px;"></div>
                                         </div>
+                                        <span style="font-size: 12px; font-weight: 700; color: #fff; min-width: 32px; text-align: right;">${awayMoneyPct}%</span>
                                     </div>
                                 </div>
-                                <div style="display: flex; align-items: center; gap: 4px;">
-                                    <div style="min-width: 40px; font-size: 9px; font-weight: 600; color: #fff;">${homeName}</div>
-                                    <div style="flex: 1; height: 16px; background: rgba(40, 40, 60, 0.8); border-radius: 4px; overflow: hidden;">
-                                        <div style="width: ${homeMoneyPct}%; height: 100%; background: ${homeColor}; display: flex; align-items: center; justify-content: flex-end; padding-right: 4px;">
-                                            <span style="font-size: 9px; font-weight: 700; color: #fff;">${homeMoneyPct}%</span>
+                                <div style="display: flex; align-items: center; justify-content: space-between;">
+                                    <span style="font-size: 11px; font-weight: 500; color: #e5e7eb;">${homeName}</span>
+                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                        <div style="width: 60px; height: 8px; background: rgba(40, 45, 60, 0.8); border-radius: 4px; overflow: hidden;">
+                                            <div style="width: ${homeMoneyPct}%; height: 100%; background: ${homeColor}; border-radius: 4px;"></div>
                                         </div>
+                                        <span style="font-size: 12px; font-weight: 700; color: #fff; min-width: 32px; text-align: right;">${homeMoneyPct}%</span>
                                     </div>
                                 </div>
                             </div>

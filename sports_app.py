@@ -1325,6 +1325,72 @@ class MatchupIntelligence:
             logger.warning(f"Error fetching Covers H2H for {away_team} vs {home_team}: {e}")
             return result
     
+    # Cache for Covers Last 10 data
+    _covers_last10_cache = {}
+    _covers_last10_cache_time = {}
+    
+    @staticmethod
+    def fetch_covers_last10_games(away_team: str, home_team: str, league: str = 'NBA') -> dict:
+        """
+        Fetch Last 10 games for each team using ESPN API (reliable fallback).
+        Also uses existing H2H data from fetch_covers_h2h for H2H info.
+        
+        Returns:
+        {
+            'away': {'record': '6-4', 'ats': '5-5-0', 'ou': '6-4-0', 'games': [...]},
+            'home': {...same structure...},
+            'h2h': {'record': '8-2', 'ats': '6-4-0', 'ou': '5-5-0', 'games': [...]}
+        }
+        """
+        import time as time_module
+        
+        cache_key = f"{away_team}_{home_team}_{league}"
+        cache_time = MatchupIntelligence._covers_last10_cache_time.get(cache_key, 0)
+        if cache_key in MatchupIntelligence._covers_last10_cache and (time_module.time() - cache_time) < 600:
+            return MatchupIntelligence._covers_last10_cache[cache_key]
+        
+        result = {
+            'away': {'record': 'N/A', 'ats': 'N/A', 'ou': 'N/A', 'games': []},
+            'home': {'record': 'N/A', 'ats': 'N/A', 'ou': 'N/A', 'games': []},
+            'h2h': {'record': 'N/A', 'ats': 'N/A', 'ou': 'N/A', 'games': []}
+        }
+        
+        try:
+            # Get Last 10 games from ESPN (using existing reliable function)
+            away_games = MatchupIntelligence.get_team_last5_games(away_team, league)
+            home_games = MatchupIntelligence.get_team_last5_games(home_team, league)
+            
+            # Calculate W/L record from games
+            def calc_record(games):
+                if not games:
+                    return 'N/A'
+                wins = sum(1 for g in games if g.get('result') == 'W')
+                losses = len(games) - wins
+                return f"{wins}-{losses}"
+            
+            result['away']['games'] = away_games[:10] if away_games else []
+            result['away']['record'] = calc_record(away_games[:10]) if away_games else 'N/A'
+            
+            result['home']['games'] = home_games[:10] if home_games else []
+            result['home']['record'] = calc_record(home_games[:10]) if home_games else 'N/A'
+            
+            # Get H2H data from existing Covers H2H function
+            h2h_data = MatchupIntelligence.fetch_covers_h2h(away_team, home_team, league)
+            if h2h_data:
+                result['h2h']['record'] = h2h_data.get('h2h_record', 'N/A')
+                result['h2h']['ats'] = h2h_data.get('h2h_ats', 'N/A')
+            
+            # Cache results
+            MatchupIntelligence._covers_last10_cache[cache_key] = result
+            MatchupIntelligence._covers_last10_cache_time[cache_key] = time_module.time()
+            
+            logger.info(f"Last10 {away_team}: {len(result['away']['games'])} games ({result['away']['record']}), {home_team}: {len(result['home']['games'])} games ({result['home']['record']})")
+            return result
+            
+        except Exception as e:
+            logger.warning(f"Error fetching Last10 for {away_team} vs {home_team}: {e}")
+            return result
+    
     # Cache for RLM data with game-time aware refresh
     _rlm_cache = {}
     _rlm_cache_time = {}
@@ -10028,16 +10094,22 @@ def get_matchup_data(game_id):
     except Exception as e:
         logging.warning(f"Error fetching TeamRankings matchup data for game {game_id}: {e}")
     
-    # Fetch Last 5 games for both teams (Covers.com style)
+    # Fetch Last 10 games from Covers.com (each team separately + H2H)
     try:
         if game.league == 'NBA':
-            result['last5_away'] = MatchupIntelligence.get_team_last5_games(game.away_team, game.league)
-            result['last5_home'] = MatchupIntelligence.get_team_last5_games(game.home_team, game.league)
+            covers_last10 = MatchupIntelligence.fetch_covers_last10_games(game.away_team, game.home_team, game.league)
+            result['covers_last10'] = covers_last10
+            
+            # Also set last5 for backward compatibility (first 5 of last 10)
+            result['last5_away'] = covers_last10['away']['games'][:5] if covers_last10['away']['games'] else []
+            result['last5_home'] = covers_last10['home']['games'][:5] if covers_last10['home']['games'] else []
         else:
+            result['covers_last10'] = {'away': {'games': []}, 'home': {'games': []}, 'h2h': {'games': []}}
             result['last5_away'] = []
             result['last5_home'] = []
     except Exception as e:
-        logging.warning(f"Error fetching Last 5 games: {e}")
+        logging.warning(f"Error fetching Covers Last 10 games: {e}")
+        result['covers_last10'] = {'away': {'games': []}, 'home': {'games': []}, 'h2h': {'games': []}}
         result['last5_away'] = []
         result['last5_home'] = []
     
