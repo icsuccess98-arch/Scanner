@@ -575,6 +575,10 @@ class MatchupIntelligence:
             logger.warning(f"Error fetching L5 stats for {team_name}: {e}")
             return {}
     
+    # Cache for Last 5 games (in-memory, expires after 10 mins)
+    _last5_cache = {}
+    _last5_cache_time = {}
+    
     @staticmethod
     def get_team_last5_games(team_name: str, league: str = 'NBA') -> list:
         """
@@ -583,6 +587,13 @@ class MatchupIntelligence:
         """
         import requests
         from datetime import datetime
+        import time as time_module
+        
+        # Check cache first (10 minute expiry)
+        cache_key = f"{team_name}_{league}"
+        cache_time = MatchupIntelligence._last5_cache_time.get(cache_key, 0)
+        if cache_key in MatchupIntelligence._last5_cache and (time_module.time() - cache_time) < 600:
+            return MatchupIntelligence._last5_cache[cache_key]
         
         # ESPN team ID mapping
         ESPN_TEAM_IDS = {
@@ -694,6 +705,11 @@ class MatchupIntelligence:
                     })
                 except Exception as e:
                     continue
+            
+            # Cache results
+            if results:
+                MatchupIntelligence._last5_cache[cache_key] = results
+                MatchupIntelligence._last5_cache_time[cache_key] = time_module.time()
             
             return results
             
