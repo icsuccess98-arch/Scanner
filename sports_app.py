@@ -1978,13 +1978,6 @@ class MatchupIntelligence:
                 
                 majority_team = 'away' if away_bet_pct > home_bet_pct else 'home'
                 majority_pct = max(away_bet_pct, home_bet_pct)
-                rlm_potential = majority_pct >= 60
-                
-                # Sharp money detection
-                sharp_detected = data.get('sharp_detected', False)
-                sharp_side = data.get('sharp_side', None)
-                spread_sharp_detected = data.get('spread_sharp_detected', False)
-                spread_sharp_side = data.get('spread_sharp_side', None)
                 
                 # Line movement data
                 spread_open_line = data.get('spread_open_line')
@@ -1995,6 +1988,62 @@ class MatchupIntelligence:
                 total_open_odds = data.get('total_open_odds')
                 total_current_line = data.get('total_current_line')
                 total_current_odds = data.get('total_current_odds')
+                
+                # === TRUE RLM DETECTION ===
+                # RLM = Public bets heavily one way, but line moves OPPOSITE direction
+                # This signals SHARP MONEY on the side the line moved toward
+                
+                spread_rlm_detected = False
+                spread_rlm_sharp_side = None
+                totals_rlm_detected = False
+                totals_rlm_sharp_side = None
+                
+                # SPREAD RLM: Check if line moved opposite to public betting
+                try:
+                    if spread_open_line and spread_current_line:
+                        open_spread = float(str(spread_open_line).replace('+', ''))
+                        current_spread = float(str(spread_current_line).replace('+', ''))
+                        spread_movement = current_spread - open_spread
+                        
+                        # Public on AWAY (negative spread means away favored)
+                        # If public bets away but spread gets LESS negative (moves toward home) = RLM
+                        if away_bet_pct >= 60 and spread_movement > 0.5:
+                            spread_rlm_detected = True
+                            spread_rlm_sharp_side = home_team
+                        # Public on HOME but spread gets MORE negative (moves toward away) = RLM
+                        elif home_bet_pct >= 60 and spread_movement < -0.5:
+                            spread_rlm_detected = True
+                            spread_rlm_sharp_side = away_team
+                except:
+                    pass
+                
+                # TOTALS RLM: Check if line moved opposite to over/under betting
+                try:
+                    if total_open_line and total_current_line:
+                        open_total = float(str(total_open_line).replace('O', '').replace('U', ''))
+                        current_str = str(total_current_line).replace('O', '').replace('U', '')
+                        current_total = float(current_str)
+                        total_movement = current_total - open_total
+                        
+                        # Public on OVER but total DROPS = RLM (sharp on Under)
+                        if over_bet_pct >= 60 and total_movement < -0.5:
+                            totals_rlm_detected = True
+                            totals_rlm_sharp_side = 'Under'
+                        # Public on UNDER but total RISES = RLM (sharp on Over)
+                        elif under_bet_pct >= 60 and total_movement > 0.5:
+                            totals_rlm_detected = True
+                            totals_rlm_sharp_side = 'Over'
+                except:
+                    pass
+                
+                # Combined RLM potential (either spread or totals has RLM)
+                rlm_potential = spread_rlm_detected or totals_rlm_detected
+                
+                # Sharp money detection (use RLM-detected values)
+                sharp_detected = totals_rlm_detected
+                sharp_side = totals_rlm_sharp_side
+                spread_sharp_detected = spread_rlm_detected
+                spread_sharp_side = spread_rlm_sharp_side
                 
                 game_key = f"{away_team}_vs_{home_team}".lower().replace(' ', '_')
                 
@@ -2017,6 +2066,10 @@ class MatchupIntelligence:
                     'majority_team': majority_team,
                     'majority_pct': majority_pct,
                     'rlm_potential': rlm_potential,
+                    'spread_rlm_detected': spread_rlm_detected,
+                    'spread_rlm_sharp_side': spread_rlm_sharp_side,
+                    'totals_rlm_detected': totals_rlm_detected,
+                    'totals_rlm_sharp_side': totals_rlm_sharp_side,
                     'sharp_detected': sharp_detected,
                     'sharp_side': sharp_side,
                     'over_bet_pct': over_bet_pct,
