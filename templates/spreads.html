@@ -1552,45 +1552,45 @@
                 <!-- Rules Table -->
                 <table style="width: 100%; border-collapse: separate; border-spacing: 0 3px;">
                     <tr>
-                        <td style="background: rgba(139, 92, 246, 0.08); border-radius: 6px 0 0 6px; padding: 8px 10px; border-left: 3px solid #a78bfa; vertical-align: top; width: 100px; white-space: nowrap;">
-                            <span style="font-size: 10px; font-weight: 700; color: #a78bfa;">Cold Teams (L10)</span>
+                        <td style="background: rgba(139, 92, 246, 0.08); border-radius: 6px 0 0 6px; padding: 6px 8px; border-left: 3px solid #a78bfa; vertical-align: middle; white-space: nowrap;">
+                            <span style="font-size: 9px; font-weight: 700; color: #a78bfa;">Cold (L10)</span>
                         </td>
-                        <td style="background: rgba(139, 92, 246, 0.08); border-radius: 0 6px 6px 0; padding: 8px 10px; vertical-align: top;">
-                            <span style="font-size: 10px; color: #e2e8f0;">{{ cold_teams if cold_teams != 'None' else 'None' }}</span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="background: rgba(139, 92, 246, 0.08); border-radius: 6px 0 0 6px; padding: 8px 10px; border-left: 3px solid #a78bfa; vertical-align: top; width: 100px; white-space: nowrap;">
-                            <span style="font-size: 10px; font-weight: 700; color: #a78bfa;">Hot Teams (L10)</span>
-                        </td>
-                        <td style="background: rgba(139, 92, 246, 0.08); border-radius: 0 6px 6px 0; padding: 8px 10px; vertical-align: top;">
-                            <span style="font-size: 10px; color: #e2e8f0;">{{ hot_teams if hot_teams != 'None' else 'None' }}</span>
+                        <td style="background: rgba(139, 92, 246, 0.08); border-radius: 0 6px 6px 0; padding: 6px 8px; vertical-align: middle;">
+                            <span style="font-size: 9px; color: #e2e8f0;">{{ cold_teams if cold_teams != 'None' else 'None' }}</span>
                         </td>
                     </tr>
                     <tr>
-                        <td style="background: rgba(139, 92, 246, 0.08); border-radius: 6px 0 0 6px; padding: 8px 10px; border-left: 3px solid #a78bfa; vertical-align: top; width: 100px; white-space: nowrap;">
-                            <span style="font-size: 10px; font-weight: 700; color: #a78bfa;">Bad Defense (L5)</span>
+                        <td style="background: rgba(139, 92, 246, 0.08); border-radius: 6px 0 0 6px; padding: 6px 8px; border-left: 3px solid #a78bfa; vertical-align: middle; white-space: nowrap;">
+                            <span style="font-size: 9px; font-weight: 700; color: #a78bfa;">Hot (L10)</span>
                         </td>
-                        <td style="background: rgba(139, 92, 246, 0.08); border-radius: 0 6px 6px 0; padding: 8px 10px; vertical-align: top;">
-                            <span style="font-size: 10px; color: #e2e8f0;">{{ bad_defense_teams_display if bad_defense_teams_display != 'None' else 'None' }}</span>
+                        <td style="background: rgba(139, 92, 246, 0.08); border-radius: 0 6px 6px 0; padding: 6px 8px; vertical-align: middle;">
+                            <span style="font-size: 9px; color: #e2e8f0;">{{ hot_teams if hot_teams != 'None' else 'None' }}</span>
                         </td>
                     </tr>
                     <tr>
-                        <td style="background: rgba(139, 92, 246, 0.08); border-radius: 6px 0 0 6px; padding: 8px 10px; border-left: 3px solid #a78bfa; vertical-align: top; width: 100px; white-space: nowrap;">
-                            <span style="font-size: 10px; font-weight: 700; color: #a78bfa;">Back-to-Back</span>
+                        <td style="background: rgba(139, 92, 246, 0.08); border-radius: 6px 0 0 6px; padding: 6px 8px; border-left: 3px solid #a78bfa; vertical-align: middle; white-space: nowrap;">
+                            <span style="font-size: 9px; font-weight: 700; color: #a78bfa;">Bad Def (L5)</span>
                         </td>
-                        <td style="background: rgba(139, 92, 246, 0.08); border-radius: 0 6px 6px 0; padding: 8px 10px; vertical-align: top;">
-                            <span style="font-size: 10px; color: #e2e8f0;">{{ b2b_teams if b2b_teams != 'None' else 'None' }}</span>
+                        <td style="background: rgba(139, 92, 246, 0.08); border-radius: 0 6px 6px 0; padding: 6px 8px; vertical-align: middle;">
+                            <span style="font-size: 9px; color: #e2e8f0;">{{ bad_defense_teams_display if bad_defense_teams_display != 'None' else 'None' }}</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="background: rgba(139, 92, 246, 0.08); border-radius: 6px 0 0 6px; padding: 6px 8px; border-left: 3px solid #a78bfa; vertical-align: middle; white-space: nowrap;">
+                            <span style="font-size: 9px; font-weight: 700; color: #a78bfa;">B2B</span>
+                        </td>
+                        <td style="background: rgba(139, 92, 246, 0.08); border-radius: 0 6px 6px 0; padding: 6px 8px; vertical-align: middle;">
+                            <span style="font-size: 9px; color: #e2e8f0;">{{ b2b_teams if b2b_teams != 'None' else 'None' }}</span>
                         </td>
                     </tr>
                 </table>
                 
                 <!-- Remaining Teams -->
-                <div style="margin-top: 6px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.08)); border-radius: 8px; padding: 8px 10px; border: 1px solid rgba(16, 185, 129, 0.3);">
-                    <div style="font-size: 10px; font-weight: 700; color: #10b981; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+                <div style="margin-top: 6px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.08)); border-radius: 8px; padding: 6px 8px; border: 1px solid rgba(16, 185, 129, 0.3);">
+                    <div style="font-size: 9px; font-weight: 700; color: #10b981; margin-bottom: 3px; display: flex; align-items: center; gap: 4px;">
                         <span>✅</span> REMAINING TEAMS
                     </div>
-                    <span style="font-size: 10px; color: #e2e8f0;">{{ remaining_teams }}</span>
+                    <span style="font-size: 9px; color: #e2e8f0;">{{ remaining_teams }}</span>
                 </div>
             </div>
         </div>
