@@ -554,30 +554,93 @@
         .section-title.pink { color: #EC4899; }
         .section-title.blue { color: #3B82F6; }
         
-        /* PIKKIT-STYLE BETTING UI */
+        /* PIKKIT-STYLE BETTING UI - LOGO-FOCUSED DESIGN */
         .pikkit-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 12px 16px;
-            background: linear-gradient(180deg, rgba(30, 30, 40, 0.95) 0%, rgba(20, 20, 30, 0.98) 100%);
-            border-bottom: 1px solid rgba(139, 92, 246, 0.2);
+            padding: 20px 16px 16px;
+            background: linear-gradient(180deg, rgba(25, 25, 35, 0.98) 0%, rgba(18, 18, 26, 1) 100%);
+            border-bottom: 1px solid rgba(139, 92, 246, 0.15);
         }
         .pikkit-team {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 4px;
+            gap: 8px;
             flex: 1;
+            min-width: 0;
+        }
+        .pikkit-team-logo {
+            width: 56px;
+            height: 56px;
+            object-fit: contain;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
         }
         .pikkit-team-name {
-            font-size: 14px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #fff;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+        }
+        .pikkit-team-record {
+            font-size: 12px;
+            font-weight: 500;
+            color: #9ca3af;
+        }
+        .pikkit-team-standing {
+            font-size: 10px;
+            color: #6b7280;
+            text-align: center;
+        }
+        .pikkit-center {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 0 8px;
+            min-width: 80px;
+        }
+        .pikkit-score-area {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .pikkit-score {
+            font-size: 32px;
             font-weight: 700;
             color: #fff;
         }
-        .pikkit-team-record {
+        .pikkit-quarter {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1px;
+        }
+        .pikkit-quarter-label {
             font-size: 11px;
-            color: #888;
+            font-weight: 600;
+            color: #9ca3af;
+        }
+        .pikkit-quarter-time {
+            font-size: 12px;
+            font-weight: 700;
+            color: #ef4444;
+        }
+        .pikkit-game-time {
+            font-size: 12px;
+            font-weight: 600;
+            color: #9ca3af;
+            text-align: center;
+        }
+        .pikkit-at-symbol {
+            font-size: 14px;
+            color: #6b7280;
+            margin: 4px 0;
         }
         .pikkit-vs {
             display: flex;
@@ -1534,19 +1597,46 @@
             
             {% for game in games %}
             <div class="game-card" data-game-id="{{ game.id }}" data-away="{{ game.away_team }}" data-home="{{ game.home_team }}" data-league="{{ league }}">
-                <!-- PIKKIT-STYLE HEADER -->
+                <!-- PIKKIT-STYLE HEADER WITH LOGOS -->
                 <div class="pikkit-header">
                     <div class="pikkit-team">
-                        <div class="pikkit-team-name">{{ game.away_team }}{% if game.away_is_favorite %} <span class="favorite-tag">FAV</span>{% endif %}</div>
-                        <div class="pikkit-team-record">{% if game.away_ppg %}{{ "%.1f"|format(game.away_ppg) }} PPG{% else %}--{% endif %}</div>
+                        {% if league == 'NBA' %}
+                        <img src="{{ game.away_logo }}" alt="{{ game.away_team }}" class="pikkit-team-logo"
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="pikkit-team-placeholder" style="display:none; width:56px; height:56px; background:rgba(139,92,246,0.2); border-radius:50%; align-items:center; justify-content:center; font-size:20px;">{{ game.away_team[:2] }}</div>
+                        {% else %}
+                        <div class="pikkit-team-placeholder" style="width:56px; height:56px; background:rgba(139,92,246,0.2); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:600; color:#8B5CF6;">{{ game.away_team[:3] }}</div>
+                        {% endif %}
+                        <div class="pikkit-team-name">{{ game.away_team }}</div>
+                        <div class="pikkit-team-record">{{ game.away_record or '--' }}</div>
+                        {% if game.away_standing %}<div class="pikkit-team-standing">{{ game.away_standing }}</div>{% endif %}
                     </div>
-                    <div class="pikkit-vs">
-                        <div class="pikkit-date">{% if game.game_time %}{{ game.game_time }}{% else %}TBD{% endif %}</div>
-                        <span class="league-badge {{ league|lower }}">{{ league }}</span>
+                    <div class="pikkit-center">
+                        {% if game.is_live %}
+                        <div class="pikkit-score-area">
+                            <span class="pikkit-score">{{ game.away_score or 0 }}</span>
+                            <div class="pikkit-quarter">
+                                <span class="pikkit-quarter-label">{{ game.quarter or 'Q1' }}</span>
+                                <span class="pikkit-quarter-time">{{ game.clock or '12:00' }}</span>
+                            </div>
+                            <span class="pikkit-score">{{ game.home_score or 0 }}</span>
+                        </div>
+                        {% else %}
+                        <div class="pikkit-game-time">{% if game.game_time %}{{ game.game_time }}{% else %}TBD{% endif %}</div>
+                        <div class="pikkit-at-symbol">@</div>
+                        {% endif %}
                     </div>
                     <div class="pikkit-team">
-                        <div class="pikkit-team-name">{{ game.home_team }}{% if game.home_is_favorite %} <span class="favorite-tag">FAV</span>{% endif %}</div>
-                        <div class="pikkit-team-record">{% if game.home_ppg %}{{ "%.1f"|format(game.home_ppg) }} PPG{% else %}--{% endif %}</div>
+                        {% if league == 'NBA' %}
+                        <img src="{{ game.home_logo }}" alt="{{ game.home_team }}" class="pikkit-team-logo"
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="pikkit-team-placeholder" style="display:none; width:56px; height:56px; background:rgba(139,92,246,0.2); border-radius:50%; align-items:center; justify-content:center; font-size:20px;">{{ game.home_team[:2] }}</div>
+                        {% else %}
+                        <div class="pikkit-team-placeholder" style="width:56px; height:56px; background:rgba(139,92,246,0.2); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:600; color:#8B5CF6;">{{ game.home_team[:3] }}</div>
+                        {% endif %}
+                        <div class="pikkit-team-name">{{ game.home_team }}</div>
+                        <div class="pikkit-team-record">{{ game.home_record or '--' }}</div>
+                        {% if game.home_standing %}<div class="pikkit-team-standing">{{ game.home_standing }}</div>{% endif %}
                     </div>
                 </div>
                 

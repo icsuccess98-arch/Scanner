@@ -9308,11 +9308,96 @@ def bankroll():
     """52 Week Bankroll Builder tracker."""
     return render_template('bankroll.html')
 
+_nba_standings_cache = {'data': {}, 'timestamp': 0}
+
+def get_nba_standings():
+    """Fetch NBA standings from ESPN API with caching."""
+    global _nba_standings_cache
+    import time
+    
+    # Check cache (60 min TTL)
+    if _nba_standings_cache['data'] and time.time() - _nba_standings_cache['timestamp'] < 3600:
+        return _nba_standings_cache['data']
+    
+    standings = {}
+    try:
+        url = 'https://site.api.espn.com/apis/v2/sports/basketball/nba/standings'
+        resp = requests.get(url, timeout=10)
+        if resp.status_code == 200:
+            data = resp.json()
+            for child in data.get('children', []):
+                conf_name = child.get('name', '')
+                conf_abbr = 'Eastern' if 'east' in conf_name.lower() else 'Western'
+                entries = child.get('standings', {}).get('entries', [])
+                # Sort by wins descending to get proper standings order
+                sorted_entries = sorted(entries, key=lambda x: -float([s.get('value',0) for s in x.get('stats',[]) if s.get('name')=='wins'][0] if [s.get('value',0) for s in x.get('stats',[]) if s.get('name')=='wins'] else 0))
+                for idx, entry in enumerate(sorted_entries, 1):
+                    team_info = entry.get('team', {})
+                    team_name = team_info.get('displayName', '').split()[-1]  # Get last word (nickname)
+                    stats = {s['name']: s.get('value', 0) for s in entry.get('stats', [])}
+                    wins = int(float(stats.get('wins', 0)))
+                    losses = int(float(stats.get('losses', 0)))
+                    # Format ordinal suffix
+                    if 11 <= idx <= 13:
+                        suffix = 'th'
+                    else:
+                        suffix = ['th','st','nd','rd','th','th','th','th','th','th'][idx % 10]
+                    standings[team_name] = {
+                        'record': f"{wins}-{losses}",
+                        'standing': f"{idx}{suffix} {conf_abbr}",
+                        'wins': wins,
+                        'losses': losses,
+                        'conf': conf_abbr
+                    }
+        _nba_standings_cache = {'data': standings, 'timestamp': time.time()}
+        logger.info(f"Fetched NBA standings for {len(standings)} teams")
+    except Exception as e:
+        logger.warning(f"Error fetching NBA standings: {e}")
+    return standings
+
 @app.route('/spreads')
 def spreads():
     """Spreads page - shows all upcoming games with spread data (no totals filtering)."""
     et = pytz.timezone('America/New_York')
     today = datetime.now(et).date()
+    
+    # Fetch NBA standings for records
+    nba_standings = get_nba_standings()
+    
+    # NBA team logo URLs from ESPN CDN
+    nba_team_logos = {
+        'Hawks': 'https://a.espncdn.com/i/teamlogos/nba/500/atl.png',
+        'Celtics': 'https://a.espncdn.com/i/teamlogos/nba/500/bos.png',
+        'Nets': 'https://a.espncdn.com/i/teamlogos/nba/500/bkn.png',
+        'Hornets': 'https://a.espncdn.com/i/teamlogos/nba/500/cha.png',
+        'Bulls': 'https://a.espncdn.com/i/teamlogos/nba/500/chi.png',
+        'Cavaliers': 'https://a.espncdn.com/i/teamlogos/nba/500/cle.png',
+        'Mavericks': 'https://a.espncdn.com/i/teamlogos/nba/500/dal.png',
+        'Nuggets': 'https://a.espncdn.com/i/teamlogos/nba/500/den.png',
+        'Pistons': 'https://a.espncdn.com/i/teamlogos/nba/500/det.png',
+        'Warriors': 'https://a.espncdn.com/i/teamlogos/nba/500/gs.png',
+        'Rockets': 'https://a.espncdn.com/i/teamlogos/nba/500/hou.png',
+        'Pacers': 'https://a.espncdn.com/i/teamlogos/nba/500/ind.png',
+        'Clippers': 'https://a.espncdn.com/i/teamlogos/nba/500/lac.png',
+        'Lakers': 'https://a.espncdn.com/i/teamlogos/nba/500/lal.png',
+        'Grizzlies': 'https://a.espncdn.com/i/teamlogos/nba/500/mem.png',
+        'Heat': 'https://a.espncdn.com/i/teamlogos/nba/500/mia.png',
+        'Bucks': 'https://a.espncdn.com/i/teamlogos/nba/500/mil.png',
+        'Timberwolves': 'https://a.espncdn.com/i/teamlogos/nba/500/min.png',
+        'Pelicans': 'https://a.espncdn.com/i/teamlogos/nba/500/no.png',
+        'Knicks': 'https://a.espncdn.com/i/teamlogos/nba/500/ny.png',
+        'Thunder': 'https://a.espncdn.com/i/teamlogos/nba/500/okc.png',
+        'Magic': 'https://a.espncdn.com/i/teamlogos/nba/500/orl.png',
+        '76ers': 'https://a.espncdn.com/i/teamlogos/nba/500/phi.png',
+        'Suns': 'https://a.espncdn.com/i/teamlogos/nba/500/phx.png',
+        'Trail Blazers': 'https://a.espncdn.com/i/teamlogos/nba/500/por.png',
+        'Blazers': 'https://a.espncdn.com/i/teamlogos/nba/500/por.png',
+        'Kings': 'https://a.espncdn.com/i/teamlogos/nba/500/sac.png',
+        'Spurs': 'https://a.espncdn.com/i/teamlogos/nba/500/sa.png',
+        'Raptors': 'https://a.espncdn.com/i/teamlogos/nba/500/tor.png',
+        'Jazz': 'https://a.espncdn.com/i/teamlogos/nba/500/utah.png',
+        'Wizards': 'https://a.espncdn.com/i/teamlogos/nba/500/wsh.png'
+    }
     
     # Get ALL games for today without any totals filtering
     all_games = Game.query.filter_by(date=today).order_by(Game.game_time.asc()).all()
@@ -9328,6 +9413,25 @@ def spreads():
     
     for g in all_games:
         if g.league in games_by_league:
+            # Add team logos for NBA
+            if g.league == 'NBA':
+                g.away_logo = nba_team_logos.get(g.away_team, 'https://a.espncdn.com/i/teamlogos/nba/500/nba.png')
+                g.home_logo = nba_team_logos.get(g.home_team, 'https://a.espncdn.com/i/teamlogos/nba/500/nba.png')
+                # Add records and standings from ESPN
+                away_stand = nba_standings.get(g.away_team, {})
+                home_stand = nba_standings.get(g.home_team, {})
+                g.away_record = away_stand.get('record', '--')
+                g.home_record = home_stand.get('record', '--')
+                g.away_standing = away_stand.get('standing', '')
+                g.home_standing = home_stand.get('standing', '')
+            else:
+                # CBB uses NCAA generic logo
+                g.away_logo = 'https://a.espncdn.com/i/teamlogos/ncaa/500/ncaa.png'
+                g.home_logo = 'https://a.espncdn.com/i/teamlogos/ncaa/500/ncaa.png'
+                g.away_record = '--'
+                g.home_record = '--'
+                g.away_standing = ''
+                g.home_standing = ''
             games_by_league[g.league].append(g)
     
     # Set up basic attributes for all games (data fetched on-demand via API)
