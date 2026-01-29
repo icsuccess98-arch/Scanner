@@ -1,6 +1,6 @@
 .elimination-container {
     width: 100%;
-    max-width: 480px;
+    max-width: 600px;
     margin: 0 auto;
     padding: 0;
 }
@@ -257,13 +257,13 @@
 
 @media (min-width: 481px) and (max-width: 768px) {
     .elimination-container {
-        max-width: 600px;
+        max-width: 100%;
     }
 }
 
 @media (min-width: 769px) {
     .elimination-container {
-        max-width: 480px;
+        max-width: 600px;
     }
     
     .elimination-card {
