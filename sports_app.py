@@ -1232,76 +1232,82 @@ class MatchupIntelligence:
         }
         
         try:
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
             
-            # Team name aliases for matching
-            team_aliases = {
-                'bulls': ['bulls', 'chicago', 'chi'],
-                'pacers': ['pacers', 'indiana', 'ind'],
-                'celtics': ['celtics', 'boston', 'bos'],
-                'lakers': ['lakers', 'l.a. lakers', 'la lakers', 'los angeles lakers', 'lal'],
-                'heat': ['heat', 'miami', 'mia'],
-                'bucks': ['bucks', 'milwaukee', 'mil'],
-                'nets': ['nets', 'brooklyn', 'bkn'],
-                '76ers': ['76ers', 'sixers', 'philadelphia', 'phi'],
-                'knicks': ['knicks', 'new york', 'ny', 'nyk'],
-                'hawks': ['hawks', 'atlanta', 'atl'],
-                'hornets': ['hornets', 'charlotte', 'cha'],
-                'cavaliers': ['cavaliers', 'cavs', 'cleveland', 'cle'],
-                'pistons': ['pistons', 'detroit', 'det'],
-                'magic': ['magic', 'orlando', 'orl'],
-                'wizards': ['wizards', 'washington', 'was'],
-                'raptors': ['raptors', 'toronto', 'tor'],
-                'nuggets': ['nuggets', 'denver', 'den'],
-                'clippers': ['clippers', 'l.a. clippers', 'la clippers', 'lac'],
-                'suns': ['suns', 'phoenix', 'phx'],
-                'warriors': ['warriors', 'golden state', 'gs', 'gsw'],
-                'grizzlies': ['grizzlies', 'memphis', 'mem'],
-                'mavericks': ['mavericks', 'mavs', 'dallas', 'dal'],
-                'rockets': ['rockets', 'houston', 'hou'],
-                'pelicans': ['pelicans', 'new orleans', 'nop'],
-                'spurs': ['spurs', 'san antonio', 'sa', 'sas'],
-                'thunder': ['thunder', 'oklahoma city', 'okc'],
-                'timberwolves': ['timberwolves', 'wolves', 'minnesota', 'min'],
-                'trail blazers': ['trail blazers', 'blazers', 'portland', 'por'],
-                'jazz': ['jazz', 'utah', 'uta'],
-                'kings': ['kings', 'sacramento', 'sac']
+            # Team name to URL slug mapping
+            team_slugs = {
+                'bulls': 'chicago-bulls', 'pacers': 'indiana-pacers', 'celtics': 'boston-celtics',
+                'lakers': 'los-angeles-lakers', 'heat': 'miami-heat', 'bucks': 'milwaukee-bucks',
+                'nets': 'brooklyn-nets', '76ers': 'philadelphia-76ers', 'knicks': 'new-york-knicks',
+                'hawks': 'atlanta-hawks', 'hornets': 'charlotte-hornets', 'cavaliers': 'cleveland-cavaliers',
+                'pistons': 'detroit-pistons', 'magic': 'orlando-magic', 'wizards': 'washington-wizards',
+                'raptors': 'toronto-raptors', 'nuggets': 'denver-nuggets', 'clippers': 'los-angeles-clippers',
+                'suns': 'phoenix-suns', 'warriors': 'golden-state-warriors', 'grizzlies': 'memphis-grizzlies',
+                'mavericks': 'dallas-mavericks', 'rockets': 'houston-rockets', 'pelicans': 'new-orleans-pelicans',
+                'spurs': 'san-antonio-spurs', 'thunder': 'oklahoma-city-thunder', 'timberwolves': 'minnesota-timberwolves',
+                'trail blazers': 'portland-trail-blazers', 'blazers': 'portland-trail-blazers',
+                'jazz': 'utah-jazz', 'kings': 'sacramento-kings'
             }
             
-            def matches_team(text, team_name):
-                """Check if text matches any alias for team"""
-                text_lower = text.lower()
-                team_lower = team_name.lower()
-                aliases = team_aliases.get(team_lower, [team_lower])
-                return any(alias in text_lower for alias in aliases)
+            # Team abbreviations for matching
+            team_abbrevs = {
+                'bulls': 'chi', 'pacers': 'ind', 'celtics': 'bos', 'lakers': 'lal', 'heat': 'mia',
+                'bucks': 'mil', 'nets': 'bkn', '76ers': 'phi', 'knicks': 'nyk', 'hawks': 'atl',
+                'hornets': 'cha', 'cavaliers': 'cle', 'pistons': 'det', 'magic': 'orl', 'wizards': 'was',
+                'raptors': 'tor', 'nuggets': 'den', 'clippers': 'lac', 'suns': 'phx', 'warriors': 'gsw',
+                'grizzlies': 'mem', 'mavericks': 'dal', 'rockets': 'hou', 'pelicans': 'nop',
+                'spurs': 'sas', 'thunder': 'okc', 'timberwolves': 'min', 'trail blazers': 'por',
+                'blazers': 'por', 'jazz': 'uta', 'kings': 'sac'
+            }
             
-            # Fetch NBA matchups page to get all matchup IDs
-            matchups_url = "https://www.covers.com/sports/nba/matchups"
+            away_lower = away_team.lower()
+            home_lower = home_team.lower()
+            away_slug = team_slugs.get(away_lower, away_lower.replace(' ', '-'))
+            home_slug = team_slugs.get(home_lower, home_lower.replace(' ', '-'))
+            away_abbrev = team_abbrevs.get(away_lower, away_lower[:3])
+            home_abbrev = team_abbrevs.get(home_lower, home_lower[:3])
+            
+            # Fetch the matchups page and look for link with both teams
+            matchups_url = f"https://www.covers.com/sports/nba/matchups"
             resp = requests.get(matchups_url, headers=headers, timeout=15)
             
             matchup_id = None
             if resp.status_code == 200:
                 soup = BeautifulSoup(resp.text, 'html.parser')
                 
-                # Get all unique matchup IDs from the page
-                all_ids = list(set(re.findall(r'/matchup/(\d+)', str(soup))))
+                # Find all matchup links and look for our game
+                all_links = soup.find_all('a', href=re.compile(r'/matchup/\d+'))
+                for link in all_links:
+                    href = link.get('href', '')
+                    link_text = link.get_text().lower()
+                    # Check if link text or surrounding context contains both teams
+                    parent_text = link.parent.get_text().lower() if link.parent else ''
+                    full_text = f"{link_text} {parent_text}"
+                    
+                    if (away_lower in full_text or away_abbrev in full_text) and \
+                       (home_lower in full_text or home_abbrev in full_text):
+                        match = re.search(r'/matchup/(\d+)', href)
+                        if match:
+                            matchup_id = match.group(1)
+                            break
                 
-                # Check each matchup page title to find the correct game
-                for mid in all_ids:
-                    try:
-                        check_url = f"https://www.covers.com/sport/basketball/nba/matchup/{mid}"
-                        check_resp = requests.get(check_url, headers=headers, timeout=8)
-                        if check_resp.status_code == 200:
-                            check_soup = BeautifulSoup(check_resp.text, 'html.parser')
-                            title = check_soup.find('title')
-                            if title:
-                                title_text = title.get_text().lower()
-                                # Title format: "Bulls vs Pacers Game Overview..."
-                                if matches_team(title_text, away_team) and matches_team(title_text, home_team):
-                                    matchup_id = mid
-                                    break
-                    except Exception:
-                        continue
+                # Fallback: get all IDs and check first 5 matchup pages
+                if not matchup_id:
+                    all_ids = list(set(re.findall(r'/matchup/(\d+)', str(soup))))[:5]
+                    for mid in all_ids:
+                        try:
+                            check_url = f"https://www.covers.com/sport/basketball/nba/matchup/{mid}"
+                            check_resp = requests.get(check_url, headers=headers, timeout=8)
+                            if check_resp.status_code == 200:
+                                title = BeautifulSoup(check_resp.text, 'html.parser').find('title')
+                                if title:
+                                    title_text = title.get_text().lower()
+                                    if (away_lower in title_text or away_abbrev in title_text) and \
+                                       (home_lower in title_text or home_abbrev in title_text):
+                                        matchup_id = mid
+                                        break
+                        except:
+                            continue
             
             # If we found a matchup ID, fetch the matchup page
             if matchup_id:
@@ -1311,55 +1317,66 @@ class MatchupIntelligence:
                 if resp.status_code == 200:
                     soup = BeautifulSoup(resp.text, 'html.parser')
                     text = soup.get_text(' ', strip=True)
+                    html = str(soup)
                     
-                    # Parse H2H section - look for "Win / Loss X-Y" pattern
-                    # H2H record is from away team's perspective
-                    wl_pattern = re.search(r'Win\s*/?\s*Loss\s*(\d+)-(\d+)', text, re.IGNORECASE)
-                    if wl_pattern:
-                        wins, losses = int(wl_pattern.group(1)), int(wl_pattern.group(2))
-                        result['h2h_record'] = f"{wins}-{losses}"
-                        
-                        if wins > losses:
-                            result['h2h_leader'] = away_team
-                        elif losses > wins:
-                            result['h2h_leader'] = home_team
-                        else:
-                            result['h2h_leader'] = 'Even'
+                    # Parse H2H Win/Loss from Last 10 section
+                    # Look for patterns like "4-6" or "Win/Loss 4-6" or "Last 10 ... W/L 4-6"
+                    wl_patterns = [
+                        re.search(r'Last\s*10\s*(?:Games)?\s*[^\d]*(\d+)\s*[-–]\s*(\d+)', text, re.IGNORECASE),
+                        re.search(r'Win\s*/?\s*Loss\s*(\d+)\s*[-–]\s*(\d+)', text, re.IGNORECASE),
+                        re.search(r'W/L\s*(\d+)\s*[-–]\s*(\d+)', text, re.IGNORECASE),
+                        re.search(r'Head.*Head[^\d]*(\d+)\s*[-–]\s*(\d+)', text, re.IGNORECASE),
+                    ]
                     
-                    # Parse ATS section - look for "ATS X-Y-Z" pattern
-                    ats_pattern = re.search(r'ATS\s*Against the Spread\s*(\d+)-(\d+)-(\d+)', text, re.IGNORECASE)
-                    if not ats_pattern:
-                        ats_pattern = re.search(r'ATS\s*(\d+)-(\d+)-(\d+)', text, re.IGNORECASE)
+                    for wl_pattern in wl_patterns:
+                        if wl_pattern:
+                            wins, losses = int(wl_pattern.group(1)), int(wl_pattern.group(2))
+                            result['h2h_record'] = f"{wins}-{losses}"
+                            if wins > losses:
+                                result['h2h_leader'] = away_team
+                            elif losses > wins:
+                                result['h2h_leader'] = home_team
+                            else:
+                                result['h2h_leader'] = 'Even'
+                            break
                     
-                    if ats_pattern:
-                        wins, losses, pushes = int(ats_pattern.group(1)), int(ats_pattern.group(2)), int(ats_pattern.group(3))
-                        result['h2h_ats'] = f"{wins}-{losses}-{pushes}"
-                        
-                        if wins > losses:
-                            result['ats_leader'] = away_team
-                        elif losses > wins:
-                            result['ats_leader'] = home_team
-                        else:
-                            result['ats_leader'] = 'Even'
+                    # Parse ATS section
+                    ats_patterns = [
+                        re.search(r'ATS\s*(?:Against the Spread)?\s*(\d+)\s*[-–]\s*(\d+)\s*[-–]\s*(\d+)', text, re.IGNORECASE),
+                        re.search(r'Against.*Spread[^\d]*(\d+)\s*[-–]\s*(\d+)\s*[-–]\s*(\d+)', text, re.IGNORECASE),
+                    ]
                     
-                    # Parse team records from the Records table
-                    # Format: "LAL 28-17 24-20-1" and "CLE 28-20 18-30-0"
-                    records_section = re.findall(r'([A-Z]{2,3})\s+(\d+-\d+)\s+(?:W/L\s+)?(?:Win/Loss\s+)?(\d+-\d+)', text)
-                    if not records_section:
-                        records_section = re.findall(r'(\d+-\d+)\s+(?:W/L|Win/Loss)\s+(\d+-\d+)', text)
+                    for ats_pattern in ats_patterns:
+                        if ats_pattern:
+                            wins, losses, pushes = int(ats_pattern.group(1)), int(ats_pattern.group(2)), int(ats_pattern.group(3))
+                            result['h2h_ats'] = f"{wins}-{losses}-{pushes}"
+                            if wins > losses:
+                                result['ats_leader'] = away_team
+                            elif losses > wins:
+                                result['ats_leader'] = home_team
+                            else:
+                                result['ats_leader'] = 'Even'
+                            break
                     
-                    # Alternative parsing for records
-                    away_rec_match = re.search(r'(\d+-\d+)\s+(?:\(\d+-\d+\s+Road\))', text)
-                    home_rec_match = re.search(r'(?:\(\d+-\d+\s+Home\))\s+(\d+-\d+)', text)
+                    # Parse team records - look for W-L patterns near team names
+                    away_record = re.search(rf'{away_abbrev}[^\d]*(\d+-\d+)', text, re.IGNORECASE)
+                    home_record = re.search(rf'{home_abbrev}[^\d]*(\d+-\d+)', text, re.IGNORECASE)
                     
-                    # Try to extract individual team records
-                    for abbr, record, ats in records_section[:2]:
-                        if matches_team(abbr, away_team):
-                            result['away_record'] = record
-                            result['away_ats'] = ats
-                        elif matches_team(abbr, home_team):
-                            result['home_record'] = record
-                            result['home_ats'] = ats
+                    # Alternative: Look for record pattern like "(24-20)"
+                    records = re.findall(r'\((\d+-\d+)\)', text)
+                    if len(records) >= 2:
+                        result['away_record'] = records[0]
+                        result['home_record'] = records[1]
+                    elif away_record:
+                        result['away_record'] = away_record.group(1)
+                    elif home_record:
+                        result['home_record'] = home_record.group(1)
+                    
+                    # Parse ATS records for each team
+                    ats_records = re.findall(r'(\d+-\d+-\d+)\s*ATS', text, re.IGNORECASE)
+                    if len(ats_records) >= 2:
+                        result['away_ats'] = ats_records[0]
+                        result['home_ats'] = ats_records[1]
             
             logger.info(f"Covers H2H {away_team} vs {home_team}: W/L={result['h2h_record']} ({result['h2h_leader']}), ATS={result['h2h_ats']} ({result['ats_leader']})")
             return result
