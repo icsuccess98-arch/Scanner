@@ -2626,11 +2626,11 @@
                             🤝 HEAD-TO-HEAD
                         </button>
                         <button class="h2h-tab" data-tab="away" onclick="switchH2HTab(this, 'away')" style="flex: 1; padding: 8px 10px; background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: var(--text-muted); font-size: 11px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
-                            <img src="${getTeamLogo(awayTeam, data.league)}" style="width: 16px; height: 16px;" onerror="this.style.display='none'">
+                            <img src="${data.away_logo || ''}" style="width: 16px; height: 16px;" onerror="this.style.display='none'">
                             ${awayTeam}
                         </button>
                         <button class="h2h-tab" data-tab="home" onclick="switchH2HTab(this, 'home')" style="flex: 1; padding: 8px 10px; background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: var(--text-muted); font-size: 11px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
-                            <img src="${getTeamLogo(homeTeam, data.league)}" style="width: 16px; height: 16px;" onerror="this.style.display='none'">
+                            <img src="${data.home_logo || ''}" style="width: 16px; height: 16px;" onerror="this.style.display='none'">
                             ${homeTeam}
                         </button>
                     </div>
