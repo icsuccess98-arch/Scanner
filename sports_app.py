@@ -9749,12 +9749,10 @@ def spreads():
     b2b_set = set()
     for g in nba_games:
         if g.away_team in teams_played_yesterday:
-            b2b_teams_list.append(f"{g.away_team} (away)")
             b2b_set.add(g.away_team)
         if g.home_team in teams_played_yesterday:
-            b2b_teams_list.append(f"{g.home_team} (home)")
             b2b_set.add(g.home_team)
-    b2b_display = ', '.join(b2b_teams_list) if b2b_teams_list else 'None'
+    b2b_display = ', '.join(sorted(b2b_set)) if b2b_set else 'None'
     
     # 6. Home/Away Edge - placeholder for now
     home_away_display = 'See game cards for H/A splits'
