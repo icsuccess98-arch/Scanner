@@ -7420,6 +7420,11 @@ def dashboard():
                           show_only_qualified=show_only_qualified, analytics=analytics,
                           is_big_slate=is_big_slate_day())
 
+@app.route('/dashboard')
+def dashboard_redirect():
+    """Redirect /dashboard to main page."""
+    return redirect(url_for('dashboard'))
+
 @app.route('/health')
 def health():
     """Comprehensive health check for monitoring."""
