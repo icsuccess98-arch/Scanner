@@ -1500,6 +1500,32 @@
                 </tr>`;
             };
             
+            // L3 Row helper (simplified version for Last 3 Games table)
+            function l5Row(metric, awayVal, homeVal, higherIsBetter = true) {
+                const aw = parseFloat(awayVal) || 0;
+                const hm = parseFloat(homeVal) || 0;
+                let awClass = '', hmClass = '', edge = '-';
+                
+                if (aw && hm) {
+                    if (higherIsBetter) {
+                        if (aw > hm) { awClass = 'edge-away'; edge = awayTeam; }
+                        else if (hm > aw) { hmClass = 'edge-home'; edge = homeTeam; }
+                    } else {
+                        if (aw < hm) { awClass = 'edge-away'; edge = awayTeam; }
+                        else if (hm < aw) { hmClass = 'edge-home'; edge = homeTeam; }
+                    }
+                }
+                
+                const fmt = (v) => (!v || v === 0) ? '-' : parseFloat(v).toFixed(1);
+                
+                return `<tr>
+                    <td class="metric-name">${metric}</td>
+                    <td class="${awClass}">${fmt(aw)}</td>
+                    <td class="${hmClass}">${fmt(hm)}</td>
+                    <td class="${awClass || hmClass}">${edge}</td>
+                </tr>`;
+            }
+            
             // Get L3 data (Last 3 Games from TeamRankings splits page)
             const awayL3 = data.away_l3 || {};
             const homeL3 = data.home_l3 || {};
