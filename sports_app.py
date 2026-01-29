@@ -2062,19 +2062,7 @@ class MatchupIntelligence:
         Auto-refreshes 2 hours before game time for live data.
         """
         from datetime import datetime
-        # Use production API (works in autoscale, no Playwright)
-        try:
-            from wagertalk_production_api import MultiSourceBettingScraper
-            _production_scraper = MultiSourceBettingScraper()
-            def get_all_wagertalk_data(league):
-                data = _production_scraper.get_betting_data(league)
-                # Convert list to dict format expected by this function
-                result = {}
-                for i, game in enumerate(data):
-                    result[f"game_{i}"] = game
-                return result
-        except ImportError:
-            from wagertalk_scraper import get_all_wagertalk_data
+        from wagertalk_scraper import get_all_wagertalk_data
         
         result = {}
         cache_key = f"{league}_{datetime.now().strftime('%Y%m%d')}"
