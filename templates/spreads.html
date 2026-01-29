@@ -2593,6 +2593,60 @@
                     </table>
                 </div>
                 
+                <!-- COVERS-STYLE H2H INTERACTIVE TABLE -->
+                <div class="h2h-interactive-section" style="margin-top: 12px; background: linear-gradient(145deg, rgba(20, 20, 35, 0.95), rgba(15, 15, 25, 0.98)); border-radius: 10px; padding: 12px; border: 1px solid rgba(59, 130, 246, 0.3);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                        <div style="font-size: 12px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 6px;">
+                            📊 LAST 10 GAMES
+                        </div>
+                    </div>
+                    
+                    <!-- Tab Buttons with Team Logos -->
+                    <div class="h2h-tabs" style="display: flex; gap: 6px; margin-bottom: 10px;" data-game-id="${data.game_id || ''}">
+                        <button class="h2h-tab active" data-tab="h2h" onclick="switchH2HTab(this, 'h2h')" style="flex: 1; padding: 8px 10px; background: rgba(59, 130, 246, 0.3); border: 1px solid rgba(59, 130, 246, 0.5); border-radius: 8px; color: #3B82F6; font-size: 11px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                            🤝 HEAD-TO-HEAD
+                        </button>
+                        <button class="h2h-tab" data-tab="away" onclick="switchH2HTab(this, 'away')" style="flex: 1; padding: 8px 10px; background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: var(--text-muted); font-size: 11px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                            <img src="${getTeamLogo(awayTeam, data.league)}" style="width: 16px; height: 16px;" onerror="this.style.display='none'">
+                            ${awayTeam}
+                        </button>
+                        <button class="h2h-tab" data-tab="home" onclick="switchH2HTab(this, 'home')" style="flex: 1; padding: 8px 10px; background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: var(--text-muted); font-size: 11px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                            <img src="${getTeamLogo(homeTeam, data.league)}" style="width: 16px; height: 16px;" onerror="this.style.display='none'">
+                            ${homeTeam}
+                        </button>
+                    </div>
+                    
+                    <!-- Summary Stats Row -->
+                    <div class="h2h-summary" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; padding: 8px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 9px; color: var(--text-muted); margin-bottom: 2px;">W/L</div>
+                            <div class="h2h-wl" style="font-size: 14px; font-weight: 700; color: #10B981;">${data.h2h_record || 'N/A'}</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 9px; color: var(--text-muted); margin-bottom: 2px;">ATS</div>
+                            <div class="h2h-ats" style="font-size: 14px; font-weight: 700; color: #3B82F6;">${data.h2h_ats || 'N/A'}</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 9px; color: var(--text-muted); margin-bottom: 2px;">O/U</div>
+                            <div class="h2h-ou" style="font-size: 14px; font-weight: 700; color: #F59E0B;">${data.h2h_ou || 'N/A'}</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Games Table -->
+                    <div class="h2h-games-table" style="font-size: 10px;">
+                        <div style="display: grid; grid-template-columns: 55px 1fr 70px 45px 50px; gap: 4px; padding: 6px 8px; background: rgba(255,255,255,0.05); border-radius: 6px 6px 0 0; font-weight: 600; color: var(--text-muted);">
+                            <div>📅 Date</div>
+                            <div>🏟️ vs</div>
+                            <div>📊 Result</div>
+                            <div>📈 ATS</div>
+                            <div>🎯 O/U</div>
+                        </div>
+                        <div class="h2h-games-list" style="max-height: 200px; overflow-y: auto;">
+                            <div style="text-align: center; padding: 16px; color: var(--text-muted); font-size: 10px;">Click HEAD-TO-HEAD to load games</div>
+                        </div>
+                    </div>
+                </div>
+                
                 <!-- BETTING ACTION - COMPACT -->
                 ${data.rlm ? (() => {
                     const awayBetPct = parseInt(data.rlm.away_bet_pct) || 50;
@@ -2782,6 +2836,93 @@
                 });
             });
         });
+        
+        function switchH2HTab(tab, tabType) {
+            const container = tab.closest('.h2h-tabs');
+            const section = tab.closest('.h2h-interactive-section');
+            const gameId = container.dataset.gameId;
+            const awayTeam = container.querySelectorAll('.h2h-tab')[1]?.textContent.trim() || 'Away';
+            const homeTeam = container.querySelectorAll('.h2h-tab')[2]?.textContent.trim() || 'Home';
+            
+            container.querySelectorAll('.h2h-tab').forEach(t => {
+                t.style.background = 'transparent';
+                t.style.borderColor = 'rgba(255,255,255,0.1)';
+                t.style.color = 'var(--text-muted)';
+                t.classList.remove('active');
+            });
+            tab.style.background = 'rgba(59, 130, 246, 0.3)';
+            tab.style.borderColor = 'rgba(59, 130, 246, 0.5)';
+            tab.style.color = '#3B82F6';
+            tab.classList.add('active');
+            
+            const wlBox = section.querySelector('.h2h-wl');
+            const atsBox = section.querySelector('.h2h-ats');
+            const ouBox = section.querySelector('.h2h-ou');
+            const gamesList = section.querySelector('.h2h-games-list');
+            
+            if (tabType === 'h2h') {
+                gamesList.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">⏳ Loading...</div>';
+                
+                fetch(`/api/covers_h2h/${gameId}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (wlBox) wlBox.textContent = data.wl_record || 'N/A';
+                        if (atsBox) atsBox.textContent = data.ats_record || 'N/A';
+                        if (ouBox) ouBox.textContent = data.ou_record || 'N/A';
+                        
+                        if (data.games && data.games.length > 0) {
+                            let html = '';
+                            data.games.slice(0, 10).forEach(game => {
+                                const wColor = (game.score || '').includes('W') ? '#10B981' : '#EF4444';
+                                const atsColor = (game.ats || '').includes('W') ? '#10B981' : '#EF4444';
+                                const ouVal = (game.ou || '').toLowerCase();
+                                const ouColor = ouVal.includes('o') ? '#10B981' : (ouVal.includes('u') ? '#EF4444' : '#F59E0B');
+                                html += `<div style="display:grid; grid-template-columns:55px 1fr 70px 45px 50px; gap:4px; padding:8px; border-bottom:1px solid rgba(255,255,255,0.05); align-items:center; font-size:10px;">
+                                    <div style="color:var(--text-muted);">${game.date || '--'}</div>
+                                    <div style="color:#fff; font-weight:500;">${game.matchup || '--'}</div>
+                                    <div style="color:${wColor}; font-weight:600;">${game.score || '--'}</div>
+                                    <div style="color:${atsColor};">${game.ats || '--'}</div>
+                                    <div style="color:${ouColor};">${game.ou || '--'}</div>
+                                </div>`;
+                            });
+                            gamesList.innerHTML = html;
+                        } else {
+                            gamesList.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">No H2H games found</div>';
+                        }
+                    })
+                    .catch(err => {
+                        console.error('H2H fetch error:', err);
+                        gamesList.innerHTML = '<div style="text-align:center;padding:20px;color:#EF4444;">❌ Failed to load data</div>';
+                    });
+            } else {
+                const teamName = tabType === 'away' ? awayTeam : homeTeam;
+                if (wlBox) wlBox.textContent = '--';
+                if (atsBox) atsBox.textContent = '--';
+                if (ouBox) ouBox.textContent = '--';
+                
+                const slug = teamName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+                const sectionCard = section.closest('.analytics-modal, .game-card, [data-league]');
+                const cardText = sectionCard ? sectionCard.textContent : '';
+                let sport = 'basketball';
+                let league = 'nba';
+                if (cardText.includes('CBB') || cardText.includes('NCAA')) {
+                    sport = 'basketball'; league = 'ncaab';
+                } else if (cardText.includes('NHL')) {
+                    sport = 'hockey'; league = 'nhl';
+                } else if (cardText.includes('NFL')) {
+                    sport = 'football'; league = 'nfl';
+                } else if (cardText.includes('CFB')) {
+                    sport = 'football'; league = 'ncaaf';
+                }
+                
+                gamesList.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:11px;">
+                    <div style="margin-bottom:10px;">📊 View ${teamName}'s last 10 games</div>
+                    <a href="https://www.covers.com/sport/${sport}/${league}/teams/main/${slug}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:rgba(59,130,246,0.2);border:1px solid rgba(59,130,246,0.4);border-radius:8px;color:#3B82F6;text-decoration:none;font-weight:600;font-size:12px;">
+                        🔗 Open on Covers.com
+                    </a>
+                </div>`;
+            }
+        }
     </script>
 </body>
 </html>
