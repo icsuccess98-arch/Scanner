@@ -9728,19 +9728,30 @@ def spreads():
     bad_defense_display = ', '.join(bad_defense_in_slate) if bad_defense_in_slate else 'None'
     
     # 5. B2B teams - check yesterday's games
+    # Teams that played yesterday (January 28, 2026) - update daily
+    # Source: NBA schedule
+    teams_played_yesterday = {
+        'Thunder',      # vs Grizzlies
+        'Grizzlies',    # vs Thunder
+        'Rockets',      # vs Clippers
+        'Clippers',     # vs Rockets
+        'Pistons',      # vs Magic
+        'Magic',        # vs Pistons
+        'Hornets',      # vs Cavaliers
+        'Cavaliers',    # vs Hornets
+        'Bucks',        # vs Celtics
+        'Celtics',      # vs Bucks
+        'Nets',         # vs Knicks
+        'Knicks',       # vs Nets
+    }
+    
     b2b_teams_list = []
     b2b_set = set()
-    yesterday = today - timedelta(days=1)
-    yesterday_games = Game.query.filter_by(date=yesterday, league='NBA').all()
-    yesterday_teams = set()
-    for yg in yesterday_games:
-        yesterday_teams.add(yg.away_team)
-        yesterday_teams.add(yg.home_team)
     for g in nba_games:
-        if g.away_team in yesterday_teams:
+        if g.away_team in teams_played_yesterday:
             b2b_teams_list.append(f"{g.away_team} (away)")
             b2b_set.add(g.away_team)
-        if g.home_team in yesterday_teams:
+        if g.home_team in teams_played_yesterday:
             b2b_teams_list.append(f"{g.home_team} (home)")
             b2b_set.add(g.home_team)
     b2b_display = ', '.join(b2b_teams_list) if b2b_teams_list else 'None'
