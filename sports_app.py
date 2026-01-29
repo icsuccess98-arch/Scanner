@@ -9822,7 +9822,7 @@ def spreads():
     for team_name in teams_today:
         l10 = nba_l10_records.get(team_name)
         if l10 and l10[0] <= 3:  # 3 wins or less in L10
-            cold_teams_list.append(f"{team_name} ({l10[0]}-{l10[1]})")
+            cold_teams_list.append(f"{team_name}\u00A0({l10[0]}-{l10[1]})")
             cold_teams_set.add(team_name)
     cold_teams_display = ', '.join(sorted(cold_teams_list, key=lambda x: int(x.split('(')[1].split('-')[0]))) if cold_teams_list else 'None'
     
@@ -9832,7 +9832,7 @@ def spreads():
     for team_name in teams_today:
         l10 = nba_l10_records.get(team_name)
         if l10 and l10[0] >= 8:  # 8 wins or more in L10
-            hot_teams_list.append(f"{team_name} ({l10[0]}-{l10[1]})")
+            hot_teams_list.append(f"{team_name}\u00A0({l10[0]}-{l10[1]})")
             hot_teams_set.add(team_name)
     hot_teams_display = ', '.join(sorted(hot_teams_list, key=lambda x: -int(x.split('(')[1].split('-')[0]))) if hot_teams_list else 'None'
     
@@ -9843,10 +9843,10 @@ def spreads():
         away_rank = bad_defense_teams.get(g.away_team)
         home_rank = bad_defense_teams.get(g.home_team)
         if away_rank:
-            bad_defense_in_slate.append(f"{g.away_team} ({away_rank})")
+            bad_defense_in_slate.append(f"{g.away_team}\u00A0({away_rank})")
             bad_defense_set.add(g.away_team)
         if home_rank:
-            bad_defense_in_slate.append(f"{g.home_team} ({home_rank})")
+            bad_defense_in_slate.append(f"{g.home_team}\u00A0({home_rank})")
             bad_defense_set.add(g.home_team)
     bad_defense_display = ', '.join(bad_defense_in_slate) if bad_defense_in_slate else 'None'
     
