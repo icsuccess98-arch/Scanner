@@ -38,6 +38,83 @@ logger = logging.getLogger(__name__)
 # ============================================================
 
 # ESPN Team ID mapping for CBB - comprehensive list
+# Common aliases for ESPN team name matching
+ESPN_CBB_TEAM_ALIASES = {
+    'App State': 'Appalachian State',
+    'App St': 'Appalachian State',
+    'Ark State': 'Arkansas State',
+    'UNC': 'North Carolina',
+    'Coastal': 'Coastal Carolina',
+    'Ga Southern': 'Georgia Southern',
+    'Ga State': 'Georgia State',
+    'Ga Tech': 'Georgia Tech',
+    'La Tech': 'Louisiana Tech',
+    'Mid Tennessee': 'Middle Tennessee',
+    'MTSU': 'Middle Tennessee',
+    'W Kentucky': 'Western Kentucky',
+    'WKU': 'Western Kentucky',
+    'N Texas': 'North Texas',
+    'UNT': 'North Texas',
+    'E Carolina': 'East Carolina',
+    'ECU': 'East Carolina',
+    'ODU': 'Old Dominion',
+    'UAB': 'UAB',
+    'USF': 'South Florida',
+    'UNCW': 'UNC Wilmington',
+    'UNCG': 'UNC Greensboro',
+    'UNCA': 'UNC Asheville',
+    'Loyola-MD': 'Loyola MD',
+    'Loyola (MD)': 'Loyola MD',
+    'St. Marys': "Saint Mary's",
+    'St Marys': "Saint Mary's",
+    'SMC': "Saint Mary's",
+    'Loyola Chi': 'Loyola Chicago',
+    'Loy Chicago': 'Loyola Chicago',
+    'E Washington': 'Eastern Washington',
+    'EWU': 'Eastern Washington',
+    'E Illinois': 'Eastern Illinois',
+    'E Michigan': 'Eastern Michigan',
+    'E Kentucky': 'Eastern Kentucky',
+    'W Michigan': 'Western Michigan',
+    'W Illinois': 'Western Illinois',
+    'W Carolina': 'Western Carolina',
+    'N Colorado': 'Northern Colorado',
+    'N Illinois': 'Northern Illinois',
+    'N Iowa': 'Northern Iowa',
+    'N Arizona': 'Northern Arizona',
+    'S Dakota': 'South Dakota',
+    'S Dakota St': 'South Dakota State',
+    'N Dakota St': 'North Dakota State',
+    'Mo State': 'Missouri State',
+    'SE Missouri': 'SE Missouri State',
+    'SE Louisiana': 'SE Louisiana',
+    'SFA': 'Stephen F. Austin',
+    'SFASU': 'Stephen F. Austin',
+    'TAMUCC': 'Texas A&M-Corpus Christi',
+    'TAMUC': 'Texas A&M-Commerce',
+    'Cal St Fullerton': 'CS Fullerton',
+    'Cal St Northridge': 'CS Northridge',
+    'Cal St Bakersfield': 'CS Bakersfield',
+    'CSUF': 'CS Fullerton',
+    'CSUN': 'CS Northridge',
+    'CSUB': 'CS Bakersfield',
+    'LBSU': 'Long Beach State',
+    'LB State': 'Long Beach State',
+    'Pitt': 'Pittsburgh',
+    'Ill State': 'Illinois State',
+    'Ind State': 'Indiana State',
+    'Penn St': 'Penn State',
+    'Mich State': 'Michigan State',
+    'Ohio St': 'Ohio State',
+    'Fla State': 'Florida State',
+    'Okla State': 'Oklahoma State',
+    'Miss State': 'Mississippi State',
+    'Wash State': 'Washington State',
+    'Ore State': 'Oregon State',
+    'Col State': 'Colorado State',
+    'Utah St': 'Utah State',
+}
+
 ESPN_CBB_TEAM_IDS = {
     'Duke': 150, 'North Carolina': 153, 'Kentucky': 96, 'Kansas': 2305, 'UCLA': 26,
     'Gonzaga': 2250, 'Villanova': 222, 'Michigan State': 127, 'Michigan': 130, 'Arizona': 12,
@@ -142,18 +219,30 @@ def get_transparent_cbb_logo(team_name: str) -> Optional[str]:
     Get transparent CBB logo URL.
     Uses -dark suffix for transparent backgrounds.
     """
+    # First check aliases
+    if team_name in ESPN_CBB_TEAM_ALIASES:
+        canonical = ESPN_CBB_TEAM_ALIASES[team_name]
+        if canonical in CBB_TEAM_LOGOS_COMPLETE:
+            return CBB_TEAM_LOGOS_COMPLETE[canonical]
+    
     # Try direct match
     if team_name in CBB_TEAM_LOGOS_COMPLETE:
         return CBB_TEAM_LOGOS_COMPLETE[team_name]
     
-    # Try fuzzy match
-    team_lower = team_name.lower()
+    # Try fuzzy match on aliases first
+    team_lower = team_name.lower().strip()
+    for alias, canonical in ESPN_CBB_TEAM_ALIASES.items():
+        if alias.lower() == team_lower or team_lower.startswith(alias.lower()):
+            if canonical in CBB_TEAM_LOGOS_COMPLETE:
+                return CBB_TEAM_LOGOS_COMPLETE[canonical]
+    
+    # Try fuzzy match on team names
     for key, url in CBB_TEAM_LOGOS_COMPLETE.items():
+        if key.lower() == team_lower:
+            return url
         if key.lower() in team_lower or team_lower in key.lower():
             return url
     
-    # Fallback: try to construct from team name
-    # This requires ESPN team ID mapping - you'd need to build this
     return None
 
 

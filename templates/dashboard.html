@@ -1377,26 +1377,49 @@
     <div class="container py-4">
         {% if supermax_lock %}
         <div class="lock-hero">
-            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
-                <div class="d-flex flex-column align-items-start">
-                    <div class="lock-edge-top mb-1">
-                        EDGE {{ "%.1f"|format(supermax_lock.edge) }} PTS
-                    </div>
+            <!-- Header with badge and league -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="d-flex align-items-center gap-2">
                     <span class="lock-badge"><i class="bi bi-lightning-charge-fill"></i> SUPERMAX</span>
-                    <span class="badge mt-1" style="background: var(--bg-card); color: var(--text-muted); font-size: 0.7rem; padding: 0.25rem 0.5rem;">{{ supermax_lock.league }}</span>
+                    <span class="badge" style="background: var(--bg-card); color: var(--text-muted); font-size: 0.7rem; padding: 0.25rem 0.5rem;">{{ supermax_lock.league }}</span>
                 </div>
-                <div class="text-center flex-grow-1">
-                    <div class="lock-matchup">{{ supermax_lock.away_team }} @ {{ supermax_lock.home_team }}</div>
-                    <div class="game-time">{{ supermax_lock.game_time }}</div>
+                <div class="lock-edge-top">EDGE {{ "%.1f"|format(supermax_lock.edge) }} PTS</div>
+            </div>
+            
+            <!-- Team logos and matchup - same style as game cards -->
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex flex-column align-items-center" style="width: 80px;">
+                    <img src="{{ supermax_lock.away_logo }}" alt="{{ supermax_lock.away_team }}" 
+                         style="width: 56px; height: 56px; object-fit: contain;"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <div style="display:none; width:56px; height:56px; background:rgba(139,92,246,0.2); border-radius:50%; align-items:center; justify-content:center; font-size:16px; font-weight:600; color:#8B5CF6;">{{ supermax_lock.away_team[:3] }}</div>
+                    <div style="font-size: 0.85rem; font-weight: 600; margin-top: 6px; text-align: center;">{{ supermax_lock.away_team }}</div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted);">{{ supermax_lock.away_record or '--' }}</div>
                 </div>
-                <div class="pick-container">
-                    <div class="lock-pick {% if supermax_lock.direction == 'U' %}under{% endif %}">
-                        {% if supermax_lock.alt_total_line %}
-                        {{ supermax_lock.direction }}{{ supermax_lock.alt_total_line }}{% if supermax_lock.alt_total_odds %} <span class="pick-odds">{{ supermax_lock.alt_total_odds }}</span>{% endif %}
-                        {% else %}
-                        {{ supermax_lock.direction }}{{ supermax_lock.line }}
-                        {% endif %}
-                    </div>
+                
+                <div class="text-center flex-grow-1 px-2">
+                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 2px;">{{ supermax_lock.game_time }}</div>
+                    <div style="font-size: 1.25rem; font-weight: 500; color: var(--text-muted);">@</div>
+                </div>
+                
+                <div class="d-flex flex-column align-items-center" style="width: 80px;">
+                    <img src="{{ supermax_lock.home_logo }}" alt="{{ supermax_lock.home_team }}" 
+                         style="width: 56px; height: 56px; object-fit: contain;"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <div style="display:none; width:56px; height:56px; background:rgba(139,92,246,0.2); border-radius:50%; align-items:center; justify-content:center; font-size:16px; font-weight:600; color:#8B5CF6;">{{ supermax_lock.home_team[:3] }}</div>
+                    <div style="font-size: 0.85rem; font-weight: 600; margin-top: 6px; text-align: center;">{{ supermax_lock.home_team }}</div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted);">{{ supermax_lock.home_record or '--' }}</div>
+                </div>
+            </div>
+            
+            <!-- Pick display -->
+            <div class="text-center mt-3">
+                <div class="lock-pick {% if supermax_lock.direction == 'U' %}under{% endif %}">
+                    {% if supermax_lock.alt_total_line %}
+                    {{ supermax_lock.direction }}{{ supermax_lock.alt_total_line }} <span class="pick-odds">({{ supermax_lock.alt_total_odds if supermax_lock.alt_total_odds else '-110' }})</span>
+                    {% else %}
+                    {{ supermax_lock.direction }}{{ supermax_lock.line }} <span class="pick-odds">({{ supermax_lock.alt_total_odds if supermax_lock.alt_total_odds else '-110' }})</span>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -1459,7 +1482,7 @@
                             </div>
                             <div style="display: grid; grid-template-columns: 90px 75px 50px 60px; align-items: center; gap: 0.5rem;">
                                 <span class="direction-chip {% if pick.direction == 'O' %}over{% else %}under{% endif %}" style="font-size: 0.7rem; padding: 0.2rem 0.4rem; font-weight: 600; text-align: center;">
-                                    {{ pick.direction }}{{ "%.1f"|format(pick.alt_line if pick.alt_line else pick.line) }}{% if pick.game.alt_total_odds %} ({{ pick.game.alt_total_odds }}){% endif %}
+                                    {{ pick.direction }}{{ "%.1f"|format(pick.alt_line if pick.alt_line else pick.line) }} ({{ pick.game.alt_total_odds if pick.game.alt_total_odds else '-110' }})
                                 </span>
                                 <span style="color: var(--green); font-weight: 700; font-size: 0.75rem;">+{{ "%.1f"|format(pick.edge) }}</span>
                                 <div class="edge-bar" title="Edge: {{ '%.1f'|format(pick.edge) }}" style="width: 40px; height: 6px; background: var(--bg-input); border-radius: 3px; overflow: hidden;">
@@ -1569,7 +1592,7 @@
                         </div>
                         <div class="totals-stat" style="flex: 1.5;">
                             {% if game.is_qualified %}
-                            <span class="pikkit-pick-chip {% if game.direction == 'O' %}over{% else %}under{% endif %}">{{ game.direction }}{{ "%.1f"|format(game.alt_total_line if game.alt_total_line else game.line) }}{% if game.alt_total_odds %} ({{ game.alt_total_odds }}){% endif %}</span>
+                            <span class="pikkit-pick-chip {% if game.direction == 'O' %}over{% else %}under{% endif %}">{{ game.direction }}{{ "%.1f"|format(game.alt_total_line if game.alt_total_line else game.line) }} ({{ game.alt_total_odds if game.alt_total_odds else '-110' }})</span>
                             {% else %}
                             <span class="pikkit-pick-chip no-bet">NO BET</span>
                             {% endif %}
@@ -2055,7 +2078,7 @@
                         </div>
                         <div class="totals-stat" style="flex: 1.5;">
                             {% if game.is_qualified %}
-                            <span class="pikkit-pick-chip {% if game.direction == 'O' %}over{% else %}under{% endif %}">{{ game.direction }}{{ "%.1f"|format(game.alt_total_line if game.alt_total_line else game.line) }}{% if game.alt_total_odds %} ({{ game.alt_total_odds }}){% endif %}</span>
+                            <span class="pikkit-pick-chip {% if game.direction == 'O' %}over{% else %}under{% endif %}">{{ game.direction }}{{ "%.1f"|format(game.alt_total_line if game.alt_total_line else game.line) }} ({{ game.alt_total_odds if game.alt_total_odds else '-110' }})</span>
                             {% else %}
                             <span class="pikkit-pick-chip no-bet">NO BET</span>
                             {% endif %}
