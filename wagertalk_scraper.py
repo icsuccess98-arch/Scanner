@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 # Cache for WagerTalk data
 _wagertalk_cache = {}
 _wagertalk_cache_time = {}
-CACHE_TTL = 120  # 2 minute cache
+CACHE_TTL = 60  # 1 minute cache for fresher line movement data
 
 
 def _is_cache_valid(key: str) -> bool:

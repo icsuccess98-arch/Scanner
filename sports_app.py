@@ -1955,7 +1955,7 @@ class MatchupIntelligence:
         if cache_key in MatchupIntelligence._rlm_cache:
             cached_time = MatchupIntelligence._rlm_cache_time.get(cache_key, now)
             cache_age_minutes = (now - cached_time).total_seconds() / 60
-            should_refresh = cache_age_minutes > 30
+            should_refresh = cache_age_minutes > 2  # Refresh every 2 mins for live line movement
             
             if game_time and not should_refresh:
                 try:
