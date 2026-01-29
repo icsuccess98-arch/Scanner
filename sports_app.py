@@ -1171,44 +1171,40 @@ class MatchupIntelligence:
     @staticmethod
     def fetch_rlm_data(league: str = 'NBA') -> dict:
         """
-        Fetch betting consensus data from ScoresAndOdds using Playwright.
-        Returns % of Bets (tickets) and % of Money (handle) for all games.
-        Detects sharp money when money % differs from bets % (RLM indicator).
+        Fetch betting consensus data from OddsShark.
+        Returns % of Bets (tickets) for all games.
+        Detects lopsided betting when ≥60% of bets are on one side.
         """
+        import requests
         from bs4 import BeautifulSoup
         import re
         
         result = {}
         
         try:
-            from playwright.sync_api import sync_playwright
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
             
             league_urls = {
-                'NBA': 'https://www.scoresandodds.com/nba',
-                'CBB': 'https://www.scoresandodds.com/ncaab'
+                'NBA': 'https://www.oddsshark.com/nba/consensus-picks',
+                'CBB': 'https://www.oddsshark.com/ncaab/consensus-picks'
             }
             
             url = league_urls.get(league)
             if not url:
                 return result
             
-            with sync_playwright() as p:
-                browser = p.chromium.launch(headless=True)
-                page = browser.new_page()
-                page.goto(url, timeout=30000)
-                page.wait_for_load_state('networkidle', timeout=15000)
-                html = page.content()
-                browser.close()
+            resp = requests.get(url, headers=headers, timeout=15)
+            if resp.status_code != 200:
+                return result
             
-            soup = BeautifulSoup(html, 'html.parser')
+            soup = BeautifulSoup(resp.text, 'html.parser')
             
-            # ScoresAndOdds displays games in event containers
-            # Look for game rows with team names and betting percentages
-            game_containers = soup.find_all(['div', 'tr'], class_=lambda x: x and any(k in str(x).lower() for k in ['event', 'game', 'matchup', 'row']))
+            # OddsShark consensus page has game data in divs
+            # Look for game containers with team info
+            game_divs = soup.find_all('div', class_=lambda x: x and 'gc-odds-table' in str(x).lower())
             
-            # Find tables with betting data
+            # Also look in tables
             tables = soup.find_all('table')
-            
             for table in tables:
                 rows = table.find_all('tr')
                 
@@ -1218,99 +1214,75 @@ class MatchupIntelligence:
                     row1 = rows[i]
                     row2 = rows[i + 1]
                     
-                    # Extract team names
-                    team1_text = row1.get_text(' ', strip=True)
-                    team2_text = row2.get_text(' ', strip=True)
+                    # Get all text from each row
+                    text1 = row1.get_text(' ', strip=True)
+                    text2 = row2.get_text(' ', strip=True)
                     
-                    # Look for team name patterns
-                    team1_match = re.search(r'^([A-Za-z\s\.]+?)(?:\d|\+|-|$)', team1_text)
-                    team2_match = re.search(r'^([A-Za-z\s\.]+?)(?:\d|\+|-|$)', team2_text)
+                    # Extract team name (first word(s) before numbers)
+                    team1_match = re.match(r'^([A-Za-z\s\.]+?)(?:\s*[-+\d]|$)', text1)
+                    team2_match = re.match(r'^([A-Za-z\s\.]+?)(?:\s*[-+\d]|$)', text2)
                     
                     if team1_match and team2_match:
                         away_team = team1_match.group(1).strip()
                         home_team = team2_match.group(1).strip()
                         
-                        # Skip if team names are too short
+                        # Skip headers or invalid rows
                         if len(away_team) < 2 or len(home_team) < 2:
-                            i += 2
+                            i += 1
+                            continue
+                        if any(x in away_team.lower() for x in ['team', 'spread', 'consensus']):
+                            i += 1
                             continue
                         
                         game_key = f"{away_team}_vs_{home_team}".lower().replace(' ', '_').replace('.', '')
                         
-                        # Extract betting percentages (% of Bets and % of Money)
-                        # Format: "56%" or "56" in various cells
-                        away_bets, away_money = 'N/A', 'N/A'
-                        home_bets, home_money = 'N/A', 'N/A'
-                        away_spread, home_spread = 'N/A', 'N/A'
+                        # Extract spread and percentage from text
+                        # Format in cell: "Team Name +3.5 56%"
+                        away_spread = 'N/A'
+                        away_bets = 'N/A'
+                        home_spread = 'N/A'
+                        home_bets = 'N/A'
                         
-                        # Parse cells for percentages
-                        cells1 = row1.find_all('td')
-                        cells2 = row2.find_all('td')
+                        # Look for spread pattern
+                        spread1 = re.search(r'([+-]\d+\.?\d?)', text1)
+                        if spread1:
+                            away_spread = spread1.group(1)
                         
-                        for cell in cells1:
-                            text = cell.get_text(strip=True)
-                            # Look for spread
-                            spread_match = re.search(r'([+-]\d+\.?\d?)', text)
-                            if spread_match and away_spread == 'N/A':
-                                away_spread = spread_match.group(1)
-                            # Look for percentages
-                            pct_match = re.search(r'(\d{1,3})%', text)
-                            if pct_match:
-                                pct_val = pct_match.group(1)
-                                if away_bets == 'N/A':
-                                    away_bets = pct_val
-                                elif away_money == 'N/A':
-                                    away_money = pct_val
+                        spread2 = re.search(r'([+-]\d+\.?\d?)', text2)
+                        if spread2:
+                            home_spread = spread2.group(1)
                         
-                        for cell in cells2:
-                            text = cell.get_text(strip=True)
-                            spread_match = re.search(r'([+-]\d+\.?\d?)', text)
-                            if spread_match and home_spread == 'N/A':
-                                home_spread = spread_match.group(1)
-                            pct_match = re.search(r'(\d{1,3})%', text)
-                            if pct_match:
-                                pct_val = pct_match.group(1)
-                                if home_bets == 'N/A':
-                                    home_bets = pct_val
-                                elif home_money == 'N/A':
-                                    home_money = pct_val
+                        # Look for percentage pattern
+                        pct1 = re.findall(r'(\d{1,3})%', text1)
+                        if pct1:
+                            away_bets = pct1[0]
                         
-                        # Calculate RLM potential (sharp money indicator)
-                        rlm_potential = False
-                        try:
-                            if away_bets != 'N/A' and away_money != 'N/A':
-                                bets_pct = int(away_bets)
-                                money_pct = int(away_money)
-                                # RLM: When minority of bets has majority of money
-                                if bets_pct < 50 and money_pct > 50:
-                                    rlm_potential = True
-                                elif bets_pct > 50 and money_pct < 50:
-                                    rlm_potential = True
-                        except:
-                            pass
+                        pct2 = re.findall(r'(\d{1,3})%', text2)
+                        if pct2:
+                            home_bets = pct2[0]
                         
-                        # Determine majority betting side
+                        # Determine majority and lopsided betting
                         try:
                             away_pct = int(away_bets) if away_bets != 'N/A' else 0
                             home_pct = int(home_bets) if home_bets != 'N/A' else 0
                             majority_team = 'away' if away_pct > home_pct else 'home'
                             majority_pct = max(away_pct, home_pct)
+                            rlm_potential = majority_pct >= 60
                         except:
                             majority_team = 'N/A'
                             majority_pct = 0
+                            rlm_potential = False
                         
                         result[game_key] = {
                             'away': {
                                 'team': away_team,
                                 'spread': away_spread,
-                                'bet_pct': away_bets,
-                                'money_pct': away_money
+                                'bet_pct': away_bets
                             },
                             'home': {
                                 'team': home_team,
                                 'spread': home_spread,
-                                'bet_pct': home_bets,
-                                'money_pct': home_money
+                                'bet_pct': home_bets
                             },
                             'majority_team': majority_team,
                             'majority_pct': majority_pct,
@@ -1319,11 +1291,11 @@ class MatchupIntelligence:
                     
                     i += 2
             
-            logger.info(f"ScoresAndOdds data fetched for {league}: {len(result)} games")
+            logger.info(f"OddsShark betting data fetched for {league}: {len(result)} games")
             return result
             
         except Exception as e:
-            logger.warning(f"Error fetching ScoresAndOdds data for {league}: {e}")
+            logger.warning(f"Error fetching OddsShark data for {league}: {e}")
             return result
     
     @staticmethod
