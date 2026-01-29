@@ -1258,20 +1258,11 @@ class MatchupIntelligence:
                                 spread = 'N/A'
                                 bet_pct = 'N/A'
                         
-                        # Parse O/U percentage
-                        ou_pct = 'N/A'
-                        for cell in cell_text:
-                            ou_match = re.search(r'[OU](\d{3}\.?\d*)(\d{1,3})%', cell)
-                            if ou_match:
-                                ou_pct = ou_match.group(2)
-                                break
-                        
                         key = 'away' if i == 0 else 'home'
                         game_data[key] = {
                             'team': team_name,
                             'spread': spread,
-                            'bet_pct': bet_pct,
-                            'ou_pct': ou_pct
+                            'bet_pct': bet_pct
                         }
                     
                     # Create game key and compute lopsided betting only if both teams exist
@@ -1303,7 +1294,7 @@ class MatchupIntelligence:
             return result
             
         except Exception as e:
-            logger.warning(f"Error fetching RLM data for {league}: {e}")
+            logger.warning(f"Error fetching betting data for {league}: {e}")
             return result
     
     @staticmethod
