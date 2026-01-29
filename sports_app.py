@@ -1958,9 +1958,40 @@ class MatchupIntelligence:
         try:
             wagertalk_data = get_all_wagertalk_data(league)
             
+            # City to Nickname mapping for consistent Bovada-style names
+            city_to_nickname = {
+                'Washington': 'Wizards', 'Milwaukee': 'Bucks', 'Boston': 'Celtics',
+                'Brooklyn': 'Nets', 'Charlotte': 'Hornets', 'Chicago': 'Bulls',
+                'Cleveland': 'Cavaliers', 'Dallas': 'Mavericks', 'Denver': 'Nuggets',
+                'Detroit': 'Pistons', 'Golden State': 'Warriors', 'Houston': 'Rockets',
+                'Indiana': 'Pacers', 'LA Clippers': 'Clippers', 'LA Lakers': 'Lakers',
+                'Los Angeles Lakers': 'Lakers', 'Los Angeles Clippers': 'Clippers',
+                'Memphis': 'Grizzlies', 'Miami': 'Heat', 'Minnesota': 'Timberwolves',
+                'New Orleans': 'Pelicans', 'New York': 'Knicks', 'Oklahoma City': 'Thunder',
+                'Orlando': 'Magic', 'Philadelphia': 'Sixers', 'Phoenix': 'Suns',
+                'Portland': 'Trail Blazers', 'Sacramento': 'Kings', 'San Antonio': 'Spurs',
+                'Toronto': 'Raptors', 'Utah': 'Jazz', 'Atlanta': 'Hawks'
+            }
+            
+            def normalize_team_name(name):
+                """Convert city name or full name to Bovada-style nickname."""
+                if not name:
+                    return name
+                # Already a nickname
+                if name in city_to_nickname.values():
+                    return name
+                # City name lookup
+                if name in city_to_nickname:
+                    return city_to_nickname[name]
+                # Try partial match
+                for city, nickname in city_to_nickname.items():
+                    if city.lower() in name.lower() or name.lower() in city.lower():
+                        return nickname
+                return name
+            
             for key, data in wagertalk_data.items():
-                away_team = data.get('away_team', '')
-                home_team = data.get('home_team', '')
+                away_team = normalize_team_name(data.get('away_team', ''))
+                home_team = normalize_team_name(data.get('home_team', ''))
                 
                 # Spread percentages (favorite vs underdog)
                 spread_tickets_pct = data.get('spread_tickets_pct', 50)
