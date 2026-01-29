@@ -174,11 +174,11 @@ class Base(DeclarativeBase):
 db = SQLAlchemy(model_class=Base)
 app = Flask(__name__, static_folder='static', static_url_path='/static')
 
-flask_secret = os.environ.get("FLASK_SECRET_KEY")
+flask_secret = os.environ.get("SESSION_SECRET") or os.environ.get("FLASK_SECRET_KEY")
 if not flask_secret:
     import secrets
     flask_secret = secrets.token_hex(32)
-    logger.warning("FLASK_SECRET_KEY not set - using generated key (sessions will reset on restart)")
+    logger.warning("SESSION_SECRET not set - using generated key (sessions will reset on restart)")
 app.secret_key = flask_secret
 
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
@@ -7242,12 +7242,17 @@ def dashboard():
     show_only_qualified = request.args.get('qualified', '0') == '1'
     # Always filter to games with lines (Bovada only)
     
-    old_game_ids = [g.id for g in Game.query.filter(Game.date < today).all()]
-    if old_game_ids:
-        Pick.query.filter(Pick.game_id.in_(old_game_ids)).update({Pick.game_id: None}, synchronize_session=False)
-        stmt = delete(Game).where(Game.id.in_(old_game_ids))
-        db.session.execute(stmt)
-        db.session.commit()
+    # Move cleanup to background - don't block health checks
+    try:
+        old_game_ids = [g.id for g in Game.query.filter(Game.date < today).limit(100).all()]
+        if old_game_ids:
+            Pick.query.filter(Pick.game_id.in_(old_game_ids)).update({Pick.game_id: None}, synchronize_session=False)
+            stmt = delete(Game).where(Game.id.in_(old_game_ids))
+            db.session.execute(stmt)
+            db.session.commit()
+    except Exception as e:
+        logger.warning(f"Cleanup error (non-critical): {e}")
+        db.session.rollback()
     
     all_games_db = Game.query.filter_by(date=today).order_by(Game.edge.desc()).all()
     # Show all games from today's slate (includes in-progress and completed)
