@@ -1268,7 +1268,7 @@ class MatchupIntelligence:
             home_abbrev = team_abbrevs.get(home_lower, home_lower[:3])
             
             # Fetch the matchups page and look for link with both teams
-            matchups_url = f"https://www.covers.com/sports/nba/matchups"
+            matchups_url = f"https://www.covers.com/sports/nba/matchups"  # Main listing page
             resp = requests.get(matchups_url, headers=headers, timeout=15)
             
             matchup_id = None
@@ -1427,26 +1427,69 @@ class MatchupIntelligence:
             aliases = team_aliases.get(team_name.lower(), [team_name.lower()])
             return any(alias in text_lower for alias in aliases)
         
-        sport_map = {'NBA': 'basketball/nba', 'CBB': 'basketball/ncaab', 'NFL': 'football/nfl', 'CFB': 'football/ncaaf', 'NHL': 'hockey/nhl'}
-        sport_path = sport_map.get(league.upper(), 'basketball/nba')
+        # Sport path mapping for matchup URLs
+        sport_path_map = {
+            'NBA': 'sport/basketball/nba',
+            'CBB': 'sport/basketball/ncaab',
+            'NFL': 'sport/football/nfl',
+            'CFB': 'sport/football/ncaaf',
+            'NHL': 'sport/hockey/nhl'
+        }
+        sport_listing_map = {'NBA': 'nba', 'CBB': 'ncaab', 'NFL': 'nfl', 'CFB': 'ncaaf', 'NHL': 'nhl'}
+        sport_path = sport_path_map.get(league.upper(), 'sport/basketball/nba')
+        sport_listing = sport_listing_map.get(league.upper(), 'nba')
         
         try:
-            matchups_url = f"https://www.covers.com/sport/{sport_path}/matchups"
-            resp = requests.get(matchups_url, headers=headers, timeout=10)
+            from playwright.sync_api import sync_playwright
+            import subprocess
             
-            if resp.status_code == 200:
-                soup = BeautifulSoup(resp.text, 'html.parser')
-                all_ids = list(set(re.findall(r'/matchup/(\d+)', str(soup))))
-                
-                for mid in all_ids[:20]:
+            matchups_url = f"https://www.covers.com/sports/{sport_listing}/matchups"
+            
+            all_ids = []
+            try:
+                with sync_playwright() as p:
+                    browser = p.chromium.launch(headless=True)
+                    page = browser.new_page()
+                    page.goto(matchups_url, timeout=15000)
+                    page.wait_for_timeout(3000)
+                    
+                    html_content = page.content()
+                    browser.close()
+                    
+                    all_ids = list(set(re.findall(r'/matchup/(\d+)', html_content)))
+                    logger.info(f"Playwright found {len(all_ids)} matchup IDs on Covers")
+            except Exception as pw_err:
+                logger.warning(f"Playwright error fetching Covers matchups: {pw_err}")
+                resp = requests.get(matchups_url, headers=headers, timeout=10)
+                if resp.status_code == 200:
+                    all_ids = list(set(re.findall(r'/matchup/(\d+)', resp.text)))
+            
+            for mid in all_ids[:20]:
+                try:
+                    check_url = f"https://www.covers.com/{sport_path}/matchup/{mid}"
+                    check_resp = requests.get(check_url, headers=headers, timeout=5)
+                    if check_resp.status_code == 200:
+                        title = BeautifulSoup(check_resp.text, 'html.parser').find('title')
+                        if title and matches_team(title.get_text(), away_team) and matches_team(title.get_text(), home_team):
+                            MatchupIntelligence._matchup_id_cache[cache_key] = mid
+                            logger.info(f"Found Covers matchup ID {mid} for {away_team} vs {home_team}")
+                            return mid
+                except:
+                    continue
+            
+            # If not found, search sequential IDs ahead (today's games may not be in listing)
+            if all_ids:
+                max_id = max(int(x) for x in all_ids)
+                for offset in range(1, 30):
+                    mid = str(max_id + offset)
                     try:
-                        check_url = f"https://www.covers.com/sport/{sport_path}/matchup/{mid}"
+                        check_url = f"https://www.covers.com/{sport_path}/matchup/{mid}"
                         check_resp = requests.get(check_url, headers=headers, timeout=5)
                         if check_resp.status_code == 200:
                             title = BeautifulSoup(check_resp.text, 'html.parser').find('title')
                             if title and matches_team(title.get_text(), away_team) and matches_team(title.get_text(), home_team):
                                 MatchupIntelligence._matchup_id_cache[cache_key] = mid
-                                logger.info(f"Found Covers matchup ID {mid} for {away_team} vs {home_team}")
+                                logger.info(f"Found Covers matchup ID {mid} (sequential search) for {away_team} vs {home_team}")
                                 return mid
                     except:
                         continue
@@ -1518,11 +1561,17 @@ class MatchupIntelligence:
                 logger.warning(f"No Covers matchup ID found for {away_team} vs {home_team}")
                 return result
             
-            sport_map = {'NBA': 'basketball/nba', 'CBB': 'basketball/ncaab', 'NFL': 'football/nfl', 'CFB': 'football/ncaaf', 'NHL': 'hockey/nhl'}
-            sport_path = sport_map.get(league.upper(), 'basketball/nba')
+            sport_path_map = {
+                'NBA': 'sport/basketball/nba',
+                'CBB': 'sport/basketball/ncaab',
+                'NFL': 'sport/football/nfl',
+                'CFB': 'sport/football/ncaaf',
+                'NHL': 'sport/hockey/nhl'
+            }
+            sport_path = sport_path_map.get(league.upper(), 'sport/basketball/nba')
             
             headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-            matchup_url = f"https://www.covers.com/sport/{sport_path}/matchup/{matchup_id}"
+            matchup_url = f"https://www.covers.com/{sport_path}/matchup/{matchup_id}"
             resp = requests.get(matchup_url, headers=headers, timeout=10)
             
             if resp.status_code != 200:
@@ -1630,11 +1679,17 @@ class MatchupIntelligence:
             if not matchup_id:
                 return result
             
-            sport_map = {'NBA': 'basketball/nba', 'CBB': 'basketball/ncaab', 'NFL': 'football/nfl', 'CFB': 'football/ncaaf', 'NHL': 'hockey/nhl'}
-            sport_path = sport_map.get(league.upper(), 'basketball/nba')
+            sport_path_map = {
+                'NBA': 'sport/basketball/nba',
+                'CBB': 'sport/basketball/ncaab',
+                'NFL': 'sport/football/nfl',
+                'CFB': 'sport/football/ncaaf',
+                'NHL': 'sport/hockey/nhl'
+            }
+            sport_path = sport_path_map.get(league.upper(), 'sport/basketball/nba')
             
             headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-            matchup_url = f"https://www.covers.com/sport/{sport_path}/matchup/{matchup_id}"
+            matchup_url = f"https://www.covers.com/{sport_path}/matchup/{matchup_id}"
             resp = requests.get(matchup_url, headers=headers, timeout=5)
             
             if resp.status_code != 200:
@@ -1711,11 +1766,17 @@ class MatchupIntelligence:
             if not matchup_id:
                 return result
             
-            sport_map = {'NBA': 'basketball/nba', 'CBB': 'basketball/ncaab', 'NFL': 'football/nfl', 'CFB': 'football/ncaaf', 'NHL': 'hockey/nhl'}
-            sport_path = sport_map.get(league.upper(), 'basketball/nba')
+            sport_path_map = {
+                'NBA': 'sport/basketball/nba',
+                'CBB': 'sport/basketball/ncaab',
+                'NFL': 'sport/football/nfl',
+                'CFB': 'sport/football/ncaaf',
+                'NHL': 'sport/hockey/nhl'
+            }
+            sport_path = sport_path_map.get(league.upper(), 'sport/basketball/nba')
             
             headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-            matchup_url = f"https://www.covers.com/sport/{sport_path}/matchup/{matchup_id}"
+            matchup_url = f"https://www.covers.com/{sport_path}/matchup/{matchup_id}"
             resp = requests.get(matchup_url, headers=headers, timeout=5)
             
             if resp.status_code != 200:
@@ -1758,6 +1819,46 @@ class MatchupIntelligence:
         except Exception as e:
             logger.warning(f"Error fetching Covers betting action: {e}")
             return result
+    
+    @staticmethod
+    def fetch_covers_last10_games(away_team: str, home_team: str, league: str = 'NBA') -> dict:
+        """
+        Fetch Last 10 games for each team + H2H history from Covers.com.
+        Returns data for tabs: Away Team L10, Home Team L10, H2H Last 10.
+        """
+        import time as time_module
+        
+        cache_key = f"last10_{away_team}_{home_team}_{league}"
+        cache_time = MatchupIntelligence._covers_last10_cache_time.get(cache_key, 0)
+        if cache_key in MatchupIntelligence._covers_last10_cache and (time_module.time() - cache_time) < 300:
+            return MatchupIntelligence._covers_last10_cache[cache_key]
+        
+        result = {
+            'away': {'team': away_team, 'record': 'N/A', 'ats': 'N/A', 'ou': 'N/A', 'games': []},
+            'home': {'team': home_team, 'record': 'N/A', 'ats': 'N/A', 'ou': 'N/A', 'games': []},
+            'h2h': {'record': 'N/A', 'ats': 'N/A', 'ou': 'N/A', 'games': []}
+        }
+        
+        try:
+            # Fetch full H2H data which includes game history
+            h2h_data = MatchupIntelligence.fetch_covers_full_h2h(away_team, home_team, league)
+            
+            if h2h_data:
+                result['h2h']['record'] = h2h_data.get('wl_record', 'N/A')
+                result['h2h']['ats'] = h2h_data.get('ats_record', 'N/A')
+                result['h2h']['ou'] = h2h_data.get('ou_record', 'N/A')
+                result['h2h']['games'] = h2h_data.get('games', [])
+                
+                # Log success
+                logger.info(f"Covers H2H {away_team} vs {home_team}: W/L={result['h2h']['record']}, ATS={result['h2h']['ats']}, O/U={result['h2h']['ou']}, {len(result['h2h']['games'])} games")
+            
+            MatchupIntelligence._covers_last10_cache[cache_key] = result
+            MatchupIntelligence._covers_last10_cache_time[cache_key] = time_module.time()
+            
+        except Exception as e:
+            logger.warning(f"Error in fetch_covers_last10_games: {e}")
+        
+        return result
     
     # Cache for RLM data with game-time aware refresh
     _rlm_cache = {}
@@ -10463,6 +10564,12 @@ def get_matchup_data(game_id):
         if game.league == 'NBA':
             covers_last10 = MatchupIntelligence.fetch_covers_last10_games(game.away_team, game.home_team, game.league)
             result['covers_last10'] = covers_last10
+            
+            # Update top-level H2H fields from covers_last10 data
+            if covers_last10.get('h2h', {}).get('record') and covers_last10['h2h']['record'] != 'N/A':
+                result['h2h_record'] = covers_last10['h2h']['record']
+            if covers_last10.get('h2h', {}).get('ats') and covers_last10['h2h']['ats'] != 'N/A':
+                result['h2h_ats'] = covers_last10['h2h']['ats']
             
             # Also set last5 for backward compatibility (first 5 of last 10)
             result['last5_away'] = covers_last10['away']['games'][:5] if covers_last10['away']['games'] else []
