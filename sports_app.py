@@ -9972,8 +9972,34 @@ def get_matchup_data(game_id):
             # Update top-level H2H fields from covers_last10 data
             if covers_last10.get('h2h', {}).get('record') and covers_last10['h2h']['record'] != 'N/A':
                 result['h2h_record'] = covers_last10['h2h']['record']
+                # Parse record to determine leader (format: "7-3" means away team leads)
+                try:
+                    parts = covers_last10['h2h']['record'].split('-')
+                    if len(parts) == 2:
+                        wins, losses = int(parts[0]), int(parts[1])
+                        if wins > losses:
+                            result['h2h_leader'] = game.away_team
+                        elif losses > wins:
+                            result['h2h_leader'] = game.home_team
+                        else:
+                            result['h2h_leader'] = 'Even'
+                except:
+                    pass
             if covers_last10.get('h2h', {}).get('ats') and covers_last10['h2h']['ats'] != 'N/A':
                 result['h2h_ats'] = covers_last10['h2h']['ats']
+                # Parse ATS to determine leader (format: "3-7-0" means home team leads ATS)
+                try:
+                    parts = covers_last10['h2h']['ats'].split('-')
+                    if len(parts) >= 2:
+                        wins, losses = int(parts[0]), int(parts[1])
+                        if wins > losses:
+                            result['ats_leader'] = game.away_team
+                        elif losses > wins:
+                            result['ats_leader'] = game.home_team
+                        else:
+                            result['ats_leader'] = 'Even'
+                except:
+                    pass
             
             # Also set last5 for backward compatibility (first 5 of last 10)
             result['last5_away'] = covers_last10['away']['games'][:5] if covers_last10['away']['games'] else []
