@@ -578,84 +578,124 @@ class MatchupIntelligence:
     @staticmethod
     def get_team_last5_games(team_name: str, league: str = 'NBA') -> list:
         """
-        Fetch last 5 game results with dates, opponents, scores (Covers.com style).
+        Fetch last 5 game results with dates, opponents, scores from ESPN API.
         Returns list of dicts: [{date, opp, opp_logo, location, result, score}, ...]
         """
-        import time
+        import requests
+        from datetime import datetime
+        
+        # ESPN team ID mapping
+        ESPN_TEAM_IDS = {
+            'ATL': '1', 'BOS': '2', 'BKN': '17', 'CHA': '30', 'CHI': '4',
+            'CLE': '5', 'DAL': '6', 'DEN': '7', 'DET': '8', 'GSW': '9',
+            'HOU': '10', 'IND': '11', 'LAC': '12', 'LAL': '13', 'MEM': '29',
+            'MIA': '14', 'MIL': '15', 'MIN': '16', 'NOP': '3', 'NYK': '18',
+            'OKC': '25', 'ORL': '19', 'PHI': '20', 'PHX': '21', 'POR': '22',
+            'SAC': '23', 'SAS': '24', 'TOR': '28', 'UTA': '26', 'WAS': '27'
+        }
         
         try:
-            from nba_api.stats.endpoints import teamgamelog
-            
-            # Find team ID
-            team_id = None
-            for abbr, tid in MatchupIntelligence.NBA_TEAM_IDS.items():
+            # Find team abbreviation
+            team_abbr = None
+            for abbr in ESPN_TEAM_IDS.keys():
                 if abbr.lower() in team_name.lower() or team_name.lower() in abbr.lower():
-                    team_id = tid
+                    team_abbr = abbr
                     break
             
-            if not team_id:
+            # Try matching full names
+            if not team_abbr:
+                name_to_abbr = {
+                    'hawks': 'ATL', 'celtics': 'BOS', 'nets': 'BKN', 'hornets': 'CHA', 'bulls': 'CHI',
+                    'cavaliers': 'CLE', 'mavericks': 'DAL', 'nuggets': 'DEN', 'pistons': 'DET', 'warriors': 'GSW',
+                    'rockets': 'HOU', 'pacers': 'IND', 'clippers': 'LAC', 'lakers': 'LAL', 'grizzlies': 'MEM',
+                    'heat': 'MIA', 'bucks': 'MIL', 'timberwolves': 'MIN', 'pelicans': 'NOP', 'knicks': 'NYK',
+                    'thunder': 'OKC', 'magic': 'ORL', '76ers': 'PHI', 'sixers': 'PHI', 'suns': 'PHX',
+                    'blazers': 'POR', 'trail blazers': 'POR', 'kings': 'SAC', 'spurs': 'SAS', 'raptors': 'TOR',
+                    'jazz': 'UTA', 'wizards': 'WAS'
+                }
+                for name, abbr in name_to_abbr.items():
+                    if name in team_name.lower():
+                        team_abbr = abbr
+                        break
+            
+            if not team_abbr:
                 return []
             
-            time.sleep(0.5)  # Rate limiting for NBA.com API
+            espn_id = ESPN_TEAM_IDS.get(team_abbr)
+            if not espn_id:
+                return []
             
-            # Fetch game log
-            game_log = teamgamelog.TeamGameLog(
-                team_id=team_id,
-                season='2024-25',
-                season_type_all_star='Regular Season'
-            )
+            # Fetch from ESPN API
+            url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/{espn_id}/schedule"
+            resp = requests.get(url, timeout=10)
             
-            data = game_log.team_game_log.get_dict()
-            if data and data.get('data'):
-                headers = data['headers']
-                games = data['data'][:5]  # Last 5 games
-                results = []
-                
-                for game in games:
-                    stats = dict(zip(headers, game))
-                    matchup = stats.get('MATCHUP', '')
-                    game_date = stats.get('GAME_DATE', '')
-                    pts = stats.get('PTS', 0)
-                    wl = stats.get('WL', '')
+            if resp.status_code != 200:
+                return []
+            
+            data = resp.json()
+            events = data.get('events', [])
+            
+            # Filter completed games and get last 5
+            completed_games = []
+            for event in events:
+                status = event.get('competitions', [{}])[0].get('status', {}).get('type', {}).get('completed', False)
+                if status:
+                    completed_games.append(event)
+            
+            # Get most recent 5 games
+            recent_games = completed_games[-5:][::-1] if len(completed_games) >= 5 else completed_games[::-1]
+            
+            results = []
+            for event in recent_games:
+                try:
+                    competition = event.get('competitions', [{}])[0]
+                    competitors = competition.get('competitors', [])
                     
-                    # Parse matchup (e.g., "CHI @ NYK" or "CHI vs. BOS")
-                    is_away = '@' in matchup
-                    location = '@' if is_away else 'vs'
-                    parts = matchup.split(' @ ') if is_away else matchup.split(' vs. ')
-                    opp_abbr = parts[1] if len(parts) > 1 else 'N/A'
+                    if len(competitors) < 2:
+                        continue
                     
-                    # Format date (MMM DD from YYYY-MM-DD or similar)
-                    try:
-                        from datetime import datetime
-                        if 'T' in game_date:
-                            dt = datetime.fromisoformat(game_date.replace('Z', '+00:00'))
+                    # Find team and opponent
+                    team_data = None
+                    opp_data = None
+                    for comp in competitors:
+                        if comp.get('team', {}).get('abbreviation', '').upper() == team_abbr:
+                            team_data = comp
                         else:
-                            dt = datetime.strptime(game_date, '%b %d, %Y')
+                            opp_data = comp
+                    
+                    if not team_data or not opp_data:
+                        continue
+                    
+                    # Get scores
+                    team_score = int(team_data.get('score', 0))
+                    opp_score = int(opp_data.get('score', 0))
+                    is_home = team_data.get('homeAway') == 'home'
+                    is_winner = team_data.get('winner', False)
+                    
+                    # Get opponent info
+                    opp_abbr = opp_data.get('team', {}).get('abbreviation', 'N/A')
+                    opp_logo = opp_data.get('team', {}).get('logo', f"https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/scoreboard/{opp_abbr.lower()}.png")
+                    
+                    # Format date
+                    game_date = event.get('date', '')
+                    try:
+                        dt = datetime.fromisoformat(game_date.replace('Z', '+00:00'))
                         formatted_date = dt.strftime('%b %d')
                     except:
-                        formatted_date = game_date[:6] if len(game_date) >= 6 else game_date
-                    
-                    # Get opponent full name and logo
-                    opp_name = MatchupIntelligence.get_team_full_name(opp_abbr)
-                    opp_logo = f"https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/scoreboard/{opp_abbr.lower()}.png"
-                    
-                    # Calculate opponent score using plus/minus
-                    # plus_minus = team_pts - opp_pts, so opp_pts = team_pts - plus_minus
-                    plus_minus = stats.get('PLUS_MINUS', 0) or 0
-                    opp_pts = int(pts - plus_minus)
+                        formatted_date = game_date[:6] if game_date else 'N/A'
                     
                     results.append({
                         'date': formatted_date,
                         'opp': opp_abbr,
                         'opp_logo': opp_logo,
-                        'location': location,
-                        'result': 'W' if wl == 'W' else 'L',
-                        'score': f"{pts} - {opp_pts}"
+                        'location': 'vs' if is_home else '@',
+                        'result': 'W' if is_winner else 'L',
+                        'score': f"{team_score} - {opp_score}"
                     })
-                
-                return results
+                except Exception as e:
+                    continue
             
-            return []
+            return results
             
         except Exception as e:
             logger.warning(f"Error fetching L5 games for {team_name}: {e}")
