@@ -1171,131 +1171,116 @@ class MatchupIntelligence:
     @staticmethod
     def fetch_rlm_data(league: str = 'NBA') -> dict:
         """
-        Fetch betting consensus data from OddsShark.
-        Returns % of Bets (tickets) for all games.
-        Detects lopsided betting when ≥60% of bets are on one side.
+        Fetch betting consensus data from ScoresAndOdds using Playwright.
+        Returns % of Bets (tickets) and % of Money (handle) for all games.
+        Detects sharp money when money % differs from bets %.
         """
-        import requests
-        from bs4 import BeautifulSoup
         import re
+        import subprocess
         
         result = {}
         
         try:
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+            from playwright.sync_api import sync_playwright
             
             league_urls = {
-                'NBA': 'https://www.oddsshark.com/nba/consensus-picks',
-                'CBB': 'https://www.oddsshark.com/ncaab/consensus-picks'
+                'NBA': 'https://www.scoresandodds.com/nba/consensus-picks',
+                'CBB': 'https://www.scoresandodds.com/ncaab/consensus-picks'
             }
             
             url = league_urls.get(league)
             if not url:
                 return result
             
-            resp = requests.get(url, headers=headers, timeout=15)
-            if resp.status_code != 200:
-                return result
+            chromium_path = subprocess.run(['which', 'chromium'], capture_output=True, text=True).stdout.strip()
             
-            soup = BeautifulSoup(resp.text, 'html.parser')
+            with sync_playwright() as p:
+                browser = p.chromium.launch(
+                    headless=True,
+                    executable_path=chromium_path if chromium_path else None,
+                    args=['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
+                )
+                page = browser.new_page()
+                page.goto(url, timeout=45000, wait_until='networkidle')
+                page.wait_for_timeout(4000)
+                text = page.inner_text('body')
+                browser.close()
             
-            # OddsShark consensus page has game data in divs
-            # Look for game containers with team info
-            game_divs = soup.find_all('div', class_=lambda x: x and 'gc-odds-table' in str(x).lower())
+            # Parse the consensus picks text
+            # Format: Team1 Date Team2 Spread % OF BETS Spread pct1% pct2% pct3% pct4% % OF MONEY
+            lines = text.split('\n')
             
-            # Also look in tables
-            tables = soup.find_all('table')
-            for table in tables:
-                rows = table.find_all('tr')
+            # NBA team names for matching
+            nba_teams = ['Hawks', 'Celtics', 'Nets', 'Hornets', 'Bulls', 'Cavaliers', 'Mavericks', 'Nuggets',
+                        'Pistons', 'Warriors', 'Rockets', 'Pacers', 'Clippers', 'Lakers', 'Grizzlies', 'Heat',
+                        'Bucks', 'Timberwolves', 'Pelicans', 'Knicks', 'Thunder', 'Magic', 'Sixers', '76ers',
+                        'Suns', 'Blazers', 'Kings', 'Spurs', 'Raptors', 'Jazz', 'Wizards']
+            
+            cbb_pattern = re.compile(r'^[A-Z][a-z]+$|^[A-Z]{2,4}$')
+            
+            i = 0
+            while i < len(lines) - 10:
+                line = lines[i].strip()
                 
-                # Process rows in pairs (away team, home team)
-                i = 0
-                while i < len(rows) - 1:
-                    row1 = rows[i]
-                    row2 = rows[i + 1]
+                # Look for team name
+                is_team = any(team in line for team in nba_teams) if league == 'NBA' else cbb_pattern.match(line)
+                
+                if is_team and len(line) > 2:
+                    away_team = line.split()[0] if line.split() else line
                     
-                    # Get all text from each row
-                    text1 = row1.get_text(' ', strip=True)
-                    text2 = row2.get_text(' ', strip=True)
-                    
-                    # Extract team name (first word(s) before numbers)
-                    team1_match = re.match(r'^([A-Za-z\s\.]+?)(?:\s*[-+\d]|$)', text1)
-                    team2_match = re.match(r'^([A-Za-z\s\.]+?)(?:\s*[-+\d]|$)', text2)
-                    
-                    if team1_match and team2_match:
-                        away_team = team1_match.group(1).strip()
-                        home_team = team2_match.group(1).strip()
+                    # Look ahead for home team and percentages
+                    for j in range(i+1, min(i+8, len(lines))):
+                        next_line = lines[j].strip()
+                        is_home = any(team in next_line for team in nba_teams) if league == 'NBA' else cbb_pattern.match(next_line)
                         
-                        # Skip headers or invalid rows
-                        if len(away_team) < 2 or len(home_team) < 2:
-                            i += 1
-                            continue
-                        if any(x in away_team.lower() for x in ['team', 'spread', 'consensus']):
-                            i += 1
-                            continue
-                        
-                        game_key = f"{away_team}_vs_{home_team}".lower().replace(' ', '_').replace('.', '')
-                        
-                        # Extract spread and percentage from text
-                        # Format in cell: "Team Name +3.5 56%"
-                        away_spread = 'N/A'
-                        away_bets = 'N/A'
-                        home_spread = 'N/A'
-                        home_bets = 'N/A'
-                        
-                        # Look for spread pattern
-                        spread1 = re.search(r'([+-]\d+\.?\d?)', text1)
-                        if spread1:
-                            away_spread = spread1.group(1)
-                        
-                        spread2 = re.search(r'([+-]\d+\.?\d?)', text2)
-                        if spread2:
-                            home_spread = spread2.group(1)
-                        
-                        # Look for percentage pattern
-                        pct1 = re.findall(r'(\d{1,3})%', text1)
-                        if pct1:
-                            away_bets = pct1[0]
-                        
-                        pct2 = re.findall(r'(\d{1,3})%', text2)
-                        if pct2:
-                            home_bets = pct2[0]
-                        
-                        # Determine majority and lopsided betting
-                        try:
-                            away_pct = int(away_bets) if away_bets != 'N/A' else 0
-                            home_pct = int(home_bets) if home_bets != 'N/A' else 0
-                            majority_team = 'away' if away_pct > home_pct else 'home'
-                            majority_pct = max(away_pct, home_pct)
-                            rlm_potential = majority_pct >= 60
-                        except:
-                            majority_team = 'N/A'
-                            majority_pct = 0
-                            rlm_potential = False
-                        
-                        result[game_key] = {
-                            'away': {
-                                'team': away_team,
-                                'spread': away_spread,
-                                'bet_pct': away_bets
-                            },
-                            'home': {
-                                'team': home_team,
-                                'spread': home_spread,
-                                'bet_pct': home_bets
-                            },
-                            'majority_team': majority_team,
-                            'majority_pct': majority_pct,
-                            'rlm_potential': rlm_potential
-                        }
-                    
-                    i += 2
+                        if is_home and next_line != away_team and len(next_line) > 2:
+                            home_team = next_line.split()[0] if next_line.split() else next_line
+                            
+                            # Find percentages after home team
+                            pcts = []
+                            spread = 'N/A'
+                            for k in range(j, min(j+15, len(lines))):
+                                pct_line = lines[k].strip()
+                                # Look for spread
+                                spread_match = re.match(r'^([+-]?\d+\.?\d?)$', pct_line)
+                                if spread_match and spread == 'N/A':
+                                    spread = spread_match.group(1)
+                                # Look for percentages
+                                pct_match = re.match(r'^(\d{1,3})%$', pct_line)
+                                if pct_match:
+                                    pcts.append(int(pct_match.group(1)))
+                                if len(pcts) >= 4:
+                                    break
+                            
+                            if len(pcts) >= 2:
+                                away_bets = str(pcts[0])
+                                home_bets = str(pcts[1])
+                                away_money = str(pcts[2]) if len(pcts) > 2 else 'N/A'
+                                home_money = str(pcts[3]) if len(pcts) > 3 else 'N/A'
+                                
+                                game_key = f"{away_team}_vs_{home_team}".lower().replace(' ', '_')
+                                
+                                away_pct = int(away_bets)
+                                home_pct = int(home_bets)
+                                majority_team = 'away' if away_pct > home_pct else 'home'
+                                majority_pct = max(away_pct, home_pct)
+                                rlm_potential = majority_pct >= 60
+                                
+                                result[game_key] = {
+                                    'away': {'team': away_team, 'spread': spread, 'bet_pct': away_bets, 'money_pct': away_money},
+                                    'home': {'team': home_team, 'spread': 'N/A', 'bet_pct': home_bets, 'money_pct': home_money},
+                                    'majority_team': majority_team,
+                                    'majority_pct': majority_pct,
+                                    'rlm_potential': rlm_potential
+                                }
+                            break
+                i += 1
             
-            logger.info(f"OddsShark betting data fetched for {league}: {len(result)} games")
+            logger.info(f"ScoresAndOdds data fetched for {league}: {len(result)} games")
             return result
             
         except Exception as e:
-            logger.warning(f"Error fetching OddsShark data for {league}: {e}")
+            logger.warning(f"Error fetching ScoresAndOdds data for {league}: {e}")
             return result
     
     @staticmethod
@@ -9488,6 +9473,8 @@ def get_matchup_data(game_id):
                 'home_spread': rlm_data.get('home', {}).get('spread', 'N/A'),
                 'away_bet_pct': rlm_data.get('away', {}).get('bet_pct', 'N/A'),
                 'home_bet_pct': rlm_data.get('home', {}).get('bet_pct', 'N/A'),
+                'away_money_pct': rlm_data.get('away', {}).get('money_pct', 'N/A'),
+                'home_money_pct': rlm_data.get('home', {}).get('money_pct', 'N/A'),
                 'majority_team': rlm_data.get('majority_team', 'N/A'),
                 'majority_pct': rlm_data.get('majority_pct', 0),
                 'rlm_potential': rlm_data.get('rlm_potential', False)

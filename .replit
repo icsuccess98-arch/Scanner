@@ -2,7 +2,7 @@ modules = ["python-3.11", "postgresql-16"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["cargo", "gitFull", "imagemagick", "libiconv", "libxcrypt", "openssl", "pkg-config", "playwright-driver", "rustc", "xcodebuild", "zip", "zlib", "nspr", "nss", "xorg.libX11", "xorg.libXcomposite", "xorg.libXdamage", "xorg.libXext", "xorg.libXfixes", "xorg.libXrandr", "mesa", "libdrm", "expat", "alsa-lib", "at-spi2-atk", "cups", "dbus", "glib", "gtk3", "pango", "cairo", "libgbm", "libxkbcommon"]
+packages = ["cargo", "gitFull", "imagemagick", "libiconv", "libxcrypt", "openssl", "pkg-config", "playwright-driver", "rustc", "xcodebuild", "zip", "zlib", "nspr", "nss", "xorg.libX11", "xorg.libXcomposite", "xorg.libXdamage", "xorg.libXext", "xorg.libXfixes", "xorg.libXrandr", "mesa", "libdrm", "expat", "alsa-lib", "at-spi2-atk", "cups", "dbus", "glib", "gtk3", "pango", "cairo", "libgbm", "libxkbcommon", "chromium"]
 
 [agent]
 expertMode = true

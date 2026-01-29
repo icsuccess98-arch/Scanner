@@ -96,8 +96,9 @@ Only one app can run at a time. Configure the workflow to switch between apps.
                 -   Record: Team W/L records (e.g., "23-23" vs "11-36")
                 -   Edge Count: X/15 format showing statistical edges
         -   **Betting Checklist** (Jan 2026): Public betting and lopsided action detection:
-            -   Data source: OddsShark consensus picks page for % of bets (tickets)
-            -   NOTE: ScoresAndOdds has % of money (handle) data but requires JavaScript rendering
+            -   Data source: ScoresAndOdds consensus picks page (via Playwright headless browser)
+            -   Provides BOTH % of Bets (tickets) AND % of Money (handle) for RLM detection
+            -   Sharp money detection: When money % diverges from bets % (e.g., 40% bets but 60% money = sharp action)
             -   6-step checklist displayed under stats table:
                 1. Edge Leader: Which team has more statistical edges (X/15)
                 2. Current Line: Current spread from OddsShark
