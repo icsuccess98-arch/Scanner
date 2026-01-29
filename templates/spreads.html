@@ -2610,56 +2610,72 @@
                     <!-- Sharp money indicator -->
                     <div id="sharp-${data.game_id}" style="display: none; margin-bottom: 8px; text-align: center;"></div>
                     
-                    <!-- BET % & MONEY % - SIDE BY SIDE (Covers.com Style) -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; font-family: 'Inter', sans-serif;">
-                        <!-- BET % - Updates every 5 seconds -->
-                        <div style="background: rgba(25, 30, 45, 0.9); border-radius: 8px; padding: 10px; border: 1px solid rgba(100, 100, 130, 0.2);">
-                            <div style="font-weight: 600; font-size: 10px; color: #9ca3af; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">BET %</div>
-                            <div id="bet-pct-${data.game_id}" style="display: flex; flex-direction: column; gap: 6px;">
-                                <div style="display: flex; align-items: center; justify-content: space-between;">
-                                    <span style="font-size: 11px; font-weight: 500; color: #e5e7eb;">${awayName}</span>
-                                    <div style="display: flex; align-items: center; gap: 6px;">
-                                        <div style="width: 60px; height: 8px; background: rgba(40, 45, 60, 0.8); border-radius: 4px; overflow: hidden;">
-                                            <div style="width: ${awayBetPct}%; height: 100%; background: ${awayColor}; border-radius: 4px;"></div>
-                                        </div>
-                                        <span style="font-size: 12px; font-weight: 700; color: #fff; min-width: 32px; text-align: right;">${awayBetPct}%</span>
+                    <!-- SPREAD BETTING - Tickets & Money with Bars -->
+                    <div style="background: rgba(25, 30, 45, 0.9); border-radius: 8px; padding: 10px; margin-bottom: 8px; border: 1px solid rgba(59, 130, 246, 0.3);">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                            <div style="font-weight: 700; font-size: 10px; color: #3b82f6; text-transform: uppercase;">SPREAD</div>
+                            <div style="font-size: 9px; color: #888;">${data.rlm.open_spread || 'N/A'} (${data.rlm.spread_open_odds || '-110'}) → ${data.rlm.current_spread || 'N/A'} (${data.rlm.spread_current_odds || '-110'})</div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                            <div>
+                                <div style="font-size: 9px; color: #888; margin-bottom: 4px;">TICKETS %</div>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-size: 11px; font-weight: 600; color: #fff; min-width: 30px;">${data.rlm.spread_tickets_pct || 50}%</span>
+                                    <div style="flex: 1; height: 10px; background: rgba(40, 45, 60, 0.8); border-radius: 5px; overflow: hidden;">
+                                        <div style="width: ${data.rlm.spread_tickets_pct || 50}%; height: 100%; background: linear-gradient(90deg, #3b82f6, #60a5fa);"></div>
                                     </div>
+                                    <span style="font-size: 11px; font-weight: 600; color: #fff; min-width: 30px; text-align: right;">${100 - (data.rlm.spread_tickets_pct || 50)}%</span>
                                 </div>
-                                <div style="display: flex; align-items: center; justify-content: space-between;">
-                                    <span style="font-size: 11px; font-weight: 500; color: #e5e7eb;">${homeName}</span>
-                                    <div style="display: flex; align-items: center; gap: 6px;">
-                                        <div style="width: 60px; height: 8px; background: rgba(40, 45, 60, 0.8); border-radius: 4px; overflow: hidden;">
-                                            <div style="width: ${homeBetPct}%; height: 100%; background: ${homeColor}; border-radius: 4px;"></div>
-                                        </div>
-                                        <span style="font-size: 12px; font-weight: 700; color: #fff; min-width: 32px; text-align: right;">${homeBetPct}%</span>
+                            </div>
+                            <div>
+                                <div style="font-size: 9px; color: #888; margin-bottom: 4px;">MONEY %</div>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-size: 11px; font-weight: 600; color: #fff; min-width: 30px;">${data.rlm.spread_money_pct || 50}%</span>
+                                    <div style="flex: 1; height: 10px; background: rgba(40, 45, 60, 0.8); border-radius: 5px; overflow: hidden;">
+                                        <div style="width: ${data.rlm.spread_money_pct || 50}%; height: 100%; background: linear-gradient(90deg, #10b981, #34d399);"></div>
                                     </div>
+                                    <span style="font-size: 11px; font-weight: 600; color: #fff; min-width: 30px; text-align: right;">${100 - (data.rlm.spread_money_pct || 50)}%</span>
                                 </div>
                             </div>
                         </div>
-                        <!-- MONEY % - Updates every 5 seconds -->
-                        <div style="background: rgba(25, 30, 45, 0.9); border-radius: 8px; padding: 10px; border: 1px solid rgba(100, 100, 130, 0.2);">
-                            <div style="font-weight: 600; font-size: 10px; color: #9ca3af; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">MONEY %</div>
-                            <div id="money-pct-${data.game_id}" style="display: flex; flex-direction: column; gap: 6px;">
-                                <div style="display: flex; align-items: center; justify-content: space-between;">
-                                    <span style="font-size: 11px; font-weight: 500; color: #e5e7eb;">${awayName}</span>
-                                    <div style="display: flex; align-items: center; gap: 6px;">
-                                        <div style="width: 60px; height: 8px; background: rgba(40, 45, 60, 0.8); border-radius: 4px; overflow: hidden;">
-                                            <div style="width: ${awayMoneyPct}%; height: 100%; background: ${awayColor}; border-radius: 4px;"></div>
-                                        </div>
-                                        <span style="font-size: 12px; font-weight: 700; color: #fff; min-width: 32px; text-align: right;">${awayMoneyPct}%</span>
+                        ${data.rlm.spread_sharp_detected ? `<div style="margin-top: 6px; background: rgba(139, 92, 246, 0.2); border-radius: 6px; padding: 4px 8px; text-align: center;"><span style="font-size: 10px; font-weight: 600; color: #a78bfa;">💰 SHARP MONEY: ${data.rlm.spread_sharp_side}</span></div>` : ''}
+                    </div>
+                    
+                    <!-- TOTALS BETTING - Tickets & Money with Bars -->
+                    <div style="background: rgba(25, 30, 45, 0.9); border-radius: 8px; padding: 10px; margin-bottom: 10px; border: 1px solid rgba(139, 92, 246, 0.3);">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                            <div style="font-weight: 700; font-size: 10px; color: #a78bfa; text-transform: uppercase;">TOTALS</div>
+                            <div style="font-size: 9px; color: #888;">${data.rlm.total_open_line || 'N/A'} (${data.rlm.total_open_odds || '-110'}) → ${data.rlm.total_current_line || 'N/A'} (${data.rlm.total_current_odds || '-110'})</div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                            <div>
+                                <div style="font-size: 9px; color: #888; margin-bottom: 4px;">TICKETS %</div>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-size: 10px; color: #22c55e;">O</span>
+                                    <span style="font-size: 11px; font-weight: 600; color: #fff; min-width: 24px;">${data.rlm.over_bet_pct || 50}%</span>
+                                    <div style="flex: 1; height: 10px; background: rgba(40, 45, 60, 0.8); border-radius: 5px; overflow: hidden; display: flex;">
+                                        <div style="width: ${data.rlm.over_bet_pct || 50}%; height: 100%; background: linear-gradient(90deg, #22c55e, #4ade80);"></div>
+                                        <div style="width: ${data.rlm.under_bet_pct || 50}%; height: 100%; background: linear-gradient(90deg, #ef4444, #f87171);"></div>
                                     </div>
+                                    <span style="font-size: 11px; font-weight: 600; color: #fff; min-width: 24px; text-align: right;">${data.rlm.under_bet_pct || 50}%</span>
+                                    <span style="font-size: 10px; color: #ef4444;">U</span>
                                 </div>
-                                <div style="display: flex; align-items: center; justify-content: space-between;">
-                                    <span style="font-size: 11px; font-weight: 500; color: #e5e7eb;">${homeName}</span>
-                                    <div style="display: flex; align-items: center; gap: 6px;">
-                                        <div style="width: 60px; height: 8px; background: rgba(40, 45, 60, 0.8); border-radius: 4px; overflow: hidden;">
-                                            <div style="width: ${homeMoneyPct}%; height: 100%; background: ${homeColor}; border-radius: 4px;"></div>
-                                        </div>
-                                        <span style="font-size: 12px; font-weight: 700; color: #fff; min-width: 32px; text-align: right;">${homeMoneyPct}%</span>
+                            </div>
+                            <div>
+                                <div style="font-size: 9px; color: #888; margin-bottom: 4px;">MONEY %</div>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-size: 10px; color: #22c55e;">O</span>
+                                    <span style="font-size: 11px; font-weight: 600; color: #fff; min-width: 24px;">${data.rlm.over_money_pct || 50}%</span>
+                                    <div style="flex: 1; height: 10px; background: rgba(40, 45, 60, 0.8); border-radius: 5px; overflow: hidden; display: flex;">
+                                        <div style="width: ${data.rlm.over_money_pct || 50}%; height: 100%; background: linear-gradient(90deg, #22c55e, #4ade80);"></div>
+                                        <div style="width: ${data.rlm.under_money_pct || 50}%; height: 100%; background: linear-gradient(90deg, #ef4444, #f87171);"></div>
                                     </div>
+                                    <span style="font-size: 11px; font-weight: 600; color: #fff; min-width: 24px; text-align: right;">${data.rlm.under_money_pct || 50}%</span>
+                                    <span style="font-size: 10px; color: #ef4444;">U</span>
                                 </div>
                             </div>
                         </div>
+                        ${data.rlm.sharp_detected ? `<div style="margin-top: 6px; background: rgba(245, 158, 11, 0.2); border-radius: 6px; padding: 4px 8px; text-align: center;"><span style="font-size: 10px; font-weight: 600; color: #fbbf24;">💰 SHARP MONEY: ${data.rlm.sharp_side}</span></div>` : ''}
                     </div>
                     
                     <!-- COMPACT CHECKLIST - 2x3 GRID -->

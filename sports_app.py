@@ -1982,35 +1982,67 @@ class MatchupIntelligence:
                 away_team = data.get('away_team', '')
                 home_team = data.get('home_team', '')
                 
-                away_bet_pct = data.get('away_bet_pct', 50)
-                home_bet_pct = data.get('home_bet_pct', 50)
-                away_money_pct = data.get('away_money_pct', 50)
-                home_money_pct = data.get('home_money_pct', 50)
+                # Spread percentages (favorite vs underdog)
+                spread_tickets_pct = data.get('spread_tickets_pct', 50)
+                spread_money_pct = data.get('spread_money_pct', 50)
+                away_bet_pct = data.get('away_bet_pct', spread_tickets_pct)
+                home_bet_pct = data.get('home_bet_pct', 100 - spread_tickets_pct)
+                away_money_pct = data.get('away_money_pct', spread_money_pct)
+                home_money_pct = data.get('home_money_pct', 100 - spread_money_pct)
+                
+                # Totals percentages (over/under)
+                over_bet_pct = data.get('over_bet_pct', 50)
+                under_bet_pct = data.get('under_bet_pct', 50)
+                over_money_pct = data.get('over_money_pct', 50)
+                under_money_pct = data.get('under_money_pct', 50)
                 
                 majority_team = 'away' if away_bet_pct > home_bet_pct else 'home'
                 majority_pct = max(away_bet_pct, home_bet_pct)
                 rlm_potential = majority_pct >= 60
                 
+                # Sharp money detection
                 sharp_detected = data.get('sharp_detected', False)
                 sharp_side = data.get('sharp_side', None)
+                spread_sharp_detected = data.get('spread_sharp_detected', False)
+                spread_sharp_side = data.get('spread_sharp_side', None)
+                
+                # Line movement data
+                spread_open_line = data.get('spread_open_line')
+                spread_open_odds = data.get('spread_open_odds')
+                spread_current_line = data.get('spread_current_line')
+                spread_current_odds = data.get('spread_current_odds')
+                total_open_line = data.get('total_open_line')
+                total_open_odds = data.get('total_open_odds')
+                total_current_line = data.get('total_current_line')
+                total_current_odds = data.get('total_current_odds')
                 
                 game_key = f"{away_team}_vs_{home_team}".lower().replace(' ', '_')
                 
                 result[game_key] = {
                     'away': {'team': away_team, 'bet_pct': str(away_bet_pct), 'money_pct': str(away_money_pct)},
                     'home': {'team': home_team, 'bet_pct': str(home_bet_pct), 'money_pct': str(home_money_pct)},
-                    'open_spread': data.get('open_spread', 'N/A'),
-                    'current_spread': data.get('current_spread', 'N/A'),
+                    'open_spread': spread_open_line or 'N/A',
+                    'current_spread': spread_current_line or 'N/A',
+                    'spread_open_odds': spread_open_odds or '-110',
+                    'spread_current_odds': spread_current_odds or '-110',
+                    'spread_tickets_pct': spread_tickets_pct,
+                    'spread_money_pct': spread_money_pct,
+                    'spread_sharp_detected': spread_sharp_detected,
+                    'spread_sharp_side': spread_sharp_side,
+                    'total_open_line': total_open_line or 'N/A',
+                    'total_current_line': total_current_line or 'N/A',
+                    'total_open_odds': total_open_odds or '-110',
+                    'total_current_odds': total_current_odds or '-110',
                     'line_movement': 'N/A',
                     'majority_team': majority_team,
                     'majority_pct': majority_pct,
                     'rlm_potential': rlm_potential,
                     'sharp_detected': sharp_detected,
                     'sharp_side': sharp_side,
-                    'over_bet_pct': data.get('over_bet_pct', 50),
-                    'under_bet_pct': data.get('under_bet_pct', 50),
-                    'over_money_pct': data.get('over_money_pct', 50),
-                    'under_money_pct': data.get('under_money_pct', 50)
+                    'over_bet_pct': over_bet_pct,
+                    'under_bet_pct': under_bet_pct,
+                    'over_money_pct': over_money_pct,
+                    'under_money_pct': under_money_pct
                 }
             
             logger.info(f"WagerTalk data fetched for {league}: {len(result)} games")
@@ -10324,14 +10356,31 @@ def get_matchup_data(game_id):
                 'away_spread': rlm_data.get('current_spread', rlm_data.get('away', {}).get('spread', 'N/A')),
                 'home_spread': rlm_data.get('home', {}).get('spread', 'N/A'),
                 'open_spread': rlm_data.get('open_spread', 'N/A'),
+                'current_spread': rlm_data.get('current_spread', 'N/A'),
+                'spread_open_odds': rlm_data.get('spread_open_odds', '-110'),
+                'spread_current_odds': rlm_data.get('spread_current_odds', '-110'),
+                'spread_tickets_pct': rlm_data.get('spread_tickets_pct', 50),
+                'spread_money_pct': rlm_data.get('spread_money_pct', 50),
+                'spread_sharp_detected': rlm_data.get('spread_sharp_detected', False),
+                'spread_sharp_side': rlm_data.get('spread_sharp_side'),
+                'total_open_line': rlm_data.get('total_open_line', 'N/A'),
+                'total_current_line': rlm_data.get('total_current_line', 'N/A'),
+                'total_open_odds': rlm_data.get('total_open_odds', '-110'),
+                'total_current_odds': rlm_data.get('total_current_odds', '-110'),
                 'line_movement': rlm_data.get('line_movement', 'N/A'),
                 'away_bet_pct': rlm_data.get('away', {}).get('bet_pct', 'N/A'),
                 'home_bet_pct': rlm_data.get('home', {}).get('bet_pct', 'N/A'),
                 'away_money_pct': rlm_data.get('away', {}).get('money_pct', 'N/A'),
                 'home_money_pct': rlm_data.get('home', {}).get('money_pct', 'N/A'),
+                'over_bet_pct': rlm_data.get('over_bet_pct', 50),
+                'under_bet_pct': rlm_data.get('under_bet_pct', 50),
+                'over_money_pct': rlm_data.get('over_money_pct', 50),
+                'under_money_pct': rlm_data.get('under_money_pct', 50),
                 'majority_team': rlm_data.get('majority_team', 'N/A'),
                 'majority_pct': rlm_data.get('majority_pct', 0),
-                'rlm_potential': rlm_data.get('rlm_potential', False)
+                'rlm_potential': rlm_data.get('rlm_potential', False),
+                'sharp_detected': rlm_data.get('sharp_detected', False),
+                'sharp_side': rlm_data.get('sharp_side')
             }
             
             # Convert to display format - Season Stats using exact TeamRankings stat names
