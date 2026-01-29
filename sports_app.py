@@ -639,9 +639,10 @@ class MatchupIntelligence:
                     opp_name = MatchupIntelligence.get_team_full_name(opp_abbr)
                     opp_logo = f"https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/scoreboard/{opp_abbr.lower()}.png"
                     
-                    # Calculate opponent score
-                    plus_minus = stats.get('PLUS_MINUS', 0)
-                    opp_pts = pts - plus_minus if wl == 'W' else pts + abs(plus_minus)
+                    # Calculate opponent score using plus/minus
+                    # plus_minus = team_pts - opp_pts, so opp_pts = team_pts - plus_minus
+                    plus_minus = stats.get('PLUS_MINUS', 0) or 0
+                    opp_pts = int(pts - plus_minus)
                     
                     results.append({
                         'date': formatted_date,
@@ -649,7 +650,7 @@ class MatchupIntelligence:
                         'opp_logo': opp_logo,
                         'location': location,
                         'result': 'W' if wl == 'W' else 'L',
-                        'score': f"{pts} - {int(opp_pts)}"
+                        'score': f"{pts} - {opp_pts}"
                     })
                 
                 return results
