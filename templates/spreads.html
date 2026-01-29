@@ -1546,16 +1546,16 @@
                             <span style="color: #fff; font-weight: 600; margin-left: 4px;">${data.rlm.away_spread !== 'N/A' ? data.rlm.away_spread : 'N/A'}</span>
                         </div>
                         <div style="background: rgba(50, 50, 60, 0.5); padding: 5px 8px; border-radius: 5px; display: flex; align-items: center; white-space: nowrap;">
-                            <span style="color: #888; min-width: 12px;">○</span>
+                            <span style="color: ${data.rlm.open_spread && data.rlm.open_spread !== 'N/A' ? '#10b981' : '#888'}; min-width: 12px;">${data.rlm.open_spread && data.rlm.open_spread !== 'N/A' ? '✓' : '○'}</span>
                             <span style="color: #888; min-width: 18px;">3.</span>
                             <span style="color: #aaa;">Open:</span>
-                            <span style="color: #888; margin-left: 4px;">Check pregame</span>
+                            <span style="color: ${data.rlm.open_spread && data.rlm.open_spread !== 'N/A' ? '#fff' : '#888'}; font-weight: ${data.rlm.open_spread && data.rlm.open_spread !== 'N/A' ? '600' : '400'}; margin-left: 4px;">${data.rlm.open_spread && data.rlm.open_spread !== 'N/A' ? data.rlm.open_spread : 'N/A'}</span>
                         </div>
-                        <div style="background: rgba(50, 50, 60, 0.5); padding: 5px 8px; border-radius: 5px; display: flex; align-items: center; white-space: nowrap;">
-                            <span style="color: #888; min-width: 12px;">○</span>
+                        <div style="background: ${data.rlm.line_movement && data.rlm.line_movement !== 'N/A' && data.rlm.line_movement !== '0.0' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(50, 50, 60, 0.5)'}; padding: 5px 8px; border-radius: 5px; display: flex; align-items: center; white-space: nowrap;">
+                            <span style="color: ${data.rlm.line_movement && data.rlm.line_movement !== 'N/A' && data.rlm.line_movement !== '0.0' ? '#3b82f6' : '#888'}; min-width: 12px;">${data.rlm.line_movement && data.rlm.line_movement !== 'N/A' && data.rlm.line_movement !== '0.0' ? '→' : '○'}</span>
                             <span style="color: #888; min-width: 18px;">4.</span>
                             <span style="color: #aaa;">Move:</span>
-                            <span style="color: #888; margin-left: 4px;">Watch direction</span>
+                            <span style="color: ${data.rlm.line_movement && data.rlm.line_movement !== 'N/A' && data.rlm.line_movement !== '0.0' ? '#3b82f6' : '#888'}; font-weight: ${data.rlm.line_movement && data.rlm.line_movement !== 'N/A' ? '600' : '400'}; margin-left: 4px;">${data.rlm.line_movement && data.rlm.line_movement !== 'N/A' ? data.rlm.line_movement : 'None'}</span>
                         </div>
                         <div style="background: rgba(50, 50, 60, 0.5); padding: 5px 8px; border-radius: 5px; display: flex; align-items: center; white-space: nowrap;">
                             <span style="color: ${data.rlm.away_bet_pct !== 'N/A' ? '#10b981' : '#ef4444'}; min-width: 12px;">${data.rlm.away_bet_pct !== 'N/A' ? '✓' : '✗'}</span>
