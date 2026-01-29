@@ -412,11 +412,6 @@ def fetch_wagertalk_data(league: str = 'NBA') -> Dict[str, Dict]:
     is_production = os.environ.get('REPL_DEPLOYMENT', '') != ''
     logger.info(f"[WagerTalk] Starting fetch for {league} | Production: {is_production}")
     
-    # In production autoscale, Playwright browser may not work - skip entirely
-    if is_production:
-        logger.info("[WagerTalk] Production mode - skipping browser scraping for stability")
-        return {}
-    
     if _is_cache_valid(cache_key):
         cached_data = _wagertalk_cache[cache_key]
         logger.info(f"[WagerTalk] Using cached data for {league}: {len(cached_data)} games")
