@@ -576,6 +576,106 @@ class MatchupIntelligence:
             return {}
     
     @staticmethod
+    def get_team_last5_games(team_name: str, league: str = 'NBA') -> list:
+        """
+        Fetch last 5 game results with dates, opponents, scores (Covers.com style).
+        Returns list of dicts: [{date, opp, opp_logo, location, result, score}, ...]
+        """
+        import time
+        
+        try:
+            from nba_api.stats.endpoints import teamgamelog
+            
+            # Find team ID
+            team_id = None
+            for abbr, tid in MatchupIntelligence.NBA_TEAM_IDS.items():
+                if abbr.lower() in team_name.lower() or team_name.lower() in abbr.lower():
+                    team_id = tid
+                    break
+            
+            if not team_id:
+                return []
+            
+            time.sleep(0.5)  # Rate limiting for NBA.com API
+            
+            # Fetch game log
+            game_log = teamgamelog.TeamGameLog(
+                team_id=team_id,
+                season='2024-25',
+                season_type_all_star='Regular Season'
+            )
+            
+            data = game_log.team_game_log.get_dict()
+            if data and data.get('data'):
+                headers = data['headers']
+                games = data['data'][:5]  # Last 5 games
+                results = []
+                
+                for game in games:
+                    stats = dict(zip(headers, game))
+                    matchup = stats.get('MATCHUP', '')
+                    game_date = stats.get('GAME_DATE', '')
+                    pts = stats.get('PTS', 0)
+                    wl = stats.get('WL', '')
+                    
+                    # Parse matchup (e.g., "CHI @ NYK" or "CHI vs. BOS")
+                    is_away = '@' in matchup
+                    location = '@' if is_away else 'vs'
+                    parts = matchup.split(' @ ') if is_away else matchup.split(' vs. ')
+                    opp_abbr = parts[1] if len(parts) > 1 else 'N/A'
+                    
+                    # Format date (MMM DD from YYYY-MM-DD or similar)
+                    try:
+                        from datetime import datetime
+                        if 'T' in game_date:
+                            dt = datetime.fromisoformat(game_date.replace('Z', '+00:00'))
+                        else:
+                            dt = datetime.strptime(game_date, '%b %d, %Y')
+                        formatted_date = dt.strftime('%b %d')
+                    except:
+                        formatted_date = game_date[:6] if len(game_date) >= 6 else game_date
+                    
+                    # Get opponent full name and logo
+                    opp_name = MatchupIntelligence.get_team_full_name(opp_abbr)
+                    opp_logo = f"https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/scoreboard/{opp_abbr.lower()}.png"
+                    
+                    # Calculate opponent score
+                    plus_minus = stats.get('PLUS_MINUS', 0)
+                    opp_pts = pts - plus_minus if wl == 'W' else pts + abs(plus_minus)
+                    
+                    results.append({
+                        'date': formatted_date,
+                        'opp': opp_abbr,
+                        'opp_logo': opp_logo,
+                        'location': location,
+                        'result': 'W' if wl == 'W' else 'L',
+                        'score': f"{pts} - {int(opp_pts)}"
+                    })
+                
+                return results
+            
+            return []
+            
+        except Exception as e:
+            logger.warning(f"Error fetching L5 games for {team_name}: {e}")
+            return []
+    
+    @staticmethod
+    def get_team_full_name(abbr: str) -> str:
+        """Convert team abbreviation to full name."""
+        abbr_map = {
+            'ATL': 'Hawks', 'BOS': 'Celtics', 'BKN': 'Nets', 'CHA': 'Hornets',
+            'CHI': 'Bulls', 'CLE': 'Cavaliers', 'DAL': 'Mavericks', 'DEN': 'Nuggets',
+            'DET': 'Pistons', 'GSW': 'Warriors', 'HOU': 'Rockets', 'IND': 'Pacers',
+            'LAC': 'Clippers', 'LAL': 'Lakers', 'MEM': 'Grizzlies', 'MIA': 'Heat',
+            'MIL': 'Bucks', 'MIN': 'Timberwolves', 'NOP': 'Pelicans', 'NYK': 'Knicks',
+            'OKC': 'Thunder', 'ORL': 'Magic', 'PHI': '76ers', 'PHX': 'Suns',
+            'POR': 'Trail Blazers', 'SAC': 'Kings', 'SAS': 'Spurs', 'TOR': 'Raptors',
+            'UTA': 'Jazz', 'WAS': 'Wizards'
+        }
+        return abbr_map.get(abbr.upper(), abbr)
+    
+    @staticmethod
     def fetch_teamrankings_matchup(away_team: str, home_team: str, game_date: str, league: str = 'NBA') -> dict:
         """
         Fetch matchup data from ALL TeamRankings FREE matchup pages:
@@ -9870,6 +9970,19 @@ def get_matchup_data(game_id):
         
     except Exception as e:
         logging.warning(f"Error fetching TeamRankings matchup data for game {game_id}: {e}")
+    
+    # Fetch Last 5 games for both teams (Covers.com style)
+    try:
+        if game.league == 'NBA':
+            result['last5_away'] = MatchupIntelligence.get_team_last5_games(game.away_team, game.league)
+            result['last5_home'] = MatchupIntelligence.get_team_last5_games(game.home_team, game.league)
+        else:
+            result['last5_away'] = []
+            result['last5_home'] = []
+    except Exception as e:
+        logging.warning(f"Error fetching Last 5 games: {e}")
+        result['last5_away'] = []
+        result['last5_home'] = []
     
     return jsonify(result)
 
