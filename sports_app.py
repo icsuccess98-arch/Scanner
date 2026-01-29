@@ -29,6 +29,17 @@ from automated_loading_system import (
 )
 
 # NBA team logo URLs from ESPN CDN (module-level for shared access)
+NBA_TEAM_COLORS = {
+    'Hawks': '#E03A3E', 'Celtics': '#007A33', 'Nets': '#000000', 'Hornets': '#1D1160',
+    'Bulls': '#CE1141', 'Cavaliers': '#860038', 'Mavericks': '#00538C', 'Nuggets': '#0E2240',
+    'Pistons': '#C8102E', 'Warriors': '#1D428A', 'Rockets': '#CE1141', 'Pacers': '#002D62',
+    'Clippers': '#C8102E', 'Lakers': '#552583', 'Grizzlies': '#5D76A9', 'Heat': '#98002E',
+    'Bucks': '#00471B', 'Timberwolves': '#0C2340', 'Pelicans': '#0C2340', 'Knicks': '#F58426',
+    'Thunder': '#007AC1', 'Magic': '#0077C0', 'Suns': '#1D1160', '76ers': '#006BB6',
+    'Trail Blazers': '#E03A3E', 'Blazers': '#E03A3E', 'Kings': '#5A2D81', 'Spurs': '#C4CED4',
+    'Raptors': '#CE1141', 'Jazz': '#002B5C', 'Wizards': '#002B5C'
+}
+
 nba_team_logos = {
     'Hawks': 'https://a.espncdn.com/i/teamlogos/nba/500/atl.png',
     'Celtics': 'https://a.espncdn.com/i/teamlogos/nba/500/bos.png',
@@ -9906,7 +9917,8 @@ def spreads():
                            bad_defense_teams_display=bad_defense_display,
                            b2b_teams=b2b_display,
                            home_away_edge=home_away_display,
-                           remaining_teams=remaining_display)
+                           remaining_teams=remaining_display,
+                           team_colors=NBA_TEAM_COLORS)
 
 @app.route('/download/codebase_structure')
 def download_codebase_structure():
