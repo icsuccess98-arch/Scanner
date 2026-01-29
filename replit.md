@@ -39,7 +39,7 @@ The Sports Scanner fetches game data, stats, and odds for NBA, CBB, NFL, CFB, an
     -   Bart Torvik (CBB advanced analytics)
     -   TeamRankings.com (matchup pages)
     -   Cleaning the Glass (CTG) (NBA advanced stats)
-    -   ScoresAndOdds (line movement, consensus picks)
+    -   WagerTalk.com (betting action: Bet %, Money %)
     -   Covers.com (H2H, ATS records)
 -   **Stocks Data**:
     -   yfinance (Yahoo Finance)
