@@ -346,6 +346,133 @@
         .league-nhl .game-card::before { background: linear-gradient(180deg, #000000, #A2AAAD); }
         .league-cbb .game-card::before { background: linear-gradient(180deg, #1e40af, #7c3aed); }
         .league-cfb .game-card::before { background: linear-gradient(180deg, #7c3aed, #dc2626); }
+        
+        /* PIKKIT-STYLE GAME CARD HEADER */
+        .pikkit-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 12px;
+            background: linear-gradient(180deg, rgba(25, 25, 35, 0.98) 0%, rgba(18, 18, 26, 1) 100%);
+            border-bottom: 1px solid rgba(139, 92, 246, 0.15);
+        }
+        .pikkit-team {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            flex: 1;
+            min-width: 0;
+        }
+        .pikkit-team-logo {
+            width: 48px;
+            height: 48px;
+            object-fit: contain;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+        }
+        .pikkit-team-name {
+            font-size: 12px;
+            font-weight: 600;
+            color: #fff;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+        }
+        .pikkit-team-record {
+            font-size: 11px;
+            font-weight: 500;
+            color: #9ca3af;
+        }
+        .pikkit-center {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 0 8px;
+            min-width: 70px;
+        }
+        .pikkit-game-time {
+            font-size: 11px;
+            font-weight: 600;
+            color: #9ca3af;
+            text-align: center;
+        }
+        .pikkit-at-symbol {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .pikkit-totals-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            background: rgba(15, 23, 42, 0.8);
+            border-top: 1px solid rgba(139, 92, 246, 0.1);
+            gap: 8px;
+        }
+        .totals-stat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+        }
+        .totals-stat-label {
+            font-size: 9px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .totals-stat-value {
+            font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+        }
+        .totals-stat-value.edge-high { color: #10B981; }
+        .totals-stat-value.edge-low { color: #F59E0B; }
+        .pikkit-pick-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+        .pikkit-pick-chip.over {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.25) 0%, rgba(16, 185, 129, 0.15) 100%);
+            color: #10B981;
+            border: 1px solid rgba(16, 185, 129, 0.4);
+        }
+        .pikkit-pick-chip.under {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.25) 0%, rgba(239, 68, 68, 0.15) 100%);
+            color: #EF4444;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+        }
+        .pikkit-pick-chip.no-bet {
+            background: rgba(107, 114, 128, 0.2);
+            color: #9CA3AF;
+            border: 1px solid rgba(107, 114, 128, 0.3);
+        }
+        .pikkit-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            justify-content: center;
+            padding: 0 12px 10px;
+        }
+        .pikkit-badge {
+            font-size: 9px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        .pikkit-badge.b2b { background: rgba(239, 68, 68, 0.2); color: #EF4444; }
+        .pikkit-badge.away-fav { background: rgba(255, 165, 0, 0.2); color: #FFA500; }
+        .pikkit-badge.def-edge { background: rgba(0, 191, 255, 0.2); color: #00BFFF; }
+        .pikkit-badge.ou-trend { background: rgba(0, 230, 118, 0.2); color: #00E676; }
+        
         .matchup { font-weight: 600; font-size: 1rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }
         .game-time { color: var(--text-muted); font-size: 0.8rem; }
         .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin: 0.75rem 0; }
@@ -1378,85 +1505,66 @@
                     <span style="color: var(--text-muted); font-size: 0.8rem; margin-left: auto;">{{ window_games|length }} game{% if window_games|length != 1 %}s{% endif %}</span>
                 </div>
                 {% for game in window_games %}
-                <div class="game-card game-row {% if game.is_qualified %}qualified{% endif %} {% if supermax_lock and game.id == supermax_lock.id %}lock-card{% endif %}" data-away="{{ game.away_team }}" data-home="{{ game.home_team }}">
-                    <div class="row align-items-center">
-                        <div class="col-md-3">
-                            <div class="matchup">
-                                {{ game.away_team }} @ {{ game.home_team }}
-                                {% if game.is_back_to_back_away or game.is_back_to_back_home %}<span class="b2b-badge" title="Back-to-back game">B2B</span>{% endif %}
-                                {% if game.ou_l5 %}<span class="badge" style="background: rgba(0, 230, 118, 0.2); color: {% if game.ou_hit_rate_qualified %}#00E676{% else %}#888{% endif %}; font-size: 0.55rem; padding: 0.1rem 0.3rem; margin-left: 0.25rem;" title="L5: {{ game.ou_l5 }} | L10: {{ game.ou_l10 }} | L20: {{ game.ou_l20 }}">📊 {{ game.ou_l5 }} | {{ game.ou_l10 }} | {{ game.ou_l20 }}</span>{% endif %}
-                                {% if game.is_away_favorite %}<span class="badge" style="background: rgba(255, 165, 0, 0.2); color: #FFA500; font-size: 0.55rem; padding: 0.1rem 0.3rem; margin-left: 0.25rem;">⭐ AWAY FAV</span>{% endif %}
-                                {% if game.def_mismatch %}<span class="badge" style="background: rgba(0, 191, 255, 0.2); color: #00BFFF; font-size: 0.55rem; padding: 0.1rem 0.3rem; margin-left: 0.25rem;">🛡️ DEF EDGE</span>{% endif %}
-                            </div>
-                            <div class="game-time">{{ game.game_time }}</div>
-                            <div class="live-score" style="display:none; margin-top:0.5rem; font-size:0.875rem; color:#21C55D;"></div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="stats-grid">
-                                <div class="stat-item">
-                                    <div class="stat-label">Away PPG</div>
-                                    <div class="stat-value">{{ "%.1f"|format(game.away_ppg) if game.away_ppg else '-' }}</div>
-                                </div>
-                                <div class="stat-item">
-                                    <div class="stat-label">Away Opp</div>
-                                    <div class="stat-value">{{ "%.1f"|format(game.away_opp_ppg) if game.away_opp_ppg else '-' }}</div>
-                                </div>
-                                <div class="stat-item">
-                                    <div class="stat-label">Home PPG</div>
-                                    <div class="stat-value">{{ "%.1f"|format(game.home_ppg) if game.home_ppg else '-' }}</div>
-                                </div>
-                                <div class="stat-item">
-                                    <div class="stat-label">Home Opp</div>
-                                    <div class="stat-value">{{ "%.1f"|format(game.home_opp_ppg) if game.home_opp_ppg else '-' }}</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="d-flex gap-4">
-                                <div class="breakdown-section">
-                                    <div class="breakdown-title">TOTALS</div>
-                                    {% if game.line %}
-                                    <div class="breakdown-row">
-                                        <span class="breakdown-label">Line</span>
-                                        <span class="breakdown-value">{{ "%.1f"|format(game.alt_total_line if game.alt_total_line else game.line) }}</span>
-                                    </div>
-                                    <div class="breakdown-row">
-                                        <span class="breakdown-label">Proj</span>
-                                        <span class="breakdown-value">{{ "%.1f"|format(game.projected_total) if game.projected_total else '-' }}</span>
-                                    </div>
-                                    <div class="breakdown-row">
-                                        <span class="breakdown-label">Edge</span>
-                                        <span class="breakdown-value {% if game.is_qualified %}high{% endif %}">{{ "%.1f"|format(game.alt_edge if game.alt_edge else game.edge) if (game.alt_edge or game.edge) else '-' }}</span>
-                                    </div>
-                                    {% if game.is_qualified %}
-                                    <span class="pick-chip {% if game.direction == 'O' %}over{% else %}under{% endif %}">{{ game.direction }}{{ game.alt_total_line if game.alt_total_line else game.line }}{% if game.alt_total_odds %} ({{ game.alt_total_odds }}){% endif %}</span>
-                                    {% else %}
-                                    <span class="pick-chip no-bet">NO BET</span>
-                                    {% endif %}
-                                    {% else %}
-                                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 80px; color: var(--text-muted); font-size: 0.75rem;">
-                                        <i class="bi bi-exclamation-circle" style="font-size: 1.25rem; margin-bottom: 0.25rem; opacity: 0.5;"></i>
-                                        <span>NO LINES</span>
-                                    </div>
-                                    {% endif %}
-                                </div>
-                            </div>
-                            {% if game.is_qualified %}
-                            <div class="sharp-metrics">
-                                {% if game.true_edge %}<span class="sharp-metric"><strong>True:</strong> {{ "%.1f"|format(game.true_edge) }}</span>{% endif %}
-                                {% if game.total_ev %}<span class="sharp-metric"><strong>EV:</strong> <span class="{{ 'positive' if game.total_ev > 0 else 'negative' }}">{{ "%.2f"|format(game.total_ev) }}%</span></span>{% endif %}
-                                {% if game.kelly_fraction %}<span class="sharp-metric"><strong>Kelly:</strong> {{ "%.1f"|format(game.kelly_fraction * 100) }}%</span>{% endif %}
-                                {% if game.vig_percentage %}<span class="sharp-metric"><strong>Vig:</strong> {{ "%.1f"|format(game.vig_percentage) }}%</span>{% endif %}
-                                {% if game.market_shade and game.market_shade != 'BALANCED' %}<span class="sharp-metric"><span class="shade">⚠️ {{ game.market_shade }}</span></span>{% endif %}
-                            </div>
+                <div class="game-card {% if game.is_qualified %}qualified{% endif %} {% if supermax_lock and game.id == supermax_lock.id %}lock-card{% endif %}" data-away="{{ game.away_team }}" data-home="{{ game.home_team }}" style="padding: 0; overflow: hidden;">
+                    <!-- PIKKIT-STYLE HEADER WITH LOGOS -->
+                    <div class="pikkit-header">
+                        <div class="pikkit-team">
+                            {% if league == 'NBA' %}
+                            <img src="{{ game.away_logo }}" alt="{{ game.away_team }}" class="pikkit-team-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                            <div style="display:none; width:48px; height:48px; background:rgba(139,92,246,0.2); border-radius:50%; align-items:center; justify-content:center; font-size:16px; font-weight:600; color:#8B5CF6;">{{ game.away_team[:2] }}</div>
+                            {% else %}
+                            <div style="width:48px; height:48px; background:rgba(139,92,246,0.2); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:600; color:#8B5CF6;">{{ game.away_team[:3] }}</div>
                             {% endif %}
+                            <div class="pikkit-team-name">{{ game.away_team }}</div>
+                            <div class="pikkit-team-record">{{ game.away_record or '--' }}</div>
                         </div>
-                        <div class="col-md-1 text-end">
-                            <form action="/delete_game/{{ game.id }}" method="post" class="d-inline">
-                                <button type="submit" class="btn-delete" onclick="return confirm('Delete?')">
-                                    <i class="bi bi-x-lg"></i>
-                                </button>
-                            </form>
+                        <div class="pikkit-center">
+                            <div class="pikkit-game-time">{{ game.game_time or 'TBD' }}</div>
+                            <div class="pikkit-at-symbol">@</div>
+                        </div>
+                        <div class="pikkit-team">
+                            {% if league == 'NBA' %}
+                            <img src="{{ game.home_logo }}" alt="{{ game.home_team }}" class="pikkit-team-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                            <div style="display:none; width:48px; height:48px; background:rgba(139,92,246,0.2); border-radius:50%; align-items:center; justify-content:center; font-size:16px; font-weight:600; color:#8B5CF6;">{{ game.home_team[:2] }}</div>
+                            {% else %}
+                            <div style="width:48px; height:48px; background:rgba(139,92,246,0.2); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:600; color:#8B5CF6;">{{ game.home_team[:3] }}</div>
+                            {% endif %}
+                            <div class="pikkit-team-name">{{ game.home_team }}</div>
+                            <div class="pikkit-team-record">{{ game.home_record or '--' }}</div>
+                        </div>
+                    </div>
+                    
+                    <!-- BADGES ROW -->
+                    {% if game.is_back_to_back_away or game.is_back_to_back_home or game.is_away_favorite or game.def_mismatch or game.ou_l5 %}
+                    <div class="pikkit-badges">
+                        {% if game.is_back_to_back_away or game.is_back_to_back_home %}<span class="pikkit-badge b2b">B2B</span>{% endif %}
+                        {% if game.is_away_favorite %}<span class="pikkit-badge away-fav">AWAY FAV</span>{% endif %}
+                        {% if game.def_mismatch %}<span class="pikkit-badge def-edge">DEF EDGE</span>{% endif %}
+                        {% if game.ou_l5 %}<span class="pikkit-badge ou-trend" title="L5: {{ game.ou_l5 }} | L10: {{ game.ou_l10 }} | L20: {{ game.ou_l20 }}">{{ game.ou_l5 }} | {{ game.ou_l10 }} | {{ game.ou_l20 }}</span>{% endif %}
+                    </div>
+                    {% endif %}
+                    
+                    <!-- TOTALS STATS BAR -->
+                    <div class="pikkit-totals-bar">
+                        <div class="totals-stat">
+                            <div class="totals-stat-label">Line</div>
+                            <div class="totals-stat-value">{{ "%.1f"|format(game.alt_total_line if game.alt_total_line else game.line) if game.line else '-' }}</div>
+                        </div>
+                        <div class="totals-stat">
+                            <div class="totals-stat-label">Proj</div>
+                            <div class="totals-stat-value">{{ "%.1f"|format(game.projected_total) if game.projected_total else '-' }}</div>
+                        </div>
+                        <div class="totals-stat">
+                            <div class="totals-stat-label">Edge</div>
+                            {% set edge_val = game.alt_edge if game.alt_edge else game.edge %}
+                            <div class="totals-stat-value {% if edge_val and edge_val|abs >= 8 %}edge-high{% elif edge_val and edge_val|abs >= 5 %}edge-low{% endif %}">{{ "%.1f"|format(edge_val) if edge_val else '-' }}</div>
+                        </div>
+                        <div class="totals-stat" style="flex: 1.5;">
+                            {% if game.is_qualified %}
+                            <span class="pikkit-pick-chip {% if game.direction == 'O' %}over{% else %}under{% endif %}">{{ game.direction }}{{ "%.1f"|format(game.alt_total_line if game.alt_total_line else game.line) }}{% if game.alt_total_odds %} ({{ game.alt_total_odds }}){% endif %}</span>
+                            {% else %}
+                            <span class="pikkit-pick-chip no-bet">NO BET</span>
+                            {% endif %}
                         </div>
                     </div>
                     {% if game.league in ['CBB', 'NBA'] and game.torvik_away_adj_o %}
@@ -1828,87 +1936,69 @@
                 {% endfor %}
                 {% else %}
                 {% for game in league_games %}
-                <div class="game-card game-row {% if game.is_qualified %}qualified{% endif %} {% if lock and game.id == lock.id %}lock-card{% endif %}" data-away="{{ game.away_team }}" data-home="{{ game.home_team }}">
-                    <div class="row align-items-center">
-                        <div class="col-md-3">
-                            <div class="matchup">
-                                {{ game.away_team }} @ {{ game.home_team }}
-                                {% if game.is_back_to_back_away or game.is_back_to_back_home %}<span class="b2b-badge" title="Back-to-back game">B2B</span>{% endif %}
-                                {% if game.ou_l5 %}<span class="badge" style="background: rgba(0, 230, 118, 0.2); color: {% if game.ou_hit_rate_qualified %}#00E676{% else %}#888{% endif %}; font-size: 0.55rem; padding: 0.1rem 0.3rem; margin-left: 0.25rem;" title="L5: {{ game.ou_l5 }} | L10: {{ game.ou_l10 }} | L20: {{ game.ou_l20 }}">📊 {{ game.ou_l5 }} | {{ game.ou_l10 }} | {{ game.ou_l20 }}</span>{% endif %}
-                                {% if game.is_away_favorite %}<span class="badge" style="background: rgba(255, 165, 0, 0.2); color: #FFA500; font-size: 0.55rem; padding: 0.1rem 0.3rem; margin-left: 0.25rem;">⭐ AWAY FAV</span>{% endif %}
-                                {% if game.def_mismatch %}<span class="badge" style="background: rgba(0, 191, 255, 0.2); color: #00BFFF; font-size: 0.55rem; padding: 0.1rem 0.3rem; margin-left: 0.25rem;">🛡️ DEF EDGE</span>{% endif %}
-                            </div>
-                            <div class="game-time">{{ game.game_time }}</div>
-                            <div class="live-score" style="display:none; margin-top:0.5rem; font-size:0.875rem; color:#21C55D;"></div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="stats-grid">
-                                <div class="stat-item">
-                                    <div class="stat-label">Away PPG</div>
-                                    <div class="stat-value">{{ "%.1f"|format(game.away_ppg) if game.away_ppg else '-' }}</div>
-                                </div>
-                                <div class="stat-item">
-                                    <div class="stat-label">Away Opp</div>
-                                    <div class="stat-value">{{ "%.1f"|format(game.away_opp_ppg) if game.away_opp_ppg else '-' }}</div>
-                                </div>
-                                <div class="stat-item">
-                                    <div class="stat-label">Home PPG</div>
-                                    <div class="stat-value">{{ "%.1f"|format(game.home_ppg) if game.home_ppg else '-' }}</div>
-                                </div>
-                                <div class="stat-item">
-                                    <div class="stat-label">Home Opp</div>
-                                    <div class="stat-value">{{ "%.1f"|format(game.home_opp_ppg) if game.home_opp_ppg else '-' }}</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="d-flex gap-4">
-                                <div class="breakdown-section">
-                                    <div class="breakdown-title">TOTALS</div>
-                                    {% if game.line %}
-                                    <div class="breakdown-row">
-                                        <span class="breakdown-label">Line</span>
-                                        <span class="breakdown-value">{{ "%.1f"|format(game.alt_total_line if game.alt_total_line else game.line) }}</span>
-                                    </div>
-                                    <div class="breakdown-row">
-                                        <span class="breakdown-label">Proj</span>
-                                        <span class="breakdown-value">{{ "%.1f"|format(game.projected_total) if game.projected_total else '-' }}</span>
-                                    </div>
-                                    <div class="breakdown-row">
-                                        <span class="breakdown-label">Edge</span>
-                                        <span class="breakdown-value {% if game.is_qualified %}high{% endif %}">{{ "%.1f"|format(game.alt_edge if game.alt_edge else game.edge) if (game.alt_edge or game.edge) else '-' }}</span>
-                                    </div>
-                                    {% if game.is_qualified %}
-                                    <span class="pick-chip {% if game.direction == 'O' %}over{% else %}under{% endif %}">{{ game.direction }}{{ game.alt_total_line if game.alt_total_line else game.line }}{% if game.alt_total_odds %} ({{ game.alt_total_odds }}){% endif %}</span>
-                                    {% else %}
-                                    <span class="pick-chip no-bet">NO BET</span>
-                                    {% endif %}
-                                    {% else %}
-                                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 80px; color: var(--text-muted); font-size: 0.75rem;">
-                                        <i class="bi bi-exclamation-circle" style="font-size: 1.25rem; margin-bottom: 0.25rem; opacity: 0.5;"></i>
-                                        <span>NO LINES</span>
-                                    </div>
-                                    {% endif %}
-                                </div>
-                            </div>
-                            {% if game.is_qualified %}
-                            <div class="sharp-metrics">
-                                {% if game.true_edge %}<span class="sharp-metric"><strong>True:</strong> {{ "%.1f"|format(game.true_edge) }}</span>{% endif %}
-                                {% if game.total_ev %}<span class="sharp-metric"><strong>EV:</strong> <span class="{{ 'positive' if game.total_ev > 0 else 'negative' }}">{{ "%.2f"|format(game.total_ev) }}%</span></span>{% endif %}
-                                {% if game.kelly_fraction %}<span class="sharp-metric"><strong>Kelly:</strong> {{ "%.1f"|format(game.kelly_fraction * 100) }}%</span>{% endif %}
-                                {% if game.vig_percentage %}<span class="sharp-metric"><strong>Vig:</strong> {{ "%.1f"|format(game.vig_percentage) }}%</span>{% endif %}
-                                {% if game.market_shade and game.market_shade != 'BALANCED' %}<span class="sharp-metric"><span class="shade">⚠️ {{ game.market_shade }}</span></span>{% endif %}
-                            </div>
+                <div class="game-card {% if game.is_qualified %}qualified{% endif %} {% if lock and game.id == lock.id %}lock-card{% endif %}" data-away="{{ game.away_team }}" data-home="{{ game.home_team }}" style="padding: 0; overflow: hidden;">
+                    <!-- PIKKIT-STYLE HEADER WITH LOGOS -->
+                    <div class="pikkit-header">
+                        <div class="pikkit-team">
+                            {% if league == 'NBA' %}
+                            <img src="{{ game.away_logo }}" alt="{{ game.away_team }}" class="pikkit-team-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                            <div style="display:none; width:48px; height:48px; background:rgba(139,92,246,0.2); border-radius:50%; align-items:center; justify-content:center; font-size:16px; font-weight:600; color:#8B5CF6;">{{ game.away_team[:2] }}</div>
+                            {% else %}
+                            <div style="width:48px; height:48px; background:rgba(139,92,246,0.2); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:600; color:#8B5CF6;">{{ game.away_team[:3] }}</div>
                             {% endif %}
+                            <div class="pikkit-team-name">{{ game.away_team }}</div>
+                            <div class="pikkit-team-record">{{ game.away_record or '--' }}</div>
                         </div>
-                        <div class="col-md-1 text-end">
-                            <form action="/delete_game/{{ game.id }}" method="post" class="d-inline">
-                                <button type="submit" class="btn-delete" onclick="return confirm('Delete?')">
-                                    <i class="bi bi-x-lg"></i>
-                                </button>
-                            </form>
+                        <div class="pikkit-center">
+                            <div class="pikkit-game-time">{{ game.game_time or 'TBD' }}</div>
+                            <div class="pikkit-at-symbol">@</div>
+                        </div>
+                        <div class="pikkit-team">
+                            {% if league == 'NBA' %}
+                            <img src="{{ game.home_logo }}" alt="{{ game.home_team }}" class="pikkit-team-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                            <div style="display:none; width:48px; height:48px; background:rgba(139,92,246,0.2); border-radius:50%; align-items:center; justify-content:center; font-size:16px; font-weight:600; color:#8B5CF6;">{{ game.home_team[:2] }}</div>
+                            {% else %}
+                            <div style="width:48px; height:48px; background:rgba(139,92,246,0.2); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:600; color:#8B5CF6;">{{ game.home_team[:3] }}</div>
+                            {% endif %}
+                            <div class="pikkit-team-name">{{ game.home_team }}</div>
+                            <div class="pikkit-team-record">{{ game.home_record or '--' }}</div>
                         </div>
                     </div>
+                    
+                    <!-- BADGES ROW -->
+                    {% if game.is_back_to_back_away or game.is_back_to_back_home or game.is_away_favorite or game.def_mismatch or game.ou_l5 %}
+                    <div class="pikkit-badges">
+                        {% if game.is_back_to_back_away or game.is_back_to_back_home %}<span class="pikkit-badge b2b">B2B</span>{% endif %}
+                        {% if game.is_away_favorite %}<span class="pikkit-badge away-fav">AWAY FAV</span>{% endif %}
+                        {% if game.def_mismatch %}<span class="pikkit-badge def-edge">DEF EDGE</span>{% endif %}
+                        {% if game.ou_l5 %}<span class="pikkit-badge ou-trend" title="L5: {{ game.ou_l5 }} | L10: {{ game.ou_l10 }} | L20: {{ game.ou_l20 }}">{{ game.ou_l5 }} | {{ game.ou_l10 }} | {{ game.ou_l20 }}</span>{% endif %}
+                    </div>
+                    {% endif %}
+                    
+                    <!-- TOTALS STATS BAR -->
+                    <div class="pikkit-totals-bar">
+                        <div class="totals-stat">
+                            <div class="totals-stat-label">Line</div>
+                            <div class="totals-stat-value">{{ "%.1f"|format(game.alt_total_line if game.alt_total_line else game.line) if game.line else '-' }}</div>
+                        </div>
+                        <div class="totals-stat">
+                            <div class="totals-stat-label">Proj</div>
+                            <div class="totals-stat-value">{{ "%.1f"|format(game.projected_total) if game.projected_total else '-' }}</div>
+                        </div>
+                        <div class="totals-stat">
+                            <div class="totals-stat-label">Edge</div>
+                            {% set edge_val = game.alt_edge if game.alt_edge else game.edge %}
+                            <div class="totals-stat-value {% if edge_val and edge_val|abs >= 8 %}edge-high{% elif edge_val and edge_val|abs >= 5 %}edge-low{% endif %}">{{ "%.1f"|format(edge_val) if edge_val else '-' }}</div>
+                        </div>
+                        <div class="totals-stat" style="flex: 1.5;">
+                            {% if game.is_qualified %}
+                            <span class="pikkit-pick-chip {% if game.direction == 'O' %}over{% else %}under{% endif %}">{{ game.direction }}{{ "%.1f"|format(game.alt_total_line if game.alt_total_line else game.line) }}{% if game.alt_total_odds %} ({{ game.alt_total_odds }}){% endif %}</span>
+                            {% else %}
+                            <span class="pikkit-pick-chip no-bet">NO BET</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
                     {% if game.league in ['CBB', 'NBA'] and game.torvik_away_adj_o %}
                     <div class="model-breakdown-toggle" onclick="toggleModelBreakdown(this)">
                         <i class="bi bi-chevron-down"></i>

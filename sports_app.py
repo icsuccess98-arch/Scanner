@@ -28,6 +28,41 @@ from automated_loading_system import (
     EliminationFilterSystem
 )
 
+# NBA team logo URLs from ESPN CDN (module-level for shared access)
+nba_team_logos = {
+    'Hawks': 'https://a.espncdn.com/i/teamlogos/nba/500/atl.png',
+    'Celtics': 'https://a.espncdn.com/i/teamlogos/nba/500/bos.png',
+    'Nets': 'https://a.espncdn.com/i/teamlogos/nba/500/bkn.png',
+    'Hornets': 'https://a.espncdn.com/i/teamlogos/nba/500/cha.png',
+    'Bulls': 'https://a.espncdn.com/i/teamlogos/nba/500/chi.png',
+    'Cavaliers': 'https://a.espncdn.com/i/teamlogos/nba/500/cle.png',
+    'Mavericks': 'https://a.espncdn.com/i/teamlogos/nba/500/dal.png',
+    'Nuggets': 'https://a.espncdn.com/i/teamlogos/nba/500/den.png',
+    'Pistons': 'https://a.espncdn.com/i/teamlogos/nba/500/det.png',
+    'Warriors': 'https://a.espncdn.com/i/teamlogos/nba/500/gs.png',
+    'Rockets': 'https://a.espncdn.com/i/teamlogos/nba/500/hou.png',
+    'Pacers': 'https://a.espncdn.com/i/teamlogos/nba/500/ind.png',
+    'Clippers': 'https://a.espncdn.com/i/teamlogos/nba/500/lac.png',
+    'Lakers': 'https://a.espncdn.com/i/teamlogos/nba/500/lal.png',
+    'Grizzlies': 'https://a.espncdn.com/i/teamlogos/nba/500/mem.png',
+    'Heat': 'https://a.espncdn.com/i/teamlogos/nba/500/mia.png',
+    'Bucks': 'https://a.espncdn.com/i/teamlogos/nba/500/mil.png',
+    'Timberwolves': 'https://a.espncdn.com/i/teamlogos/nba/500/min.png',
+    'Pelicans': 'https://a.espncdn.com/i/teamlogos/nba/500/no.png',
+    'Knicks': 'https://a.espncdn.com/i/teamlogos/nba/500/ny.png',
+    'Thunder': 'https://a.espncdn.com/i/teamlogos/nba/500/okc.png',
+    'Magic': 'https://a.espncdn.com/i/teamlogos/nba/500/orl.png',
+    '76ers': 'https://a.espncdn.com/i/teamlogos/nba/500/phi.png',
+    'Suns': 'https://a.espncdn.com/i/teamlogos/nba/500/phx.png',
+    'Trail Blazers': 'https://a.espncdn.com/i/teamlogos/nba/500/por.png',
+    'Blazers': 'https://a.espncdn.com/i/teamlogos/nba/500/por.png',
+    'Kings': 'https://a.espncdn.com/i/teamlogos/nba/500/sac.png',
+    'Spurs': 'https://a.espncdn.com/i/teamlogos/nba/500/sa.png',
+    'Raptors': 'https://a.espncdn.com/i/teamlogos/nba/500/tor.png',
+    'Jazz': 'https://a.espncdn.com/i/teamlogos/nba/500/utah.png',
+    'Wizards': 'https://a.espncdn.com/i/teamlogos/nba/500/wsh.png'
+}
+
 
 class QualificationStatus(Enum):
     """
@@ -7534,9 +7569,19 @@ def dashboard():
     # Show all games from today's slate (includes in-progress and completed)
     all_games = all_games_db
     
-    # Add time window to each game for weekend slate grouping
+    # Add time window and logos to each game for weekend slate grouping
     for g in all_games:
         g.time_window = get_game_window(g.game_time)
+        # Add team logos for Pikkit-style display
+        if g.league == 'NBA':
+            g.away_logo = nba_team_logos.get(g.away_team, 'https://a.espncdn.com/i/teamlogos/nba/500/nba.png')
+            g.home_logo = nba_team_logos.get(g.home_team, 'https://a.espncdn.com/i/teamlogos/nba/500/nba.png')
+        elif g.league == 'CBB':
+            g.away_logo = get_transparent_cbb_logo(g.away_team) or get_cbb_logo(g.away_team) or 'https://a.espncdn.com/i/teamlogos/ncaa/500-dark/ncaa.png'
+            g.home_logo = get_transparent_cbb_logo(g.home_team) or get_cbb_logo(g.home_team) or 'https://a.espncdn.com/i/teamlogos/ncaa/500-dark/ncaa.png'
+        else:
+            g.away_logo = ''
+            g.home_logo = ''
     
     # PURE MODEL: Games qualified ONLY by edge threshold (TOTALS ONLY)
     # Rule: Difference = Projected_Total - Bovada_Line must meet threshold
@@ -9923,41 +9968,6 @@ def spreads():
     
     # Fetch NBA standings for records
     nba_standings = get_nba_standings()
-    
-    # NBA team logo URLs from ESPN CDN
-    nba_team_logos = {
-        'Hawks': 'https://a.espncdn.com/i/teamlogos/nba/500/atl.png',
-        'Celtics': 'https://a.espncdn.com/i/teamlogos/nba/500/bos.png',
-        'Nets': 'https://a.espncdn.com/i/teamlogos/nba/500/bkn.png',
-        'Hornets': 'https://a.espncdn.com/i/teamlogos/nba/500/cha.png',
-        'Bulls': 'https://a.espncdn.com/i/teamlogos/nba/500/chi.png',
-        'Cavaliers': 'https://a.espncdn.com/i/teamlogos/nba/500/cle.png',
-        'Mavericks': 'https://a.espncdn.com/i/teamlogos/nba/500/dal.png',
-        'Nuggets': 'https://a.espncdn.com/i/teamlogos/nba/500/den.png',
-        'Pistons': 'https://a.espncdn.com/i/teamlogos/nba/500/det.png',
-        'Warriors': 'https://a.espncdn.com/i/teamlogos/nba/500/gs.png',
-        'Rockets': 'https://a.espncdn.com/i/teamlogos/nba/500/hou.png',
-        'Pacers': 'https://a.espncdn.com/i/teamlogos/nba/500/ind.png',
-        'Clippers': 'https://a.espncdn.com/i/teamlogos/nba/500/lac.png',
-        'Lakers': 'https://a.espncdn.com/i/teamlogos/nba/500/lal.png',
-        'Grizzlies': 'https://a.espncdn.com/i/teamlogos/nba/500/mem.png',
-        'Heat': 'https://a.espncdn.com/i/teamlogos/nba/500/mia.png',
-        'Bucks': 'https://a.espncdn.com/i/teamlogos/nba/500/mil.png',
-        'Timberwolves': 'https://a.espncdn.com/i/teamlogos/nba/500/min.png',
-        'Pelicans': 'https://a.espncdn.com/i/teamlogos/nba/500/no.png',
-        'Knicks': 'https://a.espncdn.com/i/teamlogos/nba/500/ny.png',
-        'Thunder': 'https://a.espncdn.com/i/teamlogos/nba/500/okc.png',
-        'Magic': 'https://a.espncdn.com/i/teamlogos/nba/500/orl.png',
-        '76ers': 'https://a.espncdn.com/i/teamlogos/nba/500/phi.png',
-        'Suns': 'https://a.espncdn.com/i/teamlogos/nba/500/phx.png',
-        'Trail Blazers': 'https://a.espncdn.com/i/teamlogos/nba/500/por.png',
-        'Blazers': 'https://a.espncdn.com/i/teamlogos/nba/500/por.png',
-        'Kings': 'https://a.espncdn.com/i/teamlogos/nba/500/sac.png',
-        'Spurs': 'https://a.espncdn.com/i/teamlogos/nba/500/sa.png',
-        'Raptors': 'https://a.espncdn.com/i/teamlogos/nba/500/tor.png',
-        'Jazz': 'https://a.espncdn.com/i/teamlogos/nba/500/utah.png',
-        'Wizards': 'https://a.espncdn.com/i/teamlogos/nba/500/wsh.png'
-    }
     
     # Get ALL games for today without any totals filtering
     all_games = Game.query.filter_by(date=today).order_by(Game.game_time.asc()).all()
