@@ -185,6 +185,9 @@ app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_recycle": 300,
     "pool_pre_ping": True,
+    "pool_size": 5,
+    "max_overflow": 10,
+    "connect_args": {"connect_timeout": 10}
 }
 db.init_app(app)
 
@@ -2059,7 +2062,19 @@ class MatchupIntelligence:
         Auto-refreshes 2 hours before game time for live data.
         """
         from datetime import datetime
-        from wagertalk_scraper import get_all_wagertalk_data
+        # Use production API (works in autoscale, no Playwright)
+        try:
+            from wagertalk_production_api import MultiSourceBettingScraper
+            _production_scraper = MultiSourceBettingScraper()
+            def get_all_wagertalk_data(league):
+                data = _production_scraper.get_betting_data(league)
+                # Convert list to dict format expected by this function
+                result = {}
+                for i, game in enumerate(data):
+                    result[f"game_{i}"] = game
+                return result
+        except ImportError:
+            from wagertalk_scraper import get_all_wagertalk_data
         
         result = {}
         cache_key = f"{league}_{datetime.now().strftime('%Y%m%d')}"
@@ -7237,6 +7252,11 @@ def check_pick_results() -> int:
 
 @app.route('/')
 def dashboard():
+    # Health check fast path - return 200 immediately for User-Agent containing health/check
+    user_agent = request.headers.get('User-Agent', '').lower()
+    if 'health' in user_agent or 'check' in user_agent or 'uptime' in user_agent:
+        return jsonify({"status": "ok"}), 200
+    
     et = pytz.timezone('America/New_York')
     today = datetime.now(et).date()
     show_only_qualified = request.args.get('qualified', '0') == '1'
