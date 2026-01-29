@@ -1785,6 +1785,46 @@
             xhr.send();
         }
         
+        // NBA Team Colors (primary, secondary)
+        const nbaTeamColors = {
+            'Hawks': { primary: '#E03A3E', secondary: '#C1D32F' },
+            'Celtics': { primary: '#007A33', secondary: '#BA9653' },
+            'Nets': { primary: '#000000', secondary: '#FFFFFF' },
+            'Hornets': { primary: '#1D1160', secondary: '#00788C' },
+            'Bulls': { primary: '#CE1141', secondary: '#000000' },
+            'Cavaliers': { primary: '#860038', secondary: '#FDBB30' },
+            'Mavericks': { primary: '#00538C', secondary: '#002B5E' },
+            'Nuggets': { primary: '#0E2240', secondary: '#FEC524' },
+            'Pistons': { primary: '#C8102E', secondary: '#1D42BA' },
+            'Warriors': { primary: '#1D428A', secondary: '#FFC72C' },
+            'Rockets': { primary: '#CE1141', secondary: '#000000' },
+            'Pacers': { primary: '#002D62', secondary: '#FDBB30' },
+            'Clippers': { primary: '#C8102E', secondary: '#1D428A' },
+            'Lakers': { primary: '#552583', secondary: '#FDB927' },
+            'Grizzlies': { primary: '#5D76A9', secondary: '#12173F' },
+            'Heat': { primary: '#98002E', secondary: '#F9A01B' },
+            'Bucks': { primary: '#00471B', secondary: '#EEE1C6' },
+            'Timberwolves': { primary: '#0C2340', secondary: '#236192' },
+            'Pelicans': { primary: '#0C2340', secondary: '#C8102E' },
+            'Knicks': { primary: '#006BB6', secondary: '#F58426' },
+            'Thunder': { primary: '#007AC1', secondary: '#EF3B24' },
+            'Magic': { primary: '#0077C0', secondary: '#000000' },
+            '76ers': { primary: '#006BB6', secondary: '#ED174C' },
+            'Suns': { primary: '#1D1160', secondary: '#E56020' },
+            'Trail Blazers': { primary: '#E03A3E', secondary: '#000000' },
+            'Blazers': { primary: '#E03A3E', secondary: '#000000' },
+            'Kings': { primary: '#5A2D81', secondary: '#63727A' },
+            'Spurs': { primary: '#C4CED4', secondary: '#000000' },
+            'Raptors': { primary: '#CE1141', secondary: '#000000' },
+            'Jazz': { primary: '#002B5C', secondary: '#00471B' },
+            'Wizards': { primary: '#002B5C', secondary: '#E31837' }
+        };
+        
+        function getTeamColor(team, type = 'primary') {
+            const colors = nbaTeamColors[team] || { primary: '#8B5CF6', secondary: '#6366F1' };
+            return colors[type];
+        }
+        
         function renderPikkitContent(gameId, tabType, data, awayTeam, homeTeam) {
             const rlm = data.rlm || {};
             const awayData = rlm.away || {};
@@ -1797,177 +1837,229 @@
             const currentSpread = rlm.current_spread || 'N/A';
             const lineMove = rlm.line_movement || 'N/A';
             
+            // Get team colors
+            const awayColor = getTeamColor(awayTeam, 'primary');
+            const homeColor = getTeamColor(homeTeam, 'primary');
+            
+            // Determine which team opened as favorite (negative spread = away favorite)
+            const openNum = parseFloat(openSpread) || 0;
+            const currentNum = parseFloat(currentSpread) || 0;
+            const openFavorite = openNum < 0 ? awayTeam : (openNum > 0 ? homeTeam : 'PK');
+            const openLine = Math.abs(openNum);
+            const currentFavorite = currentNum < 0 ? awayTeam : (currentNum > 0 ? homeTeam : 'PK');
+            const currentLine = Math.abs(currentNum);
+            const movement = Math.abs(currentLine - openLine).toFixed(1);
+            const moveDirection = currentLine > openLine ? 'up' : (currentLine < openLine ? 'down' : 'none');
+            
             let contentHtml = '';
             
             if (tabType === 'spread') {
                 contentHtml = `
-                    <!-- Team Toggle -->
-                    <div class="team-toggle-btns">
-                        <button class="team-toggle-btn active">${awayTeam} ${currentSpread}</button>
-                        <button class="team-toggle-btn">${homeTeam} ${currentSpread.replace('+', '-').replace('--', '+')}</button>
-                    </div>
-                    
-                    <!-- Bet % Section -->
-                    <div class="pct-section">
-                        <div class="pct-header">
-                            <span class="pct-team-name">${awayTeam}</span>
-                            <span class="pct-label">Bet %</span>
-                            <span class="pct-team-name">${homeTeam}</span>
-                        </div>
-                        <div class="pct-bar-container">
-                            <div class="pct-bar-left" style="width: ${awayBetPct}%;">${awayBetPct}%</div>
-                            <div class="pct-bar-right" style="background: linear-gradient(90deg, #10b981, #34d399);">${homeBetPct}%</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Money % Section -->
-                    <div class="pct-section">
-                        <div class="pct-header">
-                            <span class="pct-team-name">${awayTeam}</span>
-                            <span class="pct-label">Money %</span>
-                            <span class="pct-team-name">${homeTeam}</span>
-                        </div>
-                        <div class="pct-bar-container">
-                            <div class="pct-bar-left" style="width: ${awayMoneyPct}%; background: linear-gradient(90deg, #f59e0b, #fbbf24);">${awayMoneyPct}%</div>
-                            <div class="pct-bar-right" style="background: linear-gradient(90deg, #8b5cf6, #a78bfa);">${homeMoneyPct}%</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Line Movement -->
-                    <div class="line-movement-section">
-                        <div class="lm-header">
-                            <span class="lm-title">Line Movement</span>
-                        </div>
-                        <div class="lm-chart">
-                            <div class="lm-chart-line"></div>
-                            <div class="lm-chart-point"></div>
-                        </div>
-                        <div class="lm-values">
-                            <div class="lm-value-item">
-                                <span class="lm-value-label">Current</span>
-                                <span class="lm-value-num">${currentSpread}</span>
+                    <!-- LINE MOVEMENT - Clear who opened as favorite -->
+                    <div class="line-movement-card" style="background: rgba(30,30,40,0.9); border-radius: 12px; padding: 16px; margin-bottom: 12px;">
+                        <div style="text-align: center; font-size: 12px; color: #9ca3af; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px;">LINE MOVEMENT</div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 20px;">
+                            <div style="text-align: center;">
+                                <div style="font-size: 10px; color: #6b7280; margin-bottom: 4px;">OPEN</div>
+                                <div style="font-size: 24px; font-weight: 700; color: #3b82f6;">${openFavorite} -${openLine}</div>
                             </div>
-                            <div class="lm-value-item">
-                                <span class="lm-value-label">Open</span>
-                                <span class="lm-value-num">${openSpread}</span>
+                            <div style="font-size: 20px; color: #6b7280;">→</div>
+                            <div style="text-align: center;">
+                                <div style="font-size: 10px; color: #6b7280; margin-bottom: 4px;">CURRENT</div>
+                                <div style="font-size: 24px; font-weight: 700; color: #3b82f6;">${currentFavorite} -${currentLine}</div>
+                            </div>
+                        </div>
+                        <div style="text-align: center; margin-top: 12px;">
+                            <span style="background: rgba(59,130,246,0.2); color: #60a5fa; padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;">
+                                ${moveDirection === 'up' ? '📈' : moveDirection === 'down' ? '📉' : '➡️'} ${movement} pts movement
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <!-- BET % - Team color coded bars -->
+                    <div style="background: rgba(30,30,40,0.9); border-radius: 12px; padding: 16px; margin-bottom: 12px;">
+                        <div style="font-size: 12px; color: #9ca3af; margin-bottom: 12px; font-weight: 600;">BET % <span style="color: #6b7280;">(TICKETS)</span></div>
+                        <div style="margin-bottom: 8px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span style="font-size: 13px; color: #fff;">${awayTeam}</span>
+                                <span style="font-size: 13px; color: #fff; font-weight: 600;">${awayBetPct}%</span>
+                            </div>
+                            <div style="height: 24px; background: rgba(40,40,50,0.8); border-radius: 6px; overflow: hidden;">
+                                <div style="height: 100%; width: ${awayBetPct}%; background: ${awayColor}; border-radius: 6px; display: flex; align-items: center; justify-content: center;"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span style="font-size: 13px; color: #fff;">${homeTeam}</span>
+                                <span style="font-size: 13px; color: #fff; font-weight: 600;">${homeBetPct}%</span>
+                            </div>
+                            <div style="height: 24px; background: rgba(40,40,50,0.8); border-radius: 6px; overflow: hidden;">
+                                <div style="height: 100%; width: ${homeBetPct}%; background: ${homeColor}; border-radius: 6px; display: flex; align-items: center; justify-content: center;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- MONEY % - Team color coded bars -->
+                    <div style="background: rgba(30,30,40,0.9); border-radius: 12px; padding: 16px; margin-bottom: 12px;">
+                        <div style="font-size: 12px; color: #9ca3af; margin-bottom: 12px; font-weight: 600;">MONEY % <span style="color: #6b7280;">(HANDLE)</span></div>
+                        <div style="margin-bottom: 8px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span style="font-size: 13px; color: #fff;">${awayTeam}</span>
+                                <span style="font-size: 13px; color: #fff; font-weight: 600;">${awayMoneyPct}%</span>
+                            </div>
+                            <div style="height: 24px; background: rgba(40,40,50,0.8); border-radius: 6px; overflow: hidden;">
+                                <div style="height: 100%; width: ${awayMoneyPct}%; background: ${awayColor}; opacity: 0.7; border-radius: 6px;"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span style="font-size: 13px; color: #fff;">${homeTeam}</span>
+                                <span style="font-size: 13px; color: #fff; font-weight: 600;">${homeMoneyPct}%</span>
+                            </div>
+                            <div style="height: 24px; background: rgba(40,40,50,0.8); border-radius: 6px; overflow: hidden;">
+                                <div style="height: 100%; width: ${homeMoneyPct}%; background: ${homeColor}; opacity: 0.7; border-radius: 6px;"></div>
                             </div>
                         </div>
                     </div>
                 `;
             } else if (tabType === 'total') {
+                // Get total line data
+                const totalLine = data.total_line || 220;
+                const totalOpen = data.total_open || totalLine;
+                const totalMove = (totalLine - totalOpen).toFixed(1);
+                const underBetPct = 52; // Placeholder - would come from API
+                const overBetPct = 48;
+                const underMoneyPct = 49;
+                const overMoneyPct = 51;
+                
                 contentHtml = `
-                    <!-- Team Toggle for O/U -->
-                    <div class="team-toggle-btns">
-                        <button class="team-toggle-btn active">UNDER</button>
-                        <button class="team-toggle-btn">OVER</button>
-                    </div>
-                    
-                    <!-- Bet % Section -->
-                    <div class="pct-section">
-                        <div class="pct-header">
-                            <span class="pct-team-name">UNDER</span>
-                            <span class="pct-label">Bet %</span>
-                            <span class="pct-team-name">OVER</span>
-                        </div>
-                        <div class="pct-bar-container">
-                            <div class="pct-bar-left" style="width: 52%;">52%</div>
-                            <div class="pct-bar-right" style="background: linear-gradient(90deg, #10b981, #34d399);">48%</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Money % Section -->
-                    <div class="pct-section">
-                        <div class="pct-header">
-                            <span class="pct-team-name">UNDER</span>
-                            <span class="pct-label">Money %</span>
-                            <span class="pct-team-name">OVER</span>
-                        </div>
-                        <div class="pct-bar-container">
-                            <div class="pct-bar-left" style="width: 49%; background: linear-gradient(90deg, #f59e0b, #fbbf24);">49%</div>
-                            <div class="pct-bar-right" style="background: linear-gradient(90deg, #8b5cf6, #a78bfa);">51%</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Line Movement -->
-                    <div class="line-movement-section">
-                        <div class="lm-header">
-                            <span class="lm-title">Line Movement</span>
-                        </div>
-                        <div class="lm-chart">
-                            <div class="lm-chart-line"></div>
-                            <div class="lm-chart-point"></div>
-                        </div>
-                        <div class="lm-values">
-                            <div class="lm-value-item">
-                                <span class="lm-value-label">Current</span>
-                                <span class="lm-value-num">219.5</span>
+                    <!-- LINE MOVEMENT for Totals -->
+                    <div class="line-movement-card" style="background: rgba(30,30,40,0.9); border-radius: 12px; padding: 16px; margin-bottom: 12px;">
+                        <div style="text-align: center; font-size: 12px; color: #9ca3af; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px;">LINE MOVEMENT</div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 20px;">
+                            <div style="text-align: center;">
+                                <div style="font-size: 10px; color: #6b7280; margin-bottom: 4px;">OPEN</div>
+                                <div style="font-size: 24px; font-weight: 700; color: #3b82f6;">${totalOpen}</div>
                             </div>
-                            <div class="lm-value-item">
-                                <span class="lm-value-label">Open</span>
-                                <span class="lm-value-num">218.0</span>
+                            <div style="font-size: 20px; color: #6b7280;">→</div>
+                            <div style="text-align: center;">
+                                <div style="font-size: 10px; color: #6b7280; margin-bottom: 4px;">CURRENT</div>
+                                <div style="font-size: 24px; font-weight: 700; color: #3b82f6;">${totalLine}</div>
+                            </div>
+                        </div>
+                        <div style="text-align: center; margin-top: 12px;">
+                            <span style="background: rgba(59,130,246,0.2); color: #60a5fa; padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;">
+                                ${parseFloat(totalMove) > 0 ? '📈' : parseFloat(totalMove) < 0 ? '📉' : '➡️'} ${Math.abs(parseFloat(totalMove))} pts movement
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <!-- BET % for Totals -->
+                    <div style="background: rgba(30,30,40,0.9); border-radius: 12px; padding: 16px; margin-bottom: 12px;">
+                        <div style="font-size: 12px; color: #9ca3af; margin-bottom: 12px; font-weight: 600;">BET % <span style="color: #6b7280;">(TICKETS)</span></div>
+                        <div style="margin-bottom: 8px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span style="font-size: 13px; color: #fff;">UNDER</span>
+                                <span style="font-size: 13px; color: #fff; font-weight: 600;">${underBetPct}%</span>
+                            </div>
+                            <div style="height: 24px; background: rgba(40,40,50,0.8); border-radius: 6px; overflow: hidden;">
+                                <div style="height: 100%; width: ${underBetPct}%; background: #ef4444; border-radius: 6px;"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span style="font-size: 13px; color: #fff;">OVER</span>
+                                <span style="font-size: 13px; color: #fff; font-weight: 600;">${overBetPct}%</span>
+                            </div>
+                            <div style="height: 24px; background: rgba(40,40,50,0.8); border-radius: 6px; overflow: hidden;">
+                                <div style="height: 100%; width: ${overBetPct}%; background: #10b981; border-radius: 6px;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- MONEY % for Totals -->
+                    <div style="background: rgba(30,30,40,0.9); border-radius: 12px; padding: 16px; margin-bottom: 12px;">
+                        <div style="font-size: 12px; color: #9ca3af; margin-bottom: 12px; font-weight: 600;">MONEY % <span style="color: #6b7280;">(HANDLE)</span></div>
+                        <div style="margin-bottom: 8px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span style="font-size: 13px; color: #fff;">UNDER</span>
+                                <span style="font-size: 13px; color: #fff; font-weight: 600;">${underMoneyPct}%</span>
+                            </div>
+                            <div style="height: 24px; background: rgba(40,40,50,0.8); border-radius: 6px; overflow: hidden;">
+                                <div style="height: 100%; width: ${underMoneyPct}%; background: #ef4444; opacity: 0.7; border-radius: 6px;"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span style="font-size: 13px; color: #fff;">OVER</span>
+                                <span style="font-size: 13px; color: #fff; font-weight: 600;">${overMoneyPct}%</span>
+                            </div>
+                            <div style="height: 24px; background: rgba(40,40,50,0.8); border-radius: 6px; overflow: hidden;">
+                                <div style="height: 100%; width: ${overMoneyPct}%; background: #10b981; opacity: 0.7; border-radius: 6px;"></div>
                             </div>
                         </div>
                     </div>
                 `;
             } else if (tabType === 'moneyline') {
+                // Get moneyline odds
+                const awayML = data.away_ml || '+150';
+                const homeML = data.home_ml || '-138';
+                
                 contentHtml = `
-                    <!-- Team Toggle -->
-                    <div class="team-toggle-btns">
-                        <button class="team-toggle-btn">${awayTeam}</button>
-                        <button class="team-toggle-btn active">${homeTeam}</button>
+                    <!-- Team Toggle with team colors -->
+                    <div style="display: flex; margin-bottom: 12px; border-radius: 8px; overflow: hidden; background: rgba(40, 40, 50, 0.5);">
+                        <button style="flex: 1; padding: 12px; text-align: center; background: transparent; color: #9ca3af; border: none; font-size: 14px; font-weight: 500; cursor: pointer;">${awayTeam}</button>
+                        <button style="flex: 1; padding: 12px; text-align: center; background: ${homeColor}; color: #fff; border: none; font-size: 14px; font-weight: 600; cursor: pointer;">${homeTeam}</button>
                     </div>
                     
                     <!-- Current Pick Card -->
-                    <div class="current-pick-card">
-                        <div class="pick-info">
-                            <span class="pick-team-name">${homeTeam} · Moneyline</span>
-                        </div>
-                        <span class="pick-odds">-138</span>
+                    <div style="background: rgba(30,30,40,0.9); border-radius: 12px; padding: 16px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 14px; color: #fff; font-weight: 500;">${homeTeam} · Moneyline</span>
+                        <span style="background: #3b82f6; color: #fff; padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 16px;">${homeML}</span>
                     </div>
                     
-                    <!-- Bet % Section -->
-                    <div class="pct-section">
-                        <div class="pct-header">
-                            <span class="pct-team-name">${awayTeam}</span>
-                            <span class="pct-label">Bet %</span>
-                            <span class="pct-team-name">${homeTeam}</span>
-                        </div>
-                        <div class="pct-bar-container">
-                            <div class="pct-bar-left" style="width: ${awayBetPct}%;">${awayBetPct}%</div>
-                            <div class="pct-bar-right" style="background: linear-gradient(90deg, #10b981, #34d399);">${homeBetPct}%</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Money % Section -->
-                    <div class="pct-section">
-                        <div class="pct-header">
-                            <span class="pct-team-name">${awayTeam}</span>
-                            <span class="pct-label">Money %</span>
-                            <span class="pct-team-name">${homeTeam}</span>
-                        </div>
-                        <div class="pct-bar-container">
-                            <div class="pct-bar-left" style="width: ${awayMoneyPct}%; background: linear-gradient(90deg, #f59e0b, #fbbf24);">${awayMoneyPct}%</div>
-                            <div class="pct-bar-right" style="background: linear-gradient(90deg, #8b5cf6, #a78bfa);">${homeMoneyPct}%</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Line Movement -->
-                    <div class="line-movement-section">
-                        <div class="lm-header">
-                            <span class="lm-title">Line Movement</span>
-                        </div>
-                        <div class="lm-chart">
-                            <div class="lm-chart-line"></div>
-                            <div class="lm-chart-point"></div>
-                        </div>
-                        <div class="lm-values">
-                            <div class="lm-value-item">
-                                <span class="lm-value-label">Current</span>
-                                <span class="lm-value-num">-138</span>
+                    <!-- BET % - Team color coded bars -->
+                    <div style="background: rgba(30,30,40,0.9); border-radius: 12px; padding: 16px; margin-bottom: 12px;">
+                        <div style="font-size: 12px; color: #9ca3af; margin-bottom: 12px; font-weight: 600;">BET % <span style="color: #6b7280;">(TICKETS)</span></div>
+                        <div style="margin-bottom: 8px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span style="font-size: 13px; color: #fff;">${awayTeam}</span>
+                                <span style="font-size: 13px; color: #fff; font-weight: 600;">${awayBetPct}%</span>
                             </div>
-                            <div class="lm-value-item">
-                                <span class="lm-value-label">Open</span>
-                                <span class="lm-value-num">-141</span>
+                            <div style="height: 24px; background: rgba(40,40,50,0.8); border-radius: 6px; overflow: hidden;">
+                                <div style="height: 100%; width: ${awayBetPct}%; background: ${awayColor}; border-radius: 6px;"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span style="font-size: 13px; color: #fff;">${homeTeam}</span>
+                                <span style="font-size: 13px; color: #fff; font-weight: 600;">${homeBetPct}%</span>
+                            </div>
+                            <div style="height: 24px; background: rgba(40,40,50,0.8); border-radius: 6px; overflow: hidden;">
+                                <div style="height: 100%; width: ${homeBetPct}%; background: ${homeColor}; border-radius: 6px;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- MONEY % - Team color coded bars -->
+                    <div style="background: rgba(30,30,40,0.9); border-radius: 12px; padding: 16px; margin-bottom: 12px;">
+                        <div style="font-size: 12px; color: #9ca3af; margin-bottom: 12px; font-weight: 600;">MONEY % <span style="color: #6b7280;">(HANDLE)</span></div>
+                        <div style="margin-bottom: 8px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span style="font-size: 13px; color: #fff;">${awayTeam}</span>
+                                <span style="font-size: 13px; color: #fff; font-weight: 600;">${awayMoneyPct}%</span>
+                            </div>
+                            <div style="height: 24px; background: rgba(40,40,50,0.8); border-radius: 6px; overflow: hidden;">
+                                <div style="height: 100%; width: ${awayMoneyPct}%; background: ${awayColor}; opacity: 0.7; border-radius: 6px;"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span style="font-size: 13px; color: #fff;">${homeTeam}</span>
+                                <span style="font-size: 13px; color: #fff; font-weight: 600;">${homeMoneyPct}%</span>
+                            </div>
+                            <div style="height: 24px; background: rgba(40,40,50,0.8); border-radius: 6px; overflow: hidden;">
+                                <div style="height: 100%; width: ${homeMoneyPct}%; background: ${homeColor}; opacity: 0.7; border-radius: 6px;"></div>
                             </div>
                         </div>
                     </div>
