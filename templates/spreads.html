@@ -2395,14 +2395,6 @@
                         const response = await fetch(`/api/matchup_data/${gameId}`);
                         const data = await response.json();
                         
-                        // Store last5 data for tab switching
-                        if (data.last5_away || data.last5_home) {
-                            last5GameData[gameId] = {
-                                last5_away: data.last5_away || [],
-                                last5_home: data.last5_home || []
-                            };
-                        }
-                        
                         // Update the stats with real data
                         updateMatchupStats(content, data);
                         content.dataset.loaded = 'true';
