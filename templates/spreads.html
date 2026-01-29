@@ -1500,31 +1500,9 @@
                 </tr>`;
             };
             
-            // L3 Row helper (simplified version for Last 3 Games table)
-            function l5Row(metric, awayVal, homeVal, higherIsBetter = true) {
-                const aw = parseFloat(awayVal) || 0;
-                const hm = parseFloat(homeVal) || 0;
-                let awClass = '', hmClass = '', edge = '-';
-                
-                if (aw && hm) {
-                    if (higherIsBetter) {
-                        if (aw > hm) { awClass = 'edge-away'; edge = awayTeam; }
-                        else if (hm > aw) { hmClass = 'edge-home'; edge = homeTeam; }
-                    } else {
-                        if (aw < hm) { awClass = 'edge-away'; edge = awayTeam; }
-                        else if (hm < aw) { hmClass = 'edge-home'; edge = homeTeam; }
-                    }
-                }
-                
-                const fmt = (v) => (!v || v === 0) ? '-' : parseFloat(v).toFixed(1);
-                
-                return `<tr>
-                    <td class="metric-name">${metric}</td>
-                    <td class="${awClass}">${fmt(aw)}</td>
-                    <td class="${hmClass}">${fmt(hm)}</td>
-                    <td class="${awClass || hmClass}">${edge}</td>
-                </tr>`;
-            }
+            // Get L5 data
+            const awayL5 = data.away_l5 || {};
+            const homeL5 = data.home_l5 || {};
             
             let html = `
                 <div class="analytics-table-section">
@@ -1597,14 +1575,14 @@
                             </tr>
                         </thead>
                         <tbody>
-                            ${l5Row('PPG', awayL3['PPG'], homeL3['PPG'], true)}
-                            ${l5Row('eFG%', awayL3['eFG%'], homeL3['eFG%'], true)}
-                            ${l5Row('3PT%', awayL3['3PT%'], homeL3['3PT%'], true)}
-                            ${l5Row('FT%', awayL3['FT%'], homeL3['FT%'], true)}
-                            ${l5Row('TOV%', awayL3['TOV'], homeL3['TOV'], false)}
-                            ${l5Row('ORB', awayL3['ORB'], homeL3['ORB'], true)}
-                            ${l5Row('DRB', awayL3['DRB'], homeL3['DRB'], true)}
-                            ${l5Row('FT Rate', awayL3['FT Rate'] || 0, homeL3['FT Rate'] || 0, true)}
+                            ${l5Row('PPG', awayL5.l5_pts, homeL5.l5_pts, true)}
+                            ${l5Row('eFG%', awayL5.l5_efg, homeL5.l5_efg, true)}
+                            ${l5Row('3PT%', awayL5.l5_fg3_pct, homeL5.l5_fg3_pct, true)}
+                            ${l5Row('FT%', awayL5.l5_ft_pct, homeL5.l5_ft_pct, true)}
+                            ${l5Row('TOV%', awayL5.l5_tov_pct, homeL5.l5_tov_pct, false)}
+                            ${l5Row('ORB', awayL5.l5_orb, homeL5.l5_orb, true)}
+                            ${l5Row('DRB', awayL5.l5_drb, homeL5.l5_drb, true)}
+                            ${l5Row('FT Rate', awayL5.l5_ft_rate, homeL5.l5_ft_rate, true)}
                         </tbody>
                     </table>
                 </div>
