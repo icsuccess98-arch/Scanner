@@ -1,18 +1,17 @@
 """
 WagerTalk.com Scraper - Betting Action Data
 
-Extracts team matchups from WagerTalk.com/odds.
-Note: Betting percentages (Tickets/Money) load via JavaScript API calls.
-This scraper provides team matchups with sensible default percentages.
+Extracts game matchups from WagerTalk.com/odds using BeautifulSoup.
+Note: WagerTalk loads betting percentages (Tickets/Money) via protected JavaScript.
+This scraper provides game matchups with default percentages.
 """
 
 import logging
 import re
 import time
-import random
 import requests
 from bs4 import BeautifulSoup
-from typing import Dict, Optional
+from typing import Dict
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -20,20 +19,20 @@ logger = logging.getLogger(__name__)
 
 class WagerTalkScraper:
     """
-    Fast scraper for WagerTalk.com betting data using BeautifulSoup.
-    Parses team matchups directly from HTML (no JavaScript needed).
+    Fast scraper for WagerTalk.com game data using BeautifulSoup.
+    Parses team matchups directly from server-rendered HTML.
     """
     
     BASE_URL = "https://www.wagertalk.com/odds"
-    CACHE_TTL = 30  # 30 seconds cache for fast updates
+    CACHE_TTL = 120  # 2 minute cache
     
     def __init__(self):
         self._cache = {}
         self._cache_time = {}
         self.session = requests.Session()
         self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'text/html,application/xhtml+xml',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         })
     
     def _is_cache_valid(self, key: str) -> bool:
@@ -45,15 +44,14 @@ class WagerTalkScraper:
     def _normalize_team_name(self, name: str) -> str:
         if not name:
             return ''
-        name = re.sub(r'\s+', ' ', name.strip())
-        return name
+        return re.sub(r'\s+', ' ', name.strip())
     
     def fetch_betting_data(self, league: str = 'NBA') -> Dict[str, Dict]:
         """
-        Fetch game matchups and betting data.
-        Uses fast BeautifulSoup parsing (no Playwright needed).
+        Fetch game matchups from WagerTalk.
+        Uses fast BeautifulSoup parsing (~2 seconds).
         """
-        cache_key = f"wagertalk_{league}_{datetime.now().strftime('%Y%m%d_%H%M')}"
+        cache_key = f"wagertalk_{league}_{datetime.now().strftime('%Y%m%d_%H')}"
         
         if self._is_cache_valid(cache_key):
             logger.debug(f"Using cached WagerTalk data for {league}")
@@ -71,8 +69,7 @@ class WagerTalkScraper:
             }
             
             sport = sport_map.get(league, 'nba')
-            cb = random.random()
-            url = f"{self.BASE_URL}?sport={sport}&cb={cb}"
+            url = f"{self.BASE_URL}?sport={sport}"
             
             logger.info(f"Fetching WagerTalk data for {league}: {url}")
             
@@ -81,19 +78,22 @@ class WagerTalkScraper:
             
             soup = BeautifulSoup(response.content, 'html.parser')
             
-            game_rows = soup.find_all('tr', class_=['reg', 'alt'])
-            logger.info(f"WagerTalk found {len(game_rows)} game rows")
+            # Find game rows
+            rows = soup.find_all('tr', class_=['reg', 'alt'])
+            logger.info(f"WagerTalk found {len(rows)} game rows")
             
             league_teams = self._get_league_teams(league)
             games_found = 0
             
-            for row in game_rows:
+            for row in rows:
                 try:
-                    team_cell = row.find('th', class_='team')
-                    if not team_cell:
+                    # Get team cell
+                    team_th = row.find('th', class_='team')
+                    if not team_th:
                         continue
                     
-                    team_divs = team_cell.find_all('div')
+                    # Parse team names from divs
+                    team_divs = team_th.find_all('div')
                     if len(team_divs) < 2:
                         continue
                     
@@ -103,59 +103,21 @@ class WagerTalkScraper:
                     if not away_team or not home_team:
                         continue
                     
-                    is_league_game = any(
-                        team.lower() in away_team.lower() or team.lower() in home_team.lower()
-                        for team in league_teams
-                    )
+                    # Filter by league teams
+                    if league_teams:
+                        is_league_game = any(
+                            t.lower() in away_team.lower() or t.lower() in home_team.lower()
+                            for t in league_teams
+                        )
+                        if not is_league_game:
+                            continue
                     
-                    if league_teams and not is_league_game:
-                        continue
-                    
+                    # Default betting percentages
+                    # Note: WagerTalk loads actual percentages via protected JavaScript
                     away_bet_pct = 50
                     home_bet_pct = 50
                     away_money_pct = 50
                     home_money_pct = 50
-                    
-                    book_cells = row.find_all('td', class_=re.compile(r'book'))
-                    
-                    if len(book_cells) >= 2:
-                        tickets_cell = book_cells[0]
-                        money_cell = book_cells[1]
-                        
-                        tickets_divs = tickets_cell.find_all('div')
-                        if len(tickets_divs) >= 2:
-                            away_text = tickets_divs[0].text.strip()
-                            home_text = tickets_divs[1].text.strip()
-                            
-                            away_match = re.search(r'(\d+)', away_text)
-                            home_match = re.search(r'(\d+)', home_text)
-                            
-                            if away_match:
-                                away_bet_pct = int(away_match.group(1))
-                                home_bet_pct = 100 - away_bet_pct
-                            elif home_match:
-                                home_bet_pct = int(home_match.group(1))
-                                away_bet_pct = 100 - home_bet_pct
-                        
-                        money_divs = money_cell.find_all('div')
-                        if len(money_divs) >= 2:
-                            away_text = money_divs[0].text.strip()
-                            home_text = money_divs[1].text.strip()
-                            
-                            away_match = re.search(r'(\d+)', away_text)
-                            home_match = re.search(r'(\d+)', home_text)
-                            
-                            if away_match:
-                                away_money_pct = int(away_match.group(1))
-                                home_money_pct = 100 - away_money_pct
-                            elif home_match:
-                                home_money_pct = int(home_match.group(1))
-                                away_money_pct = 100 - home_money_pct
-                    
-                    sharp_detected = abs(away_money_pct - away_bet_pct) >= 5
-                    sharp_side = None
-                    if sharp_detected:
-                        sharp_side = away_team if away_money_pct > away_bet_pct else home_team
                     
                     key = f"{away_team} vs {home_team}"
                     result[key] = {
@@ -169,10 +131,9 @@ class WagerTalkScraper:
                         'under_bet_pct': 50,
                         'over_money_pct': 50,
                         'under_money_pct': 50,
-                        'open_spread': 0,
-                        'current_spread': 0,
-                        'sharp_detected': sharp_detected,
-                        'sharp_side': sharp_side
+                        'sharp_detected': False,
+                        'sharp_side': None,
+                        'source': 'wagertalk'
                     }
                     games_found += 1
                     
@@ -180,10 +141,11 @@ class WagerTalkScraper:
                     logger.debug(f"Error parsing row: {e}")
                     continue
             
+            logger.info(f"WagerTalk scraped {games_found} {league} games")
+            
             self._cache[cache_key] = result
             self._cache_time[cache_key] = time.time()
             
-            logger.info(f"WagerTalk scraped {games_found} {league} games")
             return result
             
         except Exception as e:
@@ -204,7 +166,7 @@ class WagerTalkScraper:
                     'Bulls', 'Heat', 'Magic', 'Raptors', 'Pacers', 'Grizzlies',
                     'Timberwolves', 'Pelicans', 'Thunder', 'Blazers', 'Spurs', 'Jazz', 'Kings']
         elif league == 'CBB':
-            return []  # Allow all for CBB
+            return []  # Allow all for college basketball
         elif league == 'NFL':
             return ['Chiefs', 'Eagles', 'Bills', 'Cowboys', 'Ravens', 'Bengals',
                     '49ers', 'Lions', 'Dolphins', 'Jets', 'Steelers', 'Chargers',
@@ -212,6 +174,13 @@ class WagerTalkScraper:
                     'Saints', 'Falcons', 'Panthers', 'Buccaneers', 'Commanders',
                     'Giants', 'Cardinals', 'Rams', 'Browns', 'Colts', 'Texans',
                     'Titans', 'Jaguars', 'Patriots']
+        elif league == 'NHL':
+            return ['Bruins', 'Sabres', 'Red Wings', 'Panthers', 'Canadiens',
+                    'Senators', 'Lightning', 'Maple Leafs', 'Hurricanes', 'Blue Jackets',
+                    'Devils', 'Islanders', 'Rangers', 'Flyers', 'Penguins',
+                    'Capitals', 'Blackhawks', 'Avalanche', 'Stars', 'Wild',
+                    'Predators', 'Blues', 'Jets', 'Coyotes', 'Ducks',
+                    'Flames', 'Oilers', 'Kings', 'Sharks', 'Kraken', 'Canucks', 'Golden Knights']
         return []
     
     def get_game_betting(self, away_team: str, home_team: str, league: str = 'NBA') -> Dict:
@@ -221,8 +190,8 @@ class WagerTalkScraper:
         away_clean = self._normalize_team_name(away_team).lower()
         home_clean = self._normalize_team_name(home_team).lower()
         
+        # Direct match
         for key, data in all_data.items():
-            key_lower = key.lower()
             data_away = data.get('away_team', '').lower()
             data_home = data.get('home_team', '').lower()
             
@@ -230,6 +199,7 @@ class WagerTalkScraper:
                (home_clean in data_home or data_home in home_clean):
                 return data
         
+        # Fuzzy match
         for key, data in all_data.items():
             key_lower = key.lower()
             away_parts = away_clean.split()
@@ -239,6 +209,7 @@ class WagerTalkScraper:
                any(p in key_lower for p in home_parts if len(p) > 3):
                 return data
         
+        # Default response
         return {
             'away_bet_pct': 50,
             'home_bet_pct': 50,
@@ -249,10 +220,12 @@ class WagerTalkScraper:
             'over_money_pct': 50,
             'under_money_pct': 50,
             'sharp_detected': False,
-            'sharp_side': None
+            'sharp_side': None,
+            'source': 'default'
         }
 
 
+# Global scraper instance
 wagertalk_scraper = WagerTalkScraper()
 
 

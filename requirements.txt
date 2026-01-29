@@ -15,3 +15,4 @@ euroleague-api
 yfinance
 pandas
 playwright
+undetected-chromedriver
