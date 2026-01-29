@@ -1,0 +1,754 @@
+"""
+ENHANCED WEB SCRAPING MODULE
+============================
+
+Bulletproof implementations for:
+1. Covers.com - Matchup section for current day's slate
+2. ScoresAndOdds.com - Opening, current, and live line movement
+3. College Basketball team logos (hardcoded from official sources)
+
+Improvements:
+- Parallel scraping for speed
+- Intelligent caching
+- Error handling with fallbacks
+- Opening line preservation
+- Real-time line movement tracking
+- Closing line capture
+
+"""
+
+import requests
+from bs4 import BeautifulSoup
+import re
+import time
+from typing import Dict, List, Optional, Tuple
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timedelta
+import logging
+from functools import lru_cache
+import json
+
+logger = logging.getLogger(__name__)
+
+
+# ============================================================
+# COLLEGE BASKETBALL TEAM LOGOS (HARDCODED)
+# ============================================================
+
+CBB_TEAM_LOGOS = {
+    # ACC
+    'Duke': 'https://a.espncdn.com/i/teamlogos/ncaa/500/150.png',
+    'North Carolina': 'https://a.espncdn.com/i/teamlogos/ncaa/500/153.png',
+    'Virginia': 'https://a.espncdn.com/i/teamlogos/ncaa/500/258.png',
+    'Louisville': 'https://a.espncdn.com/i/teamlogos/ncaa/500/97.png',
+    'Syracuse': 'https://a.espncdn.com/i/teamlogos/ncaa/500/183.png',
+    'Miami': 'https://a.espncdn.com/i/teamlogos/ncaa/500/2390.png',
+    'Florida State': 'https://a.espncdn.com/i/teamlogos/ncaa/500/52.png',
+    'Clemson': 'https://a.espncdn.com/i/teamlogos/ncaa/500/228.png',
+    'NC State': 'https://a.espncdn.com/i/teamlogos/ncaa/500/152.png',
+    'Wake Forest': 'https://a.espncdn.com/i/teamlogos/ncaa/500/154.png',
+    'Virginia Tech': 'https://a.espncdn.com/i/teamlogos/ncaa/500/259.png',
+    'Pittsburgh': 'https://a.espncdn.com/i/teamlogos/ncaa/500/221.png',
+    'Georgia Tech': 'https://a.espncdn.com/i/teamlogos/ncaa/500/59.png',
+    'Boston College': 'https://a.espncdn.com/i/teamlogos/ncaa/500/103.png',
+    'Notre Dame': 'https://a.espncdn.com/i/teamlogos/ncaa/500/87.png',
+    
+    # Big Ten
+    'Michigan State': 'https://a.espncdn.com/i/teamlogos/ncaa/500/127.png',
+    'Michigan': 'https://a.espncdn.com/i/teamlogos/ncaa/500/130.png',
+    'Ohio State': 'https://a.espncdn.com/i/teamlogos/ncaa/500/194.png',
+    'Illinois': 'https://a.espncdn.com/i/teamlogos/ncaa/500/356.png',
+    'Wisconsin': 'https://a.espncdn.com/i/teamlogos/ncaa/500/275.png',
+    'Purdue': 'https://a.espncdn.com/i/teamlogos/ncaa/500/2509.png',
+    'Indiana': 'https://a.espncdn.com/i/teamlogos/ncaa/500/84.png',
+    'Iowa': 'https://a.espncdn.com/i/teamlogos/ncaa/500/2294.png',
+    'Maryland': 'https://a.espncdn.com/i/teamlogos/ncaa/500/120.png',
+    'Minnesota': 'https://a.espncdn.com/i/teamlogos/ncaa/500/135.png',
+    'Penn State': 'https://a.espncdn.com/i/teamlogos/ncaa/500/213.png',
+    'Rutgers': 'https://a.espncdn.com/i/teamlogos/ncaa/500/164.png',
+    'Northwestern': 'https://a.espncdn.com/i/teamlogos/ncaa/500/77.png',
+    'Nebraska': 'https://a.espncdn.com/i/teamlogos/ncaa/500/158.png',
+    
+    # Big 12
+    'Kansas': 'https://a.espncdn.com/i/teamlogos/ncaa/500/2305.png',
+    'Baylor': 'https://a.espncdn.com/i/teamlogos/ncaa/500/239.png',
+    'Texas': 'https://a.espncdn.com/i/teamlogos/ncaa/500/251.png',
+    'Texas Tech': 'https://a.espncdn.com/i/teamlogos/ncaa/500/2641.png',
+    'Kansas State': 'https://a.espncdn.com/i/teamlogos/ncaa/500/2306.png',
+    'Oklahoma': 'https://a.espncdn.com/i/teamlogos/ncaa/500/201.png',
+    'Oklahoma State': 'https://a.espncdn.com/i/teamlogos/ncaa/500/197.png',
+    'West Virginia': 'https://a.espncdn.com/i/teamlogos/ncaa/500/277.png',
+    'TCU': 'https://a.espncdn.com/i/teamlogos/ncaa/500/2628.png',
+    'Iowa State': 'https://a.espncdn.com/i/teamlogos/ncaa/500/66.png',
+    
+    # SEC
+    'Kentucky': 'https://a.espncdn.com/i/teamlogos/ncaa/500/96.png',
+    'Tennessee': 'https://a.espncdn.com/i/teamlogos/ncaa/500/2633.png',
+    'Auburn': 'https://a.espncdn.com/i/teamlogos/ncaa/500/2.png',
+    'Alabama': 'https://a.espncdn.com/i/teamlogos/ncaa/500/333.png',
+    'Arkansas': 'https://a.espncdn.com/i/teamlogos/ncaa/500/8.png',
+    'LSU': 'https://a.espncdn.com/i/teamlogos/ncaa/500/99.png',
+    'Florida': 'https://a.espncdn.com/i/teamlogos/ncaa/500/57.png',
+    'Missouri': 'https://a.espncdn.com/i/teamlogos/ncaa/500/142.png',
+    'Mississippi State': 'https://a.espncdn.com/i/teamlogos/ncaa/500/344.png',
+    'Ole Miss': 'https://a.espncdn.com/i/teamlogos/ncaa/500/145.png',
+    'South Carolina': 'https://a.espncdn.com/i/teamlogos/ncaa/500/2579.png',
+    'Georgia': 'https://a.espncdn.com/i/teamlogos/ncaa/500/61.png',
+    'Vanderbilt': 'https://a.espncdn.com/i/teamlogos/ncaa/500/238.png',
+    'Texas A&M': 'https://a.espncdn.com/i/teamlogos/ncaa/500/245.png',
+    
+    # Pac-12 (if still relevant)
+    'Arizona': 'https://a.espncdn.com/i/teamlogos/ncaa/500/12.png',
+    'UCLA': 'https://a.espncdn.com/i/teamlogos/ncaa/500/26.png',
+    'USC': 'https://a.espncdn.com/i/teamlogos/ncaa/500/30.png',
+    'Oregon': 'https://a.espncdn.com/i/teamlogos/ncaa/500/2483.png',
+    'Arizona State': 'https://a.espncdn.com/i/teamlogos/ncaa/500/9.png',
+    'Colorado': 'https://a.espncdn.com/i/teamlogos/ncaa/500/38.png',
+    'Washington': 'https://a.espncdn.com/i/teamlogos/ncaa/500/264.png',
+    'Stanford': 'https://a.espncdn.com/i/teamlogos/ncaa/500/24.png',
+    'Utah': 'https://a.espncdn.com/i/teamlogos/ncaa/500/254.png',
+    'Oregon State': 'https://a.espncdn.com/i/teamlogos/ncaa/500/204.png',
+    'Washington State': 'https://a.espncdn.com/i/teamlogos/ncaa/500/265.png',
+    'California': 'https://a.espncdn.com/i/teamlogos/ncaa/500/25.png',
+    
+    # Big East
+    'Villanova': 'https://a.espncdn.com/i/teamlogos/ncaa/500/222.png',
+    'Creighton': 'https://a.espncdn.com/i/teamlogos/ncaa/500/156.png',
+    'Xavier': 'https://a.espncdn.com/i/teamlogos/ncaa/500/2752.png',
+    'Providence': 'https://a.espncdn.com/i/teamlogos/ncaa/500/2507.png',
+    'Marquette': 'https://a.espncdn.com/i/teamlogos/ncaa/500/269.png',
+    'Seton Hall': 'https://a.espncdn.com/i/teamlogos/ncaa/500/2550.png',
+    'Butler': 'https://a.espncdn.com/i/teamlogos/ncaa/500/2086.png',
+    'UConn': 'https://a.espncdn.com/i/teamlogos/ncaa/500/41.png',
+    'St. Johns': 'https://a.espncdn.com/i/teamlogos/ncaa/500/2599.png',
+    'Georgetown': 'https://a.espncdn.com/i/teamlogos/ncaa/500/46.png',
+    'DePaul': 'https://a.espncdn.com/i/teamlogos/ncaa/500/305.png',
+    
+    # Other Major Programs
+    'Gonzaga': 'https://a.espncdn.com/i/teamlogos/ncaa/500/2250.png',
+    'Houston': 'https://a.espncdn.com/i/teamlogos/ncaa/500/248.png',
+    'Memphis': 'https://a.espncdn.com/i/teamlogos/ncaa/500/235.png',
+    'San Diego State': 'https://a.espncdn.com/i/teamlogos/ncaa/500/21.png',
+    'Saint Marys': 'https://a.espncdn.com/i/teamlogos/ncaa/500/2608.png',
+    'BYU': 'https://a.espncdn.com/i/teamlogos/ncaa/500/252.png',
+    'VCU': 'https://a.espncdn.com/i/teamlogos/ncaa/500/2670.png',
+    'Dayton': 'https://a.espncdn.com/i/teamlogos/ncaa/500/2168.png',
+    'Davidson': 'https://a.espncdn.com/i/teamlogos/ncaa/500/2166.png',
+    'Wichita State': 'https://a.espncdn.com/i/teamlogos/ncaa/500/2724.png',
+    'New Mexico': 'https://a.espncdn.com/i/teamlogos/ncaa/500/167.png',
+    'Nevada': 'https://a.espncdn.com/i/teamlogos/ncaa/500/2440.png',
+    'UNLV': 'https://a.espncdn.com/i/teamlogos/ncaa/500/2439.png',
+    'San Francisco': 'https://a.espncdn.com/i/teamlogos/ncaa/500/2626.png',
+}
+
+def get_cbb_logo(team_name: str) -> Optional[str]:
+    """
+    Get college basketball team logo URL.
+    
+    Args:
+        team_name: Team name (e.g., 'Duke', 'North Carolina')
+        
+    Returns:
+        Logo URL or None if not found
+    """
+    # Direct match
+    if team_name in CBB_TEAM_LOGOS:
+        return CBB_TEAM_LOGOS[team_name]
+    
+    # Fuzzy match
+    team_lower = team_name.lower()
+    for key, url in CBB_TEAM_LOGOS.items():
+        if key.lower() in team_lower or team_lower in key.lower():
+            return url
+    
+    return None
+
+
+# ============================================================
+# COVERS.COM SCRAPER (BULLETPROOF)
+# ============================================================
+
+class CoversScraper:
+    """
+    Fast, bulletproof scraper for Covers.com matchup section.
+    
+    Extracts:
+    - Current day's slate
+    - Team matchups
+    - Betting trends
+    - Public/sharp money percentages
+    - Line movements
+    - Last 10 records
+    """
+    
+    BASE_URL = "https://www.covers.com"
+    CACHE_TTL = 60  # Cache for 1 minute
+    
+    def __init__(self):
+        self.session = requests.Session()
+        self.session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Referer': 'https://www.covers.com/',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'Cache-Control': 'max-age=0',
+        })
+        self._cache = {}
+        self._cache_time = {}
+    
+    def _is_cache_valid(self, key: str) -> bool:
+        """Check if cached data is still fresh."""
+        if key not in self._cache:
+            return False
+        age = time.time() - self._cache_time.get(key, 0)
+        return age < self.CACHE_TTL
+    
+    def get_todays_matchups(self, league: str = 'NBA') -> List[Dict]:
+        """
+        Get all matchups for today.
+        
+        Args:
+            league: 'NBA' or 'CBB'
+            
+        Returns:
+            List of matchup dictionaries with:
+            - away_team, home_team
+            - matchup_id
+            - game_time
+            - spread, total
+            - away_money_pct, home_money_pct
+            - away_tickets_pct, home_tickets_pct
+        """
+        cache_key = f"matchups_{league}"
+        if self._is_cache_valid(cache_key):
+            return self._cache[cache_key]
+        
+        try:
+            # Determine URL based on league
+            if league == 'NBA':
+                url = f"{self.BASE_URL}/sport/basketball/nba/matchups"
+            elif league == 'CBB':
+                url = f"{self.BASE_URL}/sport/basketball/ncaab/matchups"
+            else:
+                logger.warning(f"Unsupported league: {league}")
+                return []
+            
+            response = self.session.get(url, timeout=10)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.content, 'html.parser')
+            matchups = []
+            
+            # Find all game containers
+            game_containers = soup.find_all('div', class_=re.compile(r'.*matchup.*', re.I))
+            
+            for container in game_containers:
+                try:
+                    matchup = self._parse_matchup_container(container, league)
+                    if matchup:
+                        matchups.append(matchup)
+                except Exception as e:
+                    logger.debug(f"Error parsing matchup container: {e}")
+                    continue
+            
+            # Cache results
+            self._cache[cache_key] = matchups
+            self._cache_time[cache_key] = time.time()
+            
+            logger.info(f"Fetched {len(matchups)} matchups from Covers.com for {league}")
+            return matchups
+            
+        except Exception as e:
+            logger.error(f"Error fetching Covers matchups: {e}")
+            return []
+    
+    def _parse_matchup_container(self, container, league: str) -> Optional[Dict]:
+        """Parse individual matchup container."""
+        matchup = {}
+        
+        # Extract teams
+        team_elements = container.find_all('a', class_=re.compile(r'.*team.*', re.I))
+        if len(team_elements) >= 2:
+            matchup['away_team'] = team_elements[0].text.strip()
+            matchup['home_team'] = team_elements[1].text.strip()
+        else:
+            return None
+        
+        # Extract matchup ID from URL
+        link = container.find('a', href=re.compile(r'/matchup/'))
+        if link:
+            matchup_id = link['href'].split('/')[-1]
+            matchup['matchup_id'] = matchup_id
+            matchup['url'] = f"{self.BASE_URL}{link['href']}"
+        
+        # Extract betting percentages if available
+        pct_elements = container.find_all(text=re.compile(r'\d+%'))
+        if len(pct_elements) >= 4:
+            matchup['away_money_pct'] = int(re.search(r'(\d+)%', pct_elements[0]).group(1))
+            matchup['away_tickets_pct'] = int(re.search(r'(\d+)%', pct_elements[1]).group(1))
+            matchup['home_money_pct'] = int(re.search(r'(\d+)%', pct_elements[2]).group(1))
+            matchup['home_tickets_pct'] = int(re.search(r'(\d+)%', pct_elements[3]).group(1))
+        
+        return matchup if matchup.get('matchup_id') else None
+    
+    def get_matchup_details(self, matchup_id: str, league: str = 'NBA') -> Dict:
+        """
+        Get detailed matchup data including betting action and trends.
+        
+        Args:
+            matchup_id: Matchup ID from Covers
+            league: 'NBA' or 'CBB'
+            
+        Returns:
+            Dictionary with detailed matchup information
+        """
+        cache_key = f"details_{matchup_id}"
+        if self._is_cache_valid(cache_key):
+            return self._cache[cache_key]
+        
+        try:
+            if league == 'NBA':
+                url = f"{self.BASE_URL}/sport/basketball/nba/matchup/{matchup_id}"
+            else:
+                url = f"{self.BASE_URL}/sport/basketball/ncaab/matchup/{matchup_id}"
+            
+            response = self.session.get(url, timeout=10)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            details = {
+                'matchup_id': matchup_id,
+                'league': league,
+            }
+            
+            # Extract betting percentages
+            betting_action = soup.find('div', class_=re.compile(r'.*betting.*action.*', re.I))
+            if betting_action:
+                percentages = betting_action.find_all(text=re.compile(r'\d+%'))
+                if len(percentages) >= 4:
+                    details['away_money_pct'] = int(re.search(r'(\d+)%', percentages[0]).group(1))
+                    details['away_tickets_pct'] = int(re.search(r'(\d+)%', percentages[1]).group(1))
+                    details['home_money_pct'] = int(re.search(r'(\d+)%', percentages[2]).group(1))
+                    details['home_tickets_pct'] = int(re.search(r'(\d+)%', percentages[3]).group(1))
+            
+            # Extract Last 10 records
+            records = soup.find_all('div', class_=re.compile(r'.*record.*', re.I))
+            for record in records:
+                text = record.text
+                match = re.search(r'(\d+)-(\d+)-(\d+)', text)
+                if match:
+                    if 'away' in text.lower() or records.index(record) == 0:
+                        details['away_l10_record'] = text.strip()
+                    else:
+                        details['home_l10_record'] = text.strip()
+            
+            # Cache results
+            self._cache[cache_key] = details
+            self._cache_time[cache_key] = time.time()
+            
+            return details
+            
+        except Exception as e:
+            logger.error(f"Error fetching Covers matchup details: {e}")
+            return {}
+
+
+# ============================================================
+# SCORESANDODDS.COM SCRAPER (BULLETPROOF)
+# ============================================================
+
+class ScoresAndOddsScraper:
+    """
+    Fast, bulletproof scraper for ScoresAndOdds.com.
+    
+    Extracts:
+    - Opening lines
+    - Current lines
+    - Live line movement
+    - Closing lines (post-game)
+    - Betting percentages
+    """
+    
+    BASE_URL = "https://www.scoresandodds.com"
+    CACHE_TTL = 30  # Cache for 30 seconds (more frequent updates)
+    
+    def __init__(self):
+        self.session = requests.Session()
+        self.session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'text/html,application/xhtml+xml',
+            'Referer': 'https://www.scoresandodds.com/',
+        })
+        self._cache = {}
+        self._cache_time = {}
+    
+    def _is_cache_valid(self, key: str) -> bool:
+        """Check if cached data is still fresh."""
+        if key not in self._cache:
+            return False
+        age = time.time() - self._cache_time.get(key, 0)
+        return age < self.CACHE_TTL
+    
+    def get_line_movements(self, league: str = 'NBA') -> List[Dict]:
+        """
+        Get line movements for all games.
+        
+        Args:
+            league: 'NBA' or 'CBB'
+            
+        Returns:
+            List of dictionaries with:
+            - away_team, home_team
+            - opening_spread, current_spread
+            - line_movement (difference)
+            - away_money_pct, home_money_pct
+            - opening_total, current_total
+        """
+        cache_key = f"lines_{league}"
+        if self._is_cache_valid(cache_key):
+            return self._cache[cache_key]
+        
+        try:
+            # Determine URL
+            if league == 'NBA':
+                url = f"{self.BASE_URL}/nba"
+            elif league == 'CBB':
+                url = f"{self.BASE_URL}/ncaab"
+            else:
+                return []
+            
+            response = self.session.get(url, timeout=10)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.content, 'html.parser')
+            games = []
+            
+            # Find all game rows
+            game_rows = soup.find_all('tr', class_=re.compile(r'.*game.*', re.I))
+            
+            for row in game_rows:
+                try:
+                    game = self._parse_game_row(row)
+                    if game:
+                        games.append(game)
+                except Exception as e:
+                    logger.debug(f"Error parsing game row: {e}")
+                    continue
+            
+            # Cache results
+            self._cache[cache_key] = games
+            self._cache_time[cache_key] = time.time()
+            
+            logger.info(f"Fetched {len(games)} games from ScoresAndOdds for {league}")
+            return games
+            
+        except Exception as e:
+            logger.error(f"Error fetching ScoresAndOdds lines: {e}")
+            return []
+    
+    def _parse_game_row(self, row) -> Optional[Dict]:
+        """Parse individual game row."""
+        game = {}
+        
+        # Extract teams
+        team_cells = row.find_all('td', class_=re.compile(r'.*team.*', re.I))
+        if len(team_cells) >= 2:
+            game['away_team'] = team_cells[0].text.strip()
+            game['home_team'] = team_cells[1].text.strip()
+        else:
+            return None
+        
+        # Extract spreads
+        spread_cells = row.find_all('td', class_=re.compile(r'.*spread.*', re.I))
+        if spread_cells:
+            # Try to find opening and current
+            spreads = []
+            for cell in spread_cells:
+                text = cell.text.strip()
+                match = re.search(r'([+-]?\d+\.?\d*)', text)
+                if match:
+                    spreads.append(float(match.group(1)))
+            
+            if len(spreads) >= 2:
+                game['opening_spread'] = spreads[0]
+                game['current_spread'] = spreads[-1]
+                game['line_movement'] = spreads[-1] - spreads[0]
+            elif len(spreads) == 1:
+                game['current_spread'] = spreads[0]
+        
+        # Extract totals
+        total_cells = row.find_all('td', class_=re.compile(r'.*total.*|.*o/u.*', re.I))
+        if total_cells:
+            totals = []
+            for cell in total_cells:
+                text = cell.text.strip()
+                match = re.search(r'(\d+\.?\d*)', text)
+                if match:
+                    totals.append(float(match.group(1)))
+            
+            if len(totals) >= 2:
+                game['opening_total'] = totals[0]
+                game['current_total'] = totals[-1]
+            elif len(totals) == 1:
+                game['current_total'] = totals[0]
+        
+        # Extract betting percentages
+        pct_cells = row.find_all('td', class_=re.compile(r'.*pct.*|.*percent.*', re.I))
+        if pct_cells:
+            percentages = []
+            for cell in pct_cells:
+                text = cell.text.strip()
+                match = re.search(r'(\d+)%', text)
+                if match:
+                    percentages.append(int(match.group(1)))
+            
+            if len(percentages) >= 2:
+                game['away_money_pct'] = percentages[0]
+                game['home_money_pct'] = percentages[1]
+        
+        return game if game.get('away_team') and game.get('home_team') else None
+    
+    def get_closing_lines(self, league: str = 'NBA', date: Optional[str] = None) -> List[Dict]:
+        """
+        Get closing lines for completed games.
+        
+        Args:
+            league: 'NBA' or 'CBB'
+            date: Date in format 'YYYY-MM-DD' (default: yesterday)
+            
+        Returns:
+            List of games with closing lines
+        """
+        if date is None:
+            date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+        
+        cache_key = f"closing_{league}_{date}"
+        if self._is_cache_valid(cache_key):
+            return self._cache[cache_key]
+        
+        try:
+            if league == 'NBA':
+                url = f"{self.BASE_URL}/nba/scores/{date}"
+            elif league == 'CBB':
+                url = f"{self.BASE_URL}/ncaab/scores/{date}"
+            else:
+                return []
+            
+            response = self.session.get(url, timeout=10)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.content, 'html.parser')
+            games = []
+            
+            # Parse completed games
+            game_rows = soup.find_all('tr', class_=re.compile(r'.*final.*|.*complete.*', re.I))
+            
+            for row in game_rows:
+                try:
+                    game = self._parse_game_row(row)
+                    if game:
+                        game['date'] = date
+                        game['closing_spread'] = game.get('current_spread')
+                        game['closing_total'] = game.get('current_total')
+                        games.append(game)
+                except Exception as e:
+                    logger.debug(f"Error parsing completed game: {e}")
+                    continue
+            
+            # Cache results
+            self._cache[cache_key] = games
+            self._cache_time[cache_key] = time.time()
+            
+            logger.info(f"Fetched {len(games)} closing lines from ScoresAndOdds for {league} on {date}")
+            return games
+            
+        except Exception as e:
+            logger.error(f"Error fetching closing lines: {e}")
+            return []
+
+
+# ============================================================
+# INTEGRATED SCRAPING MANAGER
+# ============================================================
+
+class IntegratedScrapingManager:
+    """
+    Manages all scraping with parallel execution for speed.
+    """
+    
+    def __init__(self):
+        self.covers = CoversScraper()
+        self.scores_odds = ScoresAndOddsScraper()
+    
+    def get_complete_slate(self, league: str = 'NBA') -> List[Dict]:
+        """
+        Get complete slate with data from both sources in parallel.
+        
+        Args:
+            league: 'NBA' or 'CBB'
+            
+        Returns:
+            List of games with combined data from Covers and ScoresAndOdds
+        """
+        start_time = time.time()
+        
+        # Fetch from both sources in parallel
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            covers_future = executor.submit(self.covers.get_todays_matchups, league)
+            scores_future = executor.submit(self.scores_odds.get_line_movements, league)
+            
+            covers_matchups = covers_future.result()
+            scores_games = scores_future.result()
+        
+        # Merge data
+        merged_games = self._merge_game_data(covers_matchups, scores_games)
+        
+        # Add logos for CBB
+        if league == 'CBB':
+            for game in merged_games:
+                game['away_logo'] = get_cbb_logo(game.get('away_team', ''))
+                game['home_logo'] = get_cbb_logo(game.get('home_team', ''))
+        
+        elapsed = time.time() - start_time
+        logger.info(f"Complete slate fetched in {elapsed:.2f}s: {len(merged_games)} games")
+        
+        return merged_games
+    
+    def _merge_game_data(self, covers_data: List[Dict], scores_data: List[Dict]) -> List[Dict]:
+        """
+        Merge data from Covers and ScoresAndOdds.
+        
+        Matching strategy:
+        1. Try exact team name match
+        2. Try fuzzy match (remove common suffixes, check contains)
+        3. Create separate entries if no match
+        """
+        merged = []
+        matched_scores_indices = set()
+        
+        # Match Covers games with ScoresAndOdds
+        for covers_game in covers_data:
+            best_match = None
+            best_match_idx = None
+            best_score = 0
+            
+            for idx, scores_game in enumerate(scores_data):
+                if idx in matched_scores_indices:
+                    continue
+                
+                score = self._match_teams(
+                    covers_game.get('away_team', ''),
+                    covers_game.get('home_team', ''),
+                    scores_game.get('away_team', ''),
+                    scores_game.get('home_team', '')
+                )
+                
+                if score > best_score:
+                    best_score = score
+                    best_match = scores_game
+                    best_match_idx = idx
+            
+            # Merge if good match found
+            if best_score >= 0.7:  # 70% confidence threshold
+                game = {**covers_game, **best_match}
+                merged.append(game)
+                matched_scores_indices.add(best_match_idx)
+            else:
+                # Add covers game without ScoresAndOdds data
+                merged.append(covers_game)
+        
+        # Add remaining ScoresAndOdds games
+        for idx, scores_game in enumerate(scores_data):
+            if idx not in matched_scores_indices:
+                merged.append(scores_game)
+        
+        return merged
+    
+    def _match_teams(self, away1: str, home1: str, away2: str, home2: str) -> float:
+        """
+        Calculate match score between two game pairings.
+        
+        Returns:
+            Score from 0.0 to 1.0 (1.0 = perfect match)
+        """
+        def normalize(name: str) -> str:
+            """Normalize team name for comparison."""
+            name = name.lower()
+            # Remove common suffixes
+            for suffix in [' basketball', ' men', ' women', ' ncaa']:
+                name = name.replace(suffix, '')
+            return name.strip()
+        
+        away1_norm = normalize(away1)
+        home1_norm = normalize(home1)
+        away2_norm = normalize(away2)
+        home2_norm = normalize(home2)
+        
+        # Check exact match
+        if away1_norm == away2_norm and home1_norm == home2_norm:
+            return 1.0
+        
+        # Check reversed (though rare)
+        if away1_norm == home2_norm and home1_norm == away2_norm:
+            return 0.9
+        
+        # Check partial matches
+        away_match = (away1_norm in away2_norm or away2_norm in away1_norm)
+        home_match = (home1_norm in home2_norm or home2_norm in home1_norm)
+        
+        if away_match and home_match:
+            return 0.8
+        elif away_match or home_match:
+            return 0.4
+        
+        return 0.0
+
+
+# ============================================================
+# EXAMPLE USAGE
+# ============================================================
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    
+    manager = IntegratedScrapingManager()
+    
+    # Get NBA slate
+    print("\n" + "="*80)
+    print("NBA SLATE")
+    print("="*80)
+    nba_games = manager.get_complete_slate('NBA')
+    for game in nba_games[:3]:  # Show first 3
+        print(f"\n{game.get('away_team')} @ {game.get('home_team')}")
+        print(f"  Spread: {game.get('opening_spread')} → {game.get('current_spread')}")
+        print(f"  Movement: {game.get('line_movement')}")
+        print(f"  Money %: Away {game.get('away_money_pct')}% | Home {game.get('home_money_pct')}%")
+    
+    # Get CBB slate with logos
+    print("\n" + "="*80)
+    print("CBB SLATE (with logos)")
+    print("="*80)
+    cbb_games = manager.get_complete_slate('CBB')
+    for game in cbb_games[:3]:  # Show first 3
+        print(f"\n{game.get('away_team')} @ {game.get('home_team')}")
+        print(f"  Away Logo: {game.get('away_logo') or 'N/A'}")
+        print(f"  Home Logo: {game.get('home_logo') or 'N/A'}")
+        print(f"  Spread: {game.get('opening_spread')} → {game.get('current_spread')}")
+    
+    # Get closing lines
+    print("\n" + "="*80)
+    print("CLOSING LINES (Yesterday)")
+    print("="*80)
+    closing = manager.scores_odds.get_closing_lines('NBA')
+    for game in closing[:3]:
+        print(f"\n{game.get('away_team')} @ {game.get('home_team')}")
+        print(f"  Closing Spread: {game.get('closing_spread')}")
+        print(f"  Closing Total: {game.get('closing_total')}")

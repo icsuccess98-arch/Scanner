@@ -19,6 +19,7 @@ from sqlalchemy import delete
 import requests
 import pytz
 from bs4 import BeautifulSoup
+from enhanced_scraping import get_cbb_logo, CBB_TEAM_LOGOS
 
 
 class QualificationStatus(Enum):
@@ -9977,9 +9978,9 @@ def spreads():
                 g.away_standing = away_stand.get('standing', '')
                 g.home_standing = home_stand.get('standing', '')
             else:
-                # CBB uses NCAA generic logo
-                g.away_logo = 'https://a.espncdn.com/i/teamlogos/ncaa/500/ncaa.png'
-                g.home_logo = 'https://a.espncdn.com/i/teamlogos/ncaa/500/ncaa.png'
+                # CBB uses team-specific logos from enhanced_scraping
+                g.away_logo = get_cbb_logo(g.away_team) or 'https://a.espncdn.com/i/teamlogos/ncaa/500/ncaa.png'
+                g.home_logo = get_cbb_logo(g.home_team) or 'https://a.espncdn.com/i/teamlogos/ncaa/500/ncaa.png'
                 g.away_record = '--'
                 g.home_record = '--'
                 g.away_standing = ''
