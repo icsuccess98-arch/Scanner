@@ -95,6 +95,11 @@ Only one app can run at a time. Configure the workflow to switch between apps.
                 -   ATS L10: Against the spread record from Covers.com (e.g., "4-6-0" with leader name)
                 -   Record: Team W/L records (e.g., "23-23" vs "11-36")
                 -   Edge Count: X/15 format showing statistical edges
+        -   **Pikkit-Style Game Cards** (Jan 2026): Gamified mobile-first interface inspired by Pikkit app:
+            -   Header: Team names with PPG stats on each side, date/time in center
+            -   Bet Type Tabs: Spread | Total | Moneyline (clickable tabs with active state)
+            -   Placeholder Mode: Cards load instantly; tap "Model Breakdown" for live data
+            -   Performance: Avoids 10-20 second API delays by loading data on-demand
         -   **Betting Checklist** (Jan 2026): Gamified Pikkit-style betting action display:
             -   Data source: ScoresAndOdds main page + consensus-picks page (via Playwright headless browser)
             -   Scrapes BOTH main page (opening/current lines) AND consensus page (bets/money percentages)

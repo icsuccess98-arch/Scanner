@@ -1655,29 +1655,56 @@
             if (pikkitLoadedContent[key]) return;
             
             const gameCard = document.querySelector(`.game-card[data-game-id="${gameId}"]`);
+            if (!gameCard) {
+                console.error('Pikkit: No game card found for', gameId);
+                return;
+            }
             const awayTeam = gameCard.dataset.away;
             const homeTeam = gameCard.dataset.home;
             const league = gameCard.dataset.league;
+            console.log('Pikkit: Loading content for', gameId, tabType, awayTeam, 'vs', homeTeam);
             
-            try {
-                const response = await fetch(`/api/matchup_data/${gameId}`);
-                const data = await response.json();
-                
-                renderPikkitContent(gameId, tabType, data, awayTeam, homeTeam);
-                pikkitLoadedContent[key] = true;
-            } catch (error) {
-                console.error('Error loading Pikkit content:', error);
-            }
+            // Use XMLHttpRequest for more reliable loading
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', `/api/matchup_data/${gameId}`, true);
+            xhr.timeout = 60000; // 60 second timeout
+            
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    try {
+                        const data = JSON.parse(xhr.responseText);
+                        console.log('Pikkit: Got data for', gameId, 'RLM:', !!data.rlm);
+                        renderPikkitContent(gameId, tabType, data, awayTeam, homeTeam);
+                        pikkitLoadedContent[key] = true;
+                    } catch (e) {
+                        console.error('Pikkit: JSON parse error', e);
+                    }
+                } else {
+                    console.error('Pikkit: API error', xhr.status);
+                }
+            };
+            
+            xhr.onerror = function() {
+                console.error('Pikkit: Network error for', gameId);
+            };
+            
+            xhr.ontimeout = function() {
+                console.error('Pikkit: Timeout for', gameId);
+            };
+            
+            xhr.send();
         }
         
         function renderPikkitContent(gameId, tabType, data, awayTeam, homeTeam) {
             const rlm = data.rlm || {};
-            const awayBetPct = parseInt(rlm.away_bet_pct) || 50;
-            const homeBetPct = parseInt(rlm.home_bet_pct) || 50;
-            const awayMoneyPct = parseInt(rlm.away_money_pct) || 50;
-            const homeMoneyPct = parseInt(rlm.home_money_pct) || 50;
+            const awayData = rlm.away || {};
+            const homeData = rlm.home || {};
+            const awayBetPct = parseInt(awayData.bet_pct) || 50;
+            const homeBetPct = parseInt(homeData.bet_pct) || 50;
+            const awayMoneyPct = parseInt(awayData.money_pct) || 50;
+            const homeMoneyPct = parseInt(homeData.money_pct) || 50;
             const openSpread = rlm.open_spread || 'N/A';
-            const currentSpread = rlm.away_spread || 'N/A';
+            const currentSpread = rlm.current_spread || 'N/A';
             const lineMove = rlm.line_movement || 'N/A';
             
             let contentHtml = '';
@@ -1863,12 +1890,18 @@
             }
         }
         
-        // Auto-load Total tab content on page load
+        // Show placeholder content on page load - data loads on tab click
         document.addEventListener('DOMContentLoaded', function() {
-            document.querySelectorAll('.game-card[data-game-id]').forEach(card => {
-                const gameId = card.dataset.gameId;
-                if (gameId && card.querySelector('.bet-type-tabs')) {
-                    loadPikkitContent(gameId, 'total');
+            console.log('Pikkit tabs: DOMContentLoaded - Placeholder mode');
+            // Add placeholder content to all tab containers
+            document.querySelectorAll('.pikkit-total-content, .pikkit-spread-content, .pikkit-ml-content').forEach(container => {
+                if (container.id && container.innerHTML.includes('Loading')) {
+                    const tabType = container.id.includes('spread') ? 'spread' : (container.id.includes('ml') ? 'moneyline' : 'total');
+                    container.innerHTML = `
+                        <div style="text-align: center; padding: 16px; color: #9ca3af;">
+                            <div style="font-size: 11px; opacity: 0.7;">Tap "Model Breakdown" below for live betting data</div>
+                        </div>
+                    `;
                 }
             });
         });
