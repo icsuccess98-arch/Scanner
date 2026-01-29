@@ -13,3 +13,5 @@ cachetools
 flask-compress
 euroleague-api
 yfinance
+pandas
+playwright
