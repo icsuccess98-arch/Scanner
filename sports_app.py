@@ -10262,27 +10262,62 @@ def get_matchup_data(game_id):
             # Log what stats we got for debugging
             logging.info(f"TeamRankings stats for {game.away_team} vs {game.home_team}: {list(away_season.keys())[:10]}...")
             
-            # Fetch Cleaning the Glass Four Factors (NBA only) - more accurate for eFG%, TOV%, ORB%, FT Rate
+            # Fetch external data in PARALLEL for faster loading
             away_ctg = {}
             home_ctg = {}
-            covers_data = {}
             h2h_data = {}
+            rlm_data = {}
             
-            if game.league == 'NBA':
+            def fetch_ctg_away():
+                if game.league == 'NBA':
+                    return MatchupIntelligence.fetch_ctg_four_factors(game.away_team)
+                return {}
+            
+            def fetch_ctg_home():
+                if game.league == 'NBA':
+                    return MatchupIntelligence.fetch_ctg_four_factors(game.home_team)
+                return {}
+            
+            def fetch_h2h():
+                return MatchupIntelligence.fetch_covers_h2h(game.away_team, game.home_team, game.league)
+            
+            def fetch_rlm():
+                return MatchupIntelligence.fetch_rlm_data(game.league)
+            
+            # Run all fetches in parallel
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                ctg_away_future = executor.submit(fetch_ctg_away)
+                ctg_home_future = executor.submit(fetch_ctg_home)
+                h2h_future = executor.submit(fetch_h2h)
+                rlm_future = executor.submit(fetch_rlm)
+                
                 try:
-                    away_ctg = MatchupIntelligence.fetch_ctg_four_factors(game.away_team)
-                    home_ctg = MatchupIntelligence.fetch_ctg_four_factors(game.home_team)
-                    logging.info(f"CTG data: away={away_ctg}, home={home_ctg}")
+                    away_ctg = ctg_away_future.result(timeout=10)
                 except Exception as e:
-                    logging.warning(f"CTG fetch error: {e}")
+                    logging.warning(f"CTG away fetch error: {e}")
+                    away_ctg = {}
+                
+                try:
+                    home_ctg = ctg_home_future.result(timeout=10)
+                except Exception as e:
+                    logging.warning(f"CTG home fetch error: {e}")
+                    home_ctg = {}
+                
+                try:
+                    h2h_data = h2h_future.result(timeout=10)
+                    logging.info(f"Covers H2H data for {game.league}: {h2h_data}")
+                except Exception as e:
+                    logging.warning(f"Covers H2H fetch error: {e}")
+                    h2h_data = {}
+                
+                try:
+                    all_rlm = rlm_future.result(timeout=30)
+                except Exception as e:
+                    logging.warning(f"RLM fetch error: {e}")
+                    all_rlm = {}
             
-            # Fetch H2H L10 W/L and ATS from Covers.com (NBA and CBB)
-            try:
-                h2h_data = MatchupIntelligence.fetch_covers_h2h(game.away_team, game.home_team, game.league)
-                logging.info(f"Covers H2H data for {game.league}: {h2h_data}")
-            except Exception as e:
-                logging.warning(f"Covers H2H fetch error: {e}")
-                h2h_data = {}
+            if away_ctg or home_ctg:
+                logging.info(f"CTG data: away={away_ctg}, home={home_ctg}")
             
             # Add H2H, ATS and records to result
             result['h2h_record'] = h2h_data.get('h2h_record', 'N/A')
@@ -10294,11 +10329,9 @@ def get_matchup_data(game_id):
             result['away_ats'] = h2h_data.get('away_ats', 'N/A')
             result['home_ats'] = h2h_data.get('home_ats', 'N/A')
             
-            # Fetch RLM (Reverse Line Movement) data for the checklist
+            # Process RLM data (already fetched in parallel above)
             rlm_data = {}
             try:
-                all_rlm = MatchupIntelligence.fetch_rlm_data(game.league)
-                
                 # Team name mappings for matching (all 30 NBA teams)
                 team_keywords = {
                     'bulls': ['bulls', 'chicago', 'chi'],
