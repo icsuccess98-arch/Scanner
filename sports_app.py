@@ -1937,246 +1937,84 @@ class MatchupIntelligence:
     @staticmethod
     def fetch_rlm_data(league: str = 'NBA', game_time: str = None) -> dict:
         """
-        Fetch betting data from ScoresAndOdds using Playwright.
-        - Main page: Opening line, current line, line movement
-        - Consensus page: % of Bets (tickets) and % of Money (handle)
+        Fetch betting data from WagerTalk.com.
+        - Bet % (tickets) and Money % (handle) for spreads
+        - Sharp money detection (when money% diverges from bet%)
         
         Auto-refreshes 2 hours before game time for live data.
         """
-        import re
-        import subprocess
-        from datetime import datetime, timedelta
+        from datetime import datetime
+        from wagertalk_scraper import get_all_wagertalk_data
         
         result = {}
         cache_key = f"{league}_{datetime.now().strftime('%Y%m%d')}"
         
-        # Check if we need to refresh (2 hours before game or cache expired)
         now = datetime.now()
         should_refresh = True
         
         if cache_key in MatchupIntelligence._rlm_cache:
             cached_time = MatchupIntelligence._rlm_cache_time.get(cache_key, now)
             cache_age_minutes = (now - cached_time).total_seconds() / 60
-            
-            # Default: refresh every 30 minutes
             should_refresh = cache_age_minutes > 30
             
-            # If game_time provided, force refresh if within 2 hours of game
             if game_time and not should_refresh:
                 try:
-                    # Parse game time (format: "7:00 PM ET" or "2025-01-29T19:00:00")
                     if 'T' in str(game_time):
                         game_dt = datetime.fromisoformat(str(game_time).replace('Z', ''))
                     else:
-                        # Parse time like "7:00 PM ET"
                         game_dt = datetime.strptime(f"{now.strftime('%Y-%m-%d')} {game_time.replace(' ET', '').replace(' PM', ' PM').replace(' AM', ' AM')}", "%Y-%m-%d %I:%M %p")
                     
-                    time_to_game = (game_dt - now).total_seconds() / 3600  # hours
-                    
-                    # Force refresh if within 2 hours of game time
+                    time_to_game = (game_dt - now).total_seconds() / 3600
                     if 0 < time_to_game <= 2:
                         should_refresh = True
                         logger.info(f"Auto-refresh triggered: {time_to_game:.1f}h until game time")
                 except Exception as e:
                     logger.debug(f"Could not parse game time for refresh check: {e}")
         
-        # Return cached data if still valid
         if not should_refresh and cache_key in MatchupIntelligence._rlm_cache:
             logger.info(f"Using cached RLM data for {league}")
             return MatchupIntelligence._rlm_cache[cache_key]
         
         try:
-            from playwright.sync_api import sync_playwright
+            wagertalk_data = get_all_wagertalk_data(league)
             
-            main_urls = {
-                'NBA': 'https://www.scoresandodds.com/nba',
-                'CBB': 'https://www.scoresandodds.com/ncaab'
-            }
-            consensus_urls = {
-                'NBA': 'https://www.scoresandodds.com/nba/consensus-picks',
-                'CBB': 'https://www.scoresandodds.com/ncaab/consensus-picks'
-            }
-            
-            main_url = main_urls.get(league)
-            consensus_url = consensus_urls.get(league)
-            if not main_url:
-                return result
-            
-            chromium_path = subprocess.run(['which', 'chromium'], capture_output=True, text=True).stdout.strip()
-            
-            nba_teams = ['Hawks', 'Celtics', 'Nets', 'Hornets', 'Bulls', 'Cavaliers', 'Mavericks', 'Nuggets',
-                        'Pistons', 'Warriors', 'Rockets', 'Pacers', 'Clippers', 'Lakers', 'Grizzlies', 'Heat',
-                        'Bucks', 'Timberwolves', 'Pelicans', 'Knicks', 'Thunder', 'Magic', 'Sixers', '76ers',
-                        'Suns', 'Blazers', 'Kings', 'Spurs', 'Raptors', 'Jazz', 'Wizards']
-            
-            with sync_playwright() as p:
-                browser = p.chromium.launch(
-                    headless=True,
-                    executable_path=chromium_path if chromium_path else None,
-                    args=['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
-                )
-                page = browser.new_page()
+            for key, data in wagertalk_data.items():
+                away_team = data.get('away_team', '')
+                home_team = data.get('home_team', '')
                 
-                # Step 1: Scrape main page for opening/current lines
-                page.goto(main_url, timeout=45000, wait_until='domcontentloaded')
-                page.wait_for_timeout(3000)
-                main_text = page.inner_text('body')
-                main_lines = main_text.split('\n')
+                away_bet_pct = data.get('away_bet_pct', 50)
+                home_bet_pct = data.get('home_bet_pct', 50)
+                away_money_pct = data.get('away_money_pct', 50)
+                home_money_pct = data.get('home_money_pct', 50)
                 
-                lines_data = {}
-                i = 0
-                while i < len(main_lines) - 20:
-                    line = main_lines[i].strip()
-                    is_team = any(team in line for team in nba_teams) if league == 'NBA' else len(line) > 2 and line[0].isupper()
-                    
-                    if is_team and len(line) > 2 and len(line) < 25:
-                        away_team = line
-                        
-                        # Find home team (next team in sequence)
-                        for j in range(i+1, min(i+40, len(main_lines))):
-                            next_line = main_lines[j].strip()
-                            is_home = any(team in next_line for team in nba_teams) if league == 'NBA' else (len(next_line) > 2 and next_line[0].isupper() and len(next_line) < 25)
-                            
-                            if is_home and next_line != away_team:
-                                home_team = next_line
-                                
-                                # Collect spread values between away and home team
-                                # Spreads have +/- sign and often .5 (e.g., +8.5, -3.5, +7)
-                                spreads_away = []
-                                spreads_home = []
-                                
-                                # Look for spreads after away team (before home)
-                                for k in range(i+1, j):
-                                    s = main_lines[k].strip()
-                                    # Match spreads: must have +/- sign OR be a small number with .5
-                                    # Exclude: scores (2-digit no sign), game numbers (3+ digit)
-                                    spread_match = re.match(r'^([+-]\d+\.?\d?)$', s)  # Must have +/- sign
-                                    if spread_match:
-                                        val = float(spread_match.group(1))
-                                        # Spreads are typically -20 to +20
-                                        if -25 <= val <= 25:
-                                            spreads_away.append(spread_match.group(1))
-                                
-                                # Look for spreads after home team
-                                for k in range(j+1, min(j+20, len(main_lines))):
-                                    s = main_lines[k].strip()
-                                    spread_match = re.match(r'^([+-]\d+\.?\d?)$', s)  # Must have +/- sign
-                                    if spread_match:
-                                        val = float(spread_match.group(1))
-                                        if -25 <= val <= 25:
-                                            spreads_home.append(spread_match.group(1))
-                                    # Stop at next game marker
-                                    if 'LINE MOVEMENT' in s or any(team in s for team in nba_teams):
-                                        break
-                                
-                                # First spread is opening, last is current
-                                open_spread = spreads_away[0] if spreads_away else 'N/A'
-                                current_spread = spreads_away[-1] if spreads_away else 'N/A'
-                                
-                                game_key = f"{away_team}_vs_{home_team}".lower().replace(' ', '_')
-                                lines_data[game_key] = {
-                                    'away_team': away_team,
-                                    'home_team': home_team,
-                                    'open_spread': open_spread,
-                                    'current_spread': current_spread,
-                                    'line_movement': 'N/A'
-                                }
-                                
-                                # Calculate line movement
-                                try:
-                                    if open_spread != 'N/A' and current_spread != 'N/A':
-                                        open_val = float(open_spread)
-                                        current_val = float(current_spread)
-                                        movement = current_val - open_val
-                                        if movement != 0:
-                                            lines_data[game_key]['line_movement'] = f"{'+' if movement > 0 else ''}{movement:.1f}"
-                                except:
-                                    pass
-                                
-                                i = j
-                                break
-                    i += 1
+                majority_team = 'away' if away_bet_pct > home_bet_pct else 'home'
+                majority_pct = max(away_bet_pct, home_bet_pct)
+                rlm_potential = majority_pct >= 60
                 
-                # Step 2: Scrape consensus page for betting percentages
-                page.goto(consensus_url, timeout=45000, wait_until='networkidle')
-                page.wait_for_timeout(3000)
-                consensus_text = page.inner_text('body')
-                browser.close()
-            
-            consensus_lines = consensus_text.split('\n')
-            cbb_pattern = re.compile(r'^[A-Z][a-z]+$|^[A-Z]{2,4}$')
-            
-            i = 0
-            while i < len(consensus_lines) - 10:
-                line = consensus_lines[i].strip()
-                is_team = any(team in line for team in nba_teams) if league == 'NBA' else cbb_pattern.match(line)
+                sharp_detected = data.get('sharp_detected', False)
+                sharp_side = data.get('sharp_side', None)
                 
-                if is_team and len(line) > 2:
-                    away_team = line.split()[0] if line.split() else line
-                    
-                    for j in range(i+1, min(i+8, len(consensus_lines))):
-                        next_line = consensus_lines[j].strip()
-                        is_home = any(team in next_line for team in nba_teams) if league == 'NBA' else cbb_pattern.match(next_line)
-                        
-                        if is_home and next_line != away_team and len(next_line) > 2:
-                            home_team = next_line.split()[0] if next_line.split() else next_line
-                            
-                            pcts = []
-                            for k in range(j, min(j+15, len(consensus_lines))):
-                                pct_line = consensus_lines[k].strip()
-                                pct_match = re.match(r'^(\d{1,3})%$', pct_line)
-                                if pct_match:
-                                    pcts.append(int(pct_match.group(1)))
-                                if len(pcts) >= 4:
-                                    break
-                            
-                            if len(pcts) >= 2:
-                                away_bets = str(pcts[0])
-                                home_bets = str(pcts[1])
-                                away_money = str(pcts[2]) if len(pcts) > 2 else 'N/A'
-                                home_money = str(pcts[3]) if len(pcts) > 3 else 'N/A'
-                                
-                                game_key = f"{away_team}_vs_{home_team}".lower().replace(' ', '_')
-                                
-                                away_pct = int(away_bets)
-                                home_pct = int(home_bets)
-                                majority_team = 'away' if away_pct > home_pct else 'home'
-                                majority_pct = max(away_pct, home_pct)
-                                rlm_potential = majority_pct >= 60
-                                
-                                # Merge with lines data
-                                line_info = lines_data.get(game_key, {})
-                                
-                                result[game_key] = {
-                                    'away': {'team': away_team, 'bet_pct': away_bets, 'money_pct': away_money},
-                                    'home': {'team': home_team, 'bet_pct': home_bets, 'money_pct': home_money},
-                                    'open_spread': line_info.get('open_spread', 'N/A'),
-                                    'current_spread': line_info.get('current_spread', 'N/A'),
-                                    'line_movement': line_info.get('line_movement', 'N/A'),
-                                    'majority_team': majority_team,
-                                    'majority_pct': majority_pct,
-                                    'rlm_potential': rlm_potential
-                                }
-                            break
-                i += 1
+                game_key = f"{away_team}_vs_{home_team}".lower().replace(' ', '_')
+                
+                result[game_key] = {
+                    'away': {'team': away_team, 'bet_pct': str(away_bet_pct), 'money_pct': str(away_money_pct)},
+                    'home': {'team': home_team, 'bet_pct': str(home_bet_pct), 'money_pct': str(home_money_pct)},
+                    'open_spread': data.get('open_spread', 'N/A'),
+                    'current_spread': data.get('current_spread', 'N/A'),
+                    'line_movement': 'N/A',
+                    'majority_team': majority_team,
+                    'majority_pct': majority_pct,
+                    'rlm_potential': rlm_potential,
+                    'sharp_detected': sharp_detected,
+                    'sharp_side': sharp_side,
+                    'over_bet_pct': data.get('over_bet_pct', 50),
+                    'under_bet_pct': data.get('under_bet_pct', 50),
+                    'over_money_pct': data.get('over_money_pct', 50),
+                    'under_money_pct': data.get('under_money_pct', 50)
+                }
             
-            # Add games from lines_data that weren't in consensus
-            for game_key, line_info in lines_data.items():
-                if game_key not in result:
-                    result[game_key] = {
-                        'away': {'team': line_info['away_team'], 'bet_pct': 'N/A', 'money_pct': 'N/A'},
-                        'home': {'team': line_info['home_team'], 'bet_pct': 'N/A', 'money_pct': 'N/A'},
-                        'open_spread': line_info.get('open_spread', 'N/A'),
-                        'current_spread': line_info.get('current_spread', 'N/A'),
-                        'line_movement': line_info.get('line_movement', 'N/A'),
-                        'majority_team': 'N/A',
-                        'majority_pct': 0,
-                        'rlm_potential': False
-                    }
+            logger.info(f"WagerTalk data fetched for {league}: {len(result)} games")
             
-            logger.info(f"ScoresAndOdds data fetched for {league}: {len(result)} games")
-            
-            # Cache the result with timestamp
             if result:
                 MatchupIntelligence._rlm_cache[cache_key] = result
                 MatchupIntelligence._rlm_cache_time[cache_key] = datetime.now()
@@ -2184,8 +2022,7 @@ class MatchupIntelligence:
             return result
             
         except Exception as e:
-            logger.warning(f"Error fetching ScoresAndOdds data for {league}: {e}")
-            # Return cached data on error if available
+            logger.warning(f"Error fetching WagerTalk data for {league}: {e}")
             if cache_key in MatchupIntelligence._rlm_cache:
                 logger.info(f"Returning cached RLM data after error for {league}")
                 return MatchupIntelligence._rlm_cache[cache_key]
