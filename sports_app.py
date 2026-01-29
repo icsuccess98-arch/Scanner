@@ -196,10 +196,15 @@ compress.init_app(app)
 logger.info("Response compression enabled")
 
 # Fast health check endpoint for production deployments
-@app.route('/health')
+@app.route('/health', methods=['GET', 'HEAD'])
 def health_check():
-    """Simple health check that returns immediately - no database queries."""
-    return jsonify({"status": "healthy", "version": "2.0.0"}), 200
+    """
+    Simple health check that returns immediately - no database queries.
+    Supports both GET and HEAD requests for maximum compatibility.
+    """
+    if request.method == 'HEAD':
+        return '', 200
+    return jsonify({"status": "healthy", "version": "2.0.0", "service": "730sports"}), 200
 
 last_game_count = {}
 
@@ -7240,27 +7245,54 @@ def check_pick_results() -> int:
 
 @app.route('/')
 def dashboard():
-    # Health check fast path - return 200 immediately for User-Agent containing health/check
+    # CRITICAL: Fast health check response for Cloud Run
+    # Cloud Run checks root path with specific user agents - respond immediately
     user_agent = request.headers.get('User-Agent', '').lower()
-    if 'health' in user_agent or 'check' in user_agent or 'uptime' in user_agent:
-        return jsonify({"status": "ok"}), 200
+    
+    # Multiple health check patterns from various services
+    health_check_indicators = [
+        'googlehc',           # Google Health Check
+        'health',             # Generic health checks
+        'check',              # Uptime monitoring
+        'kube-probe',         # Kubernetes probes
+        'ping',               # Ping checks
+        'monitoring',         # Monitoring services
+    ]
+    
+    if any(indicator in user_agent for indicator in health_check_indicators):
+        return jsonify({"status": "healthy", "service": "730sports"}), 200
+    
+    # Also check for HEAD requests (common health check method)
+    if request.method == 'HEAD':
+        return '', 200
     
     et = pytz.timezone('America/New_York')
     today = datetime.now(et).date()
     show_only_qualified = request.args.get('qualified', '0') == '1'
     # Always filter to games with lines (Bovada only)
     
-    # Move cleanup to background - don't block health checks
-    try:
-        old_game_ids = [g.id for g in Game.query.filter(Game.date < today).limit(100).all()]
-        if old_game_ids:
-            Pick.query.filter(Pick.game_id.in_(old_game_ids)).update({Pick.game_id: None}, synchronize_session=False)
-            stmt = delete(Game).where(Game.id.in_(old_game_ids))
-            db.session.execute(stmt)
-            db.session.commit()
-    except Exception as e:
-        logger.warning(f"Cleanup error (non-critical): {e}")
-        db.session.rollback()
+    # ASYNC CLEANUP: Don't block the response - schedule cleanup in background thread
+    def cleanup_old_games():
+        try:
+            with app.app_context():
+                old_game_ids = [g.id for g in Game.query.filter(Game.date < today).limit(100).all()]
+                if old_game_ids:
+                    Pick.query.filter(Pick.game_id.in_(old_game_ids)).update({Pick.game_id: None}, synchronize_session=False)
+                    stmt = delete(Game).where(Game.id.in_(old_game_ids))
+                    db.session.execute(stmt)
+                    db.session.commit()
+                    logger.info(f"Background cleanup: removed {len(old_game_ids)} old games")
+        except Exception as e:
+            logger.warning(f"Background cleanup error (non-critical): {e}")
+            try:
+                db.session.rollback()
+            except:
+                pass
+    
+    # Start cleanup in background thread (non-blocking)
+    import threading
+    cleanup_thread = threading.Thread(target=cleanup_old_games, daemon=True)
+    cleanup_thread.start()
     
     all_games_db = Game.query.filter_by(date=today).order_by(Game.edge.desc()).all()
     # Show all games from today's slate (includes in-progress and completed)
