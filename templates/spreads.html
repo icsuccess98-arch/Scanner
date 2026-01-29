@@ -1642,53 +1642,6 @@
                 
                 {% if game.league in ['CBB', 'NBA'] and (game.torvik_away_adj_o or game.away_ppg) %}
                 
-                <!-- LINE MOVEMENT SUMMARY - Moved inside Model Breakdown, keeping only expanded detail view here -->
-                
-                <!-- EXPANDED LINE MOVEMENT VIEW (Initially Hidden) -->
-                <div class="line-movement-detail" id="lm-detail-{{ game.id }}" style="display: none; background: rgba(20,20,30,0.95); border-radius: 12px; padding: 0; margin: 12px 0;">
-                    <!-- Header with back button -->
-                    <div style="display: flex; align-items: center; padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.1);">
-                        <div onclick="hideLineMovement('{{ game.id }}')" style="cursor: pointer; margin-right: 12px; color: #9ca3af;">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
-                        </div>
-                        <span style="color: #fff; font-size: 14px; font-weight: 500;">Line Movement</span>
-                    </div>
-                    
-                    <!-- Bet Type Tabs (Moneyline | Spread | Total) -->
-                    <div class="bet-type-tabs" data-game-id="{{ game.id }}" style="padding: 0 16px;">
-                        <div class="bet-type-tab" data-tab="moneyline" onclick="switchBetTab(this, 'moneyline')">Moneyline</div>
-                        <div class="bet-type-tab" data-tab="spread" onclick="switchBetTab(this, 'spread')">Spread</div>
-                        <div class="bet-type-tab active" data-tab="total" onclick="switchBetTab(this, 'total')">Total</div>
-                    </div>
-                    
-                    <!-- TAB CONTENT - MONEYLINE -->
-                    <div class="bet-tab-content" data-content="moneyline" data-game-id="{{ game.id }}">
-                        <div class="pikkit-ml-content" id="ml-content-{{ game.id }}">
-                            <div class="text-center p-3" style="color: var(--text-muted); font-size: 12px;">
-                                <i class="bi bi-arrow-repeat"></i> Loading...
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- TAB CONTENT - SPREAD -->
-                    <div class="bet-tab-content" data-content="spread" data-game-id="{{ game.id }}">
-                        <div class="pikkit-spread-content" id="spread-content-{{ game.id }}">
-                            <div class="text-center p-3" style="color: var(--text-muted); font-size: 12px;">
-                                <i class="bi bi-arrow-repeat"></i> Loading...
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- TAB CONTENT - TOTAL (Default active) -->
-                    <div class="bet-tab-content active" data-content="total" data-game-id="{{ game.id }}">
-                        <div class="pikkit-total-content" id="total-content-{{ game.id }}">
-                            <div class="text-center p-3" style="color: var(--text-muted); font-size: 12px;">
-                                <i class="bi bi-arrow-repeat"></i> Loading...
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
                 <!-- MODEL BREAKDOWN TOGGLE -->
                 <div class="matchup-toggle" onclick="toggleMatchup(this)" data-game-id="{{ game.id }}">
                     <i class="bi bi-caret-right-fill"></i>
@@ -1878,26 +1831,22 @@
         
         // Render Last 5 games table content
         function renderLast5Games(gameId, games) {
-            const tbody = document.getElementById(`last5-body-${gameId}`);
-            if (!tbody || !games || !games.length) return;
+            const container = document.getElementById(`last5-body-${gameId}`);
+            if (!container || !games || !games.length) return;
             
-            tbody.innerHTML = games.map(game => `
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="color: #fff; font-size: 14px; padding: 12px 0;">${game.date}</td>
-                    <td style="padding: 12px 0;">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <span style="color: #9ca3af; font-size: 14px;">${game.location}</span>
-                            <img src="${game.opp_logo}" style="width: 24px; height: 24px; border-radius: 4px;" onerror="this.style.display='none'"/>
-                            <span style="color: #fff; font-size: 14px; font-weight: 500;">${game.opp}</span>
-                        </div>
-                    </td>
-                    <td style="text-align: right; padding: 12px 0;">
-                        <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px;">
-                            <span style="background: ${game.result === 'W' ? '#22c55e' : '#ef4444'}; color: #fff; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700;">${game.result}</span>
-                            <span style="color: #fff; font-size: 14px;">${game.score}</span>
-                        </div>
-                    </td>
-                </tr>
+            container.innerHTML = games.map(game => `
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; background: rgba(30,30,45,0.6); border-radius: 6px;">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="color: #666; font-size: 10px; min-width: 40px;">${game.date}</span>
+                        <span style="color: #888; font-size: 10px;">${game.location}</span>
+                        <img src="${game.opp_logo}" style="width: 18px; height: 18px; border-radius: 3px;" onerror="this.style.display='none'"/>
+                        <span style="color: #fff; font-size: 11px; font-weight: 500;">${game.opp}</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="background: ${game.result === 'W' ? '#22c55e' : '#ef4444'}; color: #fff; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700;">${game.result}</span>
+                        <span style="color: #fff; font-size: 11px; min-width: 50px; text-align: right;">${game.score}</span>
+                    </div>
+                </div>
             `).join('');
         }
         
@@ -2513,112 +2462,37 @@
                     </table>
                 </div>
                 
-                <!-- LAST 5 GAMES SECTION - COVERS.COM STYLE -->
-                <div class="last5-section" style="margin-top: 16px; background: rgba(20,20,30,0.95); border-radius: 12px; padding: 16px; border: 1px solid rgba(139, 92, 246, 0.3);">
-                    <div style="font-weight: 700; font-size: 16px; color: #fff; margin-bottom: 12px;">Last 5</div>
-                    
-                    <!-- Team Toggle Tabs -->
-                    <div class="last5-toggle" style="display: flex; margin-bottom: 16px; border-radius: 8px; overflow: hidden; background: rgba(40,40,50,0.8);">
-                        <button class="last5-tab active" data-team="away" onclick="switchLast5Tab(this, '${data.game_id}', 'away', '${awayTeam}')" style="flex: 1; padding: 14px 8px; text-align: center; background: #1e293b; color: #fff; border: none; font-size: 15px; font-weight: 600; cursor: pointer; border-radius: 8px 0 0 8px;">${awayTeam}</button>
-                        <button class="last5-tab" data-team="home" onclick="switchLast5Tab(this, '${data.game_id}', 'home', '${homeTeam}')" style="flex: 1; padding: 14px 8px; text-align: center; background: transparent; color: #9ca3af; border: none; font-size: 15px; font-weight: 500; cursor: pointer; border-radius: 0 8px 8px 0;">${homeTeam}</button>
+                <!-- LAST 5 GAMES - COMPACT -->
+                <div class="last5-section" style="margin-top: 12px; background: rgba(20,20,30,0.95); border-radius: 10px; padding: 10px; border: 1px solid rgba(139, 92, 246, 0.3);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                        <div style="font-weight: 700; font-size: 13px; color: #fff;">Last 5</div>
+                        <div class="last5-toggle" style="display: flex; border-radius: 6px; overflow: hidden; background: rgba(40,40,50,0.8);">
+                            <button class="last5-tab active" data-team="away" onclick="switchLast5Tab(this, '${data.game_id}', 'away', '${awayTeam}')" style="padding: 6px 12px; background: #1e293b; color: #fff; border: none; font-size: 11px; font-weight: 600; cursor: pointer;">${awayTeam}</button>
+                            <button class="last5-tab" data-team="home" onclick="switchLast5Tab(this, '${data.game_id}', 'home', '${homeTeam}')" style="padding: 6px 12px; background: transparent; color: #9ca3af; border: none; font-size: 11px; font-weight: 500; cursor: pointer;">${homeTeam}</button>
+                        </div>
                     </div>
-                    
-                    <!-- Last 5 Games Table -->
                     <div class="last5-content" id="last5-${data.game_id}">
-                        <table style="width: 100%; border-collapse: collapse;">
-                            <thead>
-                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
-                                    <th style="text-align: left; color: #9ca3af; font-weight: 500; font-size: 13px; padding: 8px 0;">Date</th>
-                                    <th style="text-align: left; color: #9ca3af; font-weight: 500; font-size: 13px; padding: 8px 0;">Opp</th>
-                                    <th style="text-align: right; color: #9ca3af; font-weight: 500; font-size: 13px; padding: 8px 0;">Result</th>
-                                </tr>
-                            </thead>
-                            <tbody id="last5-body-${data.game_id}">
-                                ${(data.last5_away || []).map(game => `
-                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                                        <td style="color: #fff; font-size: 14px; padding: 12px 0;">${game.date}</td>
-                                        <td style="padding: 12px 0;">
-                                            <div style="display: flex; align-items: center; gap: 8px;">
-                                                <span style="color: #9ca3af; font-size: 14px;">${game.location}</span>
-                                                <img src="${game.opp_logo}" style="width: 24px; height: 24px; border-radius: 4px;" onerror="this.style.display='none'"/>
-                                                <span style="color: #fff; font-size: 14px; font-weight: 500;">${game.opp}</span>
-                                            </div>
-                                        </td>
-                                        <td style="text-align: right; padding: 12px 0;">
-                                            <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px;">
-                                                <span style="background: ${game.result === 'W' ? '#22c55e' : '#ef4444'}; color: #fff; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700;">${game.result}</span>
-                                                <span style="color: #fff; font-size: 14px;">${game.score}</span>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                `).join('') || '<tr><td colspan="3" style="color: #9ca3af; text-align: center; padding: 20px;">Loading...</td></tr>'}
-                            </tbody>
-                        </table>
+                        <div style="display: flex; flex-direction: column; gap: 4px;" id="last5-body-${data.game_id}">
+                            ${(data.last5_away || []).map(game => `
+                                <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; background: rgba(30,30,45,0.6); border-radius: 6px;">
+                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                        <span style="color: #666; font-size: 10px; min-width: 40px;">${game.date}</span>
+                                        <span style="color: #888; font-size: 10px;">${game.location}</span>
+                                        <img src="${game.opp_logo}" style="width: 18px; height: 18px; border-radius: 3px;" onerror="this.style.display='none'"/>
+                                        <span style="color: #fff; font-size: 11px; font-weight: 500;">${game.opp}</span>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                        <span style="background: ${game.result === 'W' ? '#22c55e' : '#ef4444'}; color: #fff; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700;">${game.result}</span>
+                                        <span style="color: #fff; font-size: 11px; min-width: 50px; text-align: right;">${game.score}</span>
+                                    </div>
+                                </div>
+                            `).join('') || '<div style="color: #9ca3af; text-align: center; padding: 10px; font-size: 11px;">Loading...</div>'}
+                        </div>
                     </div>
                 </div>
                 
-                <!-- LINE MOVEMENT SECTION - BEFORE CHECKLIST -->
-                <div class="line-movement-section" style="margin-top: 16px; background: rgba(20,20,30,0.95); border-radius: 12px; padding: 16px; border: 1px solid rgba(139, 92, 246, 0.3);">
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-                        <img src="/static/images/730_logo.png" alt="730" style="width: 24px; height: 24px; object-fit: contain;">
-                        <span style="color: #fff; font-size: 16px; font-weight: 600;">Line Movement</span>
-                    </div>
-                    
-                    <!-- Mini chart rows -->
-                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.1); cursor: pointer;">
-                        <div>
-                            <div style="color: #fff; font-size: 14px; font-weight: 500;">Moneyline</div>
-                            <div style="color: #6b7280; font-size: 12px;">Underdog</div>
-                        </div>
-                        <div style="flex: 1; margin: 0 16px; height: 30px;">
-                            <svg viewBox="0 0 100 30" style="width: 100%; height: 30px;">
-                                <path d="M0,25 Q10,25 15,20 T25,15 T35,18 T45,10 T55,12 T65,8 T75,10 T85,6 T100,8" fill="none" stroke="#10b981" stroke-width="1.5" stroke-linecap="round"/>
-                            </svg>
-                        </div>
-                        <div style="text-align: right;">
-                            <div style="color: #fff; font-size: 16px; font-weight: 600;">+440</div>
-                            <div style="color: #10b981; font-size: 12px;">↗ 169.6%</div>
-                        </div>
-                    </div>
-                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.1); cursor: pointer;">
-                        <div>
-                            <div style="color: #fff; font-size: 14px; font-weight: 500;">Spread</div>
-                            <div style="color: #6b7280; font-size: 12px;">Main line</div>
-                        </div>
-                        <div style="flex: 1; margin: 0 16px; height: 30px;">
-                            <svg viewBox="0 0 100 30" style="width: 100%; height: 30px;">
-                                <path d="M0,15 Q15,5 25,15 T50,15 T75,15 T100,15" fill="none" stroke="#10b981" stroke-width="1.5" stroke-linecap="round"/>
-                            </svg>
-                        </div>
-                        <div style="text-align: right;">
-                            <div style="color: #fff; font-size: 16px; font-weight: 600;">12.5</div>
-                            <div style="color: #10b981; font-size: 12px;">↗ 1.1%</div>
-                        </div>
-                    </div>
-                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 0; cursor: pointer;">
-                        <div>
-                            <div style="color: #fff; font-size: 14px; font-weight: 500;">Total</div>
-                            <div style="color: #6b7280; font-size: 12px;">Over/Under</div>
-                        </div>
-                        <div style="flex: 1; margin: 0 16px; height: 30px;">
-                            <svg viewBox="0 0 100 30" style="width: 100%; height: 30px;">
-                                <path d="M0,20 Q15,5 30,20 T60,20 T90,25 T100,22" fill="none" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"/>
-                            </svg>
-                        </div>
-                        <div style="text-align: right;">
-                            <div style="color: #fff; font-size: 16px; font-weight: 600;">227.5</div>
-                            <div style="color: #ef4444; font-size: 12px;">↘ -2.1%</div>
-                        </div>
-                    </div>
-                    
-                    <!-- View All Button -->
-                    <div onclick="showAllLineMovement('${data.game_id}')" style="display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px; margin-top: 12px; background: rgba(40,40,50,0.8); border-radius: 8px; cursor: pointer;">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17l3-3-3-3"/><path d="M6 17l3-3-3-3"/></svg>
-                        <span style="color: #fff; font-size: 14px; font-weight: 500;">View all Line Movement</span>
-                    </div>
-                </div>
                 
-                <!-- GAMIFIED BETTING CHECKLIST - PIKKIT STYLE -->
+                <!-- BETTING ACTION - COMPACT -->
                 ${data.rlm ? (() => {
                     const awayBetPct = parseInt(data.rlm.away_bet_pct) || 50;
                     const homeBetPct = parseInt(data.rlm.home_bet_pct) || 50;
@@ -2628,133 +2502,104 @@
                     const homeName = homeTeam;
                     const awayColor = getTeamColor(awayTeam, 'primary');
                     const homeColor = getTeamColor(homeTeam, 'primary');
-                    const openSpread = data.rlm.open_spread || 'N/A';
-                    const currentSpread = data.rlm.away_spread || 'N/A';
-                    const lineMove = data.rlm.line_movement || 'N/A';
-                    const hasLineMove = lineMove !== 'N/A' && lineMove !== '0.0' && lineMove !== 0;
                     
                     return `
-                <div style="margin-top: 15px; background: linear-gradient(145deg, rgba(20, 20, 35, 0.95), rgba(15, 15, 25, 0.98)); border-radius: 16px; padding: 14px; border: 1px solid rgba(139, 92, 246, 0.4); box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);">
+                <div style="margin-top: 10px; background: linear-gradient(145deg, rgba(20, 20, 35, 0.95), rgba(15, 15, 25, 0.98)); border-radius: 10px; padding: 10px; border: 1px solid rgba(139, 92, 246, 0.4);">
                     
-                    <!-- Header with fire emoji -->
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-                        <div style="font-weight: 800; font-size: 14px; color: #fff; display: flex; align-items: center; gap: 8px;">
-                            <span style="font-size: 18px;">🔥</span> BETTING ACTION
+                    <!-- Header -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                        <div style="font-weight: 700; font-size: 12px; color: #fff; display: flex; align-items: center; gap: 6px;">
+                            <span style="font-size: 14px;">🔥</span> BETTING ACTION
                         </div>
-                        <div style="background: linear-gradient(135deg, #7B2CBF, #9D4EDD); padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; color: #fff;">LIVE</div>
+                        <div style="background: linear-gradient(135deg, #7B2CBF, #9D4EDD); padding: 3px 8px; border-radius: 12px; font-size: 9px; font-weight: 700; color: #fff;">LIVE</div>
                     </div>
                     
-                    <!-- LINE MOVEMENT CARD -->
-                    <div style="background: rgba(30, 30, 50, 0.6); border-radius: 12px; padding: 12px; margin-bottom: 12px; border: 1px solid rgba(59, 130, 246, 0.3);">
-                        <div style="font-weight: 700; font-size: 11px; color: #888; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px;">Line Movement</div>
-                        
-                        <!-- Open/Current row -->
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                            <div style="text-align: center; flex: 1;">
-                                <div style="font-size: 9px; color: #666; margin-bottom: 2px;">OPEN</div>
-                                <div style="font-size: 18px; font-weight: 800; color: #fff;">${openSpread}</div>
-                            </div>
-                            <div style="flex: 0 0 60px; text-align: center;">
-                                <div style="font-size: 20px; color: ${hasLineMove ? '#3b82f6' : '#444'};">${hasLineMove ? '→' : '•'}</div>
-                            </div>
-                            <div style="text-align: center; flex: 1;">
-                                <div style="font-size: 9px; color: #666; margin-bottom: 2px;">CURRENT</div>
-                                <div style="font-size: 18px; font-weight: 800; color: ${hasLineMove ? '#3b82f6' : '#fff'};">${currentSpread}</div>
-                            </div>
-                        </div>
-                        
-                        <!-- Movement indicator bar -->
-                        ${hasLineMove ? `
-                        <div style="background: rgba(59, 130, 246, 0.2); border-radius: 8px; padding: 6px 10px; text-align: center; border: 1px solid rgba(59, 130, 246, 0.4);">
-                            <span style="font-size: 11px; font-weight: 700; color: #3b82f6;">📈 ${parseFloat(lineMove) > 0 ? '+' : ''}${lineMove} pts movement</span>
-                        </div>
-                        ` : `
-                        <div style="background: rgba(100, 100, 120, 0.2); border-radius: 8px; padding: 6px 10px; text-align: center;">
-                            <span style="font-size: 11px; font-weight: 600; color: #666;">No movement</span>
-                        </div>
-                        `}
-                    </div>
-                    
-                    <!-- BET % BARS - TEAM COLORS -->
-                    <div style="background: rgba(30, 30, 50, 0.6); border-radius: 12px; padding: 12px; margin-bottom: 12px; border: 1px solid rgba(220, 20, 60, 0.3);">
-                        <div style="font-weight: 700; font-size: 11px; color: #888; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px;">Bet % <span style="color: #666; font-weight: 400;">(Tickets)</span></div>
-                        
-                        <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 6px;">
-                            <div style="min-width: 55px; font-size: 10px; font-weight: 600; color: #fff;">${awayName}</div>
-                            <div style="flex: 1; height: 24px; background: rgba(40, 40, 60, 0.8); border-radius: 6px; overflow: hidden; display: flex;">
-                                <div style="width: ${awayBetPct}%; background: ${awayColor}; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; transition: width 0.5s ease;">
-                                    <span style="font-size: 11px; font-weight: 800; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.5);">${awayBetPct}%</span>
+                    <!-- BET % & MONEY % - SIDE BY SIDE -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                        <!-- BET % -->
+                        <div style="background: rgba(30, 30, 50, 0.6); border-radius: 8px; padding: 8px;">
+                            <div style="font-weight: 600; font-size: 9px; color: #888; margin-bottom: 6px; text-transform: uppercase;">Bet %</div>
+                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                <div style="display: flex; align-items: center; gap: 4px;">
+                                    <div style="min-width: 40px; font-size: 9px; font-weight: 600; color: #fff;">${awayName}</div>
+                                    <div style="flex: 1; height: 16px; background: rgba(40, 40, 60, 0.8); border-radius: 4px; overflow: hidden;">
+                                        <div style="width: ${awayBetPct}%; height: 100%; background: ${awayColor}; display: flex; align-items: center; justify-content: flex-end; padding-right: 4px;">
+                                            <span style="font-size: 9px; font-weight: 700; color: #fff;">${awayBetPct}%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 4px;">
+                                    <div style="min-width: 40px; font-size: 9px; font-weight: 600; color: #fff;">${homeName}</div>
+                                    <div style="flex: 1; height: 16px; background: rgba(40, 40, 60, 0.8); border-radius: 4px; overflow: hidden;">
+                                        <div style="width: ${homeBetPct}%; height: 100%; background: ${homeColor}; display: flex; align-items: center; justify-content: flex-end; padding-right: 4px;">
+                                            <span style="font-size: 9px; font-weight: 700; color: #fff;">${homeBetPct}%</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 4px;">
-                            <div style="min-width: 55px; font-size: 10px; font-weight: 600; color: #fff;">${homeName}</div>
-                            <div style="flex: 1; height: 24px; background: rgba(40, 40, 60, 0.8); border-radius: 6px; overflow: hidden; display: flex;">
-                                <div style="width: ${homeBetPct}%; background: ${homeColor}; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; transition: width 0.5s ease;">
-                                    <span style="font-size: 11px; font-weight: 800; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.5);">${homeBetPct}%</span>
+                        <!-- MONEY % -->
+                        <div style="background: rgba(30, 30, 50, 0.6); border-radius: 8px; padding: 8px;">
+                            <div style="font-weight: 600; font-size: 9px; color: #888; margin-bottom: 6px; text-transform: uppercase;">Money %</div>
+                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                <div style="display: flex; align-items: center; gap: 4px;">
+                                    <div style="min-width: 40px; font-size: 9px; font-weight: 600; color: #fff;">${awayName}</div>
+                                    <div style="flex: 1; height: 16px; background: rgba(40, 40, 60, 0.8); border-radius: 4px; overflow: hidden;">
+                                        <div style="width: ${awayMoneyPct}%; height: 100%; background: ${awayColor}; display: flex; align-items: center; justify-content: flex-end; padding-right: 4px;">
+                                            <span style="font-size: 9px; font-weight: 700; color: #fff;">${awayMoneyPct}%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 4px;">
+                                    <div style="min-width: 40px; font-size: 9px; font-weight: 600; color: #fff;">${homeName}</div>
+                                    <div style="flex: 1; height: 16px; background: rgba(40, 40, 60, 0.8); border-radius: 4px; overflow: hidden;">
+                                        <div style="width: ${homeMoneyPct}%; height: 100%; background: ${homeColor}; display: flex; align-items: center; justify-content: flex-end; padding-right: 4px;">
+                                            <span style="font-size: 9px; font-weight: 700; color: #fff;">${homeMoneyPct}%</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                     
-                    <!-- MONEY % BARS - TEAM COLORS -->
-                    <div style="background: rgba(30, 30, 50, 0.6); border-radius: 12px; padding: 12px; margin-bottom: 12px; border: 1px solid rgba(255, 215, 0, 0.3);">
-                        <div style="font-weight: 700; font-size: 11px; color: #888; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px;">Money % <span style="color: #666; font-weight: 400;">(Handle)</span></div>
-                        
-                        <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 6px;">
-                            <div style="min-width: 55px; font-size: 10px; font-weight: 600; color: #fff;">${awayName}</div>
-                            <div style="flex: 1; height: 24px; background: rgba(40, 40, 60, 0.8); border-radius: 6px; overflow: hidden; display: flex;">
-                                <div style="width: ${awayMoneyPct}%; background: ${awayColor}; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; transition: width 0.5s ease;">
-                                    <span style="font-size: 11px; font-weight: 800; color: #fff; text-shadow: 0 1px 0 rgba(255,255,255,0.3);">${awayMoneyPct}%</span>
-                                </div>
-                            </div>
+                    <!-- COMPACT CHECKLIST - 2x3 GRID -->
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;">
+                        <div style="background: ${awayEdgeCount !== homeEdgeCount ? 'rgba(16, 185, 129, 0.15)' : 'rgba(100, 100, 120, 0.2)'}; padding: 6px; border-radius: 6px; text-align: center;">
+                            <span style="font-size: 12px;">${awayEdgeCount !== homeEdgeCount ? '✅' : '➖'}</span>
+                            <div style="color: #888; font-size: 7px; margin-top: 2px;">EDGE</div>
+                            <div style="color: #fff; font-size: 9px; font-weight: 700;">${awayEdgeCount > homeEdgeCount ? awayTeam : (homeEdgeCount > awayEdgeCount ? homeTeam : 'Even')}</div>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 4px;">
-                            <div style="min-width: 55px; font-size: 10px; font-weight: 600; color: #fff;">${homeName}</div>
-                            <div style="flex: 1; height: 24px; background: rgba(40, 40, 60, 0.8); border-radius: 6px; overflow: hidden; display: flex;">
-                                <div style="width: ${homeMoneyPct}%; background: ${homeColor}; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; transition: width 0.5s ease;">
-                                    <span style="font-size: 11px; font-weight: 800; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.5);">${homeMoneyPct}%</span>
-                                </div>
-                            </div>
+                        <div style="background: ${data.rlm.rlm_potential ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.15)'}; padding: 6px; border-radius: 6px; text-align: center;">
+                            <span style="font-size: 12px;">${data.rlm.rlm_potential ? '⚠️' : '✅'}</span>
+                            <div style="color: #888; font-size: 7px; margin-top: 2px;">RLM</div>
+                            <div style="color: ${data.rlm.rlm_potential ? '#ef4444' : '#10b981'}; font-size: 9px; font-weight: 700;">${data.rlm.rlm_potential ? 'Lopsided' : 'Normal'}</div>
                         </div>
-                    </div>
-                    
-                    <!-- QUICK CHECKLIST -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 10px;">
-                        <div style="background: ${awayEdgeCount !== homeEdgeCount ? 'rgba(16, 185, 129, 0.15)' : 'rgba(100, 100, 120, 0.2)'}; padding: 8px 10px; border-radius: 8px; display: flex; align-items: center; gap: 6px; border: 1px solid ${awayEdgeCount !== homeEdgeCount ? 'rgba(16, 185, 129, 0.3)' : 'transparent'};">
-                            <span style="font-size: 14px;">${awayEdgeCount !== homeEdgeCount ? '✅' : '➖'}</span>
-                            <div>
-                                <div style="color: #888; font-size: 8px;">EDGE LEADER</div>
-                                <div style="color: #fff; font-weight: 700;">${awayEdgeCount > homeEdgeCount ? awayTeam + ' ' + awayEdgeCount + '/15' : (homeEdgeCount > awayEdgeCount ? homeTeam + ' ' + homeEdgeCount + '/15' : 'Even')}</div>
-                            </div>
+                        <div style="background: ${data.rlm.majority_pct >= 70 ? 'rgba(245, 158, 11, 0.2)' : 'rgba(16, 185, 129, 0.15)'}; padding: 6px; border-radius: 6px; text-align: center;">
+                            <span style="font-size: 12px;">${data.rlm.majority_pct >= 70 ? '🚨' : '✅'}</span>
+                            <div style="color: #888; font-size: 7px; margin-top: 2px;">TRAP</div>
+                            <div style="color: ${data.rlm.majority_pct >= 70 ? '#f59e0b' : '#10b981'}; font-size: 9px; font-weight: 700;">${data.rlm.majority_pct >= 70 ? 'CAUTION' : 'Clear'}</div>
                         </div>
-                        <div style="background: ${data.rlm.rlm_potential ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.15)'}; padding: 8px 10px; border-radius: 8px; display: flex; align-items: center; gap: 6px; border: 1px solid ${data.rlm.rlm_potential ? 'rgba(239, 68, 68, 0.4)' : 'rgba(16, 185, 129, 0.3)'};">
-                            <span style="font-size: 14px;">${data.rlm.rlm_potential ? '⚠️' : '✅'}</span>
-                            <div>
-                                <div style="color: #888; font-size: 8px;">RLM CHECK</div>
-                                <div style="color: ${data.rlm.rlm_potential ? '#ef4444' : '#10b981'}; font-weight: 700;">${data.rlm.rlm_potential ? 'Lopsided ' + data.rlm.majority_pct + '%' : 'Normal'}</div>
-                            </div>
+                        <div style="background: ${Math.abs(awayMoneyPct - awayBetPct) >= 10 ? 'rgba(139, 92, 246, 0.2)' : 'rgba(100, 100, 120, 0.2)'}; padding: 6px; border-radius: 6px; text-align: center;">
+                            <span style="font-size: 12px;">${Math.abs(awayMoneyPct - awayBetPct) >= 10 ? '💰' : '➖'}</span>
+                            <div style="color: #888; font-size: 7px; margin-top: 2px;">SHARP</div>
+                            <div style="color: ${Math.abs(awayMoneyPct - awayBetPct) >= 10 ? '#8b5cf6' : '#888'}; font-size: 9px; font-weight: 700;">${Math.abs(awayMoneyPct - awayBetPct) >= 10 ? 'Detected' : 'None'}</div>
                         </div>
-                        <div style="background: ${data.rlm.majority_pct >= 70 ? 'rgba(245, 158, 11, 0.2)' : 'rgba(16, 185, 129, 0.15)'}; padding: 8px 10px; border-radius: 8px; display: flex; align-items: center; gap: 6px; border: 1px solid ${data.rlm.majority_pct >= 70 ? 'rgba(245, 158, 11, 0.4)' : 'rgba(16, 185, 129, 0.3)'};">
-                            <span style="font-size: 14px;">${data.rlm.majority_pct >= 70 ? '🚨' : '✅'}</span>
-                            <div>
-                                <div style="color: #888; font-size: 8px;">TRAP GAME</div>
-                                <div style="color: ${data.rlm.majority_pct >= 70 ? '#f59e0b' : '#10b981'}; font-weight: 700;">${data.rlm.majority_pct >= 70 ? 'CAUTION' : 'Clear'}</div>
-                            </div>
+                        <div style="background: ${data.away_off_rating > data.home_off_rating ? 'rgba(16, 185, 129, 0.15)' : 'rgba(100, 100, 120, 0.2)'}; padding: 6px; border-radius: 6px; text-align: center;">
+                            <span style="font-size: 12px;">🏀</span>
+                            <div style="color: #888; font-size: 7px; margin-top: 2px;">OFF RTG</div>
+                            <div style="color: #fff; font-size: 9px; font-weight: 700;">${data.away_off_rating > data.home_off_rating ? awayTeam : homeTeam}</div>
                         </div>
-                        <div style="background: ${Math.abs(awayMoneyPct - awayBetPct) >= 10 ? 'rgba(139, 92, 246, 0.2)' : 'rgba(100, 100, 120, 0.2)'}; padding: 8px 10px; border-radius: 8px; display: flex; align-items: center; gap: 6px; border: 1px solid ${Math.abs(awayMoneyPct - awayBetPct) >= 10 ? 'rgba(139, 92, 246, 0.4)' : 'transparent'};">
-                            <span style="font-size: 14px;">${Math.abs(awayMoneyPct - awayBetPct) >= 10 ? '💰' : '➖'}</span>
-                            <div>
-                                <div style="color: #888; font-size: 8px;">SHARP MONEY</div>
-                                <div style="color: ${Math.abs(awayMoneyPct - awayBetPct) >= 10 ? '#8b5cf6' : '#888'}; font-weight: 700;">${Math.abs(awayMoneyPct - awayBetPct) >= 10 ? 'Detected' : 'None'}</div>
-                            </div>
+                        <div style="background: ${data.away_def_rating < data.home_def_rating ? 'rgba(16, 185, 129, 0.15)' : 'rgba(100, 100, 120, 0.2)'}; padding: 6px; border-radius: 6px; text-align: center;">
+                            <span style="font-size: 12px;">🛡️</span>
+                            <div style="color: #888; font-size: 7px; margin-top: 2px;">DEF RTG</div>
+                            <div style="color: #fff; font-size: 9px; font-weight: 700;">${data.away_def_rating < data.home_def_rating ? awayTeam : homeTeam}</div>
                         </div>
                     </div>
                     
-                    <!-- STATUS BADGE -->
-                    <div style="margin-top: 10px; padding: 8px 12px; background: ${data.rlm.rlm_potential || data.rlm.majority_pct >= 70 ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(245, 158, 11, 0.2))' : 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(59, 130, 246, 0.2))'}; border-radius: 10px; text-align: center; border: 1px solid ${data.rlm.rlm_potential || data.rlm.majority_pct >= 70 ? 'rgba(239, 68, 68, 0.3)' : 'rgba(16, 185, 129, 0.3)'};">
-                        <span style="font-weight: 700; font-size: 12px; color: ${data.rlm.rlm_potential || data.rlm.majority_pct >= 70 ? '#f59e0b' : '#10b981'};">
-                            ${data.rlm.rlm_potential || data.rlm.majority_pct >= 70 ? '⚠️ PROCEED WITH CAUTION' : '✅ LOOKING GOOD'}
+                    <!-- STATUS BADGE - COMPACT -->
+                    <div style="margin-top: 6px; padding: 6px 10px; background: ${data.rlm.rlm_potential || data.rlm.majority_pct >= 70 ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(245, 158, 11, 0.2))' : 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(59, 130, 246, 0.2))'}; border-radius: 8px; text-align: center;">
+                        <span style="font-weight: 700; font-size: 10px; color: ${data.rlm.rlm_potential || data.rlm.majority_pct >= 70 ? '#f59e0b' : '#10b981'};">
+                            ${data.rlm.rlm_potential || data.rlm.majority_pct >= 70 ? '⚠️ CAUTION' : '✅ LOOKING GOOD'}
                         </span>
                     </div>
                 </div>
