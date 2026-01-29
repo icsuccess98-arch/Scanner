@@ -1,8 +1,8 @@
 """
 WagerTalk.com Scraper - Betting Action Data
 
-Extracts Tickets % and Money % from WagerTalk.com/odds using Playwright.
-Uses stealth mode to bypass bot detection.
+Extracts Tickets %, Money %, and Line Movement for BOTH Spreads and Totals.
+Uses Playwright with stealth mode to bypass bot detection.
 """
 
 import logging
@@ -34,6 +34,75 @@ def _normalize_team_name(name: str) -> str:
     return re.sub(r'\s+', ' ', name.strip())
 
 
+def _parse_line_with_odds(text: str) -> Dict:
+    """
+    Parse line with odds like '-12-10' or '227½u-15' or '-11½-12'
+    Returns: {'line': '-12', 'odds': '-110'}
+    """
+    if not text or text == '-':
+        return {'line': None, 'odds': None}
+    
+    text = text.strip()
+    
+    # Handle totals with o/u prefix like "227½u-15" or "230o-15"
+    total_match = re.match(r'^(\d+[½]?)([ou])(-?\d{2})$', text)
+    if total_match:
+        line = total_match.group(1)
+        ou = total_match.group(2)
+        odds_num = total_match.group(3)
+        line = f"{ou.upper()}{line}"
+        # Convert odds: -15 -> -115, -10 -> -110
+        if odds_num.startswith('-'):
+            odds = f"-1{odds_num[1:]}"
+        else:
+            odds = f"+1{odds_num}"
+        return {'line': line, 'odds': odds}
+    
+    # Handle spreads like "-12-10" or "-11½-12" or "+5-10"
+    spread_match = re.match(r'^([+-]?\d+[½]?)(-\d{2})$', text)
+    if spread_match:
+        line = spread_match.group(1)
+        odds_num = spread_match.group(2)
+        # Convert odds: -10 -> -110, -12 -> -112
+        odds = f"-1{odds_num[1:]}"
+        return {'line': line, 'odds': odds}
+    
+    # Handle spread with + odds like "-3+05"
+    spread_plus = re.match(r'^([+-]?\d+[½]?)(\+\d{2})$', text)
+    if spread_plus:
+        line = spread_plus.group(1)
+        odds_num = spread_plus.group(2)
+        odds = f"+1{odds_num[1:]}"
+        return {'line': line, 'odds': odds}
+    
+    # Handle just a number like "230" or "227½" (assume -110)
+    just_line = re.match(r'^(\d+[½]?)$', text)
+    if just_line:
+        return {'line': just_line.group(1), 'odds': '-110'}
+    
+    # Handle spread without odds like "-11½"
+    spread_only = re.match(r'^([+-]?\d+[½]?)$', text)
+    if spread_only:
+        return {'line': spread_only.group(1), 'odds': '-110'}
+    
+    return {'line': text, 'odds': None}
+
+
+def _parse_cell_rows(text: str) -> tuple:
+    """
+    Parse a cell with two rows (spread on top, totals on bottom).
+    Returns: (top_value, bottom_value)
+    """
+    if not text:
+        return (None, None)
+    
+    lines = text.strip().split('\n')
+    top = lines[0].strip() if len(lines) > 0 else None
+    bottom = lines[1].strip() if len(lines) > 1 else None
+    
+    return (top, bottom)
+
+
 async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
     """Async function to fetch WagerTalk data with Playwright."""
     from playwright.async_api import async_playwright
@@ -56,17 +125,14 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
             
             page = await context.new_page()
             
-            # Use "today" to get all sports with betting data loaded
             cb = random.random()
             url = f'https://www.wagertalk.com/odds?sport=today&cb={cb}'
             
             logger.info(f"Fetching WagerTalk: {url}")
             
-            # Use domcontentloaded for faster loading, then wait for JS
             await page.goto(url, wait_until='domcontentloaded', timeout=30000)
             await asyncio.sleep(8)  # Wait for JS to load percentages
             
-            # Get all game rows
             rows = await page.query_selector_all('tr.reg, tr.alt')
             logger.info(f"WagerTalk found {len(rows)} rows")
             
@@ -99,107 +165,176 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                         if not is_league_game:
                             continue
                     
-                    # Get book cells (b1-b14 contain betting data)
-                    book_cells = await row.query_selector_all('td[class*="b"]')
+                    # Get all cells - b1=Tickets, b2=Money, b3=Open, b4+=Current books
+                    all_cells = await row.query_selector_all('td')
                     
-                    # Default values
-                    away_bet_pct = 50
-                    home_bet_pct = 50
-                    away_money_pct = 50
-                    home_money_pct = 50
-                    over_bet_pct = 50
-                    under_bet_pct = 50
-                    over_money_pct = 50
-                    under_money_pct = 50
+                    # Initialize data
+                    game_data = {
+                        'away_team': away_team,
+                        'home_team': home_team,
+                        # Spread data
+                        'spread_tickets_pct': 50,
+                        'spread_money_pct': 50,
+                        'spread_open_line': None,
+                        'spread_open_odds': None,
+                        'spread_current_line': None,
+                        'spread_current_odds': None,
+                        # Totals data
+                        'total_tickets_pct': 50,
+                        'total_money_pct': 50,
+                        'total_open_line': None,
+                        'total_open_odds': None,
+                        'total_current_line': None,
+                        'total_current_odds': None,
+                        # Legacy fields for compatibility
+                        'over_bet_pct': 50,
+                        'under_bet_pct': 50,
+                        'over_money_pct': 50,
+                        'under_money_pct': 50,
+                        'away_bet_pct': 50,
+                        'home_bet_pct': 50,
+                        'away_money_pct': 50,
+                        'home_money_pct': 50,
+                        'sharp_detected': False,
+                        'sharp_side': None,
+                        'spread_sharp_detected': False,
+                        'spread_sharp_side': None,
+                        'source': 'wagertalk'
+                    }
                     
-                    # Parse percentages from cells
-                    for cell in book_cells:
+                    for i, cell in enumerate(all_cells):
                         try:
+                            cell_class = await cell.get_attribute('class') or ''
                             text = await cell.inner_text()
-                            text = text.strip()
                             
-                            if not text or text == '-':
+                            if not text or text.strip() == '-':
                                 continue
                             
-                            # Parse patterns like "o50% 53%" or "u86% 59%"
-                            # First number is Tickets %, second is Money %
-                            pct_matches = re.findall(r'([ou]?)(\d{1,3})%', text)
+                            top, bottom = _parse_cell_rows(text)
                             
-                            if len(pct_matches) >= 2:
-                                prefix1, pct1 = pct_matches[0]
-                                prefix2, pct2 = pct_matches[1]
-                                
-                                tickets_pct = int(pct1)
-                                money_pct = int(pct2)
-                                
-                                # Determine if Over or Under based on prefix
-                                if prefix1 == 'o':
-                                    over_bet_pct = tickets_pct
-                                    over_money_pct = money_pct
-                                    under_bet_pct = 100 - tickets_pct
-                                    under_money_pct = 100 - money_pct
-                                elif prefix1 == 'u':
-                                    under_bet_pct = tickets_pct
-                                    under_money_pct = money_pct
-                                    over_bet_pct = 100 - tickets_pct
-                                    over_money_pct = 100 - money_pct
-                                else:
-                                    # Side bets (spread/ML)
-                                    away_bet_pct = tickets_pct
-                                    away_money_pct = money_pct
-                                    home_bet_pct = 100 - tickets_pct
-                                    home_money_pct = 100 - money_pct
-                                    
-                            elif len(pct_matches) == 1:
-                                prefix, pct = pct_matches[0]
-                                pct_val = int(pct)
-                                
-                                if prefix == 'o':
-                                    over_bet_pct = pct_val
-                                    under_bet_pct = 100 - pct_val
-                                elif prefix == 'u':
-                                    under_bet_pct = pct_val
-                                    over_bet_pct = 100 - pct_val
-                                    
+                            # b1 = Tickets column
+                            # Format: Top = totals % (with o/u), Bottom = spread %
+                            if 'b1' in cell_class:
+                                # Parse both rows looking for o/u prefix
+                                for val in [top, bottom]:
+                                    if not val:
+                                        continue
+                                    # Totals have o/u prefix
+                                    total_match = re.search(r'([ou])(\d{1,3})%', val)
+                                    if total_match:
+                                        prefix = total_match.group(1)
+                                        pct = int(total_match.group(2))
+                                        game_data['total_tickets_pct'] = pct
+                                        if prefix == 'o':
+                                            game_data['over_bet_pct'] = pct
+                                            game_data['under_bet_pct'] = 100 - pct
+                                        else:
+                                            game_data['under_bet_pct'] = pct
+                                            game_data['over_bet_pct'] = 100 - pct
+                                    else:
+                                        # No prefix = spread %
+                                        spread_match = re.search(r'(\d{1,3})%', val)
+                                        if spread_match:
+                                            pct = int(spread_match.group(1))
+                                            game_data['spread_tickets_pct'] = pct
+                                            game_data['away_bet_pct'] = pct
+                                            game_data['home_bet_pct'] = 100 - pct
+                            
+                            # b2 = Money column
+                            # Format: Top = totals % (with o/u), Bottom = spread %
+                            elif 'b2' in cell_class:
+                                for val in [top, bottom]:
+                                    if not val:
+                                        continue
+                                    # Totals have o/u prefix
+                                    total_match = re.search(r'([ou])(\d{1,3})%', val)
+                                    if total_match:
+                                        prefix = total_match.group(1)
+                                        pct = int(total_match.group(2))
+                                        game_data['total_money_pct'] = pct
+                                        if prefix == 'o':
+                                            game_data['over_money_pct'] = pct
+                                            game_data['under_money_pct'] = 100 - pct
+                                        else:
+                                            game_data['under_money_pct'] = pct
+                                            game_data['over_money_pct'] = 100 - pct
+                                    else:
+                                        # No prefix = spread %
+                                        spread_match = re.search(r'(\d{1,3})%', val)
+                                        if spread_match:
+                                            pct = int(spread_match.group(1))
+                                            game_data['spread_money_pct'] = pct
+                                            game_data['away_money_pct'] = pct
+                                            game_data['home_money_pct'] = 100 - pct
+                            
+                            # b3 = Open lines
+                            # Format: Top = total line, Bottom = spread line
+                            elif 'b3' in cell_class:
+                                for val in [top, bottom]:
+                                    if not val:
+                                        continue
+                                    parsed = _parse_line_with_odds(val)
+                                    # Totals have o/u in line or are just numbers > 100
+                                    if parsed['line'] and (parsed['line'].startswith('O') or parsed['line'].startswith('U') or 
+                                        (parsed['line'].replace('½', '').isdigit() and float(parsed['line'].replace('½', '.5')) > 100)):
+                                        game_data['total_open_line'] = parsed['line']
+                                        game_data['total_open_odds'] = parsed['odds']
+                                    elif parsed['line']:
+                                        game_data['spread_open_line'] = parsed['line']
+                                        game_data['spread_open_odds'] = parsed['odds']
+                            
+                            # b4 = First book (DraftKings) - use as current line
+                            elif 'b4' in cell_class:
+                                for val in [top, bottom]:
+                                    if not val:
+                                        continue
+                                    parsed = _parse_line_with_odds(val)
+                                    # Totals have o/u in line or are just numbers > 100
+                                    if parsed['line'] and (parsed['line'].startswith('O') or parsed['line'].startswith('U') or 
+                                        (parsed['line'].replace('½', '').isdigit() and float(parsed['line'].replace('½', '.5')) > 100)):
+                                        game_data['total_current_line'] = parsed['line']
+                                        game_data['total_current_odds'] = parsed['odds']
+                                    elif parsed['line']:
+                                        game_data['spread_current_line'] = parsed['line']
+                                        game_data['spread_current_odds'] = parsed['odds']
+                            
                         except Exception as e:
                             continue
                     
-                    # Detect sharp money (big difference between Tickets and Money)
-                    sharp_detected = False
-                    sharp_side = None
-                    
-                    tickets_diff = abs(over_bet_pct - over_money_pct)
+                    # Detect sharp money for TOTALS
+                    tickets_diff = abs(game_data['over_bet_pct'] - game_data['over_money_pct'])
                     if tickets_diff >= 15:
-                        sharp_detected = True
-                        if over_money_pct > over_bet_pct:
-                            sharp_side = 'OVER'
+                        game_data['sharp_detected'] = True
+                        if game_data['over_money_pct'] > game_data['over_bet_pct']:
+                            game_data['sharp_side'] = 'OVER'
                         else:
-                            sharp_side = 'UNDER'
+                            game_data['sharp_side'] = 'UNDER'
+                    
+                    # Detect sharp money for SPREADS
+                    spread_diff = abs(game_data['spread_tickets_pct'] - game_data['spread_money_pct'])
+                    if spread_diff >= 15:
+                        game_data['spread_sharp_detected'] = True
+                        if game_data['spread_money_pct'] > game_data['spread_tickets_pct']:
+                            game_data['spread_sharp_side'] = away_team
+                        else:
+                            game_data['spread_sharp_side'] = home_team
                     
                     key = f"{away_team} vs {home_team}"
-                    result[key] = {
-                        'away_team': away_team,
-                        'home_team': home_team,
-                        'away_bet_pct': away_bet_pct,
-                        'home_bet_pct': home_bet_pct,
-                        'away_money_pct': away_money_pct,
-                        'home_money_pct': home_money_pct,
-                        'over_bet_pct': over_bet_pct,
-                        'under_bet_pct': under_bet_pct,
-                        'over_money_pct': over_money_pct,
-                        'under_money_pct': under_money_pct,
-                        'sharp_detected': sharp_detected,
-                        'sharp_side': sharp_side,
-                        'source': 'wagertalk'
-                    }
+                    result[key] = game_data
                     games_found += 1
+                    
+                    logger.debug(f"WagerTalk {away_team} vs {home_team}: "
+                                f"Spread {game_data['spread_tickets_pct']}%/{game_data['spread_money_pct']}% "
+                                f"({game_data['spread_open_line']} -> {game_data['spread_current_line']}), "
+                                f"Total {game_data['over_bet_pct']}%/{game_data['over_money_pct']}% "
+                                f"({game_data['total_open_line']} -> {game_data['total_current_line']})")
                     
                 except Exception as e:
                     logger.debug(f"Error parsing row: {e}")
                     continue
             
             await browser.close()
-            logger.info(f"WagerTalk scraped {games_found} {league} games with percentages")
+            logger.info(f"WagerTalk scraped {games_found} {league} games with spread+totals data")
             
     except Exception as e:
         logger.error(f"Error fetching WagerTalk: {e}")
@@ -210,7 +345,7 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
 def fetch_wagertalk_data(league: str = 'NBA') -> Dict[str, Dict]:
     """
     Fetch betting data from WagerTalk using Playwright.
-    Returns Tickets % and Money % for games.
+    Returns Tickets %, Money %, and Line Movement for Spreads and Totals.
     """
     cache_key = f"wagertalk_{league}_{datetime.now().strftime('%Y%m%d_%H')}"
     
@@ -219,7 +354,6 @@ def fetch_wagertalk_data(league: str = 'NBA') -> Dict[str, Dict]:
         return _wagertalk_cache[cache_key]
     
     try:
-        # Run async function
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         result = loop.run_until_complete(_fetch_wagertalk_async(league))
@@ -296,16 +430,30 @@ def get_game_betting(away_team: str, home_team: str, league: str = 'NBA') -> Dic
     
     # Default response
     return {
-        'away_bet_pct': 50,
-        'home_bet_pct': 50,
-        'away_money_pct': 50,
-        'home_money_pct': 50,
+        'spread_tickets_pct': 50,
+        'spread_money_pct': 50,
+        'spread_open_line': None,
+        'spread_open_odds': None,
+        'spread_current_line': None,
+        'spread_current_odds': None,
+        'total_tickets_pct': 50,
+        'total_money_pct': 50,
+        'total_open_line': None,
+        'total_open_odds': None,
+        'total_current_line': None,
+        'total_current_odds': None,
         'over_bet_pct': 50,
         'under_bet_pct': 50,
         'over_money_pct': 50,
         'under_money_pct': 50,
+        'away_bet_pct': 50,
+        'home_bet_pct': 50,
+        'away_money_pct': 50,
+        'home_money_pct': 50,
         'sharp_detected': False,
         'sharp_side': None,
+        'spread_sharp_detected': False,
+        'spread_sharp_side': None,
         'source': 'default'
     }
 
