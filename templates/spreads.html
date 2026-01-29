@@ -1468,42 +1468,6 @@
                 edgeDesc = 'Closely matched teams.';
             }
             
-            // Helper for L5 stats table rows
-            const l5Row = (metric, awayVal, homeVal, higherIsBetter) => {
-                const aw = parseFloat(awayVal) || 0;
-                const hm = parseFloat(homeVal) || 0;
-                
-                let awClass = '';
-                let hmClass = '';
-                let edge = '-';
-                
-                if (aw && hm) {
-                    const threshold = 0.3;
-                    if (Math.abs(aw - hm) > threshold) {
-                        if (higherIsBetter) {
-                            if (aw > hm) { awClass = 'edge-away'; edge = awayTeam; }
-                            else { hmClass = 'edge-home'; edge = homeTeam; }
-                        } else {
-                            if (aw < hm) { awClass = 'edge-away'; edge = awayTeam; }
-                            else { hmClass = 'edge-home'; edge = homeTeam; }
-                        }
-                    }
-                }
-                
-                const fmt = (v) => (!v || v === 0) ? '-' : parseFloat(v).toFixed(1);
-                
-                return `<tr>
-                    <td class="metric-name">${metric}</td>
-                    <td class="${awClass}">${fmt(aw)}</td>
-                    <td class="${hmClass}">${fmt(hm)}</td>
-                    <td class="${awClass || hmClass}">${edge}</td>
-                </tr>`;
-            };
-            
-            // Get L5 data
-            const awayL5 = data.away_l5 || {};
-            const homeL5 = data.home_l5 || {};
-            
             let html = `
                 <div class="analytics-table-section">
                     <div class="table-header">${data.league} KEY METRICS</div>
@@ -1558,32 +1522,6 @@
                                 <td class="${awayEdgeCount > homeEdgeCount ? 'edge-away' : (homeEdgeCount > awayEdgeCount ? 'edge-home' : '')}" style="font-weight: 700;">${awayEdgeCount > homeEdgeCount ? awayTeam : (homeEdgeCount > awayEdgeCount ? homeTeam : 'Even')}</td>
                             </tr>
                         </tfoot>
-                    </table>
-                </div>
-                
-                <!-- Last 3 Games Stats Table (TeamRankings data) -->
-                <div class="analytics-table-section" style="margin-top: 16px;">
-                    <div class="table-header">LAST 3 GAMES</div>
-                    
-                    <table class="stats-table">
-                        <thead>
-                            <tr>
-                                <th>Metric</th>
-                                <th class="team-col">${awayTeam}</th>
-                                <th class="team-col">${homeTeam}</th>
-                                <th>Edge</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${l5Row('PPG', awayL5.l5_pts, homeL5.l5_pts, true)}
-                            ${l5Row('eFG%', awayL5.l5_efg, homeL5.l5_efg, true)}
-                            ${l5Row('3PT%', awayL5.l5_fg3_pct, homeL5.l5_fg3_pct, true)}
-                            ${l5Row('FT%', awayL5.l5_ft_pct, homeL5.l5_ft_pct, true)}
-                            ${l5Row('TOV%', awayL5.l5_tov_pct, homeL5.l5_tov_pct, false)}
-                            ${l5Row('ORB', awayL5.l5_orb, homeL5.l5_orb, true)}
-                            ${l5Row('DRB', awayL5.l5_drb, homeL5.l5_drb, true)}
-                            ${l5Row('FT Rate', awayL5.l5_ft_rate, homeL5.l5_ft_rate, true)}
-                        </tbody>
                     </table>
                 </div>
             `;
