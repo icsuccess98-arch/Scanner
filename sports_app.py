@@ -394,6 +394,124 @@ class GameConstants:
 
 THRESHOLDS = GameConstants.EDGE_THRESHOLDS
 
+# Extended thresholds for spread betting and sharp detection
+EXTENDED_THRESHOLDS = {
+    'NBA': {
+        'total_edge': 8.0,
+        'spread_edge': 3.5,
+        'min_ev': 3.0,
+        'sharp_threshold': 10.0,
+        'max_spread': 10.0,
+        'min_handle_avoid': 80
+    },
+    'CBB': {
+        'total_edge': 8.0,
+        'spread_edge': 3.5,
+        'min_ev': 3.0,
+        'sharp_threshold': 10.0,
+        'max_spread': 10.0,
+        'min_handle_avoid': 80
+    },
+    'NHL': {
+        'total_edge': 0.5,
+        'spread_edge': 0.5,
+        'min_ev': 2.5,
+        'sharp_threshold': 10.0,
+        'max_spread': 2.0,
+        'min_handle_avoid': 80
+    }
+}
+
+
+def calculate_rlm(game) -> bool:
+    """
+    Detect Reverse Line Movement.
+    RLM = Line moves OPPOSITE of public betting.
+    """
+    if not all([
+        getattr(game, 'opening_spread', None),
+        getattr(game, 'spread', None),
+        getattr(game, 'away_tickets_pct', None),
+        getattr(game, 'home_tickets_pct', None)
+    ]):
+        return False
+    
+    movement = (game.spread or 0) - (game.opening_spread or 0)
+    public_on_away = (game.away_tickets_pct or 0) > (game.home_tickets_pct or 0)
+    
+    if public_on_away and movement > 0.5:
+        return True
+    elif not public_on_away and movement < -0.5:
+        return True
+    return False
+
+
+def calculate_sharp_side(game) -> str:
+    """
+    Determine sharp side based on money vs tickets %.
+    Sharp = Money % significantly higher than Tickets %
+    """
+    if not all([
+        getattr(game, 'away_tickets_pct', None),
+        getattr(game, 'home_tickets_pct', None),
+        getattr(game, 'away_money_pct', None),
+        getattr(game, 'home_money_pct', None)
+    ]):
+        return 'unknown'
+    
+    league = getattr(game, 'league', 'NBA')
+    sharp_threshold = EXTENDED_THRESHOLDS.get(league, {}).get('sharp_threshold', 10.0)
+    
+    away_sharp_diff = (game.away_money_pct or 0) - (game.away_tickets_pct or 0)
+    home_sharp_diff = (game.home_money_pct or 0) - (game.home_tickets_pct or 0)
+    
+    if away_sharp_diff >= sharp_threshold:
+        return 'away'
+    elif home_sharp_diff >= sharp_threshold:
+        return 'home'
+    return 'balanced'
+
+
+def get_nba_abbr(team_name: str) -> str:
+    """Get NBA team abbreviation."""
+    abbr_map = {
+        'hawks': 'atl', 'celtics': 'bos', 'nets': 'bkn',
+        'hornets': 'cha', 'bulls': 'chi', 'cavaliers': 'cle',
+        'mavericks': 'dal', 'nuggets': 'den', 'pistons': 'det',
+        'warriors': 'gs', 'rockets': 'hou', 'pacers': 'ind',
+        'clippers': 'lac', 'lakers': 'lal', 'grizzlies': 'mem',
+        'heat': 'mia', 'bucks': 'mil', 'timberwolves': 'min',
+        'pelicans': 'no', 'knicks': 'ny', 'thunder': 'okc',
+        'magic': 'orl', '76ers': 'phi', 'suns': 'phx',
+        'blazers': 'por', 'kings': 'sac', 'spurs': 'sa',
+        'raptors': 'tor', 'jazz': 'utah', 'wizards': 'wsh'
+    }
+    team_lower = team_name.lower()
+    for key, abbr in abbr_map.items():
+        if key in team_lower:
+            return abbr
+    return ''
+
+
+def get_team_logo_bulletproof(team_name: str, league: str) -> str:
+    """
+    Get team logo with bulletproof fallback chain.
+    NEVER fails - always returns a valid URL.
+    """
+    team_lower = team_name.lower()
+    
+    if league == 'NBA':
+        abbr = get_nba_abbr(team_name)
+        if abbr:
+            return f'https://a.espncdn.com/i/teamlogos/nba/500/{abbr}.png'
+    elif league == 'CBB':
+        from automated_loading_system import ESPN_CBB_TEAM_IDS
+        team_id = ESPN_CBB_TEAM_IDS.get(team_name) or ESPN_CBB_TEAM_IDS.get(team_name.title())
+        if team_id:
+            return f'https://a.espncdn.com/i/teamlogos/ncaa/500-dark/{team_id}.png'
+    
+    return f'https://via.placeholder.com/64/667eea/ffffff?text={team_name[:3].upper()}'
+
 
 class MatchupIntelligence:
     """
