@@ -2503,6 +2503,27 @@
                     const awayColor = getTeamColor(awayTeam, 'primary');
                     const homeColor = getTeamColor(homeTeam, 'primary');
                     
+                    // Line movement logic - determine favorite at open vs current
+                    const openSpread = parseFloat(data.rlm.open_spread) || 0;
+                    const currentSpread = parseFloat(data.rlm.away_spread) || 0;
+                    const lineMove = currentSpread - openSpread;
+                    const hasLineMove = Math.abs(lineMove) >= 0.5;
+                    
+                    // Determine who is favorite (negative spread = favorite)
+                    const openFav = openSpread < 0 ? awayName : (openSpread > 0 ? homeName : 'Pick');
+                    const currentFav = currentSpread < 0 ? awayName : (currentSpread > 0 ? homeName : 'Pick');
+                    const openSpreadDisplay = openSpread < 0 ? `${awayName} ${openSpread}` : (openSpread > 0 ? `${homeName} -${openSpread}` : 'Pick');
+                    const currentSpreadDisplay = currentSpread < 0 ? `${awayName} ${currentSpread}` : (currentSpread > 0 ? `${homeName} -${currentSpread}` : 'Pick');
+                    const favFlipped = openFav !== currentFav && openFav !== 'Pick' && currentFav !== 'Pick';
+                    
+                    // Sharp money detection - money % significantly higher than bet % for either team
+                    const awaySharpDiff = awayMoneyPct - awayBetPct;
+                    const homeSharpDiff = homeMoneyPct - homeBetPct;
+                    const sharpThreshold = 5; // 5% difference indicates sharp money
+                    const hasSharpMoney = Math.abs(awaySharpDiff) >= sharpThreshold || Math.abs(homeSharpDiff) >= sharpThreshold;
+                    const sharpSide = awaySharpDiff > sharpThreshold ? awayName : (homeSharpDiff > sharpThreshold ? homeName : null);
+                    const sharpDiff = awaySharpDiff > sharpThreshold ? awaySharpDiff : (homeSharpDiff > sharpThreshold ? homeSharpDiff : 0);
+                    
                     return `
                 <div style="margin-top: 10px; background: linear-gradient(145deg, rgba(20, 20, 35, 0.95), rgba(15, 15, 25, 0.98)); border-radius: 10px; padding: 10px; border: 1px solid rgba(139, 92, 246, 0.4);">
                     
@@ -2512,6 +2533,31 @@
                             <span style="font-size: 14px;">🔥</span> BETTING ACTION
                         </div>
                         <div style="background: linear-gradient(135deg, #7B2CBF, #9D4EDD); padding: 3px 8px; border-radius: 12px; font-size: 9px; font-weight: 700; color: #fff;">LIVE</div>
+                    </div>
+                    
+                    <!-- LINE MOVEMENT - WITH TEAM NAMES -->
+                    <div style="background: rgba(30, 30, 50, 0.6); border-radius: 8px; padding: 8px; margin-bottom: 8px; border: 1px solid rgba(59, 130, 246, 0.3);">
+                        <div style="font-weight: 600; font-size: 9px; color: #888; margin-bottom: 6px; text-transform: uppercase;">Line Movement</div>
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <div style="text-align: center; flex: 1;">
+                                <div style="font-size: 8px; color: #666;">OPEN</div>
+                                <div style="font-size: 12px; font-weight: 700; color: #fff;">${openSpreadDisplay}</div>
+                            </div>
+                            <div style="flex: 0 0 40px; text-align: center;">
+                                <div style="font-size: 16px; color: ${hasLineMove ? '#3b82f6' : '#444'};">${hasLineMove ? '→' : '•'}</div>
+                            </div>
+                            <div style="text-align: center; flex: 1;">
+                                <div style="font-size: 8px; color: #666;">CURRENT</div>
+                                <div style="font-size: 12px; font-weight: 700; color: ${hasLineMove ? '#3b82f6' : '#fff'};">${currentSpreadDisplay}</div>
+                            </div>
+                        </div>
+                        ${hasLineMove ? `
+                        <div style="margin-top: 6px; background: ${favFlipped ? 'rgba(239, 68, 68, 0.2)' : 'rgba(59, 130, 246, 0.2)'}; border-radius: 6px; padding: 4px 8px; text-align: center;">
+                            <span style="font-size: 10px; font-weight: 600; color: ${favFlipped ? '#ef4444' : '#3b82f6'};">
+                                ${favFlipped ? '🔄 FAV FLIPPED!' : `📈 ${Math.abs(lineMove).toFixed(1)} pts ${lineMove > 0 ? 'toward ' + homeName : 'toward ' + awayName}`}
+                            </span>
+                        </div>
+                        ` : ''}
                     </div>
                     
                     <!-- BET % & MONEY % - SIDE BY SIDE -->
@@ -2579,20 +2625,20 @@
                             <div style="color: #888; font-size: 7px; margin-top: 2px;">TRAP</div>
                             <div style="color: ${data.rlm.majority_pct >= 70 ? '#f59e0b' : '#10b981'}; font-size: 9px; font-weight: 700;">${data.rlm.majority_pct >= 70 ? 'CAUTION' : 'Clear'}</div>
                         </div>
-                        <div style="background: ${Math.abs(awayMoneyPct - awayBetPct) >= 10 ? 'rgba(139, 92, 246, 0.2)' : 'rgba(100, 100, 120, 0.2)'}; padding: 6px; border-radius: 6px; text-align: center;">
-                            <span style="font-size: 12px;">${Math.abs(awayMoneyPct - awayBetPct) >= 10 ? '💰' : '➖'}</span>
+                        <div style="background: ${hasSharpMoney ? 'rgba(139, 92, 246, 0.2)' : 'rgba(100, 100, 120, 0.2)'}; padding: 6px; border-radius: 6px; text-align: center;">
+                            <span style="font-size: 12px;">${hasSharpMoney ? '💰' : '➖'}</span>
                             <div style="color: #888; font-size: 7px; margin-top: 2px;">SHARP</div>
-                            <div style="color: ${Math.abs(awayMoneyPct - awayBetPct) >= 10 ? '#8b5cf6' : '#888'}; font-size: 9px; font-weight: 700;">${Math.abs(awayMoneyPct - awayBetPct) >= 10 ? 'Detected' : 'None'}</div>
+                            <div style="color: ${hasSharpMoney ? '#8b5cf6' : '#888'}; font-size: 9px; font-weight: 700;">${sharpSide ? sharpSide + ' +' + Math.round(sharpDiff) + '%' : 'None'}</div>
                         </div>
-                        <div style="background: ${data.away_off_rating > data.home_off_rating ? 'rgba(16, 185, 129, 0.15)' : 'rgba(100, 100, 120, 0.2)'}; padding: 6px; border-radius: 6px; text-align: center;">
-                            <span style="font-size: 12px;">🏀</span>
-                            <div style="color: #888; font-size: 7px; margin-top: 2px;">OFF RTG</div>
-                            <div style="color: #fff; font-size: 9px; font-weight: 700;">${data.away_off_rating > data.home_off_rating ? awayTeam : homeTeam}</div>
+                        <div style="background: ${hasLineMove ? 'rgba(59, 130, 246, 0.15)' : 'rgba(100, 100, 120, 0.2)'}; padding: 6px; border-radius: 6px; text-align: center;">
+                            <span style="font-size: 12px;">${hasLineMove ? '📈' : '➖'}</span>
+                            <div style="color: #888; font-size: 7px; margin-top: 2px;">LINE</div>
+                            <div style="color: ${hasLineMove ? '#3b82f6' : '#888'}; font-size: 9px; font-weight: 700;">${hasLineMove ? (lineMove > 0 ? homeName : awayName) : 'Stable'}</div>
                         </div>
-                        <div style="background: ${data.away_def_rating < data.home_def_rating ? 'rgba(16, 185, 129, 0.15)' : 'rgba(100, 100, 120, 0.2)'}; padding: 6px; border-radius: 6px; text-align: center;">
-                            <span style="font-size: 12px;">🛡️</span>
-                            <div style="color: #888; font-size: 7px; margin-top: 2px;">DEF RTG</div>
-                            <div style="color: #fff; font-size: 9px; font-weight: 700;">${data.away_def_rating < data.home_def_rating ? awayTeam : homeTeam}</div>
+                        <div style="background: ${favFlipped ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.15)'}; padding: 6px; border-radius: 6px; text-align: center;">
+                            <span style="font-size: 12px;">${favFlipped ? '🔄' : '✅'}</span>
+                            <div style="color: #888; font-size: 7px; margin-top: 2px;">FAV</div>
+                            <div style="color: ${favFlipped ? '#ef4444' : '#10b981'}; font-size: 9px; font-weight: 700;">${favFlipped ? 'FLIPPED!' : currentFav}</div>
                         </div>
                     </div>
                     
