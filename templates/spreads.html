@@ -1553,7 +1553,7 @@
                             <span style="font-size: 10px; font-weight: 700; color: #a78bfa;">Cold Teams (L10)</span>
                         </td>
                         <td style="background: rgba(139, 92, 246, 0.08); border-radius: 0 6px 6px 0; padding: 8px 10px; vertical-align: top;">
-                            <span style="font-size: 10px; color: #e2e8f0;">{{ cold_teams if cold_teams != 'None' else 'None' }}</span>
+                            <span style="font-size: 10px; color: #e2e8f0;">{{ cold_teams|safe if cold_teams != 'None' else 'None' }}</span>
                         </td>
                     </tr>
                     <tr>
@@ -1561,7 +1561,7 @@
                             <span style="font-size: 10px; font-weight: 700; color: #a78bfa;">Hot Teams (L10)</span>
                         </td>
                         <td style="background: rgba(139, 92, 246, 0.08); border-radius: 0 6px 6px 0; padding: 8px 10px; vertical-align: top;">
-                            <span style="font-size: 10px; color: #e2e8f0;">{{ hot_teams if hot_teams != 'None' else 'None' }}</span>
+                            <span style="font-size: 10px; color: #e2e8f0;">{{ hot_teams|safe if hot_teams != 'None' else 'None' }}</span>
                         </td>
                     </tr>
                     <tr>
@@ -1569,7 +1569,7 @@
                             <span style="font-size: 10px; font-weight: 700; color: #a78bfa;">Bad Defense (L5)</span>
                         </td>
                         <td style="background: rgba(139, 92, 246, 0.08); border-radius: 0 6px 6px 0; padding: 8px 10px; vertical-align: top;">
-                            <span style="font-size: 10px; color: #e2e8f0;">{{ bad_defense_teams_display if bad_defense_teams_display != 'None' else 'None' }}</span>
+                            <span style="font-size: 10px; color: #e2e8f0;">{{ bad_defense_teams_display|safe if bad_defense_teams_display != 'None' else 'None' }}</span>
                         </td>
                     </tr>
                     <tr>
