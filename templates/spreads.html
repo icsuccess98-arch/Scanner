@@ -1855,100 +1855,8 @@
             `).join('');
         }
         
-        // Store Last 10 data for each game (Covers.com)
-        const last10GameData = {};
-        
-        // Store H2H data and refresh intervals
-        const h2hGameData = {};
+        // Store refresh intervals for live data
         const liveRefreshIntervals = {};
-        
-        // Fetch and display H2H data from Covers.com
-        async function fetchCoversH2H(gameId) {
-            try {
-                const response = await fetch(`/api/covers_h2h/${gameId}`);
-                if (!response.ok) throw new Error('Failed to fetch H2H');
-                const data = await response.json();
-                h2hGameData[gameId] = data;
-                renderH2HSection(gameId, data);
-            } catch (error) {
-                console.error('Error fetching Covers H2H:', error);
-                const container = document.getElementById(`h2h-section-${gameId}`);
-                if (container) {
-                    container.innerHTML = `<div style="text-align: center; color: #9ca3af; padding: 12px; font-size: 11px;">H2H data unavailable</div>`;
-                }
-            }
-        }
-        
-        // Render H2H section with team logos
-        function renderH2HSection(gameId, data) {
-            const container = document.getElementById(`h2h-section-${gameId}`);
-            if (!container) return;
-            
-            const awayLogo = data.away_logo || '';
-            const homeLogo = data.home_logo || '';
-            const wlLeaderLogo = data.wl_leader_logo || '';
-            const atsLeaderLogo = data.ats_leader_logo || '';
-            
-            container.innerHTML = `
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-                    <span style="font-weight: 700; font-size: 13px; color: #fff;">HEAD TO HEAD</span>
-                    <span style="font-size: 10px; color: #9ca3af;">Last 10 meetings</span>
-                </div>
-                
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
-                    <!-- Win/Loss -->
-                    <div style="background: rgba(30,30,45,0.8); border-radius: 10px; padding: 12px; text-align: center; border: 1px solid rgba(34, 197, 94, 0.3);">
-                        <div style="font-size: 9px; color: #9ca3af; margin-bottom: 4px;">Win / Loss</div>
-                        <div style="font-size: 18px; font-weight: 700; color: #22c55e; margin-bottom: 6px;">${data.wl_record || 'N/A'}</div>
-                        ${wlLeaderLogo ? `
-                        <div style="display: flex; align-items: center; justify-content: center; gap: 6px;">
-                            <img src="${wlLeaderLogo}" style="width: 20px; height: 20px; border-radius: 3px;" onerror="this.style.display='none'"/>
-                            <span style="font-size: 10px; color: #22c55e; font-weight: 600;">${data.wl_leader || ''}</span>
-                        </div>` : `<div style="font-size: 10px; color: #888;">Even</div>`}
-                    </div>
-                    
-                    <!-- ATS -->
-                    <div style="background: rgba(30,30,45,0.8); border-radius: 10px; padding: 12px; text-align: center; border: 1px solid rgba(59, 130, 246, 0.3);">
-                        <div style="font-size: 9px; color: #9ca3af; margin-bottom: 4px;">ATS</div>
-                        <div style="font-size: 18px; font-weight: 700; color: #3b82f6; margin-bottom: 6px;">${data.ats_record || 'N/A'}</div>
-                        ${atsLeaderLogo ? `
-                        <div style="display: flex; align-items: center; justify-content: center; gap: 6px;">
-                            <img src="${atsLeaderLogo}" style="width: 20px; height: 20px; border-radius: 3px;" onerror="this.style.display='none'"/>
-                            <span style="font-size: 10px; color: #3b82f6; font-weight: 600;">${data.ats_leader || ''}</span>
-                        </div>` : `<div style="font-size: 10px; color: #888;">Even</div>`}
-                    </div>
-                    
-                    <!-- Over/Under -->
-                    <div style="background: rgba(30,30,45,0.8); border-radius: 10px; padding: 12px; text-align: center; border: 1px solid rgba(245, 158, 11, 0.3);">
-                        <div style="font-size: 9px; color: #9ca3af; margin-bottom: 4px;">Over / Under</div>
-                        <div style="font-size: 18px; font-weight: 700; color: #f59e0b; margin-bottom: 6px;">${data.ou_record || 'N/A'}</div>
-                        <div style="display: flex; justify-content: center; gap: 8px; font-size: 10px;">
-                            <span style="color: #22c55e;">O: ${data.ou_over || 0}</span>
-                            <span style="color: #3b82f6;">U: ${data.ou_under || 0}</span>
-                        </div>
-                    </div>
-                </div>
-                
-                ${data.games && data.games.length > 0 ? `
-                <div style="margin-top: 10px;">
-                    <div style="display: grid; grid-template-columns: 70px 1fr 70px 50px 50px; gap: 4px; padding: 6px 8px; background: rgba(40,40,55,0.6); border-radius: 6px 6px 0 0; font-size: 9px; color: #9ca3af; font-weight: 600;">
-                        <div>Date</div>
-                        <div>Matchup</div>
-                        <div style="text-align: center;">Score</div>
-                        <div style="text-align: center;">ATS</div>
-                        <div style="text-align: center;">O/U</div>
-                    </div>
-                    ${data.games.slice(0, 5).map((g, i) => `
-                    <div style="display: grid; grid-template-columns: 70px 1fr 70px 50px 50px; gap: 4px; padding: 8px; background: ${i % 2 === 0 ? 'rgba(30,30,45,0.6)' : 'rgba(25,25,40,0.6)'}; font-size: 11px; align-items: center;">
-                        <div style="color: #9ca3af;">${g.date || '--'}</div>
-                        <div style="color: #fff;">${g.matchup || '--'}</div>
-                        <div style="text-align: center; font-weight: 600; color: #fff;">${g.score || '--'}</div>
-                        <div style="text-align: center; color: ${g.ats?.includes('W') ? '#22c55e' : g.ats?.includes('L') ? '#ef4444' : '#9ca3af'};">${g.ats || '--'}</div>
-                        <div style="text-align: center; color: ${g.ou?.toLowerCase().includes('o') ? '#22c55e' : g.ou?.toLowerCase().includes('u') ? '#3b82f6' : '#9ca3af'};">${g.ou || '--'}</div>
-                    </div>`).join('')}
-                </div>` : ''}
-            `;
-        }
         
         // Fetch live data and betting action with 5-second refresh
         async function startLiveRefresh(gameId) {
@@ -2073,68 +1981,6 @@
                     sharpEl.style.display = 'block';
                 }
             }
-        }
-        
-        // Switch Last 10 tab between teams
-        function switchLast10Tab(tabEl, gameId, teamType) {
-            const container = tabEl.closest('.last10-section');
-            if (!container) return;
-            
-            // Update active tab styling
-            container.querySelectorAll('.last10-tab').forEach(t => {
-                t.classList.remove('active');
-                t.style.background = 'transparent';
-                t.style.color = '#9ca3af';
-            });
-            tabEl.classList.add('active');
-            tabEl.style.background = '#1e293b';
-            tabEl.style.color = '#fff';
-            
-            // Get data and update display
-            const data = last10GameData[gameId];
-            if (data && data.covers_last10) {
-                const teamData = teamType === 'away' ? data.covers_last10.away : data.covers_last10.home;
-                renderLast10Games(gameId, teamData);
-            }
-        }
-        
-        // Render Last 10 games in Covers style
-        function renderLast10Games(gameId, teamData) {
-            const container = document.getElementById(`last10-body-${gameId}`);
-            const wlEl = document.getElementById(`last10-wl-${gameId}`);
-            const atsEl = document.getElementById(`last10-ats-${gameId}`);
-            const ouEl = document.getElementById(`last10-ou-${gameId}`);
-            
-            if (!container) return;
-            
-            // Update summary boxes
-            if (wlEl) wlEl.textContent = teamData?.record || '--';
-            if (atsEl) atsEl.textContent = teamData?.ats || '--';
-            if (ouEl) ouEl.textContent = teamData?.ou || '--';
-            
-            // Render games list
-            const games = teamData?.games || [];
-            if (!games.length) {
-                container.innerHTML = '<div style="color: #9ca3af; text-align: center; padding: 15px; font-size: 11px; font-family: \'Inter\', sans-serif;">No games found</div>';
-                return;
-            }
-            
-            container.innerHTML = games.slice(0, 10).map((game, idx) => `
-                <div style="display: grid; grid-template-columns: 60px 1fr 80px 50px 50px; gap: 4px; padding: 8px; background: ${idx % 2 === 0 ? 'rgba(30,30,45,0.6)' : 'rgba(25,25,40,0.6)'}; font-family: 'Inter', sans-serif; font-size: 11px; align-items: center;">
-                    <div style="color: #9ca3af;">${game.date || '--'}</div>
-                    <div style="display: flex; align-items: center; gap: 6px;">
-                        <span style="color: #666; font-size: 9px;">${game.location || 'vs'}</span>
-                        <img src="${game.opp_logo || ''}" style="width: 16px; height: 16px; border-radius: 2px;" onerror="this.style.display='none'"/>
-                        <span style="color: #fff; font-weight: 500;">${game.opp || '--'}</span>
-                    </div>
-                    <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
-                        <span style="background: ${game.result === 'W' ? '#22c55e' : '#ef4444'}; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;">${game.result || '-'}</span>
-                        <span style="color: #fff;">${game.score || '--'}</span>
-                    </div>
-                    <div style="text-align: center; color: ${game.ats?.startsWith('W') ? '#22c55e' : game.ats?.startsWith('L') ? '#ef4444' : '#9ca3af'}; font-weight: 500;">${game.ats || '--'}</div>
-                    <div style="text-align: center; color: ${game.ou?.startsWith('o') ? '#22c55e' : game.ou?.startsWith('u') ? '#3b82f6' : '#9ca3af'}; font-weight: 500;">${game.ou || '--'}</div>
-                </div>
-            `).join('');
         }
         
         // Track loaded content
@@ -2575,12 +2421,6 @@
             if (content.style.display === 'none') {
                 content.style.display = 'block';
                 
-                // Start 5-second live refresh for this game
-                startLiveRefresh(gameId);
-                
-                // Fetch H2H data from Covers
-                fetchCoversH2H(gameId);
-                
                 // Check if data already loaded
                 if (!content.dataset.loaded && gameId) {
                     // Show loading state
@@ -2598,15 +2438,6 @@
                             };
                         }
                         
-                        // Store Covers Last 10 data for team tabs
-                        if (data.covers_last10) {
-                            last10GameData[gameId] = {
-                                covers_last10: data.covers_last10
-                            };
-                            // Render initial away team data
-                            renderLast10Games(gameId, data.covers_last10.away);
-                        }
-                        
                         // Update the stats with real data
                         updateMatchupStats(content, data);
                         content.dataset.loaded = 'true';
@@ -2617,8 +2448,6 @@
                 }
             } else {
                 content.style.display = 'none';
-                // Stop live refresh when dropdown closes
-                stopLiveRefresh(gameId);
             }
         }
         
@@ -2710,16 +2539,6 @@
             }
             
             let html = `
-                <!-- LIVE SCORE DISPLAY (updates every 5 seconds) -->
-                <div id="live-score-${data.game_id}" style="display: none; margin-bottom: 12px;"></div>
-                
-                <!-- HEAD TO HEAD SECTION FROM COVERS.COM -->
-                <div id="h2h-section-${data.game_id}" style="margin-bottom: 12px; background: rgba(20,20,30,0.95); border-radius: 10px; padding: 12px; border: 1px solid rgba(139, 92, 246, 0.4);">
-                    <div style="text-align: center; color: #9ca3af; padding: 20px; font-size: 11px;">
-                        <i class="bi bi-hourglass-split"></i> Loading H2H data from Covers.com...
-                    </div>
-                </div>
-                
                 <div class="analytics-table-section">
                     <div class="table-header">${data.league} KEY METRICS</div>
                     
@@ -2750,16 +2569,6 @@
                             ${statRow('SOS Rank', awaySeason['SOS'], homeSeason['SOS'], 'num', false)}
                         </tbody>
                         <tfoot>
-                            <tr style="border-top: 1px solid rgba(139, 92, 246, 0.2);">
-                                <td class="metric-name">H2H L10</td>
-                                <td colspan="2" style="text-align: center; font-weight: 600;">${data.h2h_record || 'N/A'}</td>
-                                <td class="${data.h2h_leader === awayTeam ? 'edge-away' : (data.h2h_leader === homeTeam ? 'edge-home' : '')}">${data.h2h_leader || 'Even'}</td>
-                            </tr>
-                            <tr>
-                                <td class="metric-name">ATS L10</td>
-                                <td colspan="2" style="text-align: center; font-weight: 600;">${data.h2h_ats || 'N/A'}</td>
-                                <td class="${data.ats_leader === awayTeam ? 'edge-away' : (data.ats_leader === homeTeam ? 'edge-home' : '')}">${data.ats_leader || 'Even'}</td>
-                            </tr>
                             <tr>
                                 <td class="metric-name">Record</td>
                                 <td style="font-weight: 500;">${data.away_record || 'N/A'}</td>
@@ -2775,48 +2584,6 @@
                         </tfoot>
                     </table>
                 </div>
-                
-                <!-- LAST 10 GAMES - COVERS STYLE -->
-                <div class="last10-section" style="margin-top: 12px; background: rgba(20,20,30,0.95); border-radius: 10px; padding: 12px; border: 1px solid rgba(139, 92, 246, 0.3);">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-                        <div style="font-weight: 700; font-size: 13px; color: #fff; font-family: 'Inter', sans-serif;">Record - Last 10</div>
-                        <div class="last10-toggle" style="display: flex; border-radius: 6px; overflow: hidden; background: rgba(40,40,50,0.8);">
-                            <button class="last10-tab active" data-team="away" onclick="switchLast10Tab(this, '${data.game_id}', 'away')" style="padding: 6px 14px; background: #1e293b; color: #fff; border: none; font-size: 11px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif;">${awayTeam}</button>
-                            <button class="last10-tab" data-team="home" onclick="switchLast10Tab(this, '${data.game_id}', 'home')" style="padding: 6px 14px; background: transparent; color: #9ca3af; border: none; font-size: 11px; font-weight: 500; cursor: pointer; font-family: 'Inter', sans-serif;">${homeTeam}</button>
-                        </div>
-                    </div>
-                    
-                    <!-- Summary Boxes -->
-                    <div id="last10-summary-${data.game_id}" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px;">
-                        <div style="background: rgba(30,30,45,0.8); border-radius: 8px; padding: 8px 10px; border-left: 3px solid #22c55e;">
-                            <div style="font-size: 9px; color: #9ca3af; font-family: 'Inter', sans-serif; margin-bottom: 2px;">Win / Loss</div>
-                            <div id="last10-wl-${data.game_id}" style="font-size: 14px; font-weight: 700; color: #fff; font-family: 'Inter', sans-serif;">--</div>
-                        </div>
-                        <div style="background: rgba(30,30,45,0.8); border-radius: 8px; padding: 8px 10px; border-left: 3px solid #3b82f6;">
-                            <div style="font-size: 9px; color: #9ca3af; font-family: 'Inter', sans-serif; margin-bottom: 2px;">ATS</div>
-                            <div id="last10-ats-${data.game_id}" style="font-size: 14px; font-weight: 700; color: #fff; font-family: 'Inter', sans-serif;">--</div>
-                        </div>
-                        <div style="background: rgba(30,30,45,0.8); border-radius: 8px; padding: 8px 10px; border-left: 3px solid #f59e0b;">
-                            <div style="font-size: 9px; color: #9ca3af; font-family: 'Inter', sans-serif; margin-bottom: 2px;">Over / Under</div>
-                            <div id="last10-ou-${data.game_id}" style="font-size: 14px; font-weight: 700; color: #fff; font-family: 'Inter', sans-serif;">--</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Games Table Header -->
-                    <div style="display: grid; grid-template-columns: 60px 1fr 80px 50px 50px; gap: 4px; padding: 6px 8px; background: rgba(40,40,55,0.6); border-radius: 6px 6px 0 0; font-size: 10px; color: #9ca3af; font-weight: 600; font-family: 'Inter', sans-serif;">
-                        <div>Date</div>
-                        <div>vs</div>
-                        <div style="text-align: center;">Result</div>
-                        <div style="text-align: center;">ATS</div>
-                        <div style="text-align: center;">O/U</div>
-                    </div>
-                    
-                    <!-- Games List -->
-                    <div id="last10-body-${data.game_id}" style="display: flex; flex-direction: column;">
-                        <div style="color: #9ca3af; text-align: center; padding: 15px; font-size: 11px; font-family: 'Inter', sans-serif;">Loading...</div>
-                    </div>
-                </div>
-                
                 
                 <!-- BETTING ACTION - COMPACT -->
                 ${data.rlm ? (() => {
