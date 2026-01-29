@@ -1549,48 +1549,79 @@
                     <div style="font-size: 10px; color: #8b5cf6; margin-top: 2px; letter-spacing: 0.5px;">DAILY SLATE ANALYSIS</div>
                 </div>
                 
-                <!-- Rules Table -->
-                <table style="width: 100%; border-collapse: separate; border-spacing: 0 3px;">
-                    <tr>
-                        <td style="background: rgba(139, 92, 246, 0.08); border-radius: 6px 0 0 6px; padding: 6px 8px; border-left: 3px solid #a78bfa; vertical-align: middle; white-space: nowrap;">
-                            <span style="font-size: 9px; font-weight: 700; color: #a78bfa;">Cold (L10)</span>
-                        </td>
-                        <td style="background: rgba(139, 92, 246, 0.08); border-radius: 0 6px 6px 0; padding: 6px 8px; vertical-align: middle;">
-                            <span style="font-size: 9px; color: #e2e8f0;">{{ cold_teams if cold_teams != 'None' else 'None' }}</span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="background: rgba(139, 92, 246, 0.08); border-radius: 6px 0 0 6px; padding: 6px 8px; border-left: 3px solid #a78bfa; vertical-align: middle; white-space: nowrap;">
-                            <span style="font-size: 9px; font-weight: 700; color: #a78bfa;">Hot (L10)</span>
-                        </td>
-                        <td style="background: rgba(139, 92, 246, 0.08); border-radius: 0 6px 6px 0; padding: 6px 8px; vertical-align: middle;">
-                            <span style="font-size: 9px; color: #e2e8f0;">{{ hot_teams if hot_teams != 'None' else 'None' }}</span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="background: rgba(139, 92, 246, 0.08); border-radius: 6px 0 0 6px; padding: 6px 8px; border-left: 3px solid #a78bfa; vertical-align: middle; white-space: nowrap;">
-                            <span style="font-size: 9px; font-weight: 700; color: #a78bfa;">Bad Def (L5)</span>
-                        </td>
-                        <td style="background: rgba(139, 92, 246, 0.08); border-radius: 0 6px 6px 0; padding: 6px 8px; vertical-align: middle;">
-                            <span style="font-size: 9px; color: #e2e8f0;">{{ bad_defense_teams_display if bad_defense_teams_display != 'None' else 'None' }}</span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="background: rgba(139, 92, 246, 0.08); border-radius: 6px 0 0 6px; padding: 6px 8px; border-left: 3px solid #a78bfa; vertical-align: middle; white-space: nowrap;">
-                            <span style="font-size: 9px; font-weight: 700; color: #a78bfa;">B2B</span>
-                        </td>
-                        <td style="background: rgba(139, 92, 246, 0.08); border-radius: 0 6px 6px 0; padding: 6px 8px; vertical-align: middle;">
-                            <span style="font-size: 9px; color: #e2e8f0;">{{ b2b_teams if b2b_teams != 'None' else 'None' }}</span>
-                        </td>
-                    </tr>
-                </table>
-                
-                <!-- Remaining Teams -->
-                <div style="margin-top: 6px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.08)); border-radius: 8px; padding: 6px 8px; border: 1px solid rgba(16, 185, 129, 0.3);">
-                    <div style="font-size: 9px; font-weight: 700; color: #10b981; margin-bottom: 3px; display: flex; align-items: center; gap: 4px;">
-                        <span>✅</span> REMAINING TEAMS
+                <!-- Filter Categories with Team Tags -->
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <!-- Cold Teams -->
+                    <div style="background: rgba(139, 92, 246, 0.08); border-radius: 8px; padding: 10px 12px; border-left: 3px solid #64b5f6;">
+                        <div style="font-size: 9px; font-weight: 700; color: #64b5f6; margin-bottom: 6px;">Cold (L10)</div>
+                        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                            {% if cold_teams and cold_teams != 'None' %}
+                                {% for team in cold_teams.split(', ') %}
+                                <span style="display: inline-block; padding: 4px 10px; background: rgba(100, 181, 246, 0.15); border-radius: 12px; font-size: 9px; font-weight: 500; color: #e2e8f0; border: 1px solid rgba(100, 181, 246, 0.3);">{{ team }}</span>
+                                {% endfor %}
+                            {% else %}
+                            <span style="font-size: 9px; color: #6b7280; font-style: italic;">None</span>
+                            {% endif %}
+                        </div>
                     </div>
-                    <span style="font-size: 9px; color: #e2e8f0;">{{ remaining_teams }}</span>
+                    
+                    <!-- Hot Teams -->
+                    <div style="background: rgba(139, 92, 246, 0.08); border-radius: 8px; padding: 10px 12px; border-left: 3px solid #ff6b6b;">
+                        <div style="font-size: 9px; font-weight: 700; color: #ff6b6b; margin-bottom: 6px;">Hot (L10)</div>
+                        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                            {% if hot_teams and hot_teams != 'None' %}
+                                {% for team in hot_teams.split(', ') %}
+                                <span style="display: inline-block; padding: 4px 10px; background: rgba(255, 107, 107, 0.15); border-radius: 12px; font-size: 9px; font-weight: 500; color: #e2e8f0; border: 1px solid rgba(255, 107, 107, 0.3);">{{ team }}</span>
+                                {% endfor %}
+                            {% else %}
+                            <span style="font-size: 9px; color: #6b7280; font-style: italic;">None</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Bad Defense -->
+                    <div style="background: rgba(139, 92, 246, 0.08); border-radius: 8px; padding: 10px 12px; border-left: 3px solid #fbbf24;">
+                        <div style="font-size: 9px; font-weight: 700; color: #fbbf24; margin-bottom: 6px;">Bad Def (L5)</div>
+                        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                            {% if bad_defense_teams_display and bad_defense_teams_display != 'None' %}
+                                {% for team in bad_defense_teams_display.split(', ') %}
+                                <span style="display: inline-block; padding: 4px 10px; background: rgba(251, 191, 36, 0.15); border-radius: 12px; font-size: 9px; font-weight: 500; color: #e2e8f0; border: 1px solid rgba(251, 191, 36, 0.3);">{{ team }}</span>
+                                {% endfor %}
+                            {% else %}
+                            <span style="font-size: 9px; color: #6b7280; font-style: italic;">None</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Back-to-Back -->
+                    <div style="background: rgba(139, 92, 246, 0.08); border-radius: 8px; padding: 10px 12px; border-left: 3px solid #a855f7;">
+                        <div style="font-size: 9px; font-weight: 700; color: #a855f7; margin-bottom: 6px;">B2B</div>
+                        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                            {% if b2b_teams and b2b_teams != 'None' %}
+                                {% for team in b2b_teams.split(', ') %}
+                                <span style="display: inline-block; padding: 4px 10px; background: rgba(168, 85, 247, 0.15); border-radius: 12px; font-size: 9px; font-weight: 500; color: #e2e8f0; border: 1px solid rgba(168, 85, 247, 0.3);">{{ team }}</span>
+                                {% endfor %}
+                            {% else %}
+                            <span style="font-size: 9px; color: #6b7280; font-style: italic;">None</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Remaining Teams -->
+                    <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.08)); border-radius: 8px; padding: 10px 12px; border: 1px solid rgba(16, 185, 129, 0.3);">
+                        <div style="font-size: 9px; font-weight: 700; color: #10b981; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+                            <span>✅</span> REMAINING TEAMS
+                        </div>
+                        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                            {% if remaining_teams and remaining_teams != 'None' %}
+                                {% for team in remaining_teams.split(', ') %}
+                                <span style="display: inline-block; padding: 4px 10px; background: rgba(16, 185, 129, 0.2); border-radius: 12px; font-size: 9px; font-weight: 500; color: #a7f3d0; border: 1px solid rgba(16, 185, 129, 0.4);">{{ team }}</span>
+                                {% endfor %}
+                            {% else %}
+                            <span style="font-size: 9px; color: #6b7280; font-style: italic;">None remaining</span>
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
