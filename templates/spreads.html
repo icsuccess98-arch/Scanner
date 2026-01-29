@@ -1858,6 +1858,223 @@
         // Store Last 10 data for each game (Covers.com)
         const last10GameData = {};
         
+        // Store H2H data and refresh intervals
+        const h2hGameData = {};
+        const liveRefreshIntervals = {};
+        
+        // Fetch and display H2H data from Covers.com
+        async function fetchCoversH2H(gameId) {
+            try {
+                const response = await fetch(`/api/covers_h2h/${gameId}`);
+                if (!response.ok) throw new Error('Failed to fetch H2H');
+                const data = await response.json();
+                h2hGameData[gameId] = data;
+                renderH2HSection(gameId, data);
+            } catch (error) {
+                console.error('Error fetching Covers H2H:', error);
+                const container = document.getElementById(`h2h-section-${gameId}`);
+                if (container) {
+                    container.innerHTML = `<div style="text-align: center; color: #9ca3af; padding: 12px; font-size: 11px;">H2H data unavailable</div>`;
+                }
+            }
+        }
+        
+        // Render H2H section with team logos
+        function renderH2HSection(gameId, data) {
+            const container = document.getElementById(`h2h-section-${gameId}`);
+            if (!container) return;
+            
+            const awayLogo = data.away_logo || '';
+            const homeLogo = data.home_logo || '';
+            const wlLeaderLogo = data.wl_leader_logo || '';
+            const atsLeaderLogo = data.ats_leader_logo || '';
+            
+            container.innerHTML = `
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                    <span style="font-weight: 700; font-size: 13px; color: #fff;">HEAD TO HEAD</span>
+                    <span style="font-size: 10px; color: #9ca3af;">Last 10 meetings</span>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                    <!-- Win/Loss -->
+                    <div style="background: rgba(30,30,45,0.8); border-radius: 10px; padding: 12px; text-align: center; border: 1px solid rgba(34, 197, 94, 0.3);">
+                        <div style="font-size: 9px; color: #9ca3af; margin-bottom: 4px;">Win / Loss</div>
+                        <div style="font-size: 18px; font-weight: 700; color: #22c55e; margin-bottom: 6px;">${data.wl_record || 'N/A'}</div>
+                        ${wlLeaderLogo ? `
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 6px;">
+                            <img src="${wlLeaderLogo}" style="width: 20px; height: 20px; border-radius: 3px;" onerror="this.style.display='none'"/>
+                            <span style="font-size: 10px; color: #22c55e; font-weight: 600;">${data.wl_leader || ''}</span>
+                        </div>` : `<div style="font-size: 10px; color: #888;">Even</div>`}
+                    </div>
+                    
+                    <!-- ATS -->
+                    <div style="background: rgba(30,30,45,0.8); border-radius: 10px; padding: 12px; text-align: center; border: 1px solid rgba(59, 130, 246, 0.3);">
+                        <div style="font-size: 9px; color: #9ca3af; margin-bottom: 4px;">ATS</div>
+                        <div style="font-size: 18px; font-weight: 700; color: #3b82f6; margin-bottom: 6px;">${data.ats_record || 'N/A'}</div>
+                        ${atsLeaderLogo ? `
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 6px;">
+                            <img src="${atsLeaderLogo}" style="width: 20px; height: 20px; border-radius: 3px;" onerror="this.style.display='none'"/>
+                            <span style="font-size: 10px; color: #3b82f6; font-weight: 600;">${data.ats_leader || ''}</span>
+                        </div>` : `<div style="font-size: 10px; color: #888;">Even</div>`}
+                    </div>
+                    
+                    <!-- Over/Under -->
+                    <div style="background: rgba(30,30,45,0.8); border-radius: 10px; padding: 12px; text-align: center; border: 1px solid rgba(245, 158, 11, 0.3);">
+                        <div style="font-size: 9px; color: #9ca3af; margin-bottom: 4px;">Over / Under</div>
+                        <div style="font-size: 18px; font-weight: 700; color: #f59e0b; margin-bottom: 6px;">${data.ou_record || 'N/A'}</div>
+                        <div style="display: flex; justify-content: center; gap: 8px; font-size: 10px;">
+                            <span style="color: #22c55e;">O: ${data.ou_over || 0}</span>
+                            <span style="color: #3b82f6;">U: ${data.ou_under || 0}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                ${data.games && data.games.length > 0 ? `
+                <div style="margin-top: 10px;">
+                    <div style="display: grid; grid-template-columns: 70px 1fr 70px 50px 50px; gap: 4px; padding: 6px 8px; background: rgba(40,40,55,0.6); border-radius: 6px 6px 0 0; font-size: 9px; color: #9ca3af; font-weight: 600;">
+                        <div>Date</div>
+                        <div>Matchup</div>
+                        <div style="text-align: center;">Score</div>
+                        <div style="text-align: center;">ATS</div>
+                        <div style="text-align: center;">O/U</div>
+                    </div>
+                    ${data.games.slice(0, 5).map((g, i) => `
+                    <div style="display: grid; grid-template-columns: 70px 1fr 70px 50px 50px; gap: 4px; padding: 8px; background: ${i % 2 === 0 ? 'rgba(30,30,45,0.6)' : 'rgba(25,25,40,0.6)'}; font-size: 11px; align-items: center;">
+                        <div style="color: #9ca3af;">${g.date || '--'}</div>
+                        <div style="color: #fff;">${g.matchup || '--'}</div>
+                        <div style="text-align: center; font-weight: 600; color: #fff;">${g.score || '--'}</div>
+                        <div style="text-align: center; color: ${g.ats?.includes('W') ? '#22c55e' : g.ats?.includes('L') ? '#ef4444' : '#9ca3af'};">${g.ats || '--'}</div>
+                        <div style="text-align: center; color: ${g.ou?.toLowerCase().includes('o') ? '#22c55e' : g.ou?.toLowerCase().includes('u') ? '#3b82f6' : '#9ca3af'};">${g.ou || '--'}</div>
+                    </div>`).join('')}
+                </div>` : ''}
+            `;
+        }
+        
+        // Fetch live data and betting action with 5-second refresh
+        async function startLiveRefresh(gameId) {
+            // Clear existing interval if any
+            if (liveRefreshIntervals[gameId]) {
+                clearInterval(liveRefreshIntervals[gameId]);
+            }
+            
+            // Initial fetch
+            await fetchLiveAndBetting(gameId);
+            
+            // Set up 5-second refresh interval
+            liveRefreshIntervals[gameId] = setInterval(() => {
+                fetchLiveAndBetting(gameId);
+            }, 5000);
+        }
+        
+        // Stop live refresh when dropdown closes
+        function stopLiveRefresh(gameId) {
+            if (liveRefreshIntervals[gameId]) {
+                clearInterval(liveRefreshIntervals[gameId]);
+                delete liveRefreshIntervals[gameId];
+            }
+        }
+        
+        // Fetch live scores and betting action
+        async function fetchLiveAndBetting(gameId) {
+            try {
+                const [liveResp, bettingResp] = await Promise.all([
+                    fetch(`/api/covers_live/${gameId}`).catch(() => null),
+                    fetch(`/api/covers_betting/${gameId}`).catch(() => null)
+                ]);
+                
+                if (liveResp && liveResp.ok) {
+                    const liveData = await liveResp.json();
+                    updateLiveScoreDisplay(gameId, liveData);
+                }
+                
+                if (bettingResp && bettingResp.ok) {
+                    const bettingData = await bettingResp.json();
+                    updateBettingActionDisplay(gameId, bettingData);
+                }
+            } catch (error) {
+                console.error('Error fetching live data:', error);
+            }
+        }
+        
+        // Update live score display
+        function updateLiveScoreDisplay(gameId, data) {
+            const container = document.getElementById(`live-score-${gameId}`);
+            if (!container) return;
+            
+            if (data.is_live) {
+                container.innerHTML = `
+                    <div style="background: linear-gradient(135deg, #dc2626, #991b1b); padding: 10px; border-radius: 8px; text-align: center;">
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 6px;">
+                            <span style="background: #fff; color: #dc2626; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; animation: pulse 1s infinite;">LIVE</span>
+                            <span style="color: rgba(255,255,255,0.8); font-size: 11px;">${data.quarter || ''} ${data.time_remaining || ''}</span>
+                        </div>
+                        <div style="font-size: 24px; font-weight: 700; color: #fff;">${data.away_score} - ${data.home_score}</div>
+                        <div style="font-size: 11px; color: rgba(255,255,255,0.7); margin-top: 4px;">Total: ${data.away_score + data.home_score}</div>
+                    </div>
+                `;
+                container.style.display = 'block';
+            } else if (data.status === 'Final') {
+                container.innerHTML = `
+                    <div style="background: rgba(100,100,120,0.3); padding: 10px; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 10px; color: #9ca3af; margin-bottom: 4px;">FINAL</div>
+                        <div style="font-size: 20px; font-weight: 700; color: #fff;">${data.away_score} - ${data.home_score}</div>
+                    </div>
+                `;
+                container.style.display = 'block';
+            } else {
+                container.style.display = 'none';
+            }
+        }
+        
+        // Update betting action display
+        function updateBettingActionDisplay(gameId, data) {
+            const betPctEl = document.getElementById(`bet-pct-${gameId}`);
+            const moneyPctEl = document.getElementById(`money-pct-${gameId}`);
+            const lineEl = document.getElementById(`line-movement-${gameId}`);
+            
+            if (betPctEl) {
+                betPctEl.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px;">
+                        <span>Over ${data.bet_pct_over}%</span>
+                        <span>Under ${data.bet_pct_under}%</span>
+                    </div>
+                    <div style="height: 6px; background: #1e293b; border-radius: 3px; overflow: hidden;">
+                        <div style="width: ${data.bet_pct_over}%; height: 100%; background: linear-gradient(90deg, #22c55e, #16a34a);"></div>
+                    </div>
+                `;
+            }
+            
+            if (moneyPctEl) {
+                moneyPctEl.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px;">
+                        <span>Over ${data.money_pct_over}%</span>
+                        <span>Under ${data.money_pct_under}%</span>
+                    </div>
+                    <div style="height: 6px; background: #1e293b; border-radius: 3px; overflow: hidden;">
+                        <div style="width: ${data.money_pct_over}%; height: 100%; background: linear-gradient(90deg, #3b82f6, #2563eb);"></div>
+                    </div>
+                `;
+            }
+            
+            if (lineEl && data.line_movement !== 0) {
+                const moveDir = data.line_movement > 0 ? '↑' : '↓';
+                const moveColor = data.line_movement > 0 ? '#22c55e' : '#ef4444';
+                lineEl.innerHTML = `
+                    <span style="color: ${moveColor}; font-weight: 600;">${moveDir} ${Math.abs(data.line_movement).toFixed(1)} pts</span>
+                    <span style="color: #9ca3af; font-size: 10px; margin-left: 6px;">Open: ${data.open_total} → Current: ${data.current_total}</span>
+                `;
+            }
+            
+            // Sharp money indicator
+            if (data.sharp_action) {
+                const sharpEl = document.getElementById(`sharp-${gameId}`);
+                if (sharpEl) {
+                    sharpEl.innerHTML = `<span style="background: linear-gradient(135deg, #f59e0b, #d97706); padding: 3px 8px; border-radius: 10px; font-size: 9px; font-weight: 700; color: #fff;">💰 SHARP: ${data.sharp_action}</span>`;
+                    sharpEl.style.display = 'block';
+                }
+            }
+        }
+        
         // Switch Last 10 tab between teams
         function switchLast10Tab(tabEl, gameId, teamType) {
             const container = tabEl.closest('.last10-section');
@@ -2358,6 +2575,12 @@
             if (content.style.display === 'none') {
                 content.style.display = 'block';
                 
+                // Start 5-second live refresh for this game
+                startLiveRefresh(gameId);
+                
+                // Fetch H2H data from Covers
+                fetchCoversH2H(gameId);
+                
                 // Check if data already loaded
                 if (!content.dataset.loaded && gameId) {
                     // Show loading state
@@ -2394,6 +2617,8 @@
                 }
             } else {
                 content.style.display = 'none';
+                // Stop live refresh when dropdown closes
+                stopLiveRefresh(gameId);
             }
         }
         
@@ -2485,6 +2710,16 @@
             }
             
             let html = `
+                <!-- LIVE SCORE DISPLAY (updates every 5 seconds) -->
+                <div id="live-score-${data.game_id}" style="display: none; margin-bottom: 12px;"></div>
+                
+                <!-- HEAD TO HEAD SECTION FROM COVERS.COM -->
+                <div id="h2h-section-${data.game_id}" style="margin-bottom: 12px; background: rgba(20,20,30,0.95); border-radius: 10px; padding: 12px; border: 1px solid rgba(139, 92, 246, 0.4);">
+                    <div style="text-align: center; color: #9ca3af; padding: 20px; font-size: 11px;">
+                        <i class="bi bi-hourglass-split"></i> Loading H2H data from Covers.com...
+                    </div>
+                </div>
+                
                 <div class="analytics-table-section">
                     <div class="table-header">${data.league} KEY METRICS</div>
                     
@@ -2651,12 +2886,18 @@
                         ` : ''}
                     </div>
                     
+                    <!-- Dynamic line movement update container -->
+                    <div id="line-movement-${data.game_id}" style="display: none; background: rgba(30, 30, 50, 0.6); border-radius: 8px; padding: 8px; margin-bottom: 8px; border: 1px solid rgba(59, 130, 246, 0.3); text-align: center;"></div>
+                    
+                    <!-- Sharp money indicator -->
+                    <div id="sharp-${data.game_id}" style="display: none; margin-bottom: 8px; text-align: center;"></div>
+                    
                     <!-- BET % & MONEY % - SIDE BY SIDE (Covers.com Style) -->
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; font-family: 'Inter', sans-serif;">
-                        <!-- BET % -->
+                        <!-- BET % - Updates every 5 seconds -->
                         <div style="background: rgba(25, 30, 45, 0.9); border-radius: 8px; padding: 10px; border: 1px solid rgba(100, 100, 130, 0.2);">
                             <div style="font-weight: 600; font-size: 10px; color: #9ca3af; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">BET %</div>
-                            <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <div id="bet-pct-${data.game_id}" style="display: flex; flex-direction: column; gap: 6px;">
                                 <div style="display: flex; align-items: center; justify-content: space-between;">
                                     <span style="font-size: 11px; font-weight: 500; color: #e5e7eb;">${awayName}</span>
                                     <div style="display: flex; align-items: center; gap: 6px;">
@@ -2677,10 +2918,10 @@
                                 </div>
                             </div>
                         </div>
-                        <!-- MONEY % -->
+                        <!-- MONEY % - Updates every 5 seconds -->
                         <div style="background: rgba(25, 30, 45, 0.9); border-radius: 8px; padding: 10px; border: 1px solid rgba(100, 100, 130, 0.2);">
                             <div style="font-weight: 600; font-size: 10px; color: #9ca3af; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">MONEY %</div>
-                            <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <div id="money-pct-${data.game_id}" style="display: flex; flex-direction: column; gap: 6px;">
                                 <div style="display: flex; align-items: center; justify-content: space-between;">
                                     <span style="font-size: 11px; font-weight: 500; color: #e5e7eb;">${awayName}</span>
                                     <div style="display: flex; align-items: center; gap: 6px;">
