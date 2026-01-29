@@ -9634,54 +9634,101 @@ def spreads():
     # Build team lists for analysis section (NBA only)
     nba_games = [g for g in all_games if g.league == 'NBA']
     
-    # 1. Large Spread 10+ teams
-    large_spread_list = set()
+    # 1. Large Spread 10+ (show matchup with spread)
+    large_spread_matchups = []
+    large_spread_teams = set()
     for g in nba_games:
         if g.spread_line is not None and abs(g.spread_line) >= 10:
-            # Add the underdog (team getting points)
-            if g.spread_line < 0:  # Away favored, home is underdog
-                large_spread_list.add(g.home_team)
-            else:  # Home favored, away is underdog
-                large_spread_list.add(g.away_team)
-    large_spread_display = ', '.join(sorted(large_spread_list)) if large_spread_list else 'None'
+            spread_val = abs(g.spread_line)
+            if g.spread_line < 0:  # Away favored
+                large_spread_matchups.append(f"{g.home_team} +{spread_val}")
+                large_spread_teams.add(g.home_team)
+            else:  # Home favored
+                large_spread_matchups.append(f"{g.away_team} +{spread_val}")
+                large_spread_teams.add(g.away_team)
+    large_spread_display = ', '.join(large_spread_matchups) if large_spread_matchups else 'None'
     
-    # 2. Bad teams list
-    bad_record_teams_set = {'Wizards', 'Nets', 'Hornets', 'Blazers', 'Trail Blazers', 'Jazz'}
-    bad_teams_in_slate = set()
-    for g in nba_games:
-        if g.away_team in bad_record_teams_set:
-            bad_teams_in_slate.add(g.away_team)
-        if g.home_team in bad_record_teams_set:
-            bad_teams_in_slate.add(g.home_team)
-    bad_teams_display = ', '.join(sorted(bad_teams_in_slate)) if bad_teams_in_slate else 'None'
+    # 2. Cold Teams (L10: 1-9, 2-8, 3-7 or worse) - teams on losing streaks
+    cold_teams_list = []
+    cold_teams_set = set()
+    for team_name, stand in nba_standings.items():
+        record = stand.get('record', '')
+        # Parse L10 from standings if available, otherwise use overall record trend
+        # For now, flag teams with very poor records
+        if record:
+            try:
+                wins, losses = map(int, record.split('-'))
+                win_pct = wins / (wins + losses) if (wins + losses) > 0 else 0
+                # Teams with < 35% win rate are "cold"
+                if win_pct < 0.35 and team_name in [g.away_team for g in nba_games] + [g.home_team for g in nba_games]:
+                    cold_teams_list.append(f"{team_name} ({record})")
+                    cold_teams_set.add(team_name)
+            except:
+                pass
+    cold_teams_display = ', '.join(cold_teams_list) if cold_teams_list else 'None'
     
-    # 3. Bad Defense L5 teams with rankings
+    # 3. Hot Teams (8-2+ L10) - don't fade these
+    hot_teams_list = []
+    hot_teams_set = set()
+    for team_name, stand in nba_standings.items():
+        record = stand.get('record', '')
+        if record:
+            try:
+                wins, losses = map(int, record.split('-'))
+                win_pct = wins / (wins + losses) if (wins + losses) > 0 else 0
+                # Teams with > 70% win rate are "hot"
+                if win_pct > 0.70 and team_name in [g.away_team for g in nba_games] + [g.home_team for g in nba_games]:
+                    hot_teams_list.append(f"{team_name} ({record})")
+                    hot_teams_set.add(team_name)
+            except:
+                pass
+    hot_teams_display = ', '.join(hot_teams_list) if hot_teams_list else 'None'
+    
+    # 4. Bad Defense L5 teams with rankings (bottom 5)
     bad_defense_in_slate = []
+    bad_defense_set = set()
     for g in nba_games:
         away_rank = bad_defense_teams.get(g.away_team)
         home_rank = bad_defense_teams.get(g.home_team)
         if away_rank:
             bad_defense_in_slate.append(f"{g.away_team} ({away_rank})")
+            bad_defense_set.add(g.away_team)
         if home_rank:
             bad_defense_in_slate.append(f"{g.home_team} ({home_rank})")
+            bad_defense_set.add(g.home_team)
     bad_defense_display = ', '.join(bad_defense_in_slate) if bad_defense_in_slate else 'None'
     
-    # 4. Heavy public (80%+) - from WagerTalk data (see individual games)
-    heavy_public_display = 'Check game cards'
+    # 5. B2B teams - check yesterday's games
+    b2b_teams_list = []
+    b2b_set = set()
+    yesterday = today - timedelta(days=1)
+    yesterday_games = Game.query.filter_by(date=yesterday, league='NBA').all()
+    yesterday_teams = set()
+    for yg in yesterday_games:
+        yesterday_teams.add(yg.away_team)
+        yesterday_teams.add(yg.home_team)
+    for g in nba_games:
+        if g.away_team in yesterday_teams:
+            b2b_teams_list.append(f"{g.away_team} (away)")
+            b2b_set.add(g.away_team)
+        if g.home_team in yesterday_teams:
+            b2b_teams_list.append(f"{g.home_team} (home)")
+            b2b_set.add(g.home_team)
+    b2b_display = ', '.join(b2b_teams_list) if b2b_teams_list else 'None'
     
-    # 5. B2B teams (would need yesterday's schedule - placeholder for now)
-    b2b_display = 'None'
+    # 6. Home/Away Edge - placeholder for now
+    home_away_display = 'See game cards for H/A splits'
     
-    # 6. Remaining teams (after all eliminations)
+    # 7. Remaining teams (after all eliminations)
     all_teams_in_slate = set()
     for g in nba_games:
         all_teams_in_slate.add(g.away_team)
         all_teams_in_slate.add(g.home_team)
     
-    # Remove eliminated teams
-    eliminated_teams = large_spread_list | bad_teams_in_slate | set(bad_defense_teams.keys())
+    # Remove all flagged teams
+    eliminated_teams = large_spread_teams | cold_teams_set | bad_defense_set | b2b_set
     remaining = all_teams_in_slate - eliminated_teams
-    remaining_display = ', '.join(sorted(remaining)) if remaining else 'All teams qualify'
+    remaining_display = ', '.join(sorted(remaining)) if remaining else 'All flagged - proceed with caution'
     
     return render_template('spreads.html', 
                            games_by_league=games_by_league,
@@ -9692,11 +9739,12 @@ def spreads():
                            eliminated_bad_teams=eliminated_bad_teams,
                            eliminated_bad_defense=eliminated_bad_defense,
                            qualifying_picks=qualifying_picks,
-                           heavy_public_teams=heavy_public_display,
                            large_spread_teams=large_spread_display,
-                           bad_teams=bad_teams_display,
+                           cold_teams=cold_teams_display,
+                           hot_teams=hot_teams_display,
                            bad_defense_teams_display=bad_defense_display,
                            b2b_teams=b2b_display,
+                           home_away_edge=home_away_display,
                            remaining_teams=remaining_display)
 
 @app.route('/download/codebase_structure')

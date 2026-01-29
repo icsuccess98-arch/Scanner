@@ -1542,62 +1542,73 @@
     <section class="header-section">
         <div class="control-panel">
             <!-- TEAMS TO AVOID - Daily Slate Analysis -->
-            <div style="background: linear-gradient(135deg, rgba(15, 20, 35, 0.95), rgba(25, 30, 50, 0.9)); border-radius: 12px; padding: 14px; border: 1px solid rgba(139, 92, 246, 0.3);">
-                <div style="text-align: center; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid rgba(139, 92, 246, 0.2);">
-                    <span style="font-weight: 800; font-size: 13px; color: #a78bfa; text-transform: uppercase; letter-spacing: 1px;">{{ today.strftime('%B %d, %Y') }} - Daily Slate</span>
+            <div style="background: linear-gradient(135deg, rgba(15, 18, 30, 0.98), rgba(20, 25, 45, 0.95)); border-radius: 14px; padding: 16px; border: 1px solid rgba(139, 92, 246, 0.4); box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+                <!-- Header -->
+                <div style="text-align: center; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 2px solid rgba(139, 92, 246, 0.3);">
+                    <div style="font-weight: 800; font-size: 14px; color: #a78bfa; text-transform: uppercase; letter-spacing: 1.5px;">{{ today.strftime('%B %d, %Y') }}</div>
+                    <div style="font-size: 10px; color: #8b5cf6; margin-top: 2px; letter-spacing: 0.5px;">DAILY SLATE ANALYSIS</div>
                 </div>
                 
-                <!-- 80%+ Handle/Bets -->
-                <div style="margin-bottom: 8px;">
-                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
-                        <span style="font-size: 10px; color: #ef4444;">🚨</span>
-                        <span style="font-size: 10px; font-weight: 700; color: #ef4444;">80%+ Handle/Bets:</span>
-                        <span style="font-size: 10px; color: #fff;">{{ heavy_public_teams|default('None', true) }}</span>
+                <!-- Rules Table -->
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                    
+                    <!-- Large Spread 10+ -->
+                    <div style="display: flex; align-items: flex-start; background: rgba(139, 92, 246, 0.08); border-radius: 8px; padding: 8px 10px; border-left: 3px solid #a78bfa;">
+                        <div style="min-width: 130px;">
+                            <span style="font-size: 10px; font-weight: 700; color: #a78bfa;">Large Spread 10+</span>
+                        </div>
+                        <div style="flex: 1; font-size: 10px; color: #e2e8f0;">{{ large_spread_teams|default('None', true) }}</div>
                     </div>
-                </div>
-                
-                <!-- Large Spread 10+ -->
-                <div style="margin-bottom: 8px;">
-                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
-                        <span style="font-size: 10px; color: #f59e0b;">⚠️</span>
-                        <span style="font-size: 10px; font-weight: 700; color: #f59e0b;">Large Spread 10+:</span>
-                        <span style="font-size: 10px; color: #fff;">{{ large_spread_teams|default('None', true) }}</span>
+                    
+                    <!-- Cold Teams (L10 Record) -->
+                    <div style="display: flex; align-items: flex-start; background: rgba(139, 92, 246, 0.08); border-radius: 8px; padding: 8px 10px; border-left: 3px solid #a78bfa;">
+                        <div style="min-width: 130px;">
+                            <span style="font-size: 10px; font-weight: 700; color: #a78bfa;">Cold Teams (L10)</span>
+                        </div>
+                        <div style="flex: 1; font-size: 10px; color: #e2e8f0;">{{ cold_teams|default('None', true) }}</div>
                     </div>
-                </div>
-                
-                <!-- Bad Teams -->
-                <div style="margin-bottom: 8px;">
-                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
-                        <span style="font-size: 10px; color: #ef4444;">❌</span>
-                        <span style="font-size: 10px; font-weight: 700; color: #ef4444;">Bad Teams:</span>
-                        <span style="font-size: 10px; color: #fff;">{{ bad_teams|default('None', true) }}</span>
+                    
+                    <!-- Hot Teams (Don't Fade) -->
+                    <div style="display: flex; align-items: flex-start; background: rgba(139, 92, 246, 0.08); border-radius: 8px; padding: 8px 10px; border-left: 3px solid #a78bfa;">
+                        <div style="min-width: 130px;">
+                            <span style="font-size: 10px; font-weight: 700; color: #a78bfa;">Hot Teams (L10)</span>
+                        </div>
+                        <div style="flex: 1; font-size: 10px; color: #e2e8f0;">{{ hot_teams|default('None', true) }}</div>
                     </div>
-                </div>
-                
-                <!-- Bad Defense L5 -->
-                <div style="margin-bottom: 8px;">
-                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
-                        <span style="font-size: 10px; color: #f59e0b;">🛡️</span>
-                        <span style="font-size: 10px; font-weight: 700; color: #f59e0b;">Bad Defense L5:</span>
-                        <span style="font-size: 10px; color: #fff;">{{ bad_defense_teams_display|default('None', true) }}</span>
+                    
+                    <!-- Bad Defense L5 -->
+                    <div style="display: flex; align-items: flex-start; background: rgba(139, 92, 246, 0.08); border-radius: 8px; padding: 8px 10px; border-left: 3px solid #a78bfa;">
+                        <div style="min-width: 130px;">
+                            <span style="font-size: 10px; font-weight: 700; color: #a78bfa;">Bad Defense (L5)</span>
+                        </div>
+                        <div style="flex: 1; font-size: 10px; color: #e2e8f0;">{{ bad_defense_teams_display|default('None', true) }}</div>
                     </div>
-                </div>
-                
-                <!-- B2B -->
-                <div style="margin-bottom: 10px;">
-                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
-                        <span style="font-size: 10px; color: #3b82f6;">📅</span>
-                        <span style="font-size: 10px; font-weight: 700; color: #3b82f6;">B2B:</span>
-                        <span style="font-size: 10px; color: #fff;">{{ b2b_teams|default('None', true) }}</span>
+                    
+                    <!-- B2B -->
+                    <div style="display: flex; align-items: flex-start; background: rgba(139, 92, 246, 0.08); border-radius: 8px; padding: 8px 10px; border-left: 3px solid #a78bfa;">
+                        <div style="min-width: 130px;">
+                            <span style="font-size: 10px; font-weight: 700; color: #a78bfa;">Back-to-Back</span>
+                        </div>
+                        <div style="flex: 1; font-size: 10px; color: #e2e8f0;">{{ b2b_teams|default('None', true) }}</div>
+                    </div>
+                    
+                    <!-- Home/Away Trends -->
+                    <div style="display: flex; align-items: flex-start; background: rgba(139, 92, 246, 0.08); border-radius: 8px; padding: 8px 10px; border-left: 3px solid #a78bfa;">
+                        <div style="min-width: 130px;">
+                            <span style="font-size: 10px; font-weight: 700; color: #a78bfa;">Home/Away Edge</span>
+                        </div>
+                        <div style="flex: 1; font-size: 10px; color: #e2e8f0;">{{ home_away_edge|default('Check game cards', true) }}</div>
                     </div>
                 </div>
                 
                 <!-- Remaining Teams -->
-                <div style="background: rgba(16, 185, 129, 0.15); border-radius: 8px; padding: 8px 10px; border: 1px solid rgba(16, 185, 129, 0.3);">
-                    <div style="display: flex; align-items: center; gap: 6px;">
-                        <span style="font-size: 11px; color: #10b981;">✅</span>
-                        <span style="font-size: 11px; font-weight: 700; color: #10b981;">Remaining Teams:</span>
-                        <span style="font-size: 10px; color: #fff; flex: 1;">{{ remaining_teams|default('All teams qualify', true) }}</span>
+                <div style="margin-top: 10px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.08)); border-radius: 10px; padding: 10px 12px; border: 1px solid rgba(16, 185, 129, 0.3);">
+                    <div style="display: flex; align-items: flex-start; gap: 8px;">
+                        <span style="font-size: 12px; color: #10b981;">✅</span>
+                        <div>
+                            <div style="font-size: 11px; font-weight: 700; color: #10b981; margin-bottom: 4px;">REMAINING TEAMS</div>
+                            <div style="font-size: 10px; color: #e2e8f0; line-height: 1.4;">{{ remaining_teams|default('All teams qualify', true) }}</div>
+                        </div>
                     </div>
                 </div>
             </div>
