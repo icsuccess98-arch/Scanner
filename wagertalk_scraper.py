@@ -34,10 +34,35 @@ def _normalize_team_name(name: str) -> str:
     return re.sub(r'\s+', ' ', name.strip())
 
 
+def _convert_fractions(line: str) -> str:
+    """Convert ½ to .5 in line values"""
+    if line:
+        return line.replace('½', '.5')
+    return line
+
+def _is_total_line(line: str) -> bool:
+    """Check if a line value is a total (O/U prefix or number > 100)"""
+    if not line:
+        return False
+    # Has O/U prefix
+    if line.upper().startswith('O') or line.upper().startswith('U'):
+        return True
+    # Is a number > 100 (typical NBA totals are 200+, NFL 35+)
+    try:
+        # Remove any .5 or ½ for numeric check
+        num_str = line.replace('.5', '').replace('½', '')
+        # Handle negative numbers (spreads)
+        if num_str.startswith('-') or num_str.startswith('+'):
+            return False
+        num_val = float(line.replace('½', '.5'))
+        return num_val > 100
+    except (ValueError, AttributeError):
+        return False
+
 def _parse_line_with_odds(text: str) -> Dict:
     """
     Parse line with odds like '-12-10' or '227½u-15' or '-11½-12'
-    Returns: {'line': '-12', 'odds': '-110'}
+    Returns: {'line': '-12', 'odds': '-110'} with fractions converted to decimals
     """
     if not text or text == '-':
         return {'line': None, 'odds': None}
@@ -50,7 +75,7 @@ def _parse_line_with_odds(text: str) -> Dict:
         line = total_match.group(1)
         ou = total_match.group(2)
         odds_num = total_match.group(3)
-        line = f"{ou.upper()}{line}"
+        line = f"{ou.upper()}{_convert_fractions(line)}"
         # Convert odds: -15 -> -115, -10 -> -110
         if odds_num.startswith('-'):
             odds = f"-1{odds_num[1:]}"
@@ -61,7 +86,7 @@ def _parse_line_with_odds(text: str) -> Dict:
     # Handle spreads like "-12-10" or "-11½-12" or "+5-10"
     spread_match = re.match(r'^([+-]?\d+[½]?)(-\d{2})$', text)
     if spread_match:
-        line = spread_match.group(1)
+        line = _convert_fractions(spread_match.group(1))
         odds_num = spread_match.group(2)
         # Convert odds: -10 -> -110, -12 -> -112
         odds = f"-1{odds_num[1:]}"
@@ -70,7 +95,7 @@ def _parse_line_with_odds(text: str) -> Dict:
     # Handle spread with + odds like "-3+05"
     spread_plus = re.match(r'^([+-]?\d+[½]?)(\+\d{2})$', text)
     if spread_plus:
-        line = spread_plus.group(1)
+        line = _convert_fractions(spread_plus.group(1))
         odds_num = spread_plus.group(2)
         odds = f"+1{odds_num[1:]}"
         return {'line': line, 'odds': odds}
@@ -78,14 +103,14 @@ def _parse_line_with_odds(text: str) -> Dict:
     # Handle just a number like "230" or "227½" (assume -110)
     just_line = re.match(r'^(\d+[½]?)$', text)
     if just_line:
-        return {'line': just_line.group(1), 'odds': '-110'}
+        return {'line': _convert_fractions(just_line.group(1)), 'odds': '-110'}
     
     # Handle spread without odds like "-11½"
     spread_only = re.match(r'^([+-]?\d+[½]?)$', text)
     if spread_only:
-        return {'line': spread_only.group(1), 'odds': '-110'}
+        return {'line': _convert_fractions(spread_only.group(1)), 'odds': '-110'}
     
-    return {'line': text, 'odds': None}
+    return {'line': _convert_fractions(text), 'odds': None}
 
 
 def _parse_cell_rows(text: str) -> tuple:
@@ -274,9 +299,8 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                                     if not val:
                                         continue
                                     parsed = _parse_line_with_odds(val)
-                                    # Totals have o/u in line or are just numbers > 100
-                                    if parsed['line'] and (parsed['line'].startswith('O') or parsed['line'].startswith('U') or 
-                                        (parsed['line'].replace('½', '').isdigit() and float(parsed['line'].replace('½', '.5')) > 100)):
+                                    # Totals have O/U prefix or are numbers > 100 (typical NBA totals are 200+)
+                                    if parsed['line'] and _is_total_line(parsed['line']):
                                         game_data['total_open_line'] = parsed['line']
                                         game_data['total_open_odds'] = parsed['odds']
                                     elif parsed['line']:
@@ -289,9 +313,8 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                                     if not val:
                                         continue
                                     parsed = _parse_line_with_odds(val)
-                                    # Totals have o/u in line or are just numbers > 100
-                                    if parsed['line'] and (parsed['line'].startswith('O') or parsed['line'].startswith('U') or 
-                                        (parsed['line'].replace('½', '').isdigit() and float(parsed['line'].replace('½', '.5')) > 100)):
+                                    # Totals have O/U prefix or are numbers > 100
+                                    if parsed['line'] and _is_total_line(parsed['line']):
                                         game_data['total_current_line'] = parsed['line']
                                         game_data['total_current_odds'] = parsed['odds']
                                     elif parsed['line']:
