@@ -2370,9 +2370,18 @@ class MatchupIntelligence:
                 
                 game_key = f"{away_team}_vs_{home_team}".lower().replace(' ', '_')
                 
+                # Get favorite tracking data from WagerTalk
+                favorite_is_away = data.get('favorite_is_away')
+                open_favorite = data.get('open_favorite')
+                # Normalize the open_favorite team name 
+                if open_favorite:
+                    open_favorite = normalize_team_name(open_favorite)
+                
                 result[game_key] = {
                     'away': {'team': away_team, 'bet_pct': str(away_bet_pct), 'money_pct': str(away_money_pct)},
                     'home': {'team': home_team, 'bet_pct': str(home_bet_pct), 'money_pct': str(home_money_pct)},
+                    'favorite_is_away': favorite_is_away,
+                    'open_favorite': open_favorite,
                     'open_spread': spread_open_line or 'N/A',
                     'current_spread': spread_current_line or 'N/A',
                     'spread_open_odds': spread_open_odds or '-110',
