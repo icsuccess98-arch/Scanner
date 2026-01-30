@@ -1,6 +1,6 @@
-const CACHE_NAME = '730-locks-v4';
-const STATIC_CACHE = '730-locks-static-v4';
-const DATA_CACHE = '730-locks-data-v4';
+const CACHE_NAME = '730-locks-v5';
+const STATIC_CACHE = '730-locks-static-v5';
+const DATA_CACHE = '730-locks-data-v5';
 
 const urlsToCache = [
   '/',

@@ -1622,6 +1622,10 @@
         <span class="refresh-time" id="last-refresh-time"></span>
     </button>
     
+    <button id="clear-cache-btn" class="floating-refresh" style="bottom: 160px; background: linear-gradient(135deg, #dc2626, #991b1b); width: 44px; height: 44px; font-size: 18px;" onclick="clearAppCache()" title="Clear Cache">
+        <i class="bi bi-trash"></i>
+    </button>
+    
     <header class="header">
         <a href="/" class="brand" style="display: flex; align-items: center; justify-content: center; text-decoration: none; width: 100%;">
             <img src="/static/images/730_sports_logo.png" alt="730" class="header-logo" style="height: 60px; max-width: 50%; width: auto; object-fit: contain; mix-blend-mode: screen; filter: drop-shadow(0 0 12px rgba(139, 92, 246, 0.8)) drop-shadow(0 0 24px rgba(139, 92, 246, 0.5)); animation: logoGlow 2s ease-in-out infinite alternate;">
@@ -2793,15 +2797,34 @@
                     content.innerHTML = '<div class="text-center p-4"><i class="bi bi-hourglass-split"></i> Loading matchup data...</div>';
                     
                     try {
-                        const response = await fetch(`/api/matchup_data/${gameId}`);
-                        const data = await response.json();
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 45000);
                         
-                        // Update the stats with real data
+                        const response = await fetch(`/api/matchup_data/${gameId}`, {
+                            signal: controller.signal,
+                            cache: 'no-store'
+                        });
+                        clearTimeout(timeoutId);
+                        
+                        if (!response.ok) {
+                            throw new Error(`Server error: ${response.status}`);
+                        }
+                        
+                        const data = await response.json();
                         updateMatchupStats(content, data);
                         content.dataset.loaded = 'true';
                     } catch (error) {
                         console.error('Error fetching matchup data:', error);
-                        content.innerHTML = '<div class="text-center p-4 text-danger">Error loading data</div>';
+                        content.innerHTML = `
+                            <div class="text-center p-4">
+                                <div style="color: #ef4444; margin-bottom: 10px;">
+                                    <i class="bi bi-exclamation-circle"></i> ${error.name === 'AbortError' ? 'Request timed out' : 'Error loading data'}
+                                </div>
+                                <button onclick="this.closest('.matchup-content').dataset.loaded=''; toggleMatchup(this.closest('.matchup-content').previousElementSibling)" 
+                                        style="background: #7B2CBF; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">
+                                    <i class="bi bi-arrow-clockwise"></i> Retry
+                                </button>
+                            </div>`;
                     }
                 }
             } else {
@@ -3239,6 +3262,34 @@
             setTimeout(() => {
                 btn.classList.remove('refreshing');
             }, 500);
+        }
+        
+        async function clearAppCache() {
+            const btn = document.getElementById('clear-cache-btn');
+            btn.classList.add('refreshing');
+            
+            try {
+                if ('caches' in window) {
+                    const keys = await caches.keys();
+                    await Promise.all(keys.map(key => caches.delete(key)));
+                }
+                
+                if ('serviceWorker' in navigator) {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    await Promise.all(registrations.map(r => r.unregister()));
+                }
+                
+                document.querySelectorAll('.matchup-content').forEach(el => {
+                    el.dataset.loaded = '';
+                });
+                
+                alert('Cache cleared! The page will now reload with fresh data.');
+                window.location.reload(true);
+            } catch(e) {
+                console.log('Clear cache error:', e);
+                alert('Cache cleared! Reloading...');
+                window.location.reload(true);
+            }
         }
         
         fetchLiveScores();
