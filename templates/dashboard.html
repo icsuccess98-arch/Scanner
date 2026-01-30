@@ -2525,8 +2525,10 @@
                         
                         if (scoreData) {
                             const total = (scoreData.away_score || 0) + (scoreData.home_score || 0);
+                            const isFinal = scoreData.status === 'Final' || scoreData.is_final || 
+                                           (scoreData.period && scoreData.period.toLowerCase().includes('final'));
                             
-                            if (scoreData.status === 'Final' || scoreData.is_final) {
+                            if (isFinal) {
                                 // FINAL
                                 if (pregameEl) pregameEl.style.display = 'none';
                                 if (liveEl) liveEl.style.display = 'none';
@@ -2541,8 +2543,8 @@
                                 }
                                 card.classList.remove('game-live');
                                 card.classList.add('game-final');
-                            } else if (scoreData.is_live) {
-                                // LIVE
+                            } else {
+                                // LIVE - any game with scores that isn't final is live
                                 if (pregameEl) pregameEl.style.display = 'none';
                                 if (finalEl) finalEl.style.display = 'none';
                                 if (liveEl) {
@@ -2573,21 +2575,28 @@
                             const live = document.getElementById('supermax-live');
                             const final = document.getElementById('supermax-final');
                             const total = (scoreData.away_score || 0) + (scoreData.home_score || 0);
+                            const isFinal = scoreData.status === 'Final' || scoreData.is_final || 
+                                           (scoreData.period && scoreData.period.toLowerCase().includes('final'));
                             
-                            if (scoreData.status === 'Final' || scoreData.is_final) {
+                            if (isFinal) {
                                 if (pregame) pregame.style.display = 'none';
                                 if (live) live.style.display = 'none';
                                 if (final) {
-                                    document.getElementById('supermax-score').textContent = `${scoreData.away_score} - ${scoreData.home_score}`;
-                                    document.getElementById('supermax-total').textContent = `Total: ${total}`;
+                                    const scoreEl = document.getElementById('supermax-score');
+                                    const totalEl = document.getElementById('supermax-total');
+                                    if (scoreEl) scoreEl.textContent = `${scoreData.away_score} - ${scoreData.home_score}`;
+                                    if (totalEl) totalEl.textContent = `Total: ${total}`;
                                     final.style.display = 'block';
                                 }
-                            } else if (scoreData.is_live) {
+                            } else {
+                                // LIVE
                                 if (pregame) pregame.style.display = 'none';
                                 if (final) final.style.display = 'none';
                                 if (live) {
-                                    document.getElementById('supermax-live-score').textContent = `${scoreData.away_score} - ${scoreData.home_score}`;
-                                    document.getElementById('supermax-period').textContent = `${scoreData.period || ''} ${scoreData.clock || ''}`;
+                                    const scoreEl = document.getElementById('supermax-live-score');
+                                    const periodEl = document.getElementById('supermax-period');
+                                    if (scoreEl) scoreEl.textContent = `${scoreData.away_score} - ${scoreData.home_score}`;
+                                    if (periodEl) periodEl.textContent = `${scoreData.period || ''} ${scoreData.clock || ''}`;
                                     live.style.display = 'block';
                                 }
                             }
