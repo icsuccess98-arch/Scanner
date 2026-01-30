@@ -1666,21 +1666,34 @@
             color: #10B981;
             font-weight: 700;
         }
-        /* Edge winner - clear green styling with background highlight */
-        .stats-table td.edge-away,
-        .stats-table td.edge-home {
-            background: linear-gradient(90deg, rgba(16, 185, 129, 0.25), rgba(16, 185, 129, 0.1));
-            color: #10B981;
+        /* Edge winner - Away team = Purple, Home team = Gold */
+        .stats-table td.edge-away {
+            background: linear-gradient(90deg, rgba(139, 92, 246, 0.3), rgba(139, 92, 246, 0.1));
+            color: #A78BFA;
             font-weight: 700;
             font-size: 11px;
             padding: 6px 8px;
         }
-        .stats-table td.edge-strong {
-            background: linear-gradient(90deg, rgba(16, 185, 129, 0.35), rgba(16, 185, 129, 0.15));
-            color: #10B981;
+        .stats-table td.edge-home {
+            background: linear-gradient(90deg, rgba(255, 215, 0, 0.25), rgba(255, 215, 0, 0.08));
+            color: #FFD700;
+            font-weight: 700;
+            font-size: 11px;
+            padding: 6px 8px;
+        }
+        .stats-table td.edge-away.edge-strong {
+            background: linear-gradient(90deg, rgba(139, 92, 246, 0.4), rgba(139, 92, 246, 0.15));
+            color: #A78BFA;
             font-weight: 800;
             font-size: 11px;
-            text-shadow: 0 0 6px rgba(16, 185, 129, 0.5);
+            text-shadow: 0 0 6px rgba(139, 92, 246, 0.5);
+        }
+        .stats-table td.edge-home.edge-strong {
+            background: linear-gradient(90deg, rgba(255, 215, 0, 0.35), rgba(255, 215, 0, 0.12));
+            color: #FFD700;
+            font-weight: 800;
+            font-size: 11px;
+            text-shadow: 0 0 6px rgba(255, 215, 0, 0.5);
         }
         .stats-table tr:nth-child(odd) {
             background: rgba(139, 92, 246, 0.03);
