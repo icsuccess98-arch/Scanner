@@ -3560,8 +3560,8 @@
                         data.rlm.spread_money_pct !== undefined && data.rlm.spread_money_pct !== null
                     );
                     
-                    const awayName = awayTeam;
-                    const homeName = homeTeam;
+                    const awayName = awayTeam || data.rlm?.away?.team || 'Away';
+                    const homeName = homeTeam || data.rlm?.home?.team || 'Home';
                     const awayColor = getTeamColor(awayTeam, 'primary');
                     const homeColor = getTeamColor(homeTeam, 'primary');
                     

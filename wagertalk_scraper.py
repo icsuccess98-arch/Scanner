@@ -27,10 +27,32 @@ def _is_cache_valid(key: str) -> bool:
     return age < CACHE_TTL
 
 
+# City-to-team nickname mapping for NBA
+NBA_CITY_TO_NICKNAME = {
+    'Atlanta': 'Hawks', 'Boston': 'Celtics', 'Brooklyn': 'Nets', 
+    'Charlotte': 'Hornets', 'Chicago': 'Bulls', 'Cleveland': 'Cavaliers',
+    'Dallas': 'Mavericks', 'Denver': 'Nuggets', 'Detroit': 'Pistons',
+    'Golden State': 'Warriors', 'Houston': 'Rockets', 'Indiana': 'Pacers',
+    'L.A. Clippers': 'Clippers', 'LA Clippers': 'Clippers', 'Los Angeles Clippers': 'Clippers',
+    'L.A. Lakers': 'Lakers', 'LA Lakers': 'Lakers', 'Los Angeles Lakers': 'Lakers',
+    'Memphis': 'Grizzlies', 'Miami': 'Heat', 'Milwaukee': 'Bucks',
+    'Minnesota': 'Timberwolves', 'New Orleans': 'Pelicans', 'New York': 'Knicks',
+    'Oklahoma City': 'Thunder', 'Orlando': 'Magic', 'Philadelphia': 'Sixers',
+    'Phoenix': 'Suns', 'Portland': 'Trail Blazers', 'Sacramento': 'Kings',
+    'San Antonio': 'Spurs', 'Toronto': 'Raptors', 'Utah': 'Jazz', 'Washington': 'Wizards'
+}
+
 def _normalize_team_name(name: str) -> str:
+    """Normalize team name - convert city names to team nicknames."""
     if not name:
         return ''
     name = re.sub(r'\s+', ' ', name.strip())
+    
+    # Check for city name and convert to nickname
+    if name in NBA_CITY_TO_NICKNAME:
+        name = NBA_CITY_TO_NICKNAME[name]
+    
+    # Standard replacements
     name = name.replace('Trail Blazers', 'Blazers')
     return name
 
