@@ -3460,6 +3460,20 @@
             
             // Build stats table row helper with rank badge display
             function statRow(metric, awayVal, homeVal, format = 'num', higherIsBetter = true, awayRank = null, homeRank = null) {
+                // Check if values are truly missing (null, undefined, empty string, NaN)
+                const awayMissing = awayVal === null || awayVal === undefined || awayVal === '' || isNaN(parseFloat(awayVal));
+                const homeMissing = homeVal === null || homeVal === undefined || homeVal === '' || isNaN(parseFloat(homeVal));
+                
+                // If both values are missing, show placeholder row
+                if (awayMissing && homeMissing) {
+                    return `<tr>
+                        <td class="metric-name">${metric}</td>
+                        <td><span class="stat-value" style="color: #666;">—</span></td>
+                        <td><span class="stat-value" style="color: #666;">—</span></td>
+                        <td><span class="edge-even">—</span></td>
+                    </tr>`;
+                }
+                
                 const aw = parseFloat(awayVal) || 0;
                 const hm = parseFloat(homeVal) || 0;
                 const awayWins = higherIsBetter ? aw > hm : aw < hm;
@@ -3494,14 +3508,14 @@
                 // Format values based on type
                 let valFormat, valFormat2;
                 if (format === 'pct') {
-                    valFormat = `${aw.toFixed(1)}%`;
-                    valFormat2 = `${hm.toFixed(1)}%`;
+                    valFormat = awayMissing ? '—' : `${aw.toFixed(1)}%`;
+                    valFormat2 = homeMissing ? '—' : `${hm.toFixed(1)}%`;
                 } else if (format === 'eff') {
-                    valFormat = aw.toFixed(3);
-                    valFormat2 = hm.toFixed(3);
+                    valFormat = awayMissing ? '—' : aw.toFixed(3);
+                    valFormat2 = homeMissing ? '—' : hm.toFixed(3);
                 } else {
-                    valFormat = aw.toFixed(1);
-                    valFormat2 = hm.toFixed(1);
+                    valFormat = awayMissing ? '—' : aw.toFixed(1);
+                    valFormat2 = homeMissing ? '—' : hm.toFixed(1);
                 }
                 
                 // Get color-coded rank classes
