@@ -1047,14 +1047,23 @@ class MatchupIntelligence:
             import re
             
             team_slugs = {
-                'bulls': 'bulls', 'pacers': 'pacers', 'celtics': 'celtics', 'lakers': 'lakers',
-                'heat': 'heat', 'bucks': 'bucks', 'nets': 'nets', '76ers': '76ers',
-                'knicks': 'knicks', 'hawks': 'hawks', 'hornets': 'hornets', 'cavaliers': 'cavaliers',
-                'pistons': 'pistons', 'magic': 'magic', 'wizards': 'wizards', 'raptors': 'raptors',
-                'nuggets': 'nuggets', 'clippers': 'clippers', 'suns': 'suns', 'warriors': 'warriors',
-                'grizzlies': 'grizzlies', 'mavericks': 'mavericks', 'rockets': 'rockets', 'pelicans': 'pelicans',
-                'spurs': 'spurs', 'thunder': 'thunder', 'timberwolves': 'timberwolves',
-                'trail blazers': 'trailblazers', 'blazers': 'trailblazers', 'jazz': 'jazz', 'kings': 'kings'
+                'bulls': 'bulls', 'chicago': 'bulls', 'pacers': 'pacers', 'indiana': 'pacers',
+                'celtics': 'celtics', 'boston': 'celtics', 'lakers': 'lakers', 'los angeles lakers': 'lakers',
+                'l.a. lakers': 'lakers', 'la lakers': 'lakers',
+                'heat': 'heat', 'miami': 'heat', 'bucks': 'bucks', 'milwaukee': 'bucks',
+                'nets': 'nets', 'brooklyn': 'nets', '76ers': '76ers', 'sixers': '76ers', 'philadelphia': '76ers',
+                'knicks': 'knicks', 'new york': 'knicks', 'hawks': 'hawks', 'atlanta': 'hawks',
+                'hornets': 'hornets', 'charlotte': 'hornets', 'cavaliers': 'cavaliers', 'cavs': 'cavaliers', 'cleveland': 'cavaliers',
+                'pistons': 'pistons', 'detroit': 'pistons', 'magic': 'magic', 'orlando': 'magic',
+                'wizards': 'wizards', 'washington': 'wizards', 'raptors': 'raptors', 'toronto': 'raptors',
+                'nuggets': 'nuggets', 'denver': 'nuggets', 'clippers': 'clippers', 'l.a. clippers': 'clippers', 'la clippers': 'clippers',
+                'suns': 'suns', 'phoenix': 'suns', 'warriors': 'warriors', 'golden state': 'warriors',
+                'grizzlies': 'grizzlies', 'memphis': 'grizzlies', 'mavericks': 'mavericks', 'mavs': 'mavericks', 'dallas': 'mavericks',
+                'rockets': 'rockets', 'houston': 'rockets', 'pelicans': 'pelicans', 'new orleans': 'pelicans',
+                'spurs': 'spurs', 'san antonio': 'spurs', 'thunder': 'thunder', 'oklahoma city': 'thunder', 'okc': 'thunder',
+                'timberwolves': 'timberwolves', 'wolves': 'timberwolves', 'minnesota': 'timberwolves',
+                'trail blazers': 'trailblazers', 'blazers': 'trailblazers', 'portland': 'trailblazers',
+                'jazz': 'jazz', 'utah': 'jazz', 'kings': 'kings', 'sacramento': 'kings'
             }
             
             away_slug = team_slugs.get(away_team.lower(), away_team.lower().replace(' ', '-'))
@@ -1267,12 +1276,19 @@ class MatchupIntelligence:
     
     # Cleaning the Glass team IDs (NBA only)
     CTG_TEAM_IDS = {
-        'hawks': 1, 'celtics': 2, 'nets': 3, 'hornets': 4, 'bulls': 5,
-        'cavaliers': 6, 'mavericks': 7, 'nuggets': 8, 'pistons': 9, 'warriors': 10,
-        'rockets': 11, 'pacers': 12, 'clippers': 13, 'lakers': 14, 'grizzlies': 15,
-        'heat': 16, 'bucks': 17, 'timberwolves': 18, 'pelicans': 19, 'knicks': 20,
-        'thunder': 21, 'magic': 22, '76ers': 23, 'suns': 24, 'trail blazers': 25,
-        'blazers': 25, 'kings': 26, 'spurs': 27, 'raptors': 28, 'jazz': 29, 'wizards': 30
+        'hawks': 1, 'atlanta': 1, 'celtics': 2, 'boston': 2, 'nets': 3, 'brooklyn': 3,
+        'hornets': 4, 'charlotte': 4, 'bulls': 5, 'chicago': 5,
+        'cavaliers': 6, 'cavs': 6, 'cleveland': 6, 'mavericks': 7, 'mavs': 7, 'dallas': 7,
+        'nuggets': 8, 'denver': 8, 'pistons': 9, 'detroit': 9, 'warriors': 10, 'golden state': 10,
+        'rockets': 11, 'houston': 11, 'pacers': 12, 'indiana': 12, 'clippers': 13, 'l.a. clippers': 13,
+        'lakers': 14, 'l.a. lakers': 14, 'los angeles lakers': 14, 'grizzlies': 15, 'memphis': 15,
+        'heat': 16, 'miami': 16, 'bucks': 17, 'milwaukee': 17, 'timberwolves': 18, 'wolves': 18, 'minnesota': 18,
+        'pelicans': 19, 'new orleans': 19, 'knicks': 20, 'new york': 20,
+        'thunder': 21, 'oklahoma city': 21, 'okc': 21, 'magic': 22, 'orlando': 22,
+        '76ers': 23, 'sixers': 23, 'philadelphia': 23, 'suns': 24, 'phoenix': 24,
+        'trail blazers': 25, 'blazers': 25, 'portland': 25,
+        'kings': 26, 'sacramento': 26, 'spurs': 27, 'san antonio': 27,
+        'raptors': 28, 'toronto': 28, 'jazz': 29, 'utah': 29, 'wizards': 30, 'washington': 30
     }
     
     @staticmethod
