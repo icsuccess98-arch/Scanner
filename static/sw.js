@@ -4,6 +4,7 @@ const DATA_CACHE = '730-locks-data-v4';
 
 const urlsToCache = [
   '/',
+  '/spreads',
   '/props',
   '/bankroll',
   '/history',
@@ -13,6 +14,7 @@ const urlsToCache = [
   '/static/icon-128.png',
   '/static/icon-96.png',
   '/static/icon-64.png',
+  '/static/images/730_sports_logo.png',
   '/offline.html',
   '/favicon.ico'
 ];

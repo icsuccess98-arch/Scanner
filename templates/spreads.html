@@ -74,6 +74,42 @@
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
         }
+        .floating-refresh {
+            position: fixed;
+            bottom: 90px;
+            right: 20px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #7B2CBF, #9D4EDD);
+            border: none;
+            color: #fff;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(123, 44, 191, 0.4);
+            cursor: pointer;
+            z-index: 1000;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .floating-refresh:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(123, 44, 191, 0.6);
+        }
+        .floating-refresh:active {
+            transform: scale(0.95);
+        }
+        .floating-refresh.refreshing i {
+            animation: spin 1s linear infinite;
+        }
+        .floating-refresh .refresh-time {
+            position: absolute;
+            bottom: -20px;
+            font-size: 9px;
+            color: #9ca3af;
+            white-space: nowrap;
+        }
         * { box-sizing: border-box; }
         html, body {
             overflow-x: hidden;
@@ -1580,6 +1616,12 @@
         <i class="bi bi-arrow-clockwise refresh-icon"></i>
         <span class="refresh-text">Pull to refresh</span>
     </div>
+    
+    <button id="floating-refresh-btn" class="floating-refresh" onclick="refreshAll()">
+        <i class="bi bi-arrow-clockwise"></i>
+        <span class="refresh-time" id="last-refresh-time"></span>
+    </button>
+    
     <header class="header">
         <a href="/" class="brand" style="display: flex; align-items: center; justify-content: center; text-decoration: none; width: 100%;">
             <img src="/static/images/730_sports_logo.png" alt="730" class="header-logo" style="height: 60px; max-width: 50%; width: auto; object-fit: contain; mix-blend-mode: screen; filter: drop-shadow(0 0 12px rgba(139, 92, 246, 0.8)) drop-shadow(0 0 24px rgba(139, 92, 246, 0.5)); animation: logoGlow 2s ease-in-out infinite alternate;">
@@ -3167,8 +3209,43 @@
             }
         }
         
+        let lastRefreshTime = new Date();
+        
+        function updateRefreshTime() {
+            const el = document.getElementById('last-refresh-time');
+            if (el) {
+                const now = new Date();
+                const diff = Math.floor((now - lastRefreshTime) / 1000);
+                if (diff < 60) {
+                    el.textContent = diff + 's ago';
+                } else {
+                    el.textContent = Math.floor(diff / 60) + 'm ago';
+                }
+            }
+        }
+        
+        async function refreshAll() {
+            const btn = document.getElementById('floating-refresh-btn');
+            btn.classList.add('refreshing');
+            
+            try {
+                await fetchLiveScores();
+                lastRefreshTime = new Date();
+                updateRefreshTime();
+            } catch(e) {
+                console.log('Refresh error:', e);
+            }
+            
+            setTimeout(() => {
+                btn.classList.remove('refreshing');
+            }, 500);
+        }
+        
         fetchLiveScores();
+        lastRefreshTime = new Date();
         setInterval(fetchLiveScores, 30000);
+        setInterval(updateRefreshTime, 10000);
+        updateRefreshTime();
         
         (function() {
             const pullRefresh = document.getElementById('pull-refresh');
