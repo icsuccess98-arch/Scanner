@@ -3048,7 +3048,7 @@
                     
                     <!-- LINE MOVEMENT - WITH TEAM NAMES -->
                     <div style="background: rgba(30, 30, 50, 0.6); border-radius: 8px; padding: 8px; margin-bottom: 8px; border: 1px solid ${data.game_started ? 'rgba(251, 191, 36, 0.4)' : 'rgba(59, 130, 246, 0.3)'};">
-                        <div style="font-weight: 600; font-size: 9px; color: ${data.game_started ? '#fbbf24' : '#888'}; margin-bottom: 6px; text-transform: uppercase;">${data.game_started ? '🔒 CLV - CLOSING LINE VALUE' : 'Line Movement'}</div>
+                        <div style="font-weight: 600; font-size: 9px; color: ${data.game_started ? '#fbbf24' : '#888'}; margin-bottom: 6px; text-transform: uppercase;">${data.game_started ? '🔒 CLV - CLOSING LINE VALUE' : '📊 LINE MOVEMENT (Updates every 30s)'}</div>
                         <div style="display: flex; align-items: center; justify-content: space-between;">
                             <div style="text-align: center; flex: 1;">
                                 <div style="font-size: 8px; color: #666;">OPEN</div>
@@ -3059,7 +3059,7 @@
                             </div>
                             <div style="text-align: center; flex: 1;">
                                 <div style="font-size: 8px; color: ${data.game_started ? '#fbbf24' : '#666'};">${data.game_started ? 'CLOSED' : 'CURRENT'}</div>
-                                <div style="font-size: 12px; font-weight: 700; color: ${data.game_started ? '#fbbf24' : (hasLineMove ? '#3b82f6' : '#fff')};">${currentSpreadDisplay}</div>
+                                <div id="current-spread-${data.game_id}" style="font-size: 12px; font-weight: 700; color: ${data.game_started ? '#fbbf24' : (hasLineMove ? '#3b82f6' : '#fff')};">${currentSpreadDisplay}</div>
                             </div>
                         </div>
                         ${hasLineMove ? `
@@ -3137,7 +3137,7 @@
                             <div style="font-weight: 700; font-size: 11px; color: #a78bfa; text-transform: uppercase;">GAME TOTAL</div>
                             <div style="text-align: right;">
                                 <div style="font-size: 10px; color: #888;">Open: <span style="color: #fff; font-weight: 600;">${hasTotalData ? openTotal : 'N/A'}</span></div>
-                                <div style="font-size: 11px; color: #fff; font-weight: 700;">${data.game_started ? 'CLOSED:' : 'Now:'} <span style="color: ${data.game_started ? '#fbbf24' : '#a78bfa'};">${hasTotalData ? currentTotal : 'N/A'}</span> <span style="color: #888; font-size: 9px;">(${data.rlm.total_current_odds || '-110'})</span></div>
+                                <div style="font-size: 11px; color: #fff; font-weight: 700;">${data.game_started ? 'CLOSED:' : 'Current:'} <span id="current-total-${data.game_id}" style="color: ${data.game_started ? '#fbbf24' : '#a78bfa'};">${hasTotalData ? currentTotal : 'N/A'}</span> <span style="color: #888; font-size: 9px;">(${data.rlm.total_current_odds || '-110'})</span></div>
                             </div>
                         </div>
                         
@@ -3291,6 +3291,90 @@
                 console.log('Live scores fetch:', error.message);
             }
         }
+        
+        // Live lines cache for updating current lines every 30 seconds
+        let liveLineCache = {};
+        
+        async function fetchLiveLines() {
+            try {
+                const response = await fetch('/api/live_lines/NBA');
+                if (!response.ok) return;
+                
+                const data = await response.json();
+                if (data.success && data.lines) {
+                    liveLineCache = data.lines;
+                    
+                    // Update any open matchup panels with live lines
+                    document.querySelectorAll('[id^="current-spread-"]').forEach(el => {
+                        const gameId = el.id.replace('current-spread-', '');
+                        const card = document.querySelector(`.game-card[data-game-id="${gameId}"]`);
+                        if (card) {
+                            const away = card.dataset.away;
+                            const home = card.dataset.home;
+                            const liveData = findLiveLines(away, home);
+                            if (liveData && liveData.spread !== null) {
+                                const spreadDisplay = liveData.spread < 0 ? 
+                                    `${away} ${liveData.spread}` : 
+                                    `${home} -${Math.abs(liveData.spread)}`;
+                                el.textContent = spreadDisplay;
+                            }
+                        }
+                    });
+                    
+                    document.querySelectorAll('[id^="current-total-"]').forEach(el => {
+                        const gameId = el.id.replace('current-total-', '');
+                        const card = document.querySelector(`.game-card[data-game-id="${gameId}"]`);
+                        if (card) {
+                            const away = card.dataset.away;
+                            const home = card.dataset.home;
+                            const liveData = findLiveLines(away, home);
+                            if (liveData && liveData.total !== null) {
+                                el.textContent = liveData.total;
+                            }
+                        }
+                    });
+                }
+            } catch (error) {
+                console.log('Live lines fetch:', error.message);
+            }
+        }
+        
+        function findLiveLines(away, home) {
+            // Normalize team names for matching
+            const normalize = (name) => {
+                if (!name) return '';
+                const mapping = {
+                    'lakers': 'lakers', 'clippers': 'clippers', 'warriors': 'warriors',
+                    'spurs': 'spurs', 'thunder': 'thunder', 'knicks': 'knicks',
+                    'nets': 'nets', 'celtics': 'celtics', '76ers': '76ers',
+                    'raptors': 'raptors', 'bulls': 'bulls', 'cavaliers': 'cavaliers',
+                    'pistons': 'pistons', 'pacers': 'pacers', 'bucks': 'bucks',
+                    'hawks': 'hawks', 'hornets': 'hornets', 'heat': 'heat',
+                    'magic': 'magic', 'wizards': 'wizards', 'nuggets': 'nuggets',
+                    'timberwolves': 'timberwolves', 'blazers': 'blazers', 'jazz': 'jazz',
+                    'mavericks': 'mavericks', 'rockets': 'rockets', 'grizzlies': 'grizzlies',
+                    'pelicans': 'pelicans', 'suns': 'suns', 'kings': 'kings'
+                };
+                const lower = name.toLowerCase();
+                return mapping[lower] || lower;
+            };
+            
+            const awayNorm = normalize(away);
+            const homeNorm = normalize(home);
+            
+            for (const [key, data] of Object.entries(liveLineCache)) {
+                const [keyAway, keyHome] = key.split('_');
+                if ((keyAway.includes(awayNorm) || awayNorm.includes(keyAway)) &&
+                    (keyHome.includes(homeNorm) || homeNorm.includes(keyHome))) {
+                    return data;
+                }
+            }
+            return null;
+        }
+        
+        // Poll live lines every 30 seconds
+        setInterval(fetchLiveLines, 30000);
+        fetchLiveLines(); // Initial fetch
         
         let lastRefreshTime = new Date();
         

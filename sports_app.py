@@ -7793,6 +7793,28 @@ def api_live_scores():
     _live_scores_cache["timestamp"] = time.time()
     return jsonify(result)
 
+@app.route('/api/live_lines')
+@app.route('/api/live_lines/<league>')
+def api_live_lines(league='NBA'):
+    """Get current live lines from The Odds API - refreshes every 30 seconds."""
+    try:
+        from live_odds_fetcher import get_live_odds
+        odds_data = get_live_odds(league.upper())
+        return jsonify({
+            'success': True,
+            'league': league.upper(),
+            'lines': odds_data,
+            'count': len(odds_data),
+            'timestamp': time.time()
+        })
+    except Exception as e:
+        logging.error(f"Live lines API error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'lines': {}
+        })
+
 @app.route('/api/covers_h2h/<int:game_id>')
 def api_covers_h2h(game_id):
     """Get full H2H data from Covers.com - W/L, ATS, O/U with team logos and games."""
