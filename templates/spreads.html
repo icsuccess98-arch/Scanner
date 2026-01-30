@@ -3331,24 +3331,49 @@
                     
                     const liveEl = document.getElementById(`live-score-${gameId}`);
                     const pregameEl = document.getElementById(`pregame-${gameId}`);
+                    const finalEl = document.getElementById(`final-score-${gameId}`);
                     
                     if (!liveEl || !pregameEl) return;
                     
                     if (liveScores[key]) {
                         const score = liveScores[key];
-                        liveEl.querySelector('.away-score').textContent = score.away_score || 0;
-                        liveEl.querySelector('.home-score').textContent = score.home_score || 0;
-                        liveEl.querySelector('.live-period').textContent = score.period || 'Q1';
-                        liveEl.querySelector('.live-clock').textContent = score.clock || '';
+                        const total = (score.away_score || 0) + (score.home_score || 0);
+                        const isFinal = score.status === 'Final' || score.is_final || 
+                                       (score.period && score.period.toLowerCase().includes('final'));
                         
-                        liveEl.style.display = 'flex';
-                        pregameEl.style.display = 'none';
-                        
-                        card.classList.add('game-live');
+                        if (isFinal) {
+                            pregameEl.style.display = 'none';
+                            liveEl.style.display = 'none';
+                            if (finalEl) {
+                                const awayFinal = finalEl.querySelector('.away-final');
+                                const homeFinal = finalEl.querySelector('.home-final');
+                                const totalPts = finalEl.querySelector('.total-pts');
+                                if (awayFinal) awayFinal.textContent = score.away_score;
+                                if (homeFinal) homeFinal.textContent = score.home_score;
+                                if (totalPts) totalPts.textContent = total;
+                                finalEl.style.display = 'block';
+                            }
+                            card.classList.remove('game-live');
+                            card.classList.add('game-final');
+                        } else {
+                            pregameEl.style.display = 'none';
+                            if (finalEl) finalEl.style.display = 'none';
+                            liveEl.querySelector('.away-score').textContent = score.away_score || 0;
+                            liveEl.querySelector('.home-score').textContent = score.home_score || 0;
+                            liveEl.querySelector('.live-period').textContent = score.period || 'Q1';
+                            liveEl.querySelector('.live-clock').textContent = score.clock || '';
+                            const runningTotal = liveEl.querySelector('.running-total');
+                            if (runningTotal) runningTotal.textContent = total;
+                            liveEl.style.display = 'flex';
+                            card.classList.add('game-live');
+                            card.classList.remove('game-final');
+                        }
                     } else {
                         liveEl.style.display = 'none';
+                        if (finalEl) finalEl.style.display = 'none';
                         pregameEl.style.display = 'block';
                         card.classList.remove('game-live');
+                        card.classList.remove('game-final');
                     }
                 });
             } catch (error) {
