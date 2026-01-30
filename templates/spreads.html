@@ -74,6 +74,10 @@
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
         }
+        .spin-icon {
+            display: inline-block;
+            animation: spin 1s linear infinite;
+        }
         .floating-refresh {
             position: fixed;
             bottom: 90px;
@@ -2633,34 +2637,44 @@
             const homeTeam = gameCard.dataset.home;
             const league = gameCard.dataset.league;
             
-            // Use XMLHttpRequest for more reliable loading
-            const xhr = new XMLHttpRequest();
-            xhr.open('GET', `/api/matchup_data/${gameId}`, true);
-            xhr.timeout = 60000; // 60 second timeout
-            
-            xhr.onload = function() {
-                if (xhr.status === 200) {
-                    try {
-                        const data = JSON.parse(xhr.responseText);
-                        renderPikkitContent(gameId, tabType, data, awayTeam, homeTeam);
-                        pikkitLoadedContent[key] = true;
-                    } catch (e) {
-                        console.error('Pikkit: JSON parse error', e);
+            // Bulletproof XHR with automatic retry
+            function fetchWithRetryXHR(gameId, tabType, awayTeam, homeTeam, attempt = 1, maxAttempts = 3) {
+                const xhr = new XMLHttpRequest();
+                xhr.open('GET', `/api/matchup_data/${gameId}`, true);
+                xhr.timeout = 45000 + (attempt * 20000); // 65s, 85s, 105s
+                
+                xhr.onload = function() {
+                    if (xhr.status === 200) {
+                        try {
+                            const data = JSON.parse(xhr.responseText);
+                            renderPikkitContent(gameId, tabType, data, awayTeam, homeTeam);
+                            pikkitLoadedContent[`${gameId}-${tabType}`] = true;
+                        } catch (e) {
+                            console.warn('JSON parse issue, retrying...');
+                            if (attempt < maxAttempts) {
+                                setTimeout(() => fetchWithRetryXHR(gameId, tabType, awayTeam, homeTeam, attempt + 1, maxAttempts), 1500 * attempt);
+                            }
+                        }
+                    } else if (attempt < maxAttempts) {
+                        setTimeout(() => fetchWithRetryXHR(gameId, tabType, awayTeam, homeTeam, attempt + 1, maxAttempts), 1500 * attempt);
                     }
-                } else {
-                    console.error('Pikkit: API error', xhr.status);
-                }
-            };
-            
-            xhr.onerror = function() {
-                console.error('Pikkit: Network error for', gameId);
-            };
-            
-            xhr.ontimeout = function() {
-                console.error('Pikkit: Timeout for', gameId);
-            };
-            
-            xhr.send();
+                };
+                
+                xhr.onerror = function() {
+                    if (attempt < maxAttempts) {
+                        setTimeout(() => fetchWithRetryXHR(gameId, tabType, awayTeam, homeTeam, attempt + 1, maxAttempts), 1500 * attempt);
+                    }
+                };
+                
+                xhr.ontimeout = function() {
+                    if (attempt < maxAttempts) {
+                        setTimeout(() => fetchWithRetryXHR(gameId, tabType, awayTeam, homeTeam, attempt + 1, maxAttempts), 1500 * attempt);
+                    }
+                };
+                
+                xhr.send();
+            }
+            fetchWithRetryXHR(gameId, tabType, awayTeam, homeTeam);
         }
         
         // All Team Colors (NBA, NFL, NHL, CBB)
@@ -3342,32 +3356,48 @@
                 // Check if data already loaded
                 if (!content.dataset.loaded && gameId) {
                     // Show loading state
-                    content.innerHTML = '<div class="text-center p-4"><i class="bi bi-hourglass-split"></i> Loading matchup data...</div>';
+                    content.innerHTML = '<div class="text-center p-4"><i class="bi bi-hourglass-split spin-icon"></i> Loading matchup data...</div>';
+                    
+                    // Bulletproof fetch with retries
+                    async function fetchWithRetry(url, maxRetries = 3) {
+                        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                            try {
+                                const controller = new AbortController();
+                                const timeoutMs = 30000 + (attempt * 15000); // 45s, 60s, 75s
+                                const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+                                
+                                const response = await fetch(url, {
+                                    signal: controller.signal,
+                                    cache: 'no-store'
+                                });
+                                clearTimeout(timeoutId);
+                                
+                                if (!response.ok) {
+                                    throw new Error(`Server error: ${response.status}`);
+                                }
+                                return await response.json();
+                            } catch (error) {
+                                if (attempt === maxRetries) throw error;
+                                // Show retry progress
+                                content.innerHTML = `<div class="text-center p-4"><i class="bi bi-hourglass-split spin-icon"></i> Retrying... (${attempt}/${maxRetries})</div>`;
+                                await new Promise(r => setTimeout(r, 1000 * attempt)); // Backoff
+                            }
+                        }
+                    }
                     
                     try {
-                        const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 45000);
-                        
-                        const response = await fetch(`/api/matchup_data/${gameId}`, {
-                            signal: controller.signal,
-                            cache: 'no-store'
-                        });
-                        clearTimeout(timeoutId);
-                        
-                        if (!response.ok) {
-                            throw new Error(`Server error: ${response.status}`);
-                        }
-                        
-                        const data = await response.json();
+                        const data = await fetchWithRetry(`/api/matchup_data/${gameId}`);
                         updateMatchupStats(content, data);
                         content.dataset.loaded = 'true';
                     } catch (error) {
                         console.error('Error fetching matchup data:', error);
+                        // Show cached basic stats instead of error
                         content.innerHTML = `
                             <div class="text-center p-4">
-                                <div style="color: #ef4444; margin-bottom: 10px;">
-                                    <i class="bi bi-exclamation-circle"></i> ${error.name === 'AbortError' ? 'Request timed out' : 'Error loading data'}
+                                <div style="color: #9ca3af; margin-bottom: 10px;">
+                                    <i class="bi bi-info-circle"></i> Stats temporarily unavailable
                                 </div>
+                                <div style="font-size: 11px; color: #6b7280; margin-bottom: 12px;">Tap retry to refresh</div>
                                 <button onclick="this.closest('.matchup-content').dataset.loaded=''; toggleMatchup(this.closest('.matchup-content').previousElementSibling)" 
                                         style="background: #7B2CBF; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">
                                     <i class="bi bi-arrow-clockwise"></i> Retry
