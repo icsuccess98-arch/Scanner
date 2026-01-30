@@ -2314,10 +2314,11 @@ class MatchupIntelligence:
                             
                             # Need at least 0.5 point movement for RLM
                             if movement_abs >= 0.5:
-                                # Determine which TEAM public money is on
-                                if away_money_pct >= 55:
+                                # Determine which TEAM public BETS are on (bet% = tickets = public action)
+                                # NOT money% - money is sharp action, bets are public action
+                                if away_bet_pct >= 55:
                                     public_team = away_team
-                                elif home_money_pct >= 55:
+                                elif home_bet_pct >= 55:
                                     public_team = home_team
                                 else:
                                     public_team = None  # Balanced, no clear public side
@@ -2358,10 +2359,11 @@ class MatchupIntelligence:
                         
                         # Need at least 0.5 point movement
                         if movement_abs >= 0.5:
-                            # Determine which side public is on
-                            if over_money_pct >= 55:
+                            # Determine which side public BETS are on (bet% = tickets = public action)
+                            # NOT money% - money is sharp action
+                            if over_bet_pct >= 55:
                                 public_side = 'over'
-                            elif under_money_pct >= 55:
+                            elif under_bet_pct >= 55:
                                 public_side = 'under'
                             else:
                                 public_side = 'balanced'
@@ -10845,7 +10847,7 @@ def get_matchup_data(game_id):
                 underdog_team = game.away_team
             # No fallback - if open_favorite doesn't match, leave as None
             
-            # SPREAD RLM: Use MONEY percentages (more meaningful than tickets)
+            # SPREAD RLM: Use BET/TICKET percentages (public action, not sharp money)
             # Skip if we don't have valid favorite/underdog data
             if current_spread is not None and open_spread is not None and favorite_team and underdog_team:
                 try:
@@ -10854,10 +10856,11 @@ def get_matchup_data(game_id):
                     
                     # Need at least 0.5 point movement
                     if movement_abs >= 0.5:
-                        # Determine which TEAM public money is on
-                        if away_money >= 55:
+                        # Determine which TEAM public BETS are on (bet% = tickets = public action)
+                        # NOT money% - money is sharp action, bets are public action
+                        if away_bet >= 55:
                             public_team = game.away_team
-                        elif home_money >= 55:
+                        elif home_bet >= 55:
                             public_team = game.home_team
                         else:
                             public_team = None  # Balanced
@@ -10880,7 +10883,7 @@ def get_matchup_data(game_id):
                 except:
                     pass
             
-            # TOTALS RLM: Use MONEY percentages (more meaningful than tickets)
+            # TOTALS RLM: Use BET/TICKET percentages (public action, not sharp money)
             if current_total is not None and open_total is not None:
                 try:
                     total_move = float(current_total) - float(open_total)
@@ -10888,10 +10891,11 @@ def get_matchup_data(game_id):
                     
                     # Need at least 0.5 point movement
                     if movement_abs >= 0.5:
-                        # Determine public side using money %
-                        if over_money >= 55:
+                        # Determine public side using BET % (tickets = public action)
+                        # NOT money% - money is sharp action
+                        if over_bet >= 55:
                             public_side = 'over'
-                        elif under_money >= 55:
+                        elif under_bet >= 55:
                             public_side = 'under'
                         else:
                             public_side = 'balanced'
