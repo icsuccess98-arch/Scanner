@@ -2153,10 +2153,10 @@ class MatchupIntelligence:
                 majority_team = 'away' if away_bet_pct > home_bet_pct else 'home'
                 majority_pct = max(away_bet_pct, home_bet_pct)
                 
-                # Line movement data
-                spread_open_line = data.get('spread_open_line')
+                # Line movement data - scraper returns 'open_spread', 'current_spread', 'total_open_line', 'total_current_line'
+                spread_open_line = data.get('open_spread') or data.get('spread_open_line')
                 spread_open_odds = data.get('spread_open_odds')
-                spread_current_line = data.get('spread_current_line')
+                spread_current_line = data.get('current_spread') or data.get('spread_current_line')
                 spread_current_odds = data.get('spread_current_odds')
                 total_open_line = data.get('total_open_line')
                 total_open_odds = data.get('total_open_odds')

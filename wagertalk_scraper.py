@@ -176,40 +176,81 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                         elif _is_nba_team(cell_text) and away_team and not home_team:
                             home_team = _normalize_team_name(cell_text.split('\n')[0])
                         
-                        # Extract percentages - WagerTalk format from screenshot:
-                        # "53%" or "63%" = Spread betting percentage (NO prefix)
-                        # "u60%" or "u78%" = Under percentage for totals
-                        # "o69%" = Over percentage for totals
+                        # WagerTalk cells contain multiple values separated by newlines
+                        # Example: "53%\nu60%" = spread 53% AND under 60%
+                        # Example: "u78%\n60%" = under 78% AND spread 60%
+                        lines_in_cell = cell_text.replace('\xa0', '').split('\n')
                         
-                        # Check for Over percentage (lowercase o followed by number)
-                        over_match = re.search(r'[oO](\d{1,3})%?', cell_text)
-                        # Check for Under percentage (lowercase u followed by number)  
-                        under_match = re.search(r'[uU](\d{1,3})%?', cell_text)
-                        
-                        if over_match:
-                            pct = int(over_match.group(1))
-                            if 0 < pct <= 100:
-                                over_tickets_pct = pct
-                                over_money_pct = pct
-                        elif under_match:
-                            # Under percentage - convert to over (100 - under = over)
-                            pct = int(under_match.group(1))
-                            if 0 < pct <= 100:
-                                over_tickets_pct = 100 - pct
-                                over_money_pct = 100 - pct
-                        else:
+                        for line in lines_in_cell:
+                            line = line.strip()
+                            if not line:
+                                continue
+                            
+                            # Check for Over percentage (o prefix)
+                            over_match = re.match(r'^[oO](\d{1,3})%?$', line)
+                            if over_match:
+                                pct = int(over_match.group(1))
+                                if 0 < pct <= 100:
+                                    over_tickets_pct = pct
+                                    over_money_pct = pct
+                                continue
+                            
+                            # Check for Under percentage (u prefix)
+                            under_match = re.match(r'^[uU](\d{1,3})%?$', line)
+                            if under_match:
+                                pct = int(under_match.group(1))
+                                if 0 < pct <= 100:
+                                    over_tickets_pct = 100 - pct
+                                    over_money_pct = 100 - pct
+                                continue
+                            
                             # Plain percentage = spread betting (no o/u prefix)
-                            # Must start with a digit (not o/u)
-                            if cell_text and cell_text[0].isdigit():
-                                spread_pct_match = re.search(r'^(\d{1,3})%?$', cell_text.strip())
-                                if spread_pct_match:
-                                    pct = int(spread_pct_match.group(1))
-                                    if 0 < pct <= 100:
-                                        percentages.append(pct)
+                            spread_pct_match = re.match(r'^(\d{1,3})%?$', line)
+                            if spread_pct_match:
+                                pct = int(spread_pct_match.group(1))
+                                if 0 < pct <= 100:
+                                    percentages.append(pct)
                         
-                        # Extract spread lines (format: "-11.5", "+3.5", etc)
+                        # Extract spread lines from cells like "-3-10" (spread -3 at -110 odds)
+                        # or "225½" (total 225.5)
+                        for line in lines_in_cell:
+                            line = line.strip()
+                            
+                            # Match spread with odds: "-3-10" = -3 spread, -110 odds
+                            spread_odds_match = re.match(r'^([+-]?\d+\.?\d*)-(\d+)$', line)
+                            if spread_odds_match:
+                                try:
+                                    spread_val = float(spread_odds_match.group(1))
+                                    if abs(spread_val) < 50:
+                                        lines_found.append(('spread', spread_val))
+                                except:
+                                    pass
+                                continue
+                            
+                            # Match total with fraction: "225½" or "227½u-15"
+                            total_frac_match = re.match(r'^(\d{3})½', line)
+                            if total_frac_match:
+                                try:
+                                    total_val = float(total_frac_match.group(1)) + 0.5
+                                    if 150 < total_val < 300:
+                                        lines_found.append(('total', total_val))
+                                except:
+                                    pass
+                                continue
+                            
+                            # Match plain total: "225" 
+                            total_plain_match = re.match(r'^(\d{3})$', line)
+                            if total_plain_match:
+                                try:
+                                    total_val = float(total_plain_match.group(1))
+                                    if 150 < total_val < 300:
+                                        lines_found.append(('total', total_val))
+                                except:
+                                    pass
+                        
+                        # Legacy: Extract spread lines (format: "-11.5", "+3.5", etc)
                         spread_match = re.search(r'([+-]?\d+\.?\d*)\s*$', cell_text)
-                        if spread_match and not re.search(r'[oOuU]', cell_text):
+                        if spread_match and not re.search(r'[oOuU½]', cell_text):
                             try:
                                 line = float(spread_match.group(1))
                                 if abs(line) < 50:  # Reasonable spread
