@@ -2172,43 +2172,87 @@ class MatchupIntelligence:
                 totals_rlm_detected = False
                 totals_rlm_sharp_side = None
                 
-                # SPREAD RLM: Check if line moved opposite to public betting
+                # SPREAD RLM: Detect reverse line movement for spreads
                 try:
                     if spread_open_line and spread_current_line:
-                        open_spread = float(str(spread_open_line).replace('+', ''))
-                        current_spread = float(str(spread_current_line).replace('+', ''))
-                        spread_movement = current_spread - open_spread
+                        # Parse spread values
+                        open_spread_str = str(spread_open_line).replace(away_team, '').replace(home_team, '').replace('+', '').strip()
+                        current_spread_str = str(spread_current_line).replace(away_team, '').replace(home_team, '').replace('+', '').strip()
                         
-                        # Public on AWAY (negative spread means away favored)
-                        # If public bets away but spread gets LESS negative (moves toward home) = RLM
-                        if away_bet_pct >= 60 and spread_movement > 0.5:
-                            spread_rlm_detected = True
-                            spread_rlm_sharp_side = home_team
-                        # Public on HOME but spread gets MORE negative (moves toward away) = RLM
-                        elif home_bet_pct >= 60 and spread_movement < -0.5:
-                            spread_rlm_detected = True
-                            spread_rlm_sharp_side = away_team
-                except:
-                    pass
+                        open_spread = float(open_spread_str)
+                        current_spread = float(current_spread_str)
+                        spread_movement = current_spread - open_spread
+                        movement_abs = abs(spread_movement)
+                        
+                        # Need at least 0.5 point movement
+                        if movement_abs >= 0.5:
+                            # Determine which side public is on (use money % as more meaningful)
+                            if away_money_pct >= 55:
+                                public_side = 'away'
+                            elif home_money_pct >= 55:
+                                public_side = 'home'
+                            else:
+                                public_side = 'balanced'
+                            
+                            # Determine direction line moved
+                            # Positive movement = line moved toward home
+                            # Negative movement = line moved toward away
+                            if spread_movement > 0:
+                                line_moved_toward = 'home'
+                            else:
+                                line_moved_toward = 'away'
+                            
+                            # RLM: Public on one side, line moves to OTHER side
+                            if public_side == 'away' and line_moved_toward == 'home':
+                                # Public on away, line moved toward home → RLM
+                                spread_rlm_detected = True
+                                spread_rlm_sharp_side = home_team
+                            elif public_side == 'home' and line_moved_toward == 'away':
+                                # Public on home, line moved toward away → RLM
+                                spread_rlm_detected = True
+                                spread_rlm_sharp_side = away_team
+                except Exception as e:
+                    logger.warning(f"Error detecting spread RLM: {e}")
                 
-                # TOTALS RLM: Check if line moved opposite to over/under betting
+                # TOTALS RLM: Detect reverse line movement for totals
                 try:
                     if total_open_line and total_current_line:
-                        open_total = float(str(total_open_line).replace('O', '').replace('U', ''))
-                        current_str = str(total_current_line).replace('O', '').replace('U', '')
-                        current_total = float(current_str)
-                        total_movement = current_total - open_total
+                        # Parse total values
+                        open_total_str = str(total_open_line).replace('O', '').replace('U', '').replace('o', '').replace('u', '').strip()
+                        current_total_str = str(total_current_line).replace('O', '').replace('U', '').replace('o', '').replace('u', '').strip()
                         
-                        # Public on OVER but total DROPS = RLM (sharp on Under)
-                        if over_bet_pct >= 60 and total_movement < -0.5:
-                            totals_rlm_detected = True
-                            totals_rlm_sharp_side = 'Under'
-                        # Public on UNDER but total RISES = RLM (sharp on Over)
-                        elif under_bet_pct >= 60 and total_movement > 0.5:
-                            totals_rlm_detected = True
-                            totals_rlm_sharp_side = 'Over'
-                except:
-                    pass
+                        open_total = float(open_total_str)
+                        current_total = float(current_total_str)
+                        total_movement = current_total - open_total
+                        movement_abs = abs(total_movement)
+                        
+                        # Need at least 0.5 point movement
+                        if movement_abs >= 0.5:
+                            # Determine which side public is on
+                            if over_money_pct >= 55:
+                                public_side = 'over'
+                            elif under_money_pct >= 55:
+                                public_side = 'under'
+                            else:
+                                public_side = 'balanced'
+                            
+                            # RLM for totals:
+                            # Public on Over → total should go UP (harder for Over)
+                            # If total goes DOWN → RLM (sharp on Over)
+                            # 
+                            # Public on Under → total should go DOWN (harder for Under)
+                            # If total goes UP → RLM (sharp on Under)
+                            
+                            if public_side == 'over' and total_movement < 0:
+                                # Public on Over, total dropped → RLM
+                                totals_rlm_detected = True
+                                totals_rlm_sharp_side = 'Over'
+                            elif public_side == 'under' and total_movement > 0:
+                                # Public on Under, total rose → RLM
+                                totals_rlm_detected = True
+                                totals_rlm_sharp_side = 'Under'
+                except Exception as e:
+                    logger.warning(f"Error detecting totals RLM: {e}")
                 
                 # Combined RLM potential (either spread or totals has RLM)
                 rlm_potential = spread_rlm_detected or totals_rlm_detected
@@ -10293,34 +10337,63 @@ def get_matchup_data(game_id):
             totals_rlm_detected = False
             totals_rlm_sharp_side = None
             
+            # SPREAD RLM: Use MONEY percentages (more meaningful than tickets)
             if current_spread is not None and open_spread is not None:
                 try:
                     line_move = float(current_spread) - float(open_spread)
-                    public_on_away = away_bet > 55
-                    public_on_home = home_bet > 55
-                    # RLM: Public on away but line moves toward home (spread goes up)
-                    if public_on_away and line_move > 0.5:
-                        spread_rlm_detected = True
-                        spread_rlm_sharp_side = game.home_team
-                    # RLM: Public on home but line moves toward away (spread goes down)
-                    elif public_on_home and line_move < -0.5:
-                        spread_rlm_detected = True
-                        spread_rlm_sharp_side = game.away_team
+                    movement_abs = abs(line_move)
+                    
+                    # Need at least 0.5 point movement
+                    if movement_abs >= 0.5:
+                        # Determine public side using money %
+                        if away_money >= 55:
+                            public_side = 'away'
+                        elif home_money >= 55:
+                            public_side = 'home'
+                        else:
+                            public_side = 'balanced'
+                        
+                        # Determine line direction
+                        if line_move > 0:
+                            line_moved_toward = 'home'
+                        else:
+                            line_moved_toward = 'away'
+                        
+                        # RLM: Public on one side, line moves to OTHER side
+                        if public_side == 'away' and line_moved_toward == 'home':
+                            spread_rlm_detected = True
+                            spread_rlm_sharp_side = game.home_team
+                        elif public_side == 'home' and line_moved_toward == 'away':
+                            spread_rlm_detected = True
+                            spread_rlm_sharp_side = game.away_team
                 except:
                     pass
             
-            # Detect RLM on totals
+            # TOTALS RLM: Use MONEY percentages (more meaningful than tickets)
             if current_total is not None and open_total is not None:
                 try:
                     total_move = float(current_total) - float(open_total)
-                    # Public on Over but line dropped = sharps on Under
-                    if over_bet > 55 and total_move < -0.5:
-                        totals_rlm_detected = True
-                        totals_rlm_sharp_side = 'UNDER'
-                    # Public on Under but line rose = sharps on Over
-                    elif under_bet > 55 and total_move > 0.5:
-                        totals_rlm_detected = True
-                        totals_rlm_sharp_side = 'OVER'
+                    movement_abs = abs(total_move)
+                    
+                    # Need at least 0.5 point movement
+                    if movement_abs >= 0.5:
+                        # Determine public side using money %
+                        if over_money >= 55:
+                            public_side = 'over'
+                        elif under_money >= 55:
+                            public_side = 'under'
+                        else:
+                            public_side = 'balanced'
+                        
+                        # RLM for totals: Public vs line direction
+                        if public_side == 'over' and total_move < 0:
+                            # Public on Over, total dropped → RLM (sharp on Over)
+                            totals_rlm_detected = True
+                            totals_rlm_sharp_side = 'OVER'
+                        elif public_side == 'under' and total_move > 0:
+                            # Public on Under, total rose → RLM (sharp on Under)
+                            totals_rlm_detected = True
+                            totals_rlm_sharp_side = 'UNDER'
                 except:
                     pass
             
