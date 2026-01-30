@@ -2278,11 +2278,24 @@ class MatchupIntelligence:
                 totals_rlm_detected = False
                 totals_rlm_sharp_side = None
                 
-                # Get favorite info from WagerTalk data
-                favorite_is_away = data.get('favorite_is_away', False)
-                open_favorite = normalize_team_name(data.get('open_favorite', ''))
-                favorite_team = away_team if favorite_is_away else home_team
-                underdog_team = home_team if favorite_is_away else away_team
+                # Get favorite info from WagerTalk data - use open_favorite directly
+                open_favorite_raw = data.get('open_favorite', '')
+                open_favorite = normalize_team_name(open_favorite_raw) if open_favorite_raw else ''
+                
+                # Determine favorite/underdog based on open_favorite from WagerTalk
+                if open_favorite == away_team:
+                    favorite_team = away_team
+                    underdog_team = home_team
+                elif open_favorite == home_team:
+                    favorite_team = home_team
+                    underdog_team = away_team
+                else:
+                    # Fallback: use favorite_is_away if open_favorite not matched
+                    favorite_is_away = data.get('favorite_is_away', False)
+                    favorite_team = away_team if favorite_is_away else home_team
+                    underdog_team = home_team if favorite_is_away else away_team
+                
+                logger.info(f"RLM setup: {away_team} vs {home_team} | Favorite: {favorite_team} (from open: '{open_favorite_raw}')")
                 
                 # SPREAD RLM: Detect reverse line movement for spreads
                 try:
@@ -10815,10 +10828,22 @@ def get_matchup_data(game_id):
             totals_rlm_detected = False
             totals_rlm_sharp_side = None
             
-            # Get favorite info from RLM data
-            favorite_is_away = rlm_data.get('favorite_is_away', False)
-            favorite_team = game.away_team if favorite_is_away else game.home_team
-            underdog_team = game.home_team if favorite_is_away else game.away_team
+            # Get favorite info from RLM data - use open_favorite directly
+            open_favorite_raw = rlm_data.get('open_favorite', '')
+            open_favorite = open_favorite_raw  # Already normalized in fetch_rlm_data
+            
+            # Determine favorite/underdog based on open_favorite from WagerTalk
+            if open_favorite == game.away_team:
+                favorite_team = game.away_team
+                underdog_team = game.home_team
+            elif open_favorite == game.home_team:
+                favorite_team = game.home_team
+                underdog_team = game.away_team
+            else:
+                # Fallback: use favorite_is_away if open_favorite not matched
+                favorite_is_away = rlm_data.get('favorite_is_away', False)
+                favorite_team = game.away_team if favorite_is_away else game.home_team
+                underdog_team = game.home_team if favorite_is_away else game.away_team
             
             # SPREAD RLM: Use MONEY percentages (more meaningful than tickets)
             if current_spread is not None and open_spread is not None:
