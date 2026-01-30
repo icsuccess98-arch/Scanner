@@ -10898,7 +10898,10 @@ def get_matchup_data(game_id):
                 'totals_rlm_detected': totals_rlm_detected,
                 'totals_rlm_sharp_side': totals_rlm_sharp_side,
                 'sharp_detected': spread_sharp_detected,
-                'sharp_side': spread_sharp_side
+                'sharp_side': spread_sharp_side,
+                # Favorite tracking from WagerTalk
+                'favorite_is_away': rlm_data.get('favorite_is_away'),
+                'open_favorite': rlm_data.get('open_favorite')
             }
             
             # Convert to display format - Season Stats using exact TeamRankings stat names
