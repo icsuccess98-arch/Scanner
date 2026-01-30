@@ -11,7 +11,7 @@ This project develops and manages trading systems, focusing on a Sports Betting 
 - Alt lines max -180 odds floor
 - Only make changes to the `replit.nix` and `.replit` files if it is absolutely necessary.
 - Do not make changes to files in the `archive` folder.
-- Header displays "Seven Thirty" in Pacifico font with purple gradient
+- Header displays "Seven Thirty SPORTS" logo with basketball icon, Pacifico font, and purple gradient
 
 ## System Architecture
 

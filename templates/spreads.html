@@ -1927,10 +1927,38 @@
     
     <header class="header">
         <link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
-        <a href="/" class="brand" style="display: flex; align-items: center; justify-content: center; text-decoration: none; width: 100%;">
-            <span class="brand-text">Seven Thirty</span>
+        <a href="/" class="brand" style="display: flex; align-items: center; justify-content: center; text-decoration: none; width: 100%; gap: 8px;">
+            <div class="logo-icon">
+                <svg viewBox="0 0 40 40" width="36" height="36" style="filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.8));">
+                    <circle cx="20" cy="20" r="18" fill="url(#ballGradient)" stroke="url(#strokeGradient)" stroke-width="2"/>
+                    <path d="M8 20 Q20 8, 32 20 Q20 32, 8 20" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+                    <path d="M20 2 Q8 20, 20 38" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"/>
+                    <path d="M20 2 Q32 20, 20 38" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"/>
+                    <defs>
+                        <linearGradient id="ballGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:#a855f7"/>
+                            <stop offset="50%" style="stop-color:#8b5cf6"/>
+                            <stop offset="100%" style="stop-color:#7c3aed"/>
+                        </linearGradient>
+                        <linearGradient id="strokeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:#c084fc"/>
+                            <stop offset="100%" style="stop-color:#a855f7"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+            </div>
+            <div class="brand-container">
+                <span class="brand-text">Seven Thirty</span>
+                <span class="brand-tagline">SPORTS</span>
+            </div>
         </a>
         <style>
+            .brand-container {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                line-height: 1;
+            }
             .brand-text {
                 font-family: 'Pacifico', cursive;
                 font-size: clamp(1.75rem, 8vw, 2.5rem);
@@ -1942,7 +1970,23 @@
                 filter: drop-shadow(0 0 12px rgba(139, 92, 246, 0.6)) drop-shadow(0 0 24px rgba(139, 92, 246, 0.4));
                 animation: brandGlow 2s ease-in-out infinite alternate;
                 letter-spacing: 1px;
-                padding: 0.25rem 0;
+            }
+            .brand-tagline {
+                font-family: 'Inter', -apple-system, sans-serif;
+                font-size: clamp(0.55rem, 2.5vw, 0.7rem);
+                font-weight: 800;
+                letter-spacing: 4px;
+                color: #a78bfa;
+                text-transform: uppercase;
+                margin-top: 2px;
+                margin-left: 4px;
+            }
+            .logo-icon {
+                animation: iconPulse 3s ease-in-out infinite;
+            }
+            @keyframes iconPulse {
+                0%, 100% { transform: scale(1); }
+                50% { transform: scale(1.05); }
             }
             @keyframes brandGlow {
                 0% { filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.5)) drop-shadow(0 0 16px rgba(139, 92, 246, 0.3)); }
