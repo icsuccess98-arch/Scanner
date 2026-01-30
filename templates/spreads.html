@@ -1746,13 +1746,20 @@
             font-size: 10px;
             font-style: italic;
         }
-        .val-strong {
-            color: #10b981 !important;
+        .val-strong-away {
+            color: #A78BFA !important;
+            font-weight: 700 !important;
+        }
+        .val-strong-home {
+            color: #FFD700 !important;
             font-weight: 700 !important;
         }
         .row-significant {
-            background: rgba(16, 185, 129, 0.08) !important;
-            border-left: 3px solid #10b981;
+            background: transparent !important;
+        }
+        .row-significant td.metric-name {
+            color: #9CA3AF !important;
+            background: transparent !important;
         }
         
         .hidden { display: none !important; }
@@ -3437,9 +3444,9 @@
                 const awayRankClass = getRankClass(awayRank, higherIsBetter);
                 const homeRankClass = getRankClass(homeRank, higherIsBetter);
                 
-                // Value styling - bold green for significant winner
-                const awayValClass = awayWins && isSignificant ? 'val-strong' : '';
-                const homeValClass = homeWins && isSignificant ? 'val-strong' : '';
+                // Value styling - team-colored bold for significant winner
+                const awayValClass = awayWins && isSignificant ? 'val-strong-away' : '';
+                const homeValClass = homeWins && isSignificant ? 'val-strong-home' : '';
                 
                 // Display rank as badge, value separately
                 const awayDisplay = awayRank ? `<span class="rank-badge ${awayRankClass}">#${awayRank}</span><span class="stat-value ${awayValClass}">${valFormat}</span>` : `<span class="stat-value ${awayValClass}">${valFormat}</span>`;
