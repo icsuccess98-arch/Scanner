@@ -481,8 +481,9 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                                 'away_money_pct': spread_money_pct,
                                 'home_money_pct': 100 - spread_money_pct,
                                 # Spread lines - stored as positive values
-                                'open_spread': open_spread,
-                                'current_spread': current_spread or open_spread,
+                                # Fallback: if open_spread missing, use current_spread
+                                'open_spread': open_spread if open_spread is not None else current_spread,
+                                'current_spread': current_spread if current_spread is not None else open_spread,
                                 # Favorite tracking - True if away team is favorite, False if home team
                                 'favorite_is_away': favorite_is_away,
                                 'open_favorite': away_team if favorite_is_away else home_team if favorite_is_away is not None else None,

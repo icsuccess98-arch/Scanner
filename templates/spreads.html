@@ -3614,8 +3614,11 @@
                     const lineMovedToward = lineMove < 0 ? underdogName : openFav;
                     
                     // Display format: Spread is now stored as positive value, show with favorite team
-                    const openSpreadDisplay = !hasSpreadData ? '—' : (openFav !== 'N/A' ? `${openFav} -${openSpread}` : 'Pick');
-                    const currentSpreadDisplay = !hasSpreadData ? '—' : (currentFav !== 'N/A' ? `${currentFav} -${currentSpread}` : 'Pick');
+                    // Handle null/undefined open spreads - use current if open is missing, show "N/A" if both missing
+                    const openSpreadVal = openSpread !== null && !isNaN(openSpread) ? openSpread : null;
+                    const currentSpreadVal = currentSpread !== null && !isNaN(currentSpread) ? currentSpread : null;
+                    const openSpreadDisplay = openSpreadVal === null ? (currentSpreadVal !== null && openFav !== 'N/A' ? `${openFav} (N/A)` : '—') : (openFav !== 'N/A' ? `${openFav} -${openSpreadVal}` : 'Pick');
+                    const currentSpreadDisplay = currentSpreadVal === null ? '—' : (currentFav !== 'N/A' ? `${currentFav} -${currentSpreadVal}` : 'Pick');
                     const favFlipped = hasSpreadData && openFav !== currentFav && openFav !== 'Pick' && currentFav !== 'Pick';
                     
                     // Game Total line movement
