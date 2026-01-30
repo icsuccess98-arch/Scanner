@@ -9,16 +9,41 @@ expertMode = true
 integrations = ["python_database:1.0.0"]
 
 [workflows]
-runButton = "Project"
+runButton = "730's Locks"
 
 [[workflows.workflow]]
-name = "Project"
+name = "730's Locks"
 mode = "parallel"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Sports App"
+args = "Flask API"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Next.js Frontend"
+
+[[workflows.workflow]]
+name = "Flask API"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python sports_app.py"
+waitForPort = 5000
+
+[[workflows.workflow]]
+name = "Next.js Frontend"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd frontend && npm run dev"
+waitForPort = 3000
+
+[workflows.workflow.metadata]
+outputType = "webview"
 
 [[workflows.workflow]]
 name = "Sports App"
