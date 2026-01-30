@@ -3580,12 +3580,26 @@
                     const lineMove = hasSpreadData ? currentSpread - openSpread : 0;
                     const hasLineMove = hasSpreadData && Math.abs(lineMove) >= 0.5;
                     
-                    // WagerTalk spread is from HOME team perspective: negative = home favorite, positive = away favorite
-                    const openFav = openSpread === null ? 'N/A' : (openSpread < 0 ? homeName : (openSpread > 0 ? awayName : 'Pick'));
-                    const currentFav = spreadForFav === null ? 'N/A' : (spreadForFav < 0 ? homeName : (spreadForFav > 0 ? awayName : 'Pick'));
-                    // Display format: show favorite with negative spread
-                    const openSpreadDisplay = !hasSpreadData ? '—' : (openSpread < 0 ? `${homeName} ${openSpread}` : (openSpread > 0 ? `${awayName} -${openSpread}` : 'Pick'));
-                    const currentSpreadDisplay = !hasSpreadData ? '—' : (currentSpread < 0 ? `${homeName} ${currentSpread}` : (currentSpread > 0 ? `${awayName} -${currentSpread}` : 'Pick'));
+                    // WagerTalk now provides favorite_is_away and open_favorite fields
+                    const favoriteIsAway = data.rlm.favorite_is_away;
+                    const openFavorite = data.rlm.open_favorite;
+                    
+                    // Determine favorite from explicit field, or fallback to spread parsing
+                    let openFav, currentFav;
+                    if (favoriteIsAway !== null && favoriteIsAway !== undefined) {
+                        openFav = favoriteIsAway ? awayName : homeName;
+                        currentFav = openFav; // Assume favorite doesn't change (rare)
+                    } else if (openFavorite) {
+                        openFav = openFavorite;
+                        currentFav = openFavorite;
+                    } else {
+                        openFav = 'N/A';
+                        currentFav = 'N/A';
+                    }
+                    
+                    // Display format: Spread is now stored as positive value, show with favorite team
+                    const openSpreadDisplay = !hasSpreadData ? '—' : (openFav !== 'N/A' ? `${openFav} -${openSpread}` : 'Pick');
+                    const currentSpreadDisplay = !hasSpreadData ? '—' : (currentFav !== 'N/A' ? `${currentFav} -${currentSpread}` : 'Pick');
                     const favFlipped = hasSpreadData && openFav !== currentFav && openFav !== 'Pick' && currentFav !== 'Pick';
                     
                     // Game Total line movement

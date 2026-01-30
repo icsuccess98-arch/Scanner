@@ -208,6 +208,7 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                     spread_money_pct = 50
                     open_spread = None
                     current_spread = None
+                    favorite_is_away = None  # Track which team is favorite based on spread position
                     
                     # Total data
                     over_tickets_pct = 50
@@ -279,9 +280,12 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                                 money_percentages.append(int(spread_m.group(1)))
                     
                     # Parse OPEN column (index 7) - opening spread and total lines
+                    # WagerTalk format: first line = away team data, second line = home team data
+                    # The spread appears on the FAVORITE's row
                     if len(cell_values) > 7:
                         lines_cell = cell_values[7].replace('\xa0', '')
-                        for line in lines_cell.split('\n'):
+                        open_lines = lines_cell.split('\n')
+                        for line_idx, line in enumerate(open_lines):
                             line = line.strip()
                             if not line:
                                 continue
@@ -293,7 +297,10 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                                     if spread_m.group(2):  # Has ½
                                         val += 0.5 if val >= 0 else -0.5
                                     if abs(val) < 50:
-                                        open_spread = val
+                                        open_spread = abs(val)  # Store as positive value
+                                        # Track which team is favorite based on which row has the spread
+                                        # line_idx 0 = away team row, line_idx 1 = home team row
+                                        favorite_is_away = (line_idx == 0)
                                 except:
                                     pass
                                 continue
@@ -318,9 +325,12 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                                     pass
                     
                     # Parse CURRENT/DraftKings column (index 8) - current/closing spread and total
+                    # Same format: first line = away, second line = home
+                    current_fav_is_away = None
                     if len(cell_values) > 8:
                         lines_cell = cell_values[8].replace('\xa0', '')
-                        for line in lines_cell.split('\n'):
+                        current_lines = lines_cell.split('\n')
+                        for line_idx, line in enumerate(current_lines):
                             line = line.strip()
                             if not line:
                                 continue
@@ -332,7 +342,11 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                                     if spread_m.group(2):  # Has ½
                                         val += 0.5 if val >= 0 else -0.5
                                     if abs(val) < 50:
-                                        current_spread = val
+                                        current_spread = abs(val)  # Store as positive value
+                                        current_fav_is_away = (line_idx == 0)
+                                        # If we didn't find open spread, use current to determine favorite
+                                        if favorite_is_away is None:
+                                            favorite_is_away = current_fav_is_away
                                 except:
                                     pass
                                 continue
@@ -444,9 +458,12 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                                 'home_bet_pct': 100 - spread_tickets_pct,
                                 'away_money_pct': spread_money_pct,
                                 'home_money_pct': 100 - spread_money_pct,
-                                # Spread lines
+                                # Spread lines - stored as positive values
                                 'open_spread': open_spread,
                                 'current_spread': current_spread or open_spread,
+                                # Favorite tracking - True if away team is favorite, False if home team
+                                'favorite_is_away': favorite_is_away,
+                                'open_favorite': away_team if favorite_is_away else home_team if favorite_is_away is not None else None,
                                 # Totals betting data
                                 'over_bet_pct': over_tickets_pct,
                                 'under_bet_pct': 100 - over_tickets_pct,
@@ -465,7 +482,8 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                                 'source': 'wagertalk'
                             }
                             games_found += 1
-                            logger.info(f"[WagerTalk] Found: {matchup_key} - Spread: {spread_tickets_pct}%/{spread_money_pct}% | O/U: {over_tickets_pct}%/{100-over_tickets_pct}% | Lines: {open_spread}→{current_spread}, Tot: {open_total}→{current_total}")
+                            fav_team = away_team if favorite_is_away else home_team if favorite_is_away is not None else '?'
+                            logger.info(f"[WagerTalk] Found: {matchup_key} - Fav: {fav_team} -{open_spread} | Tickets: {spread_tickets_pct}%/{spread_money_pct}% | Tot: {open_total}→{current_total}")
                         else:
                             # Update existing entry with additional data (totals row)
                             existing = result[matchup_key]
