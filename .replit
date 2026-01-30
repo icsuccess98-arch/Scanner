@@ -18,15 +18,15 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Sports App"
+args = "Next.js Frontend"
 
 [[workflows.workflow]]
-name = "Sports App"
+name = "Next.js Frontend"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python sports_app.py"
+args = "cd frontend && npm run dev"
 waitForPort = 5000
 
 [workflows.workflow.metadata]
