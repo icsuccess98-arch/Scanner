@@ -19,7 +19,7 @@ from sqlalchemy import delete
 import requests
 import pytz
 from bs4 import BeautifulSoup
-from enhanced_scraping import get_cbb_logo, CBB_TEAM_LOGOS
+from enhanced_scraping import get_cbb_logo, CBB_TEAM_LOGOS, get_covers_matchup_stats
 from automated_loading_system import (
     setup_automatic_loading, 
     get_transparent_cbb_logo, 
@@ -10116,8 +10116,10 @@ def spreads():
     cbb_standings = get_cbb_standings()
     nhl_standings = get_nhl_standings()
     
-    # Fetch comprehensive team stats (includes ATS, L10, Home/Road)
+    # Fetch comprehensive team stats from Covers.com (includes ATS, L10, Home/Road)
     nba_team_stats = get_nba_team_stats()
+    covers_nba_stats = get_covers_matchup_stats('NBA')
+    covers_cbb_stats = get_covers_matchup_stats('CBB')
     
     # Get ALL games for today without any totals filtering
     all_games = Game.query.filter_by(date=today).order_by(Game.game_time.asc()).all()
@@ -10143,21 +10145,23 @@ def spreads():
                 g.away_standing = away_stand.get('standing', '')
                 g.home_standing = home_stand.get('standing', '')
                 
-                # Add Covers-style stats (ATS, Last 10, Home/Road)
-                away_stats = nba_team_stats.get(g.away_team, {})
-                home_stats = nba_team_stats.get(g.home_team, {})
-                g.away_overall = away_stats.get('overall_record', g.away_record)
-                g.home_overall = home_stats.get('overall_record', g.home_record)
-                g.away_road_record = away_stats.get('road_record', '--')
-                g.home_home_record = home_stats.get('home_record', '--')
-                g.away_ats = away_stats.get('ats_record', '--')
-                g.home_ats = home_stats.get('ats_record', '--')
-                g.away_ats_road = away_stats.get('ats_road', '--')
-                g.home_ats_home = home_stats.get('ats_home', '--')
-                g.away_l10 = away_stats.get('last_10', '--')
-                g.home_l10 = home_stats.get('last_10', '--')
-                g.away_l10_ats = away_stats.get('last_10_ats', '--')
-                g.home_l10_ats = home_stats.get('last_10_ats', '--')
+                # Add Covers-style stats (ATS, Last 10, Home/Road) from Covers.com
+                away_covers = covers_nba_stats.get(g.away_team, {})
+                home_covers = covers_nba_stats.get(g.home_team, {})
+                
+                # Use Covers data for all stats if available
+                g.away_overall = away_covers.get('record', g.away_record)
+                g.home_overall = home_covers.get('record', g.home_record)
+                g.away_road_record = away_covers.get('road_record', '--')
+                g.home_home_record = home_covers.get('home_record', '--')
+                g.away_ats = away_covers.get('ats', '--')
+                g.home_ats = home_covers.get('ats', '--')
+                g.away_ats_road = away_covers.get('ats_road', '--')
+                g.home_ats_home = home_covers.get('ats_home', '--')
+                g.away_l10 = away_covers.get('l10', '--')
+                g.home_l10 = home_covers.get('l10', '--')
+                g.away_l10_ats = away_covers.get('l10_ats', '--')
+                g.home_l10_ats = home_covers.get('l10_ats', '--')
             elif g.league == 'CBB':
                 g.away_logo = get_transparent_cbb_logo(g.away_team) or get_cbb_logo(g.away_team) or 'https://a.espncdn.com/i/teamlogos/leagues/500-dark/nba.png'
                 g.home_logo = get_transparent_cbb_logo(g.home_team) or get_cbb_logo(g.home_team) or 'https://a.espncdn.com/i/teamlogos/leagues/500-dark/nba.png'
@@ -10167,19 +10171,21 @@ def spreads():
                 g.home_record = home_stand.get('record', '--')
                 g.away_standing = ''
                 g.home_standing = ''
-                # CBB defaults (ESPN data not as detailed for CBB)
-                g.away_overall = g.away_record
-                g.home_overall = g.home_record
-                g.away_road_record = '--'
-                g.home_home_record = '--'
-                g.away_ats = '--'
-                g.home_ats = '--'
-                g.away_ats_road = '--'
-                g.home_ats_home = '--'
-                g.away_l10 = '--'
-                g.home_l10 = '--'
-                g.away_l10_ats = '--'
-                g.home_l10_ats = '--'
+                # CBB Covers-style stats
+                away_covers = covers_cbb_stats.get(g.away_team, {})
+                home_covers = covers_cbb_stats.get(g.home_team, {})
+                g.away_overall = away_covers.get('record', g.away_record)
+                g.home_overall = home_covers.get('record', g.home_record)
+                g.away_road_record = away_covers.get('road_record', '--')
+                g.home_home_record = home_covers.get('home_record', '--')
+                g.away_ats = away_covers.get('ats', '--')
+                g.home_ats = home_covers.get('ats', '--')
+                g.away_ats_road = away_covers.get('ats_road', '--')
+                g.home_ats_home = home_covers.get('ats_home', '--')
+                g.away_l10 = away_covers.get('l10', '--')
+                g.home_l10 = home_covers.get('l10', '--')
+                g.away_l10_ats = away_covers.get('l10_ats', '--')
+                g.home_l10_ats = home_covers.get('l10_ats', '--')
             elif g.league == 'NHL':
                 g.away_logo = nhl_team_logos.get(g.away_team, 'https://a.espncdn.com/i/teamlogos/nhl/500/nhl.png')
                 g.home_logo = nhl_team_logos.get(g.home_team, 'https://a.espncdn.com/i/teamlogos/nhl/500/nhl.png')

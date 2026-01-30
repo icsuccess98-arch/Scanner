@@ -2139,34 +2139,34 @@
                     <div class="covers-stats-row">
                         <div class="covers-stat-away">
                             <span>{{ game.away_overall or game.away_record or '--' }}</span>
-                            <span class="covers-stat-sub">({{ game.away_road_record or '--' }} Road)</span>
+                            <span class="covers-stat-sub">{{ game.away_road_record or '--' }}</span>
                         </div>
                         <div class="covers-stat-label">Win/Loss</div>
                         <div class="covers-stat-home">
                             <span>{{ game.home_overall or game.home_record or '--' }}</span>
-                            <span class="covers-stat-sub">({{ game.home_home_record or '--' }} Home)</span>
+                            <span class="covers-stat-sub">{{ game.home_home_record or '--' }}</span>
                         </div>
                     </div>
                     <div class="covers-stats-row">
                         <div class="covers-stat-away">
                             <span>{{ game.away_ats or '--' }}</span>
-                            <span class="covers-stat-sub">({{ game.away_ats_road or '--' }} Road)</span>
+                            <span class="covers-stat-sub">{{ game.away_ats_road or '--' }}</span>
                         </div>
                         <div class="covers-stat-label">Against the Spread</div>
                         <div class="covers-stat-home">
                             <span>{{ game.home_ats or '--' }}</span>
-                            <span class="covers-stat-sub">({{ game.home_ats_home or '--' }} Home)</span>
+                            <span class="covers-stat-sub">{{ game.home_ats_home or '--' }}</span>
                         </div>
                     </div>
                     <div class="covers-stats-row">
                         <div class="covers-stat-away">
                             <span>{{ game.away_l10 or '--' }}</span>
-                            <span class="covers-stat-sub">({{ game.away_l10_ats or '--' }} ATS)</span>
+                            <span class="covers-stat-sub">{{ game.away_l10_ats or '--' }}</span>
                         </div>
                         <div class="covers-stat-label">Last 10</div>
                         <div class="covers-stat-home">
                             <span>{{ game.home_l10 or '--' }}</span>
-                            <span class="covers-stat-sub">({{ game.home_l10_ats or '--' }} ATS)</span>
+                            <span class="covers-stat-sub">{{ game.home_l10_ats or '--' }}</span>
                         </div>
                     </div>
                 </div>

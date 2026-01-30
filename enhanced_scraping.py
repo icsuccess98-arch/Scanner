@@ -510,6 +510,122 @@ class CoversScraper:
             return trends
 
 
+def get_covers_matchup_stats(league: str = 'NBA') -> Dict:
+    """
+    Scrape all matchup stats from Covers.com matchups page.
+    Returns a dict keyed by team abbreviation with full stats.
+    
+    BULLETPROOF implementation that parses:
+    - Win/Loss records (overall and home/road)
+    - ATS records (overall and home/road)
+    - Last 10 records with ATS
+    """
+    stats_by_team = {}
+    
+    # Team abbreviation to nickname mapping
+    abbr_to_name = {
+        'LAL': 'Lakers', 'BOS': 'Celtics', 'NYK': 'Knicks', 'NY': 'Knicks',
+        'PHI': 'Sixers', 'MIA': 'Heat', 'CHI': 'Bulls', 'DET': 'Pistons',
+        'CLE': 'Cavaliers', 'TOR': 'Raptors', 'ORL': 'Magic', 'SAC': 'Kings',
+        'WAS': 'Wizards', 'DEN': 'Nuggets', 'NO': 'Pelicans', 'NOP': 'Pelicans',
+        'MEM': 'Grizzlies', 'GS': 'Warriors', 'GSW': 'Warriors', 
+        'LAC': 'Clippers', 'PHO': 'Suns', 'PHX': 'Suns', 'MIN': 'Timberwolves',
+        'MIL': 'Bucks', 'ATL': 'Hawks', 'IND': 'Pacers', 'CHA': 'Hornets',
+        'BK': 'Nets', 'BKN': 'Nets', 'HOU': 'Rockets', 'DAL': 'Mavericks',
+        'SAS': 'Spurs', 'SA': 'Spurs', 'POR': 'Trail Blazers', 'UTA': 'Jazz', 'OKC': 'Thunder'
+    }
+    
+    try:
+        if league == 'NBA':
+            url = 'https://www.covers.com/sports/nba/matchups'
+        elif league == 'CBB':
+            url = 'https://www.covers.com/sports/ncaab/matchups'
+        else:
+            url = 'https://www.covers.com/sports/nba/matchups'
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        }
+        
+        response = requests.get(url, headers=headers, timeout=15)
+        if response.status_code != 200:
+            logger.warning(f"Covers.com returned status {response.status_code}")
+            return stats_by_team
+        
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # Find all game boxes (class starts with "gamebox pregamebox")
+        gameboxes = soup.find_all(class_=re.compile(r'^gamebox\s+pregamebox'))
+        logger.info(f"Found {len(gameboxes)} games on Covers.com {league}")
+        
+        for gamebox in gameboxes:
+            try:
+                # Get team abbreviations from gamebox-team-anchor elements
+                team_anchors = gamebox.find_all(class_=re.compile(r'gamebox-team-anchor'))
+                if len(team_anchors) < 2:
+                    continue
+                
+                away_abbr = team_anchors[0].get_text(strip=True)
+                home_abbr = team_anchors[1].get_text(strip=True)
+                
+                away_name = abbr_to_name.get(away_abbr, away_abbr)
+                home_name = abbr_to_name.get(home_abbr, home_abbr)
+                
+                # Parse stats table
+                table = gamebox.find('table')
+                if not table:
+                    continue
+                
+                away_stats = {'abbr': away_abbr, 'name': away_name}
+                home_stats = {'abbr': home_abbr, 'name': home_name}
+                
+                rows = table.find_all('tr')
+                for row_idx, row in enumerate(rows):
+                    cells = row.find_all('td')
+                    
+                    # Table format: [away_breakdown, away_overall, home_overall, home_breakdown]
+                    # Row 0 = Win/Loss, Row 1 = ATS, Row 2 = Last 10
+                    if len(cells) >= 4:
+                        away_breakdown = cells[0].get_text(strip=True)
+                        away_overall = cells[1].get_text(strip=True)
+                        home_overall = cells[2].get_text(strip=True)
+                        home_breakdown = cells[3].get_text(strip=True)
+                        
+                        if row_idx == 0:  # Win/Loss row
+                            away_stats['record'] = away_overall
+                            away_stats['road_record'] = away_breakdown
+                            home_stats['record'] = home_overall
+                            home_stats['home_record'] = home_breakdown
+                        elif row_idx == 1:  # ATS row
+                            away_stats['ats'] = away_overall
+                            away_stats['ats_road'] = away_breakdown
+                            home_stats['ats'] = home_overall
+                            home_stats['ats_home'] = home_breakdown
+                        elif row_idx == 2:  # Last 10 row
+                            away_stats['l10'] = away_overall
+                            away_stats['l10_ats'] = away_breakdown
+                            home_stats['l10'] = home_overall
+                            home_stats['l10_ats'] = home_breakdown
+                
+                # Store by both abbr and name for easy lookup
+                stats_by_team[away_abbr] = away_stats
+                stats_by_team[away_name] = away_stats
+                stats_by_team[home_abbr] = home_stats
+                stats_by_team[home_name] = home_stats
+                
+            except Exception as e:
+                logger.debug(f"Error parsing gamebox: {e}")
+                continue
+        
+        logger.info(f"Parsed stats for {len(stats_by_team)//2} teams from Covers.com")
+        return stats_by_team
+        
+    except Exception as e:
+        logger.error(f"Error fetching Covers matchups: {e}")
+        return stats_by_team
+
+
 def get_nba_team_stats() -> Dict:
     """
     Fetch comprehensive NBA team stats including ATS, Last 10, Home/Road records.
