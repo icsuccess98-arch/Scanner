@@ -195,32 +195,6 @@ compress = Compress()
 compress.init_app(app)
 logger.info("Response compression enabled")
 
-# CORS headers for Next.js frontend development
-@app.after_request
-def add_cors_headers(response):
-    """Add CORS headers for local development with Next.js frontend."""
-    origin = request.headers.get('Origin', '')
-    # Allow localhost origins for development
-    if origin in ('http://localhost:3000', 'http://127.0.0.1:3000'):
-        response.headers['Access-Control-Allow-Origin'] = origin
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
-    return response
-
-@app.route('/', defaults={'path': ''}, methods=['OPTIONS'])
-@app.route('/<path:path>', methods=['OPTIONS'])
-def handle_options(path):
-    """Handle CORS preflight requests."""
-    response = make_response()
-    origin = request.headers.get('Origin', '')
-    if origin in ('http://localhost:3000', 'http://127.0.0.1:3000'):
-        response.headers['Access-Control-Allow-Origin'] = origin
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
-    return response
-
 # Fast health check endpoint for production deployments
 @app.route('/health', methods=['GET', 'HEAD'])
 def health_check():
