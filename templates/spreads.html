@@ -40,6 +40,40 @@
             --cfb: #9D4EDD;
             --nhl: #A2AAAD;
         }
+        .pull-to-refresh {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(180deg, rgba(123, 44, 191, 0.9), rgba(10, 10, 18, 0.95));
+            transform: translateY(-100%);
+            transition: transform 0.2s ease;
+            z-index: 9999;
+        }
+        .pull-to-refresh.visible {
+            transform: translateY(0);
+        }
+        .pull-to-refresh.refreshing .refresh-icon {
+            animation: spin 1s linear infinite;
+        }
+        .refresh-icon {
+            font-size: 24px;
+            color: #fff;
+            margin-right: 10px;
+        }
+        .refresh-text {
+            font-size: 14px;
+            font-weight: 600;
+            color: #fff;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
         * { box-sizing: border-box; }
         html, body {
             overflow-x: hidden;
@@ -1542,6 +1576,10 @@
     </style>
 </head>
 <body>
+    <div id="pull-refresh" class="pull-to-refresh">
+        <i class="bi bi-arrow-clockwise refresh-icon"></i>
+        <span class="refresh-text">Pull to refresh</span>
+    </div>
     <header class="header">
         <a href="/" class="brand" style="display: flex; align-items: center; justify-content: center; text-decoration: none; width: 100%;">
             <img src="/static/images/730_sports_logo.png" alt="730" class="header-logo" style="height: 60px; max-width: 50%; width: auto; object-fit: contain; mix-blend-mode: screen; filter: drop-shadow(0 0 12px rgba(139, 92, 246, 0.8)) drop-shadow(0 0 24px rgba(139, 92, 246, 0.5)); animation: logoGlow 2s ease-in-out infinite alternate;">
@@ -3131,6 +3169,62 @@
         
         fetchLiveScores();
         setInterval(fetchLiveScores, 30000);
+        
+        (function() {
+            const pullRefresh = document.getElementById('pull-refresh');
+            const refreshText = pullRefresh.querySelector('.refresh-text');
+            let startY = 0;
+            let pulling = false;
+            const threshold = 80;
+            
+            document.addEventListener('touchstart', function(e) {
+                if (window.scrollY === 0) {
+                    startY = e.touches[0].pageY;
+                    pulling = true;
+                }
+            }, { passive: true });
+            
+            document.addEventListener('touchmove', function(e) {
+                if (!pulling) return;
+                
+                const currentY = e.touches[0].pageY;
+                const diff = currentY - startY;
+                
+                if (diff > 0 && window.scrollY === 0) {
+                    const progress = Math.min(diff / threshold, 1);
+                    pullRefresh.style.transform = `translateY(${-100 + (progress * 100)}%)`;
+                    
+                    if (diff > threshold) {
+                        refreshText.textContent = 'Release to refresh';
+                        pullRefresh.classList.add('visible');
+                    } else {
+                        refreshText.textContent = 'Pull to refresh';
+                    }
+                }
+            }, { passive: true });
+            
+            document.addEventListener('touchend', function(e) {
+                if (!pulling) return;
+                pulling = false;
+                
+                const pullState = pullRefresh.style.transform;
+                if (pullRefresh.classList.contains('visible')) {
+                    pullRefresh.classList.add('refreshing');
+                    refreshText.textContent = 'Refreshing...';
+                    
+                    Promise.all([
+                        fetchLiveScores(),
+                        new Promise(resolve => setTimeout(resolve, 800))
+                    ]).then(() => {
+                        pullRefresh.classList.remove('visible', 'refreshing');
+                        pullRefresh.style.transform = 'translateY(-100%)';
+                        refreshText.textContent = 'Pull to refresh';
+                    });
+                } else {
+                    pullRefresh.style.transform = 'translateY(-100%)';
+                }
+            }, { passive: true });
+        })();
     </script>
 </body>
 </html>
