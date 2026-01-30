@@ -3580,11 +3580,12 @@
                     const lineMove = hasSpreadData ? currentSpread - openSpread : 0;
                     const hasLineMove = hasSpreadData && Math.abs(lineMove) >= 0.5;
                     
-                    // Determine who is favorite (negative spread = away team favorite)
-                    const openFav = openSpread === null ? 'N/A' : (openSpread < 0 ? awayName : (openSpread > 0 ? homeName : 'Pick'));
-                    const currentFav = spreadForFav === null ? 'N/A' : (spreadForFav < 0 ? awayName : (spreadForFav > 0 ? homeName : 'Pick'));
-                    const openSpreadDisplay = !hasSpreadData ? '—' : (openSpread < 0 ? `${awayName} ${openSpread}` : (openSpread > 0 ? `${homeName} -${openSpread}` : 'Pick'));
-                    const currentSpreadDisplay = !hasSpreadData ? '—' : (currentSpread < 0 ? `${awayName} ${currentSpread}` : (currentSpread > 0 ? `${homeName} -${currentSpread}` : 'Pick'));
+                    // WagerTalk spread is from HOME team perspective: negative = home favorite, positive = away favorite
+                    const openFav = openSpread === null ? 'N/A' : (openSpread < 0 ? homeName : (openSpread > 0 ? awayName : 'Pick'));
+                    const currentFav = spreadForFav === null ? 'N/A' : (spreadForFav < 0 ? homeName : (spreadForFav > 0 ? awayName : 'Pick'));
+                    // Display format: show favorite with negative spread
+                    const openSpreadDisplay = !hasSpreadData ? '—' : (openSpread < 0 ? `${homeName} ${openSpread}` : (openSpread > 0 ? `${awayName} -${openSpread}` : 'Pick'));
+                    const currentSpreadDisplay = !hasSpreadData ? '—' : (currentSpread < 0 ? `${homeName} ${currentSpread}` : (currentSpread > 0 ? `${awayName} -${currentSpread}` : 'Pick'));
                     const favFlipped = hasSpreadData && openFav !== currentFav && openFav !== 'Pick' && currentFav !== 'Pick';
                     
                     // Game Total line movement
