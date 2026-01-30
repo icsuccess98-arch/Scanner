@@ -18,6 +18,11 @@ This project develops and manages trading systems, focusing on a Sports Betting 
 ### UI/UX
 The application features a jewel-tone color scheme and is optimized for mobile with a sticky action bar and card-style displays. Interactive game cards use hover effects and a golden glow for SUPERMAX picks. Branding includes "Seven Thirty" header in Pacifico font with purple gradient, and league-specific ESPN CDN logos. The Dashboard provides edge analysis and a 52-week bankroll builder. Game cards specifically display TOTALS information, and top picks feature color-coded edge bars and a 5-star confidence rating. An "Away Favorite" golden badge is used for confidence boosts. The interface is inspired by the Pikkit app for a gamified, mobile-first experience, including dynamic team logos, real-time records, conference standings, and bet type tabs.
 
+**Premium Animations (Jan 2026):**
+- Animated Numbers: `animateNumber()` function with smooth 600ms easeOut counting effect
+- League Tabs: Hover lift effect, active pulse glow (tabPulse 2s), count badge pop animation (countPop 0.4s)
+- Animated Badges: SUPERMAX golden glow (superMaxGlow 1.5s), Best Bet shimmer effect (badgeShimmer 3s), RLM pulse (rlmPulse 2s), Sharp Money gradient styling
+
 ### Sharp Money & Betting Strategy
 The system implements professional sharp money detection based on divergence between bet % and money %:
 - Sharp money = lower bet % but higher money/handle % (e.g., 40% bets but 70% money = sharp side)
