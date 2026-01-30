@@ -2987,15 +2987,18 @@
                         const num = parseFloat(val);
                         return isNaN(num) ? null : num;
                     };
-                    const openSpread = parseSpread(data.rlm.open_spread);
-                    const currentSpread = parseSpread(data.rlm.current_spread) || parseSpread(data.rlm.away_spread);
-                    const hasSpreadData = openSpread !== null && currentSpread !== null;
+                    // Try WagerTalk first, then database spread
+                    const openSpread = parseSpread(data.rlm.open_spread) || parseSpread(data.spread);
+                    const currentSpread = parseSpread(data.rlm.current_spread) || parseSpread(data.rlm.away_spread) || parseSpread(data.spread);
+                    const hasSpreadData = openSpread !== null || currentSpread !== null;
+                    // For favorite, use whichever we have
+                    const spreadForFav = currentSpread !== null ? currentSpread : openSpread;
                     const lineMove = hasSpreadData ? currentSpread - openSpread : 0;
                     const hasLineMove = hasSpreadData && Math.abs(lineMove) >= 0.5;
                     
                     // Determine who is favorite (negative spread = away team favorite)
-                    const openFav = !hasSpreadData ? 'N/A' : (openSpread < 0 ? awayName : (openSpread > 0 ? homeName : 'Pick'));
-                    const currentFav = !hasSpreadData ? 'N/A' : (currentSpread < 0 ? awayName : (currentSpread > 0 ? homeName : 'Pick'));
+                    const openFav = openSpread === null ? 'N/A' : (openSpread < 0 ? awayName : (openSpread > 0 ? homeName : 'Pick'));
+                    const currentFav = spreadForFav === null ? 'N/A' : (spreadForFav < 0 ? awayName : (spreadForFav > 0 ? homeName : 'Pick'));
                     const openSpreadDisplay = !hasSpreadData ? 'Waiting for odds' : (openSpread < 0 ? `${awayName} ${openSpread}` : (openSpread > 0 ? `${homeName} -${openSpread}` : 'Pick'));
                     const currentSpreadDisplay = !hasSpreadData ? 'Waiting for odds' : (currentSpread < 0 ? `${awayName} ${currentSpread}` : (currentSpread > 0 ? `${homeName} -${currentSpread}` : 'Pick'));
                     const favFlipped = hasSpreadData && openFav !== currentFav && openFav !== 'Pick' && currentFav !== 'Pick';
