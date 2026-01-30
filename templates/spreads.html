@@ -1928,50 +1928,20 @@
     <header class="header">
         <link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
         <a href="/" class="brand" style="display: flex; align-items: center; justify-content: center; text-decoration: none; width: 100%;">
-            <div class="brand-logo-wrapper">
-                <svg class="brand-svg" viewBox="0 0 340 70" preserveAspectRatio="xMidYMid meet">
-                    <defs>
-                        <linearGradient id="textGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#a855f7"/>
-                            <stop offset="50%" style="stop-color:#8b5cf6"/>
-                            <stop offset="100%" style="stop-color:#7c3aed"/>
-                        </linearGradient>
-                        <filter id="glow">
-                            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
-                            <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
-                        </filter>
-                    </defs>
-                    <text x="170" y="50" text-anchor="middle" font-family="Pacifico, cursive" font-size="42" fill="url(#textGrad)" filter="url(#glow)">Seven Thirty</text>
-                    <g class="ball basketball" transform="translate(42, 18)">
-                        <circle r="8" fill="#f97316" stroke="#000" stroke-width="0.5"/>
-                        <path d="M-8 0 L8 0 M0 -8 L0 8" stroke="#000" stroke-width="0.8" fill="none"/>
-                        <path d="M-5.5 -5.5 Q0 -2, 5.5 -5.5 M-5.5 5.5 Q0 2, 5.5 5.5" stroke="#000" stroke-width="0.6" fill="none"/>
-                    </g>
-                    <g class="ball football" transform="translate(120, 22)">
-                        <ellipse rx="10" ry="6" fill="#8B4513" stroke="#fff" stroke-width="0.5"/>
-                        <path d="M-6 0 L6 0" stroke="#fff" stroke-width="1" fill="none"/>
-                        <path d="M-3 -2 L-3 2 M0 -2.5 L0 2.5 M3 -2 L3 2" stroke="#fff" stroke-width="0.8" fill="none"/>
-                    </g>
-                    <g class="ball tennis" transform="translate(232, 20)">
-                        <circle r="7" fill="#ccff00" stroke="#fff" stroke-width="0.5"/>
-                        <path d="M-5 -4 Q0 0, -5 4 M5 -4 Q0 0, 5 4" stroke="#fff" stroke-width="1.2" fill="none"/>
-                    </g>
-                    <g class="ball puck" transform="translate(298, 22)">
-                        <ellipse rx="8" ry="4" fill="#1a1a1a" stroke="#666" stroke-width="0.8"/>
-                        <ellipse rx="5" ry="2.5" fill="none" stroke="#444" stroke-width="0.5"/>
-                    </g>
-                </svg>
-            </div>
+            <span class="brand-text">Seven Thirty</span>
         </a>
         <style>
-            .brand-logo-wrapper {
-                width: clamp(220px, 70vw, 320px);
-            }
-            .brand-svg {
-                width: 100%;
-                height: auto;
+            .brand-text {
+                font-family: 'Pacifico', cursive;
+                font-size: clamp(1.75rem, 8vw, 2.5rem);
+                background: linear-gradient(135deg, #a855f7 0%, #8b5cf6 50%, #7c3aed 100%);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
                 filter: drop-shadow(0 0 12px rgba(139, 92, 246, 0.6)) drop-shadow(0 0 24px rgba(139, 92, 246, 0.4));
                 animation: brandGlow 2s ease-in-out infinite alternate;
+                letter-spacing: 1px;
+                padding: 0.25rem 0;
             }
             @keyframes brandGlow {
                 0% { filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.5)) drop-shadow(0 0 16px rgba(139, 92, 246, 0.3)); }
