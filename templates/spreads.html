@@ -3094,7 +3094,7 @@
                                 })()}
                             </div>
                             <div style="text-align: right;">
-                                <div style="font-size: 11px; color: #fff; font-weight: 700;">Now: <span style="color: #3b82f6;">${data.rlm.current_spread || 'N/A'}</span> <span style="color: #888; font-size: 9px;">(${data.rlm.spread_current_odds || '-110'})</span></div>
+                                <div style="font-size: 11px; color: #fff; font-weight: 700;">${data.game_started ? 'CLOSED:' : 'Current:'} <span style="color: ${data.game_started ? '#fbbf24' : '#3b82f6'};">${data.rlm.current_spread || 'N/A'}</span> <span style="color: #888; font-size: 9px;">(${data.rlm.spread_current_odds || '-110'})</span></div>
                             </div>
                         </div>
                         
@@ -3291,7 +3291,7 @@
             }
         }
         
-        // Live lines cache for updating current lines every 30 seconds
+        // Live lines cache for updating current lines every 5 seconds
         let liveLineCache = {};
         
         async function fetchLiveLines() {
@@ -3371,8 +3371,8 @@
             return null;
         }
         
-        // Poll live lines every 30 seconds
-        setInterval(fetchLiveLines, 30000);
+        // Poll live lines every 5 seconds
+        setInterval(fetchLiveLines, 5000);
         fetchLiveLines(); // Initial fetch
         
         let lastRefreshTime = new Date();
@@ -3437,7 +3437,7 @@
         
         fetchLiveScores();
         lastRefreshTime = new Date();
-        setInterval(fetchLiveScores, 30000);
+        setInterval(fetchLiveScores, 5000);
         setInterval(updateRefreshTime, 10000);
         updateRefreshTime();
         
