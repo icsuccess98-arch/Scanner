@@ -5,7 +5,7 @@ type AppRoutes = "/" | "/bankroll" | "/history" | "/spreads"
 type PageRoutes = never
 type LayoutRoutes = "/"
 type RedirectRoutes = never
-type RewriteRoutes = "/api/[[...path]]" | "/check_results" | "/fetch_games" | "/fetch_odds" | "/post_discord" | "/post_discord_window/[window]" | "/update_result/[id]"
+type RewriteRoutes = "/api/[[...path]]" | "/fetch_games" | "/fetch_odds" | "/post_discord"
 type Routes = AppRoutes | PageRoutes | LayoutRoutes | RedirectRoutes | RewriteRoutes
 
 
@@ -13,14 +13,11 @@ interface ParamMap {
   "/": {}
   "/api/[[...path]]": { "path"?: string[]; }
   "/bankroll": {}
-  "/check_results": {}
   "/fetch_games": {}
   "/fetch_odds": {}
   "/history": {}
   "/post_discord": {}
-  "/post_discord_window/[window]": { "window": string; }
   "/spreads": {}
-  "/update_result/[id]": { "id": string; }
 }
 
 

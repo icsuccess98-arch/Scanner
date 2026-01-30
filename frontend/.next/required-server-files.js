@@ -314,18 +314,6 @@ self.__SERVER_FILES_MANIFEST={
         {
           "source": "/post_discord",
           "destination": "http://localhost:5000/post_discord"
-        },
-        {
-          "source": "/post_discord_window/:window",
-          "destination": "http://localhost:5000/post_discord_window/:window"
-        },
-        {
-          "source": "/check_results",
-          "destination": "http://localhost:5000/check_results"
-        },
-        {
-          "source": "/update_result/:id",
-          "destination": "http://localhost:5000/update_result/:id"
         }
       ],
       "fallback": []
