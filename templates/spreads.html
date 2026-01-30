@@ -1661,40 +1661,68 @@
             white-space: nowrap !important;
         }
         .stats-table td.stat-winner {
-            background: rgba(16, 185, 129, 0.15);
+            background: rgba(16, 185, 129, 0.2);
             color: #10B981;
             font-weight: 700;
+            border-left: 2px solid #10b981;
         }
         .stats-table td.edge-away {
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.15), transparent);
             color: #10B981;
-            font-weight: 600;
+            font-weight: 700;
+            text-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
         }
         .stats-table td.edge-home {
+            background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), transparent);
             color: #3B82F6;
-            font-weight: 600;
+            font-weight: 700;
+            text-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
+        }
+        .stats-table td.edge-strong {
+            font-weight: 800;
+            animation: edgePulse 2s ease-in-out infinite;
+        }
+        @keyframes edgePulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
         }
         .stats-table tr:nth-child(odd) {
-            background: rgba(255,255,255,0.02);
+            background: rgba(255,255,255,0.03);
+        }
+        .stats-table tr:nth-child(even) {
+            background: rgba(0,0,0,0.15);
         }
         .stats-table tr:hover {
-            background: rgba(139, 92, 246, 0.08);
+            background: rgba(139, 92, 246, 0.12);
         }
         
-        /* Rank badge styling */
+        /* Rank badge styling - color coded by performance */
         .rank-badge {
             display: inline-block;
-            background: rgba(139, 92, 246, 0.3);
-            color: #A78BFA;
-            padding: 1px 5px;
+            padding: 2px 6px;
             border-radius: 4px;
             font-size: 10px;
-            font-weight: 600;
+            font-weight: 700;
             margin-right: 4px;
             vertical-align: middle;
         }
+        .rank-badge.rank-elite { background: linear-gradient(135deg, #10b981, #059669); color: #fff; }
+        .rank-badge.rank-good { background: rgba(16, 185, 129, 0.3); color: #34d399; }
+        .rank-badge.rank-avg { background: rgba(139, 92, 246, 0.3); color: #A78BFA; }
+        .rank-badge.rank-poor { background: rgba(245, 158, 11, 0.3); color: #fbbf24; }
+        .rank-badge.rank-bad { background: rgba(239, 68, 68, 0.3); color: #f87171; }
         .stat-value {
             font-weight: 500;
             vertical-align: middle;
+        }
+        .stat-value.significantly-better {
+            color: #10b981;
+            font-weight: 700;
+        }
+        .stat-value.significantly-worse {
+            color: #ef4444;
+            font-weight: 600;
+            opacity: 0.8;
         }
         
         .hidden { display: none !important; }
@@ -3419,6 +3447,25 @@
             const awayTeam = data.away_team;
             const homeTeam = data.home_team;
             
+            // Get rank badge color class based on ranking (1-30 scale)
+            function getRankClass(rank, higherIsBetter = true) {
+                if (!rank) return 'rank-avg';
+                const r = parseInt(rank);
+                if (higherIsBetter) {
+                    if (r <= 5) return 'rank-elite';
+                    if (r <= 10) return 'rank-good';
+                    if (r <= 20) return 'rank-avg';
+                    if (r <= 25) return 'rank-poor';
+                    return 'rank-bad';
+                } else {
+                    if (r <= 5) return 'rank-elite';
+                    if (r <= 10) return 'rank-good';
+                    if (r <= 20) return 'rank-avg';
+                    if (r <= 25) return 'rank-poor';
+                    return 'rank-bad';
+                }
+            }
+            
             // Build stats table row helper with rank badge display
             function statRow(metric, awayVal, homeVal, format = 'num', higherIsBetter = true, awayRank = null, homeRank = null) {
                 const aw = parseFloat(awayVal) || 0;
@@ -3427,12 +3474,18 @@
                 const homeWins = higherIsBetter ? hm > aw : hm < aw;
                 
                 const threshold = format === 'eff' ? 0.01 : 0.3;
-                const noEdge = Math.abs(aw - hm) < threshold;
+                const diff = Math.abs(aw - hm);
+                const noEdge = diff < threshold;
+                
+                // Determine if edge is significant (2+ std dev proxy: large % difference)
+                const avgVal = (aw + hm) / 2;
+                const pctDiff = avgVal > 0 ? (diff / avgVal) * 100 : 0;
+                const isStrongEdge = pctDiff > 10; // >10% difference = strong edge
                 
                 const awayClass = awayWins ? 'stat-winner' : '';
                 const homeClass = homeWins ? 'stat-winner' : '';
                 const edge = noEdge ? 'Even' : (awayWins ? awayTeam : homeTeam);
-                const edgeClass = noEdge ? '' : (awayWins ? 'edge-away' : 'edge-home');
+                const edgeClass = noEdge ? '' : ((awayWins ? 'edge-away' : 'edge-home') + (isStrongEdge ? ' edge-strong' : ''));
                 
                 // Format values based on type
                 let valFormat, valFormat2;
@@ -3447,15 +3500,26 @@
                     valFormat2 = hm.toFixed(1);
                 }
                 
+                // Get color-coded rank classes
+                const awayRankClass = getRankClass(awayRank, higherIsBetter);
+                const homeRankClass = getRankClass(homeRank, higherIsBetter);
+                
+                // Value significance classes
+                const awayValClass = awayWins && isStrongEdge ? 'significantly-better' : (homeWins && isStrongEdge ? 'significantly-worse' : '');
+                const homeValClass = homeWins && isStrongEdge ? 'significantly-better' : (awayWins && isStrongEdge ? 'significantly-worse' : '');
+                
                 // Display rank as badge, value separately
-                const awayDisplay = awayRank ? `<span class="rank-badge">#${awayRank}</span><span class="stat-value">${valFormat}</span>` : `<span class="stat-value">${valFormat}</span>`;
-                const homeDisplay = homeRank ? `<span class="rank-badge">#${homeRank}</span><span class="stat-value">${valFormat2}</span>` : `<span class="stat-value">${valFormat2}</span>`;
+                const awayDisplay = awayRank ? `<span class="rank-badge ${awayRankClass}">#${awayRank}</span><span class="stat-value ${awayValClass}">${valFormat}</span>` : `<span class="stat-value ${awayValClass}">${valFormat}</span>`;
+                const homeDisplay = homeRank ? `<span class="rank-badge ${homeRankClass}">#${homeRank}</span><span class="stat-value ${homeValClass}">${valFormat2}</span>` : `<span class="stat-value ${homeValClass}">${valFormat2}</span>`;
+                
+                // Add strong edge indicator
+                const edgeIcon = isStrongEdge ? '⚡' : '';
                 
                 return `<tr>
                     <td class="metric-name">${metric}</td>
                     <td class="${awayClass}">${awayDisplay}</td>
                     <td class="${homeClass}">${homeDisplay}</td>
-                    <td class="${edgeClass}">${edge}</td>
+                    <td class="${edgeClass}">${edgeIcon}${edge}</td>
                 </tr>`;
             }
             
