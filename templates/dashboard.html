@@ -1661,6 +1661,7 @@
                                     </div>
                                     <span class="pikkit-score home-score">0</span>
                                 </div>
+                                <div class="pikkit-live-total" style="font-size: 11px; color: #9ca3af; margin-top: 2px;">Total: <span class="running-total">0</span></div>
                             </div>
                             <div class="pikkit-final-area" id="final-score-{{ game.id }}" style="display: none;">
                                 <div class="pikkit-final-display">
@@ -2109,6 +2110,7 @@
                                     </div>
                                     <span class="pikkit-score home-score">0</span>
                                 </div>
+                                <div class="pikkit-live-total" style="font-size: 11px; color: #9ca3af; margin-top: 2px;">Total: <span class="running-total">0</span></div>
                             </div>
                             <div class="pikkit-final-area" id="final-score-{{ game.id }}" style="display: none;">
                                 <div class="pikkit-final-display">
@@ -2552,10 +2554,12 @@
                                     const homeScore = liveEl.querySelector('.home-score');
                                     const period = liveEl.querySelector('.live-period');
                                     const clock = liveEl.querySelector('.live-clock');
+                                    const runningTotal = liveEl.querySelector('.running-total');
                                     if (awayScore) awayScore.textContent = scoreData.away_score;
                                     if (homeScore) homeScore.textContent = scoreData.home_score;
                                     if (period) period.textContent = scoreData.period || 'Q1';
                                     if (clock) clock.textContent = scoreData.clock || '';
+                                    if (runningTotal) runningTotal.textContent = total;
                                     liveEl.style.display = 'block';
                                 }
                                 card.classList.add('game-live');
