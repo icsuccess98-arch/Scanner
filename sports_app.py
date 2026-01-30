@@ -2296,7 +2296,9 @@ class MatchupIntelligence:
                 logger.info(f"RLM setup: {away_team} vs {home_team} | Favorite: {favorite_team} (from open: '{open_favorite_raw}')")
                 
                 # SPREAD RLM: Detect reverse line movement for spreads
-                # Skip if we don't have valid team data or favorite info
+                # FORMULA: Line 📉 + Money to new favorite 📈 = RLM
+                # - Line must move DOWN/AWAY from original favorite (spread decreases)
+                # - Money (handle %) must be HIGHER on the NEW favorite (team line moved toward)
                 try:
                     if spread_open_line and spread_current_line and favorite_team and underdog_team and away_team and home_team:
                         # Parse spread values (stored as positive numbers)
@@ -2314,34 +2316,31 @@ class MatchupIntelligence:
                             
                             # Need at least 0.5 point movement for RLM
                             if movement_abs >= 0.5:
-                                # Determine which TEAM public BETS are on (bet% = tickets = public action)
-                                # NOT money% - money is sharp action, bets are public action
-                                if away_bet_pct >= 55:
-                                    public_team = away_team
-                                elif home_bet_pct >= 55:
-                                    public_team = home_team
-                                else:
-                                    public_team = None  # Balanced, no clear public side
+                                # RLM FORMULA: Line 📉 + Money to new favorite 📈 = RLM
+                                # Step 1: Line must move DOWN (spread decreased = away from original favorite)
+                                line_moved_down = spread_change < 0
                                 
-                                # Determine which direction line moved:
-                                # - Spread DECREASED (e.g., -6.5 → -2.5): Favorite giving fewer points = line moved TOWARD underdog
-                                # - Spread INCREASED (e.g., -6.5 → -8.5): Favorite giving more points = line moved TOWARD favorite
+                                # Step 2: Determine NEW favorite (team line moved toward)
+                                # Spread decreased → line moved toward UNDERDOG (they become more favored)
                                 if spread_change < 0:
-                                    # Spread decreased → line moved toward UNDERDOG
-                                    line_moved_toward_team = underdog_team
-                                elif spread_change > 0:
-                                    # Spread increased → line moved toward FAVORITE
-                                    line_moved_toward_team = favorite_team
+                                    new_favorite = underdog_team
                                 else:
-                                    line_moved_toward_team = None
+                                    new_favorite = None  # Line didn't move down, no RLM possible
                                 
-                                # RLM: Public on one team, line moves toward OTHER team
-                                # Example: Public on Cavs (89%), line moves from -6.5 to -2.5 (toward Suns)
-                                # That's RLM - sharps are on Suns
-                                if public_team and line_moved_toward_team and public_team != line_moved_toward_team:
+                                # Step 3: Check if MONEY (handle %) favors the NEW favorite
+                                # Money% is where sharp action is - NOT tickets/bets%
+                                money_favors_new_favorite = False
+                                if new_favorite:
+                                    if new_favorite == away_team:
+                                        money_favors_new_favorite = away_money_pct > home_money_pct
+                                    else:
+                                        money_favors_new_favorite = home_money_pct > away_money_pct
+                                
+                                # RLM: Line moved DOWN + Money on NEW favorite = RLM detected
+                                if line_moved_down and new_favorite and money_favors_new_favorite:
                                     spread_rlm_detected = True
-                                    spread_rlm_sharp_side = line_moved_toward_team
-                                    logger.info(f"RLM DETECTED: Public on {public_team}, line moved toward {line_moved_toward_team}")
+                                    spread_rlm_sharp_side = new_favorite
+                                    logger.info(f"RLM DETECTED: Line 📉 {open_spread} to {current_spread}, Money 📈 on {new_favorite}")
                 except Exception as e:
                     logger.warning(f"Error detecting spread RLM: {e}")
                 
@@ -10809,8 +10808,9 @@ def get_matchup_data(game_id):
                 underdog_team = game.away_team
             # No fallback - if open_favorite doesn't match, leave as None
             
-            # SPREAD RLM: Use BET/TICKET percentages (public action, not sharp money)
-            # Skip if we don't have valid favorite/underdog data
+            # SPREAD RLM: FORMULA: Line 📉 + Money to new favorite 📈 = RLM
+            # - Line must move DOWN/AWAY from original favorite (spread decreases)
+            # - Money (handle %) must be HIGHER on the NEW favorite (team line moved toward)
             if current_spread is not None and open_spread is not None and favorite_team and underdog_team:
                 try:
                     spread_change = float(current_spread) - float(open_spread)
@@ -10818,30 +10818,31 @@ def get_matchup_data(game_id):
                     
                     # Need at least 0.5 point movement
                     if movement_abs >= 0.5:
-                        # Determine which TEAM public BETS are on (bet% = tickets = public action)
-                        # NOT money% - money is sharp action, bets are public action
-                        if away_bet >= 55:
-                            public_team = game.away_team
-                        elif home_bet >= 55:
-                            public_team = game.home_team
-                        else:
-                            public_team = None  # Balanced
+                        # RLM FORMULA: Line 📉 + Money to new favorite 📈 = RLM
+                        # Step 1: Line must move DOWN (spread decreased = away from original favorite)
+                        line_moved_down = spread_change < 0
                         
-                        # Determine which direction line moved:
-                        # - Spread DECREASED: line moved TOWARD underdog (favorite giving fewer pts)
-                        # - Spread INCREASED: line moved TOWARD favorite (favorite giving more pts)
+                        # Step 2: Determine NEW favorite (team line moved toward)
+                        # Spread decreased → line moved toward UNDERDOG (they become more favored)
                         if spread_change < 0:
-                            line_moved_toward_team = underdog_team
-                        elif spread_change > 0:
-                            line_moved_toward_team = favorite_team
+                            new_favorite = underdog_team
                         else:
-                            line_moved_toward_team = None
+                            new_favorite = None  # Line didn't move down, no RLM possible
                         
-                        # RLM: Public on one team, line moves toward OTHER team
-                        if public_team and line_moved_toward_team and public_team != line_moved_toward_team:
+                        # Step 3: Check if MONEY (handle %) favors the NEW favorite
+                        # Money% is where sharp action is - NOT tickets/bets%
+                        money_favors_new_favorite = False
+                        if new_favorite:
+                            if new_favorite == game.away_team:
+                                money_favors_new_favorite = away_money > home_money
+                            else:
+                                money_favors_new_favorite = home_money > away_money
+                        
+                        # RLM: Line moved DOWN + Money on NEW favorite = RLM detected
+                        if line_moved_down and new_favorite and money_favors_new_favorite:
                             spread_rlm_detected = True
-                            spread_rlm_sharp_side = line_moved_toward_team
-                            logging.info(f"RLM DETECTED: Public on {public_team}, line moved toward {line_moved_toward_team}")
+                            spread_rlm_sharp_side = new_favorite
+                            logging.info(f"RLM DETECTED: Line 📉 {open_spread} to {current_spread}, Money 📈 on {new_favorite}")
                 except:
                     pass
             
