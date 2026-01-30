@@ -3650,10 +3650,22 @@
                 
                 <!-- BETTING ACTION - COMPACT -->
                 ${data.rlm ? (() => {
-                    const awayBetPct = parseInt(data.rlm.away_bet_pct) || 50;
-                    const homeBetPct = parseInt(data.rlm.home_bet_pct) || 50;
-                    const awayMoneyPct = parseInt(data.rlm.away_money_pct) || 50;
-                    const homeMoneyPct = parseInt(data.rlm.home_money_pct) || 50;
+                    const awayBetPct = parseInt(data.rlm.away_bet_pct) ?? 50;
+                    const homeBetPct = parseInt(data.rlm.home_bet_pct) ?? 50;
+                    const awayMoneyPct = parseInt(data.rlm.away_money_pct) ?? 50;
+                    const homeMoneyPct = parseInt(data.rlm.home_money_pct) ?? 50;
+                    
+                    // Detect if we have REAL betting data - check for ANY WagerTalk field presence
+                    // Allow 50/50 as real data if the field was actually populated
+                    const hasRealBettingData = (
+                        data.rlm.away_bet_pct !== undefined && data.rlm.away_bet_pct !== null ||
+                        data.rlm.home_bet_pct !== undefined && data.rlm.home_bet_pct !== null ||
+                        data.rlm.away_money_pct !== undefined && data.rlm.away_money_pct !== null ||
+                        data.rlm.home_money_pct !== undefined && data.rlm.home_money_pct !== null ||
+                        data.rlm.spread_tickets_pct !== undefined && data.rlm.spread_tickets_pct !== null ||
+                        data.rlm.spread_money_pct !== undefined && data.rlm.spread_money_pct !== null
+                    );
+                    
                     const awayName = awayTeam;
                     const homeName = homeTeam;
                     const awayColor = getTeamColor(awayTeam, 'primary');
@@ -3677,8 +3689,8 @@
                     // Determine who is favorite (negative spread = away team favorite)
                     const openFav = openSpread === null ? 'N/A' : (openSpread < 0 ? awayName : (openSpread > 0 ? homeName : 'Pick'));
                     const currentFav = spreadForFav === null ? 'N/A' : (spreadForFav < 0 ? awayName : (spreadForFav > 0 ? homeName : 'Pick'));
-                    const openSpreadDisplay = !hasSpreadData ? 'Waiting for odds' : (openSpread < 0 ? `${awayName} ${openSpread}` : (openSpread > 0 ? `${homeName} -${openSpread}` : 'Pick'));
-                    const currentSpreadDisplay = !hasSpreadData ? 'Waiting for odds' : (currentSpread < 0 ? `${awayName} ${currentSpread}` : (currentSpread > 0 ? `${homeName} -${currentSpread}` : 'Pick'));
+                    const openSpreadDisplay = !hasSpreadData ? '—' : (openSpread < 0 ? `${awayName} ${openSpread}` : (openSpread > 0 ? `${homeName} -${openSpread}` : 'Pick'));
+                    const currentSpreadDisplay = !hasSpreadData ? '—' : (currentSpread < 0 ? `${awayName} ${currentSpread}` : (currentSpread > 0 ? `${homeName} -${currentSpread}` : 'Pick'));
                     const favFlipped = hasSpreadData && openFav !== currentFav && openFav !== 'Pick' && currentFav !== 'Pick';
                     
                     // Game Total line movement
@@ -3808,17 +3820,18 @@
                             </div>
                         </div>
                         
+                        ${hasRealBettingData ? `
                         <!-- Away Team Row -->
                         <div style="margin-bottom: 8px;">
                             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
                                 <span style="font-size: 11px; font-weight: 700; color: ${getTeamColor(awayTeam, 'primary')};">${awayTeam}</span>
                                 <div style="display: flex; gap: 12px;">
-                                    <span style="font-size: 10px; color: #888;">Tickets: <span style="color: #fff; font-weight: 600;">${data.rlm.spread_tickets_pct || 50}%</span></span>
-                                    <span style="font-size: 10px; color: #888;">Money: <span style="color: #fff; font-weight: 600;">${data.rlm.spread_money_pct || 50}%</span></span>
+                                    <span style="font-size: 10px; color: #888;">Tickets: <span style="color: #fff; font-weight: 600;">${data.rlm.spread_tickets_pct || awayBetPct}%</span></span>
+                                    <span style="font-size: 10px; color: #888;">Money: <span style="color: #fff; font-weight: 600;">${data.rlm.spread_money_pct || awayMoneyPct}%</span></span>
                                 </div>
                             </div>
                             <div style="height: 12px; background: rgba(40, 45, 60, 0.8); border-radius: 6px; overflow: hidden;">
-                                <div style="width: ${data.rlm.spread_tickets_pct || 50}%; height: 100%; background: ${getTeamColor(awayTeam, 'primary')};"></div>
+                                <div style="width: ${data.rlm.spread_tickets_pct || awayBetPct}%; height: 100%; background: ${getTeamColor(awayTeam, 'primary')};"></div>
                             </div>
                         </div>
                         
@@ -3827,14 +3840,21 @@
                             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
                                 <span style="font-size: 11px; font-weight: 700; color: ${getTeamColor(homeTeam, 'primary')};">${homeTeam}</span>
                                 <div style="display: flex; gap: 12px;">
-                                    <span style="font-size: 10px; color: #888;">Tickets: <span style="color: #fff; font-weight: 600;">${100 - (data.rlm.spread_tickets_pct || 50)}%</span></span>
-                                    <span style="font-size: 10px; color: #888;">Money: <span style="color: #fff; font-weight: 600;">${100 - (data.rlm.spread_money_pct || 50)}%</span></span>
+                                    <span style="font-size: 10px; color: #888;">Tickets: <span style="color: #fff; font-weight: 600;">${100 - (data.rlm.spread_tickets_pct || awayBetPct)}%</span></span>
+                                    <span style="font-size: 10px; color: #888;">Money: <span style="color: #fff; font-weight: 600;">${100 - (data.rlm.spread_money_pct || awayMoneyPct)}%</span></span>
                                 </div>
                             </div>
                             <div style="height: 12px; background: rgba(40, 45, 60, 0.8); border-radius: 6px; overflow: hidden;">
-                                <div style="width: ${100 - (data.rlm.spread_tickets_pct || 50)}%; height: 100%; background: ${getTeamColor(homeTeam, 'primary')};"></div>
+                                <div style="width: ${100 - (data.rlm.spread_tickets_pct || awayBetPct)}%; height: 100%; background: ${getTeamColor(homeTeam, 'primary')};"></div>
                             </div>
                         </div>
+                        ` : `
+                        <!-- No betting data available -->
+                        <div style="text-align: center; padding: 12px;">
+                            <div style="color: #666; font-size: 11px;">Betting data not available</div>
+                            <div style="color: #555; font-size: 9px; margin-top: 4px;">WagerTalk data pending</div>
+                        </div>
+                        `}
                         
                         ${data.rlm.spread_sharp_detected ? `<div style="margin-top: 8px; background: rgba(139, 92, 246, 0.2); border-radius: 6px; padding: 6px 10px; text-align: center;"><span style="font-size: 10px; font-weight: 600; color: #a78bfa;">💰 SHARP MONEY: ${data.rlm.spread_sharp_side}</span></div>` : ''}
                     </div>
@@ -3846,20 +3866,20 @@
                             <div style="color: #888; font-size: 7px; margin-top: 2px;">STATS EDGE</div>
                             <div style="color: #fff; font-size: 9px; font-weight: 700;">${awayEdgeCount > homeEdgeCount ? awayTeam : (homeEdgeCount > awayEdgeCount ? homeTeam : 'Even')}</div>
                         </div>
-                        <div style="background: ${rlmPotential ? 'rgba(139, 92, 246, 0.25)' : 'rgba(100, 100, 120, 0.2)'}; padding: 6px; border-radius: 6px; text-align: center;">
-                            <span style="font-size: 12px;">${rlmPotential ? '💰' : '➖'}</span>
+                        <div style="background: ${!hasRealBettingData ? 'rgba(100, 100, 120, 0.2)' : (rlmPotential ? 'rgba(139, 92, 246, 0.25)' : 'rgba(100, 100, 120, 0.2)')}; padding: 6px; border-radius: 6px; text-align: center;">
+                            <span style="font-size: 12px;">${!hasRealBettingData ? '⏳' : (rlmPotential ? '💰' : '➖')}</span>
                             <div style="color: #888; font-size: 7px; margin-top: 2px;">RLM FAVOR</div>
-                            <div style="color: ${rlmPotential ? '#a78bfa' : '#888'}; font-size: 9px; font-weight: 700;">${rlmPotential && rlmSharpSide ? rlmSharpSide : 'None'}</div>
+                            <div style="color: ${!hasRealBettingData ? '#666' : (rlmPotential ? '#a78bfa' : '#888')}; font-size: 9px; font-weight: 700;">${!hasRealBettingData ? 'Pending' : (rlmPotential && rlmSharpSide ? rlmSharpSide : 'None')}</div>
                         </div>
-                        <div style="background: ${isPublicHeavy ? 'rgba(245, 158, 11, 0.2)' : 'rgba(16, 185, 129, 0.15)'}; padding: 6px; border-radius: 6px; text-align: center;">
-                            <span style="font-size: 12px;">${isPublicHeavy ? '🚨' : '✅'}</span>
+                        <div style="background: ${!hasRealBettingData ? 'rgba(100, 100, 120, 0.2)' : (isPublicHeavy ? 'rgba(245, 158, 11, 0.2)' : 'rgba(16, 185, 129, 0.15)')}; padding: 6px; border-radius: 6px; text-align: center;">
+                            <span style="font-size: 12px;">${!hasRealBettingData ? '⏳' : (isPublicHeavy ? '🚨' : '✅')}</span>
                             <div style="color: #888; font-size: 7px; margin-top: 2px;">PUBLIC ON</div>
-                            <div style="color: ${isPublicHeavy ? '#f59e0b' : '#10b981'}; font-size: 9px; font-weight: 700;">${isPublicHeavy ? publicHeavyTeam + ' ' + publicHeavyPct + '%' : 'Balanced'}</div>
+                            <div style="color: ${!hasRealBettingData ? '#666' : (isPublicHeavy ? '#f59e0b' : '#10b981')}; font-size: 9px; font-weight: 700;">${!hasRealBettingData ? 'Pending' : (isPublicHeavy ? publicHeavyTeam + ' ' + publicHeavyPct + '%' : 'Balanced')}</div>
                         </div>
-                        <div style="background: ${sharpSide ? 'rgba(139, 92, 246, 0.25)' : 'rgba(100, 100, 120, 0.2)'}; padding: 6px; border-radius: 6px; text-align: center;">
-                            <span style="font-size: 12px;">${sharpSide ? '🎯' : '➖'}</span>
+                        <div style="background: ${!hasRealBettingData ? 'rgba(100, 100, 120, 0.2)' : (sharpSide ? 'rgba(139, 92, 246, 0.25)' : 'rgba(100, 100, 120, 0.2)')}; padding: 6px; border-radius: 6px; text-align: center;">
+                            <span style="font-size: 12px;">${!hasRealBettingData ? '⏳' : (sharpSide ? '🎯' : '➖')}</span>
                             <div style="color: #888; font-size: 7px; margin-top: 2px;">SHARP $</div>
-                            <div style="color: ${sharpSide ? '#a78bfa' : '#888'}; font-size: 9px; font-weight: 700;">${sharpSide ? sharpSide : 'None'}</div>
+                            <div style="color: ${!hasRealBettingData ? '#666' : (sharpSide ? '#a78bfa' : '#888')}; font-size: 9px; font-weight: 700;">${!hasRealBettingData ? 'Pending' : (sharpSide ? sharpSide : 'None')}</div>
                         </div>
                         <div style="background: ${hasLineMove ? 'rgba(59, 130, 246, 0.15)' : 'rgba(100, 100, 120, 0.2)'}; padding: 6px; border-radius: 6px; text-align: center;">
                             <span style="font-size: 12px;">${hasLineMove ? '📈' : '➖'}</span>
@@ -3900,9 +3920,9 @@
                     ` : ''}
                     
                     <!-- STATUS BADGE - RLM or Public Heavy -->
-                    <div style="margin-top: 6px; padding: 6px 10px; background: ${rlmPotential ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.25), rgba(168, 85, 247, 0.2))' : (isPublicHeavy ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(239, 68, 68, 0.2))' : 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(59, 130, 246, 0.2))')}; border-radius: 8px; text-align: center;">
-                        <span style="font-weight: 700; font-size: 10px; color: ${rlmPotential ? '#a78bfa' : (isPublicHeavy ? '#f59e0b' : '#10b981')};">
-                            ${rlmPotential && rlmSharpSide ? '🔄 RLM: Line moved AGAINST ' + publicHeavyTeam + ' (sharps on ' + rlmSharpSide + ')' : (isPublicHeavy ? '📊 ' + publicHeavyPct + '% of BETS on ' + publicHeavyTeam : '✅ BALANCED ACTION')}
+                    <div style="margin-top: 6px; padding: 6px 10px; background: ${!hasRealBettingData ? 'rgba(100, 100, 120, 0.2)' : (rlmPotential ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.25), rgba(168, 85, 247, 0.2))' : (isPublicHeavy ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(239, 68, 68, 0.2))' : 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(59, 130, 246, 0.2))' ))}; border-radius: 8px; text-align: center;">
+                        <span style="font-weight: 700; font-size: 10px; color: ${!hasRealBettingData ? '#666' : (rlmPotential ? '#a78bfa' : (isPublicHeavy ? '#f59e0b' : '#10b981'))};">
+                            ${!hasRealBettingData ? '⏳ BETTING DATA PENDING' : (rlmPotential && rlmSharpSide ? '🔄 RLM: Line moved AGAINST ' + publicHeavyTeam + ' (sharps on ' + rlmSharpSide + ')' : (isPublicHeavy ? '📊 ' + publicHeavyPct + '% of BETS on ' + publicHeavyTeam : '✅ BALANCED ACTION'))}
                         </span>
                     </div>
                     
@@ -3912,23 +3932,23 @@
                             <span style="font-size: 12px;">📋</span> BETTING CHECKLIST
                         </div>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-                            <div style="display: flex; align-items: center; gap: 4px; font-size: 9px; color: ${hasSpreadData ? '#10b981' : '#ef4444'};">
-                                ${hasSpreadData ? '✓' : '✗'} Opening Line
+                            <div style="display: flex; align-items: center; gap: 4px; font-size: 9px; color: ${hasSpreadData ? '#10b981' : '#666'};">
+                                ${hasSpreadData ? '✓' : '○'} Opening Line
                             </div>
-                            <div style="display: flex; align-items: center; gap: 4px; font-size: 9px; color: ${currentSpread !== null ? '#10b981' : '#ef4444'};">
-                                ${currentSpread !== null ? '✓' : '✗'} Current Line
+                            <div style="display: flex; align-items: center; gap: 4px; font-size: 9px; color: ${currentSpread !== null ? '#10b981' : '#666'};">
+                                ${currentSpread !== null ? '✓' : '○'} Current Line
                             </div>
-                            <div style="display: flex; align-items: center; gap: 4px; font-size: 9px; color: ${(hasSharpMoney && rlmPotential) || (!stagnantLineWarning) ? '#10b981' : '#f59e0b'};">
-                                ${(hasSharpMoney && rlmPotential) ? '✓' : (stagnantLineWarning ? '⚠' : '✓')} Money/Line Align
+                            <div style="display: flex; align-items: center; gap: 4px; font-size: 9px; color: ${!hasRealBettingData ? '#666' : ((hasSharpMoney && rlmPotential) || (!stagnantLineWarning) ? '#10b981' : '#f59e0b')};">
+                                ${!hasRealBettingData ? '○' : ((hasSharpMoney && rlmPotential) ? '✓' : (stagnantLineWarning ? '⚠' : '✓'))} Money/Line Align
                             </div>
                             <div style="display: flex; align-items: center; gap: 4px; font-size: 9px; color: ${data.is_b2b ? '#ef4444' : '#10b981'};">
                                 ${data.is_b2b ? '✗ B2B' : '✓'} Situational
                             </div>
-                            <div style="display: flex; align-items: center; gap: 4px; font-size: 9px; color: ${stagnantLineWarning ? '#ef4444' : '#10b981'};">
-                                ${stagnantLineWarning ? '⚠ Trap' : '✓'} No Traps
+                            <div style="display: flex; align-items: center; gap: 4px; font-size: 9px; color: ${!hasRealBettingData ? '#666' : (stagnantLineWarning ? '#ef4444' : '#10b981')};">
+                                ${!hasRealBettingData ? '○' : (stagnantLineWarning ? '⚠ Trap' : '✓')} No Traps
                             </div>
-                            <div style="display: flex; align-items: center; gap: 4px; font-size: 9px; color: ${Math.abs(spreadForFav || 0) > 10 ? '#f59e0b' : '#10b981'};">
-                                ${Math.abs(spreadForFav || 0) > 10 ? '⚠ Large' : '✓'} Spread Size
+                            <div style="display: flex; align-items: center; gap: 4px; font-size: 9px; color: ${!hasSpreadData ? '#666' : (Math.abs(spreadForFav || 0) > 10 ? '#f59e0b' : '#10b981')};">
+                                ${!hasSpreadData ? '○' : (Math.abs(spreadForFav || 0) > 10 ? '⚠ Large' : '✓')} Spread Size
                             </div>
                         </div>
                     </div>
