@@ -3637,33 +3637,11 @@
                     const publicHeavyPct = Math.max(awayBetPct, homeBetPct);
                     const isPublicHeavy = publicHeavyPct >= 55; // 55%+ is considered public lean
                     
-                    // RLM detection - Reverse Line Movement (line moves AGAINST majority of bets)
-                    // Example: Detroit opens -5.5, public on Detroit, line drops to -4
-                    // If public on favorite, line SHOULD go more negative. If it goes less negative = RLM
-                    let rlmDetected = false;
-                    let rlmSharpSide = null;
-                    
-                    if (hasLineMove && isPublicHeavy && hasSpreadData) {
-                        const publicOnFav = publicHeavyTeam === currentFav;
-                        
-                        if (publicOnFav) {
-                            // Public on favorite - line should go MORE negative (harder to cover)
-                            // RLM = line went LESS negative (positive movement)
-                            if (lineMove > 0) {
-                                rlmDetected = true;
-                                rlmSharpSide = publicHeavyTeam === awayName ? homeName : awayName; // Sharp on underdog
-                            }
-                        } else {
-                            // Public on underdog - line should go LESS negative (harder for underdog)
-                            // RLM = line went MORE negative (negative movement)
-                            if (lineMove < 0) {
-                                rlmDetected = true;
-                                rlmSharpSide = publicHeavyTeam === awayName ? homeName : awayName; // Sharp on favorite
-                            }
-                        }
-                    }
-                    
-                    const rlmPotential = rlmDetected || data.rlm.spread_rlm_detected || false;
+                    // RLM detection - Use backend-calculated values from WagerTalk data
+                    // Backend properly determines favorite from open_favorite and calculates RLM
+                    const rlmDetected = data.rlm.spread_rlm_detected || false;
+                    const rlmSharpSide = data.rlm.spread_rlm_sharp_side || null;
+                    const rlmPotential = rlmDetected;
                     
                     return `
                 <div style="margin-top: 10px; background: linear-gradient(145deg, rgba(20, 20, 35, 0.95), rgba(15, 15, 25, 0.98)); border-radius: 10px; padding: 10px; border: 1px solid rgba(139, 92, 246, 0.4);">
