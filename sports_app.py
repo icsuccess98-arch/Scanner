@@ -2217,10 +2217,10 @@ class MatchupIntelligence:
                 majority_team = 'away' if away_bet_pct > home_bet_pct else 'home'
                 majority_pct = max(away_bet_pct, home_bet_pct)
                 
-                # Line movement data - scraper returns 'open_spread', 'current_spread', 'total_open_line', 'total_current_line'
-                spread_open_line = data.get('open_spread') or data.get('spread_open_line')
+                # Line movement data
+                spread_open_line = data.get('spread_open_line')
                 spread_open_odds = data.get('spread_open_odds')
-                spread_current_line = data.get('current_spread') or data.get('spread_current_line')
+                spread_current_line = data.get('spread_current_line')
                 spread_current_odds = data.get('spread_current_odds')
                 total_open_line = data.get('total_open_line')
                 total_open_odds = data.get('total_open_odds')
@@ -2235,6 +2235,9 @@ class MatchupIntelligence:
                 spread_rlm_sharp_side = None
                 totals_rlm_detected = False
                 totals_rlm_sharp_side = None
+                
+                # === CORRECTED RLM DETECTION ===
+                # RLM = Line moves OPPOSITE direction of public money
                 
                 # SPREAD RLM: Detect reverse line movement for spreads
                 try:
@@ -2253,10 +2256,13 @@ class MatchupIntelligence:
                             # Determine which side public is on (use money % as more meaningful)
                             if away_money_pct >= 55:
                                 public_side = 'away'
+                                public_pct = away_money_pct
                             elif home_money_pct >= 55:
                                 public_side = 'home'
+                                public_pct = home_money_pct
                             else:
                                 public_side = 'balanced'
+                                public_pct = 50
                             
                             # Determine direction line moved
                             # Positive movement = line moved toward home
@@ -2295,10 +2301,13 @@ class MatchupIntelligence:
                             # Determine which side public is on
                             if over_money_pct >= 55:
                                 public_side = 'over'
+                                public_pct = over_money_pct
                             elif under_money_pct >= 55:
                                 public_side = 'under'
+                                public_pct = under_money_pct
                             else:
                                 public_side = 'balanced'
+                                public_pct = 50
                             
                             # RLM for totals:
                             # Public on Over → total should go UP (harder for Over)
@@ -7934,28 +7943,6 @@ def api_live_scores():
     _live_scores_cache["timestamp"] = time.time()
     return jsonify(result)
 
-@app.route('/api/live_lines')
-@app.route('/api/live_lines/<league>')
-def api_live_lines(league='NBA'):
-    """Get current live lines from The Odds API - refreshes every 30 seconds."""
-    try:
-        from live_odds_fetcher import get_live_odds
-        odds_data = get_live_odds(league.upper())
-        return jsonify({
-            'success': True,
-            'league': league.upper(),
-            'lines': odds_data,
-            'count': len(odds_data),
-            'timestamp': time.time()
-        })
-    except Exception as e:
-        logging.error(f"Live lines API error: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'lines': {}
-        })
-
 @app.route('/api/covers_h2h/<int:game_id>')
 def api_covers_h2h(game_id):
     """Get full H2H data from Covers.com - W/L, ATS, O/U with team logos and games."""
@@ -9626,7 +9613,6 @@ def api_history_data():
         'picks': picks_data
     })
 
-
 @app.route('/api/line_movement_updates')
 def api_line_movement_updates():
     """
@@ -10231,35 +10217,11 @@ def get_matchup_data(game_id):
     """Fetch live matchup data from TeamRankings matchup page."""
     game = Game.query.get_or_404(game_id)
     
-    # Check if game has started based on game time
-    game_started = False
-    try:
-        from datetime import datetime
-        import pytz
-        eastern = pytz.timezone('US/Eastern')
-        now = datetime.now(eastern)
-        
-        # Parse game time (format like "7:10p")
-        game_time_str = game.game_time if hasattr(game, 'game_time') and game.game_time else None
-        if game_time_str:
-            # Handle format like "7:10p" or "7:10 PM"
-            time_str = game_time_str.replace('p', ' PM').replace('a', ' AM').upper()
-            try:
-                game_time_obj = datetime.strptime(time_str.strip(), "%I:%M %p")
-                game_datetime = now.replace(hour=game_time_obj.hour, minute=game_time_obj.minute, second=0)
-                # Game considered started if current time is past game time
-                game_started = now >= game_datetime
-            except:
-                pass
-    except Exception as e:
-        logging.debug(f"Game started check error: {e}")
-    
     result = {
         'game_id': game_id,
         'away_team': game.away_team,
         'home_team': game.home_team,
         'league': game.league,
-        'game_started': game_started,
         'away_season': {},
         'home_season': {},
         'away_l3': {},
@@ -10423,150 +10385,38 @@ def get_matchup_data(game_id):
             except Exception as e:
                 logging.warning(f"RLM fetch error: {e}")
             
-            # Get lines from WagerTalk first, fallback to database (The Odds API)
-            wt_open_spread = rlm_data.get('open_spread')
-            wt_current_spread = rlm_data.get('current_spread')
-            wt_open_total = rlm_data.get('total_open_line')
-            wt_current_total = rlm_data.get('total_current_line')
-            
-            # Use WagerTalk data if available, else fallback to database
-            db_spread = game.spread if hasattr(game, 'spread') else None
-            db_opening_spread = game.opening_spread if hasattr(game, 'opening_spread') else None
-            db_total = game.total if hasattr(game, 'total') else None
-            db_opening_total = game.opening_total if hasattr(game, 'opening_total') else None
-            
-            # Prefer WagerTalk lines (most up-to-date)
-            open_spread = wt_open_spread if wt_open_spread else db_opening_spread
-            current_spread = wt_current_spread if wt_current_spread else db_spread
-            open_total = wt_open_total if wt_open_total else db_opening_total
-            current_total = wt_current_total if wt_current_total else db_total
-            
-            # Get away/home bet percentages from WagerTalk
-            away_bet = int(rlm_data.get('away_bet_pct', rlm_data.get('away', {}).get('bet_pct', 50)) or 50)
-            home_bet = int(rlm_data.get('home_bet_pct', rlm_data.get('home', {}).get('bet_pct', 50)) or 50)
-            away_money = int(rlm_data.get('away_money_pct', rlm_data.get('away', {}).get('money_pct', 50)) or 50)
-            home_money = int(rlm_data.get('home_money_pct', rlm_data.get('home', {}).get('money_pct', 50)) or 50)
-            
-            # Get Over/Under percentages from WagerTalk
-            over_bet = int(rlm_data.get('over_bet_pct', 50) or 50)
-            under_bet = int(rlm_data.get('under_bet_pct', 50) or 50)
-            over_money = int(rlm_data.get('over_money_pct', 50) or 50)
-            under_money = int(rlm_data.get('under_money_pct', 50) or 50)
-            
-            # Detect sharp money (money % significantly different from tickets %)
-            away_sharp_diff = away_money - away_bet
-            home_sharp_diff = home_money - home_bet
-            spread_sharp_detected = abs(away_sharp_diff) >= 10 or abs(home_sharp_diff) >= 10
-            spread_sharp_side = game.away_team if away_sharp_diff >= 10 else (game.home_team if home_sharp_diff >= 10 else None)
-            
-            # Detect RLM (line moves opposite to public betting)
-            spread_rlm_detected = False
-            spread_rlm_sharp_side = None
-            totals_rlm_detected = False
-            totals_rlm_sharp_side = None
-            
-            # SPREAD RLM: Use MONEY percentages (more meaningful than tickets)
-            if current_spread is not None and open_spread is not None:
-                try:
-                    line_move = float(current_spread) - float(open_spread)
-                    movement_abs = abs(line_move)
-                    
-                    # Need at least 0.5 point movement
-                    if movement_abs >= 0.5:
-                        # Determine public side using money %
-                        if away_money >= 55:
-                            public_side = 'away'
-                        elif home_money >= 55:
-                            public_side = 'home'
-                        else:
-                            public_side = 'balanced'
-                        
-                        # Determine line direction
-                        if line_move > 0:
-                            line_moved_toward = 'home'
-                        else:
-                            line_moved_toward = 'away'
-                        
-                        # RLM: Public on one side, line moves to OTHER side
-                        if public_side == 'away' and line_moved_toward == 'home':
-                            spread_rlm_detected = True
-                            spread_rlm_sharp_side = game.home_team
-                        elif public_side == 'home' and line_moved_toward == 'away':
-                            spread_rlm_detected = True
-                            spread_rlm_sharp_side = game.away_team
-                except:
-                    pass
-            
-            # TOTALS RLM: Use MONEY percentages (more meaningful than tickets)
-            if current_total is not None and open_total is not None:
-                try:
-                    total_move = float(current_total) - float(open_total)
-                    movement_abs = abs(total_move)
-                    
-                    # Need at least 0.5 point movement
-                    if movement_abs >= 0.5:
-                        # Determine public side using money %
-                        if over_money >= 55:
-                            public_side = 'over'
-                        elif under_money >= 55:
-                            public_side = 'under'
-                        else:
-                            public_side = 'balanced'
-                        
-                        # RLM for totals: Public vs line direction
-                        if public_side == 'over' and total_move < 0:
-                            # Public on Over, total dropped → RLM (sharp on Over)
-                            totals_rlm_detected = True
-                            totals_rlm_sharp_side = 'OVER'
-                        elif public_side == 'under' and total_move > 0:
-                            # Public on Under, total rose → RLM (sharp on Under)
-                            totals_rlm_detected = True
-                            totals_rlm_sharp_side = 'UNDER'
-                except:
-                    pass
-            
-            # Majority team
-            majority_pct = max(away_bet, home_bet)
-            majority_team = game.away_team if away_bet > home_bet else game.home_team
-            
             # Add RLM checklist data to result
             result['rlm'] = {
-                'open_spread': open_spread if open_spread else 'N/A',
-                'current_spread': current_spread if current_spread else 'N/A',
-                'away_spread': current_spread if current_spread else 'N/A',
-                'home_spread': current_spread if current_spread else 'N/A',
-                'spread_open_line': open_spread if open_spread else 'N/A',
-                'spread_current_line': current_spread if current_spread else 'N/A',
+                'away_spread': rlm_data.get('current_spread', rlm_data.get('spread_current_line', 'N/A')),
+                'home_spread': rlm_data.get('home', {}).get('spread', 'N/A'),
+                'open_spread': rlm_data.get('open_spread', rlm_data.get('spread_open_line', 'N/A')),
+                'current_spread': rlm_data.get('current_spread', rlm_data.get('spread_current_line', 'N/A')),
+                'spread_open_line': rlm_data.get('open_spread', rlm_data.get('spread_open_line', 'N/A')),
+                'spread_current_line': rlm_data.get('current_spread', rlm_data.get('spread_current_line', 'N/A')),
                 'spread_open_odds': rlm_data.get('spread_open_odds', '-110'),
                 'spread_current_odds': rlm_data.get('spread_current_odds', '-110'),
-                'spread_tickets_pct': away_bet,
-                'spread_money_pct': away_money,
-                'spread_sharp_detected': spread_sharp_detected,
-                'spread_sharp_side': spread_sharp_side,
-                'total_open_line': open_total if open_total else 'N/A',
-                'total_current_line': current_total if current_total else 'N/A',
+                'spread_tickets_pct': rlm_data.get('spread_tickets_pct', 50),
+                'spread_money_pct': rlm_data.get('spread_money_pct', 50),
+                'spread_sharp_detected': rlm_data.get('spread_sharp_detected', False),
+                'spread_sharp_side': rlm_data.get('spread_sharp_side'),
+                'total_open_line': rlm_data.get('total_open_line', 'N/A'),
+                'total_current_line': rlm_data.get('total_current_line', 'N/A'),
                 'total_open_odds': rlm_data.get('total_open_odds', '-110'),
                 'total_current_odds': rlm_data.get('total_current_odds', '-110'),
                 'line_movement': rlm_data.get('line_movement', 'N/A'),
-                'away_bet_pct': away_bet,
-                'home_bet_pct': home_bet,
-                'away_money_pct': away_money,
-                'home_money_pct': home_money,
-                # Totals betting percentages from WagerTalk
-                'over_bet_pct': over_bet,
-                'under_bet_pct': under_bet,
-                'over_money_pct': over_money,
-                'under_money_pct': under_money,
-                'totals_data_available': over_bet != 50 or under_bet != 50,
-                'majority_team': majority_team,
-                'majority_pct': majority_pct,
-                'rlm_potential': spread_rlm_detected or totals_rlm_detected,
-                'spread_rlm_detected': spread_rlm_detected,
-                'spread_rlm_sharp_side': spread_rlm_sharp_side,
-                'totals_rlm_detected': totals_rlm_detected,
-                'totals_rlm_sharp_side': totals_rlm_sharp_side,
-                'sharp_detected': spread_sharp_detected,
-                'sharp_side': spread_sharp_side
+                'away_bet_pct': rlm_data.get('away_bet_pct', rlm_data.get('away', {}).get('bet_pct', 50)),
+                'home_bet_pct': rlm_data.get('home_bet_pct', rlm_data.get('home', {}).get('bet_pct', 50)),
+                'away_money_pct': rlm_data.get('away_money_pct', rlm_data.get('away', {}).get('money_pct', 50)),
+                'home_money_pct': rlm_data.get('home_money_pct', rlm_data.get('home', {}).get('money_pct', 50)),
+                'over_bet_pct': rlm_data.get('over_bet_pct', 50),
+                'under_bet_pct': rlm_data.get('under_bet_pct', 50),
+                'over_money_pct': rlm_data.get('over_money_pct', 50),
+                'under_money_pct': rlm_data.get('under_money_pct', 50),
+                'majority_team': rlm_data.get('majority_team', 'N/A'),
+                'majority_pct': rlm_data.get('majority_pct', 0),
+                'rlm_potential': rlm_data.get('rlm_potential', False),
+                'sharp_detected': rlm_data.get('sharp_detected', False),
+                'sharp_side': rlm_data.get('sharp_side')
             }
             
             # Convert to display format - Season Stats using exact TeamRankings stat names
