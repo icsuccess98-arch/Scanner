@@ -47,12 +47,55 @@ NBA_TEAMS = [
     'Phoenix', 'Portland', 'Sacramento', 'San Antonio', 'Toronto', 'Utah', 'Washington'
 ]
 
+CBB_TEAMS = [
+    # ACC
+    'Duke', 'North Carolina', 'Virginia', 'Louisville', 'Syracuse', 'Clemson',
+    'NC State', 'Wake Forest', 'Virginia Tech', 'Pittsburgh', 'Georgia Tech',
+    'Boston College', 'Notre Dame', 'Florida State',
+    # Big Ten
+    'Michigan State', 'Michigan', 'Ohio State', 'Illinois', 'Wisconsin', 'Purdue',
+    'Indiana', 'Iowa', 'Maryland', 'Minnesota', 'Penn State', 'Rutgers', 
+    'Northwestern', 'Nebraska',
+    # Big 12
+    'Kansas', 'Baylor', 'Texas', 'Texas Tech', 'Kansas State', 'Oklahoma',
+    'Oklahoma State', 'West Virginia', 'TCU', 'Iowa State', 'BYU', 'UCF', 
+    'Cincinnati', 'Houston', 'Colorado',
+    # SEC
+    'Kentucky', 'Tennessee', 'Auburn', 'Alabama', 'Arkansas', 'LSU', 'Florida',
+    'Missouri', 'Mississippi State', 'Ole Miss', 'South Carolina', 'Georgia',
+    'Vanderbilt', 'Texas A&M',
+    # Pac-12 / Big West
+    'Arizona', 'UCLA', 'USC', 'Oregon', 'Arizona State', 'Washington', 'Stanford',
+    'Utah', 'Oregon State', 'Washington State', 'California',
+    # Big East
+    'Villanova', 'Creighton', 'Xavier', 'Seton Hall', 'Butler', 'Marquette',
+    'Georgetown', 'Providence', 'St. Johns', "St. John's", 'DePaul', 'UConn',
+    'Connecticut',
+    # Other Power Programs
+    'Gonzaga', 'Memphis', 'SMU', 'Tulane', 'Wichita State', 'San Diego State',
+    # Mid-Majors
+    'Davidson', 'VCU', 'Dayton', 'Saint Louis', 'Richmond', 'George Mason',
+    'Murray State', 'Loyola Chicago', 'Saint Marys', "Saint Mary's", 'Belmont',
+    'New Mexico', 'UNLV', 'Nevada', 'Fresno State', 'Boise State',
+    # Common name variants
+    'UNC', 'MSU', 'OSU', 'UVA', 'UMD', 'PSU', 'IU', 'UW', 'ASU', 'WSU'
+]
+
 
 def _is_nba_team(name: str) -> bool:
     if not name:
         return False
     name_lower = name.lower()
     return any(team.lower() in name_lower for team in NBA_TEAMS)
+
+
+def _is_cbb_team(name: str) -> bool:
+    if not name:
+        return False
+    if _is_nba_team(name):
+        return False
+    name_lower = name.lower()
+    return any(team.lower() in name_lower for team in CBB_TEAMS)
 
 
 async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
@@ -132,6 +175,10 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                         has_nba_team = any(_is_nba_team(team) for team in row_text.split('\n'))
                         if not has_nba_team:
                             continue
+                    elif league == 'CBB':
+                        has_cbb_team = any(_is_cbb_team(team) for team in row_text.split('\n'))
+                        if not has_cbb_team:
+                            continue
                     
                     cells = await row.query_selector_all('td, th')
                     if len(cells) < 3:
@@ -143,9 +190,10 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                         cell_text = await cell.inner_text()
                         cell_values.append(cell_text.strip())
                     
-                    # Debug: Log cell values for first few rows with NBA teams
-                    if games_found < 3 and any(_is_nba_team(cv) for cv in cell_values):
-                        logger.info(f"[WagerTalk DEBUG] Cells: {cell_values[:8]}")
+                    # Debug: Log cell values for first few rows with teams
+                    is_relevant_team = any(_is_nba_team(cv) for cv in cell_values) if league == 'NBA' else any(_is_cbb_team(cv) for cv in cell_values)
+                    if games_found < 3 and is_relevant_team:
+                        logger.info(f"[WagerTalk DEBUG] {league} Cells: {cell_values[:8]}")
                     
                     # WagerTalk column layout:
                     # 0: Date/time, 1: Rotation#, 2: Teams, 3: Score (SKIP!), 4: empty, 
@@ -173,13 +221,14 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                     money_percentages = []
                     lines_found = []
                     
-                    # Get teams from column 2
+                    # Get teams from column 2 - use league-aware detection
                     if len(cell_values) > 2:
                         teams_cell = cell_values[2]
                         team_lines = teams_cell.split('\n')
                         for tl in team_lines:
                             tl = tl.strip()
-                            if _is_nba_team(tl):
+                            is_team = _is_nba_team(tl) if league == 'NBA' else (_is_cbb_team(tl) or len(tl) > 3)
+                            if is_team:
                                 if not away_team:
                                     away_team = _normalize_team_name(tl)
                                 elif not home_team:

@@ -1360,6 +1360,31 @@ class MatchupIntelligence:
             return {}
     
     @staticmethod
+    def fetch_kenpom_stats(team_name: str) -> dict:
+        """
+        Fetch KenPom advanced analytics for CBB teams.
+        PLACEHOLDER: Will be activated when user provides KenPom API key.
+        
+        KenPom provides:
+        - Adjusted Offensive Efficiency (AdjO)
+        - Adjusted Defensive Efficiency (AdjD)
+        - Adjusted Tempo
+        - Luck factor
+        - Strength of Schedule (SOS)
+        - Four Factors: eFG%, TOV%, ORB%, FT Rate (offense & defense)
+        """
+        try:
+            kenpom_key = os.environ.get('KENPOM_API_KEY')
+            if not kenpom_key:
+                return {}
+            
+            return {}
+            
+        except Exception as e:
+            logger.warning(f"Error fetching KenPom stats for {team_name}: {e}")
+            return {}
+    
+    @staticmethod
     def fetch_teamrankings_stats(team_name: str, league: str = 'NBA') -> dict:
         """
         Fetch comprehensive team stats from TeamRankings.com including rankings and SOS.
@@ -10591,11 +10616,15 @@ def get_matchup_data(game_id):
             def fetch_ctg_away():
                 if game.league == 'NBA':
                     return MatchupIntelligence.fetch_ctg_four_factors(game.away_team)
+                elif game.league == 'CBB':
+                    return MatchupIntelligence.fetch_kenpom_stats(game.away_team)
                 return {}
             
             def fetch_ctg_home():
                 if game.league == 'NBA':
                     return MatchupIntelligence.fetch_ctg_four_factors(game.home_team)
+                elif game.league == 'CBB':
+                    return MatchupIntelligence.fetch_kenpom_stats(game.home_team)
                 return {}
             
             def fetch_h2h():
