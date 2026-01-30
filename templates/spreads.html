@@ -4215,8 +4215,50 @@
         setInterval(updateRefreshTime, 10000);
         updateRefreshTime();
         
-        // BEST BET OF THE DAY - Only shows 2hrs before game with all criteria passing
+        // BEST BET OF THE DAY - Auto-loads on page load
         let bestBetData = {};
+        let bestBetCurrentId = null; // Track current best bet to prevent flickering
+        
+        function displayBestBet(bestGame) {
+            const heroCard = document.getElementById('best-bet-hero');
+            if (!heroCard) return;
+            
+            if (bestGame) {
+                // Only update if it's a different game or first time
+                if (bestBetCurrentId !== bestGame.gameId) {
+                    bestBetCurrentId = bestGame.gameId;
+                    
+                    document.getElementById('best-bet-league').textContent = bestGame.league || 'NBA';
+                    document.getElementById('best-bet-away-name').textContent = bestGame.awayTeam;
+                    document.getElementById('best-bet-home-name').textContent = bestGame.homeTeam;
+                    document.getElementById('best-bet-time').textContent = bestGame.gameTime || '';
+                    document.getElementById('best-bet-side').textContent = 
+                        bestGame.sharpSide + ' ' + (bestGame.spread || '');
+                    
+                    if (bestGame.awayLogo) {
+                        document.getElementById('best-bet-away-logo').src = bestGame.awayLogo;
+                    }
+                    if (bestGame.homeLogo) {
+                        document.getElementById('best-bet-home-logo').src = bestGame.homeLogo;
+                    }
+                    
+                    const reasons = [];
+                    if (bestGame.divergence >= 30) reasons.push('💰 EXTREME Sharp (' + bestGame.divergence.toFixed(0) + '%)');
+                    else if (bestGame.divergence >= 20) reasons.push('💰 Strong Sharp (' + bestGame.divergence.toFixed(0) + '%)');
+                    else reasons.push('💰 Sharp Money (' + bestGame.divergence.toFixed(0) + '%)');
+                    if (bestGame.rlmDetected) reasons.push('📈 RLM Confirmed');
+                    if (bestGame.checklistScore >= 5) reasons.push('✅ ' + bestGame.checklistScore + '/6 Checklist');
+                    if (bestGame.spreadSize <= 7) reasons.push('🎯 Small Spread');
+                    
+                    document.getElementById('best-bet-reasons').innerHTML = 
+                        reasons.map(r => '<span class="best-bet-reason">' + r + '</span>').join('');
+                }
+                heroCard.classList.add('show');
+            } else {
+                heroCard.classList.remove('show');
+                bestBetCurrentId = null;
+            }
+        }
         
         function evaluateBestBet() {
             const now = Date.now();
@@ -4224,22 +4266,15 @@
             let bestGame = null;
             let bestScore = 0;
             
-            // Evaluate each game in bestBetData
             Object.keys(bestBetData).forEach(gameId => {
                 const data = bestBetData[gameId];
                 if (!data || !data.gameTimeMs) return;
                 
-                // Only consider games within 2 hours
                 const timeUntil = data.gameTimeMs - now;
                 if (timeUntil > TWO_HOURS || timeUntil < 0) return;
-                
-                // Must have sharp money (10%+ divergence)
                 if (!data.hasSharpMoney) return;
-                
-                // Must have good checklist score (5+ of 6)
                 if (data.checklistScore < 5) return;
                 
-                // Calculate score: divergence + checklist bonus + RLM bonus
                 let score = data.divergence + (data.checklistScore * 5);
                 if (data.rlmDetected) score += 20;
                 if (data.spreadSize <= 7) score += 10;
@@ -4250,112 +4285,144 @@
                 }
             });
             
-            const heroCard = document.getElementById('best-bet-hero');
-            if (bestGame && heroCard) {
-                heroCard.classList.add('show');
-                document.getElementById('best-bet-league').textContent = bestGame.league || 'NBA';
-                document.getElementById('best-bet-away-name').textContent = bestGame.awayTeam;
-                document.getElementById('best-bet-home-name').textContent = bestGame.homeTeam;
-                document.getElementById('best-bet-time').textContent = bestGame.gameTime || '';
-                document.getElementById('best-bet-side').textContent = 
-                    bestGame.sharpSide + ' ' + (bestGame.spread || '');
-                
-                // Set logos
-                if (bestGame.awayLogo) {
-                    document.getElementById('best-bet-away-logo').src = bestGame.awayLogo;
-                }
-                if (bestGame.homeLogo) {
-                    document.getElementById('best-bet-home-logo').src = bestGame.homeLogo;
-                }
-                
-                // Build reasons
-                const reasons = [];
-                if (bestGame.divergence >= 30) reasons.push('💰 EXTREME Sharp (' + bestGame.divergence.toFixed(0) + '%)');
-                else if (bestGame.divergence >= 20) reasons.push('💰 Strong Sharp (' + bestGame.divergence.toFixed(0) + '%)');
-                else reasons.push('💰 Sharp Money (' + bestGame.divergence.toFixed(0) + '%)');
-                if (bestGame.rlmDetected) reasons.push('📈 RLM Confirmed');
-                if (bestGame.checklistScore >= 5) reasons.push('✅ ' + bestGame.checklistScore + '/6 Checklist');
-                if (bestGame.spreadSize <= 7) reasons.push('🎯 Small Spread');
-                
-                document.getElementById('best-bet-reasons').innerHTML = 
-                    reasons.map(r => '<span class="best-bet-reason">' + r + '</span>').join('');
-            } else if (heroCard) {
-                heroCard.classList.remove('show');
-            }
+            displayBestBet(bestGame);
         }
         
-        // Hook into matchup data loading to capture betting info
-        const originalToggleMatchup = window.toggleMatchup;
-        if (typeof toggleMatchup !== 'undefined') {
-            const _origUpdateMatchupStats = window.updateMatchupStats;
-            window.updateMatchupStats = function(container, data) {
-                // Call original first
-                if (_origUpdateMatchupStats) _origUpdateMatchupStats(container, data);
-                
-                // Extract game info from container
-                const gameCard = container.closest('.game-card');
-                if (!gameCard) return;
-                
+        // Auto-fetch Best Bet data for all games on page load
+        async function loadBestBetData() {
+            const gameCards = document.querySelectorAll('.game-card[data-game-id]');
+            const fetchPromises = [];
+            
+            gameCards.forEach(gameCard => {
                 const gameId = gameCard.dataset.gameId;
-                const rlm = data.rlm || {};
-                const awayBetPct = parseInt(rlm.away_bet_pct) || 50;
-                const homeBetPct = parseInt(rlm.home_bet_pct) || 50;
-                const awayMoneyPct = parseInt(rlm.away_money_pct) || 50;
-                const homeMoneyPct = parseInt(rlm.home_money_pct) || 50;
-                const awaySharpDiff = awayMoneyPct - awayBetPct;
-                const homeSharpDiff = homeMoneyPct - homeBetPct;
-                const hasSharpMoney = awaySharpDiff >= 10 || homeSharpDiff >= 10;
-                const sharpSide = awaySharpDiff >= homeSharpDiff ? data.away_team : data.home_team;
-                const divergence = Math.max(awaySharpDiff, homeSharpDiff);
+                if (!gameId) return;
                 
-                // Calculate checklist score
-                let checklistScore = 0;
-                if (rlm.open_spread) checklistScore++;
-                if (rlm.current_spread) checklistScore++;
-                if (!data.is_b2b) checklistScore++;
-                const spread = parseFloat(rlm.current_spread) || 0;
-                if (Math.abs(spread) <= 10) checklistScore++;
-                const heavyMoney = Math.max(awayMoneyPct, homeMoneyPct);
-                const stagnant = heavyMoney >= 65 && Math.abs((parseFloat(rlm.current_spread) || 0) - (parseFloat(rlm.open_spread) || 0)) < 0.5;
-                if (!stagnant) checklistScore++;
-                if (hasSharpMoney && (rlm.spread_rlm_detected || divergence >= 15)) checklistScore++;
+                const promise = fetch(`/api/matchup_data/${gameId}`)
+                    .then(res => res.ok ? res.json() : null)
+                    .then(data => {
+                        if (!data) return;
+                        
+                        const rlm = data.rlm || {};
+                        const awayBetPct = parseInt(rlm.away?.bet_pct) || parseInt(rlm.spread_tickets_pct) || 50;
+                        const homeBetPct = 100 - awayBetPct;
+                        const awayMoneyPct = parseInt(rlm.away?.money_pct) || parseInt(rlm.spread_money_pct) || 50;
+                        const homeMoneyPct = 100 - awayMoneyPct;
+                        const awaySharpDiff = awayMoneyPct - awayBetPct;
+                        const homeSharpDiff = homeMoneyPct - homeBetPct;
+                        const hasSharpMoney = awaySharpDiff >= 10 || homeSharpDiff >= 10;
+                        const sharpSide = awaySharpDiff >= homeSharpDiff ? data.away_team : data.home_team;
+                        const divergence = Math.max(awaySharpDiff, homeSharpDiff);
+                        
+                        let checklistScore = 0;
+                        if (rlm.open_spread) checklistScore++;
+                        if (rlm.current_spread) checklistScore++;
+                        if (!data.is_b2b) checklistScore++;
+                        const spread = parseFloat(rlm.current_spread) || 0;
+                        if (Math.abs(spread) <= 10) checklistScore++;
+                        const heavyMoney = Math.max(awayMoneyPct, homeMoneyPct);
+                        const stagnant = heavyMoney >= 65 && Math.abs((parseFloat(rlm.current_spread) || 0) - (parseFloat(rlm.open_spread) || 0)) < 0.5;
+                        if (!stagnant) checklistScore++;
+                        if (hasSharpMoney && (rlm.spread_rlm_detected || divergence >= 15)) checklistScore++;
+                        
+                        const timeBar = gameCard.querySelector('.game-time');
+                        const gameTimeText = timeBar ? timeBar.textContent.trim() : '';
+                        const logos = gameCard.querySelectorAll('.team-logo');
+                        const awayLogo = logos[0] ? logos[0].src : '';
+                        const homeLogo = logos[1] ? logos[1].src : '';
+                        const leagueSection = gameCard.closest('.league-section');
+                        const league = leagueSection ? leagueSection.dataset.league : 'NBA';
+                        
+                        bestBetData[gameId] = {
+                            awayTeam: data.away_team,
+                            homeTeam: data.home_team,
+                            hasSharpMoney,
+                            sharpSide,
+                            divergence,
+                            rlmDetected: rlm.spread_rlm_detected || false,
+                            spreadSize: Math.abs(spread),
+                            spread: rlm.current_spread,
+                            checklistScore,
+                            gameTimeMs: data.game_time_ms || Date.now() + 3600000,
+                            gameTime: gameTimeText,
+                            awayLogo,
+                            homeLogo,
+                            league
+                        };
+                    })
+                    .catch(() => {}); // Silent fail
                 
-                // Get game time
-                const timeBar = gameCard.querySelector('.game-time');
-                const gameTimeText = timeBar ? timeBar.textContent.trim() : '';
-                
-                // Get logos
-                const logos = gameCard.querySelectorAll('.team-logo');
-                const awayLogo = logos[0] ? logos[0].src : '';
-                const homeLogo = logos[1] ? logos[1].src : '';
-                
-                // Get league
-                const leagueSection = gameCard.closest('.league-section');
-                const league = leagueSection ? leagueSection.dataset.league : 'NBA';
-                
-                bestBetData[gameId] = {
-                    awayTeam: data.away_team,
-                    homeTeam: data.home_team,
-                    hasSharpMoney,
-                    sharpSide,
-                    divergence,
-                    rlmDetected: rlm.spread_rlm_detected || false,
-                    spreadSize: Math.abs(spread),
-                    spread: rlm.current_spread,
-                    checklistScore,
-                    gameTimeMs: data.game_time_ms || Date.now() + 3600000,
-                    gameTime: gameTimeText,
-                    awayLogo,
-                    homeLogo,
-                    league
-                };
-                
-                evaluateBestBet();
-            };
+                fetchPromises.push(promise);
+            });
+            
+            // Wait for all fetches to complete, then evaluate
+            await Promise.all(fetchPromises);
+            evaluateBestBet();
         }
         
-        // Check for best bet every minute
+        // Load best bet data on page load (staggered to not overload server)
+        setTimeout(loadBestBetData, 1000);
+        
+        // Re-check every minute
         setInterval(evaluateBestBet, 60000);
+        
+        // Also update when Model Breakdown is loaded
+        const _origUpdateMatchupStats = window.updateMatchupStats;
+        window.updateMatchupStats = function(container, data) {
+            if (_origUpdateMatchupStats) _origUpdateMatchupStats(container, data);
+            
+            const gameCard = container.closest('.game-card');
+            if (!gameCard) return;
+            
+            const gameId = gameCard.dataset.gameId;
+            const rlm = data.rlm || {};
+            const awayBetPct = parseInt(rlm.away?.bet_pct) || parseInt(rlm.spread_tickets_pct) || 50;
+            const homeBetPct = 100 - awayBetPct;
+            const awayMoneyPct = parseInt(rlm.away?.money_pct) || parseInt(rlm.spread_money_pct) || 50;
+            const homeMoneyPct = 100 - awayMoneyPct;
+            const awaySharpDiff = awayMoneyPct - awayBetPct;
+            const homeSharpDiff = homeMoneyPct - homeBetPct;
+            const hasSharpMoney = awaySharpDiff >= 10 || homeSharpDiff >= 10;
+            const sharpSide = awaySharpDiff >= homeSharpDiff ? data.away_team : data.home_team;
+            const divergence = Math.max(awaySharpDiff, homeSharpDiff);
+            
+            let checklistScore = 0;
+            if (rlm.open_spread) checklistScore++;
+            if (rlm.current_spread) checklistScore++;
+            if (!data.is_b2b) checklistScore++;
+            const spread = parseFloat(rlm.current_spread) || 0;
+            if (Math.abs(spread) <= 10) checklistScore++;
+            const heavyMoney = Math.max(awayMoneyPct, homeMoneyPct);
+            const stagnant = heavyMoney >= 65 && Math.abs((parseFloat(rlm.current_spread) || 0) - (parseFloat(rlm.open_spread) || 0)) < 0.5;
+            if (!stagnant) checklistScore++;
+            if (hasSharpMoney && (rlm.spread_rlm_detected || divergence >= 15)) checklistScore++;
+            
+            const timeBar = gameCard.querySelector('.game-time');
+            const gameTimeText = timeBar ? timeBar.textContent.trim() : '';
+            const logos = gameCard.querySelectorAll('.team-logo');
+            const awayLogo = logos[0] ? logos[0].src : '';
+            const homeLogo = logos[1] ? logos[1].src : '';
+            const leagueSection = gameCard.closest('.league-section');
+            const league = leagueSection ? leagueSection.dataset.league : 'NBA';
+            
+            bestBetData[gameId] = {
+                awayTeam: data.away_team,
+                homeTeam: data.home_team,
+                hasSharpMoney,
+                sharpSide,
+                divergence,
+                rlmDetected: rlm.spread_rlm_detected || false,
+                spreadSize: Math.abs(spread),
+                spread: rlm.current_spread,
+                checklistScore,
+                gameTimeMs: data.game_time_ms || Date.now() + 3600000,
+                gameTime: gameTimeText,
+                awayLogo,
+                homeLogo,
+                league
+            };
+            
+            evaluateBestBet();
+        };
         
         (function() {
             const pullRefresh = document.getElementById('pull-refresh');
