@@ -2981,18 +2981,37 @@
                     const awayColor = getTeamColor(awayTeam, 'primary');
                     const homeColor = getTeamColor(homeTeam, 'primary');
                     
-                    // Line movement logic - determine favorite at open vs current
-                    const openSpread = parseFloat(data.rlm.open_spread) || 0;
-                    const currentSpread = parseFloat(data.rlm.away_spread) || 0;
-                    const lineMove = currentSpread - openSpread;
-                    const hasLineMove = Math.abs(lineMove) >= 0.5;
+                    // Line movement logic - safely parse spreads (handle 'N/A' strings)
+                    const parseSpread = (val) => {
+                        if (val === 'N/A' || val === null || val === undefined || val === '') return null;
+                        const num = parseFloat(val);
+                        return isNaN(num) ? null : num;
+                    };
+                    const openSpread = parseSpread(data.rlm.open_spread);
+                    const currentSpread = parseSpread(data.rlm.current_spread) || parseSpread(data.rlm.away_spread);
+                    const hasSpreadData = openSpread !== null && currentSpread !== null;
+                    const lineMove = hasSpreadData ? currentSpread - openSpread : 0;
+                    const hasLineMove = hasSpreadData && Math.abs(lineMove) >= 0.5;
                     
-                    // Determine who is favorite (negative spread = favorite)
-                    const openFav = openSpread < 0 ? awayName : (openSpread > 0 ? homeName : 'Pick');
-                    const currentFav = currentSpread < 0 ? awayName : (currentSpread > 0 ? homeName : 'Pick');
-                    const openSpreadDisplay = openSpread < 0 ? `${awayName} ${openSpread}` : (openSpread > 0 ? `${homeName} -${openSpread}` : 'Pick');
-                    const currentSpreadDisplay = currentSpread < 0 ? `${awayName} ${currentSpread}` : (currentSpread > 0 ? `${homeName} -${currentSpread}` : 'Pick');
-                    const favFlipped = openFav !== currentFav && openFav !== 'Pick' && currentFav !== 'Pick';
+                    // Determine who is favorite (negative spread = away team favorite)
+                    const openFav = !hasSpreadData ? 'N/A' : (openSpread < 0 ? awayName : (openSpread > 0 ? homeName : 'Pick'));
+                    const currentFav = !hasSpreadData ? 'N/A' : (currentSpread < 0 ? awayName : (currentSpread > 0 ? homeName : 'Pick'));
+                    const openSpreadDisplay = !hasSpreadData ? 'Waiting for odds' : (openSpread < 0 ? `${awayName} ${openSpread}` : (openSpread > 0 ? `${homeName} -${openSpread}` : 'Pick'));
+                    const currentSpreadDisplay = !hasSpreadData ? 'Waiting for odds' : (currentSpread < 0 ? `${awayName} ${currentSpread}` : (currentSpread > 0 ? `${homeName} -${currentSpread}` : 'Pick'));
+                    const favFlipped = hasSpreadData && openFav !== currentFav && openFav !== 'Pick' && currentFav !== 'Pick';
+                    
+                    // Game Total line movement
+                    const openTotal = parseSpread(data.rlm.total_open_line);
+                    const currentTotal = parseSpread(data.rlm.total_current_line);
+                    const hasTotalData = openTotal !== null && currentTotal !== null;
+                    const totalMove = hasTotalData ? currentTotal - openTotal : 0;
+                    const hasTotalMove = hasTotalData && Math.abs(totalMove) >= 0.5;
+                    
+                    // Over/Under percentages
+                    const overBetPct = parseInt(data.rlm.over_bet_pct) || 50;
+                    const underBetPct = parseInt(data.rlm.under_bet_pct) || 50;
+                    const overMoneyPct = parseInt(data.rlm.over_money_pct) || 50;
+                    const underMoneyPct = parseInt(data.rlm.under_money_pct) || 50;
                     
                     // Sharp money detection - money % significantly higher than bet % for either team
                     const awaySharpDiff = awayMoneyPct - awayBetPct;
@@ -3001,6 +3020,17 @@
                     const hasSharpMoney = Math.abs(awaySharpDiff) >= sharpThreshold || Math.abs(homeSharpDiff) >= sharpThreshold;
                     const sharpSide = awaySharpDiff > sharpThreshold ? awayName : (homeSharpDiff > sharpThreshold ? homeName : null);
                     const sharpDiff = awaySharpDiff > sharpThreshold ? awaySharpDiff : (homeSharpDiff > sharpThreshold ? homeSharpDiff : 0);
+                    
+                    // Public heavy team - clearly identify which team
+                    const publicHeavyTeam = awayBetPct > homeBetPct ? awayName : homeName;
+                    const publicHeavyPct = Math.max(awayBetPct, homeBetPct);
+                    const isPublicHeavy = publicHeavyPct >= 65;
+                    
+                    // RLM detection - Reverse Line Movement (when sharps bet against public)
+                    const spreadRlmDetected = data.rlm.spread_rlm_detected || false;
+                    const totalsRlmDetected = data.rlm.totals_rlm_detected || false;
+                    const rlmPotential = data.rlm.rlm_potential || spreadRlmDetected || totalsRlmDetected;
+                    const rlmSharpSide = data.rlm.spread_rlm_sharp_side || data.rlm.totals_rlm_sharp_side || (sharpSide ? sharpSide : null);
                     
                     return `
                 <div style="margin-top: 10px; background: linear-gradient(145deg, rgba(20, 20, 35, 0.95), rgba(15, 15, 25, 0.98)); border-radius: 10px; padding: 10px; border: 1px solid rgba(139, 92, 246, 0.4);">
@@ -3091,80 +3121,88 @@
                         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid rgba(139, 92, 246, 0.2);">
                             <div style="font-weight: 700; font-size: 11px; color: #a78bfa; text-transform: uppercase;">GAME TOTAL</div>
                             <div style="text-align: right;">
-                                <div style="font-size: 10px; color: #888;">Open: <span style="color: #fff; font-weight: 600;">${data.rlm.total_open_line || 'N/A'}</span></div>
-                                <div style="font-size: 11px; color: #fff; font-weight: 700;">Now: <span style="color: #a78bfa;">${data.rlm.total_current_line || 'N/A'}</span> <span style="color: #888; font-size: 9px;">(${data.rlm.total_current_odds || '-110'})</span></div>
+                                <div style="font-size: 10px; color: #888;">Open: <span style="color: #fff; font-weight: 600;">${hasTotalData ? openTotal : 'Waiting'}</span></div>
+                                <div style="font-size: 11px; color: #fff; font-weight: 700;">Now: <span style="color: #a78bfa;">${hasTotalData ? currentTotal : 'Waiting'}</span> <span style="color: #888; font-size: 9px;">(${data.rlm.total_current_odds || '-110'})</span></div>
                             </div>
                         </div>
                         
-                        <!-- OVER Row - Away Team Color -->
+                        ${hasTotalMove ? `
+                        <div style="margin-bottom: 8px; background: ${totalMove < 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}; border-radius: 6px; padding: 4px 8px; text-align: center;">
+                            <span style="font-size: 10px; font-weight: 600; color: ${totalMove < 0 ? '#10b981' : '#ef4444'};">
+                                ${totalMove < 0 ? '📉 Line dropped ' + Math.abs(totalMove).toFixed(1) + ' pts → Sharps on UNDER' : '📈 Line rose ' + Math.abs(totalMove).toFixed(1) + ' pts → Sharps on OVER'}
+                            </span>
+                        </div>
+                        ` : ''}
+                        
+                        <!-- OVER Row -->
                         <div style="margin-bottom: 8px;">
                             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-                                <span style="font-size: 11px; font-weight: 700; color: ${getTeamColor(awayTeam, 'primary')};">OVER</span>
+                                <span style="font-size: 11px; font-weight: 700; color: #10b981;">OVER ${hasTotalData ? currentTotal : ''}</span>
                                 <div style="display: flex; gap: 12px;">
-                                    <span style="font-size: 10px; color: #888;">Tickets: <span style="color: #fff; font-weight: 600;">${data.rlm.over_bet_pct || 50}%</span></span>
-                                    <span style="font-size: 10px; color: #888;">Money: <span style="color: #fff; font-weight: 600;">${data.rlm.over_money_pct || 50}%</span></span>
+                                    <span style="font-size: 10px; color: #888;">Tickets: <span style="color: #fff; font-weight: 600;">${overBetPct}%</span></span>
+                                    <span style="font-size: 10px; color: #888;">Money: <span style="color: #fff; font-weight: 600;">${overMoneyPct}%</span></span>
                                 </div>
                             </div>
                             <div style="height: 12px; background: rgba(40, 45, 60, 0.8); border-radius: 6px; overflow: hidden;">
-                                <div style="width: ${data.rlm.over_bet_pct || 50}%; height: 100%; background: ${getTeamColor(awayTeam, 'primary')};"></div>
+                                <div style="width: ${overBetPct}%; height: 100%; background: #10b981;"></div>
                             </div>
                         </div>
                         
-                        <!-- UNDER Row - Home Team Color -->
+                        <!-- UNDER Row -->
                         <div>
                             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-                                <span style="font-size: 11px; font-weight: 700; color: ${getTeamColor(homeTeam, 'primary')};">UNDER</span>
+                                <span style="font-size: 11px; font-weight: 700; color: #ef4444;">UNDER ${hasTotalData ? currentTotal : ''}</span>
                                 <div style="display: flex; gap: 12px;">
-                                    <span style="font-size: 10px; color: #888;">Tickets: <span style="color: #fff; font-weight: 600;">${data.rlm.under_bet_pct || 50}%</span></span>
-                                    <span style="font-size: 10px; color: #888;">Money: <span style="color: #fff; font-weight: 600;">${data.rlm.under_money_pct || 50}%</span></span>
+                                    <span style="font-size: 10px; color: #888;">Tickets: <span style="color: #fff; font-weight: 600;">${underBetPct}%</span></span>
+                                    <span style="font-size: 10px; color: #888;">Money: <span style="color: #fff; font-weight: 600;">${underMoneyPct}%</span></span>
                                 </div>
                             </div>
                             <div style="height: 12px; background: rgba(40, 45, 60, 0.8); border-radius: 6px; overflow: hidden;">
-                                <div style="width: ${data.rlm.under_bet_pct || 50}%; height: 100%; background: ${getTeamColor(homeTeam, 'primary')};"></div>
+                                <div style="width: ${underBetPct}%; height: 100%; background: #ef4444;"></div>
                             </div>
                         </div>
                         
-                        ${data.rlm.sharp_detected ? `<div style="margin-top: 8px; background: rgba(245, 158, 11, 0.2); border-radius: 6px; padding: 6px 10px; text-align: center;"><span style="font-size: 10px; font-weight: 600; color: #fbbf24;">💰 SHARP MONEY: ${data.rlm.sharp_side}</span></div>` : ''}
+                        ${data.rlm.sharp_detected ? `<div style="margin-top: 8px; background: rgba(245, 158, 11, 0.2); border-radius: 6px; padding: 6px 10px; text-align: center;"><span style="font-size: 10px; font-weight: 600; color: #fbbf24;">💰 SHARP MONEY on ${data.rlm.sharp_side}</span></div>` : ''}
                     </div>
                     
-                    <!-- COMPACT CHECKLIST - 2x3 GRID -->
+                    <!-- COMPACT CHECKLIST - 2x3 GRID with team names -->
                     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;">
                         <div style="background: ${awayEdgeCount !== homeEdgeCount ? 'rgba(16, 185, 129, 0.15)' : 'rgba(100, 100, 120, 0.2)'}; padding: 6px; border-radius: 6px; text-align: center;">
                             <span style="font-size: 12px;">${awayEdgeCount !== homeEdgeCount ? '✅' : '➖'}</span>
-                            <div style="color: #888; font-size: 7px; margin-top: 2px;">EDGE</div>
+                            <div style="color: #888; font-size: 7px; margin-top: 2px;">STATS EDGE</div>
                             <div style="color: #fff; font-size: 9px; font-weight: 700;">${awayEdgeCount > homeEdgeCount ? awayTeam : (homeEdgeCount > awayEdgeCount ? homeTeam : 'Even')}</div>
                         </div>
-                        <div style="background: ${data.rlm.rlm_potential ? 'rgba(139, 92, 246, 0.25)' : 'rgba(16, 185, 129, 0.15)'}; padding: 6px; border-radius: 6px; text-align: center;">
-                            <span style="font-size: 12px;">${data.rlm.rlm_potential ? '💰' : '✅'}</span>
-                            <div style="color: #888; font-size: 7px; margin-top: 2px;">RLM</div>
-                            <div style="color: ${data.rlm.rlm_potential ? '#a78bfa' : '#10b981'}; font-size: 9px; font-weight: 700;">${data.rlm.rlm_potential ? (data.rlm.spread_rlm_sharp_side || data.rlm.totals_rlm_sharp_side || 'SHARP') : 'None'}</div>
+                        <div style="background: ${rlmPotential ? 'rgba(139, 92, 246, 0.25)' : 'rgba(100, 100, 120, 0.2)'}; padding: 6px; border-radius: 6px; text-align: center;">
+                            <span style="font-size: 12px;">${rlmPotential ? '💰' : '➖'}</span>
+                            <div style="color: #888; font-size: 7px; margin-top: 2px;">RLM FAVOR</div>
+                            <div style="color: ${rlmPotential ? '#a78bfa' : '#888'}; font-size: 9px; font-weight: 700;">${rlmPotential && rlmSharpSide ? rlmSharpSide : 'None'}</div>
                         </div>
-                        <div style="background: ${data.rlm.majority_pct >= 65 ? 'rgba(245, 158, 11, 0.2)' : 'rgba(16, 185, 129, 0.15)'}; padding: 6px; border-radius: 6px; text-align: center;">
-                            <span style="font-size: 12px;">${data.rlm.majority_pct >= 65 ? '🚨' : '✅'}</span>
-                            <div style="color: #888; font-size: 7px; margin-top: 2px;">PUBLIC</div>
-                            <div style="color: ${data.rlm.majority_pct >= 65 ? '#f59e0b' : '#10b981'}; font-size: 9px; font-weight: 700;">${data.rlm.majority_pct >= 65 ? data.rlm.majority_pct + '%' : 'Balanced'}</div>
+                        <div style="background: ${isPublicHeavy ? 'rgba(245, 158, 11, 0.2)' : 'rgba(16, 185, 129, 0.15)'}; padding: 6px; border-radius: 6px; text-align: center;">
+                            <span style="font-size: 12px;">${isPublicHeavy ? '🚨' : '✅'}</span>
+                            <div style="color: #888; font-size: 7px; margin-top: 2px;">PUBLIC ON</div>
+                            <div style="color: ${isPublicHeavy ? '#f59e0b' : '#10b981'}; font-size: 9px; font-weight: 700;">${isPublicHeavy ? publicHeavyTeam + ' ' + publicHeavyPct + '%' : 'Balanced'}</div>
                         </div>
-                        <div style="background: ${data.rlm.spread_rlm_detected ? 'rgba(139, 92, 246, 0.25)' : (data.rlm.totals_rlm_detected ? 'rgba(139, 92, 246, 0.25)' : 'rgba(100, 100, 120, 0.2)')}; padding: 6px; border-radius: 6px; text-align: center;">
-                            <span style="font-size: 12px;">${(data.rlm.spread_rlm_detected || data.rlm.totals_rlm_detected) ? '🎯' : '➖'}</span>
-                            <div style="color: #888; font-size: 7px; margin-top: 2px;">SHARP</div>
-                            <div style="color: ${(data.rlm.spread_rlm_detected || data.rlm.totals_rlm_detected) ? '#a78bfa' : '#888'}; font-size: 9px; font-weight: 700;">${data.rlm.spread_rlm_sharp_side ? 'SPR: ' + data.rlm.spread_rlm_sharp_side : (data.rlm.totals_rlm_sharp_side ? 'TOT: ' + data.rlm.totals_rlm_sharp_side : 'None')}</div>
+                        <div style="background: ${sharpSide ? 'rgba(139, 92, 246, 0.25)' : 'rgba(100, 100, 120, 0.2)'}; padding: 6px; border-radius: 6px; text-align: center;">
+                            <span style="font-size: 12px;">${sharpSide ? '🎯' : '➖'}</span>
+                            <div style="color: #888; font-size: 7px; margin-top: 2px;">SHARP $</div>
+                            <div style="color: ${sharpSide ? '#a78bfa' : '#888'}; font-size: 9px; font-weight: 700;">${sharpSide ? sharpSide : 'None'}</div>
                         </div>
                         <div style="background: ${hasLineMove ? 'rgba(59, 130, 246, 0.15)' : 'rgba(100, 100, 120, 0.2)'}; padding: 6px; border-radius: 6px; text-align: center;">
                             <span style="font-size: 12px;">${hasLineMove ? '📈' : '➖'}</span>
-                            <div style="color: #888; font-size: 7px; margin-top: 2px;">LINE</div>
-                            <div style="color: ${hasLineMove ? '#3b82f6' : '#888'}; font-size: 9px; font-weight: 700;">${hasLineMove ? (lineMove > 0 ? homeName : awayName) : 'Stable'}</div>
+                            <div style="color: #888; font-size: 7px; margin-top: 2px;">LINE MOVE</div>
+                            <div style="color: ${hasLineMove ? '#3b82f6' : '#888'}; font-size: 9px; font-weight: 700;">${hasLineMove ? 'To ' + (lineMove > 0 ? homeName : awayName) : 'Stable'}</div>
                         </div>
                         <div style="background: ${favFlipped ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.15)'}; padding: 6px; border-radius: 6px; text-align: center;">
                             <span style="font-size: 12px;">${favFlipped ? '🔄' : '✅'}</span>
-                            <div style="color: #888; font-size: 7px; margin-top: 2px;">FAV</div>
-                            <div style="color: ${favFlipped ? '#ef4444' : '#10b981'}; font-size: 9px; font-weight: 700;">${favFlipped ? 'FLIPPED!' : currentFav}</div>
+                            <div style="color: #888; font-size: 7px; margin-top: 2px;">FAVORITE</div>
+                            <div style="color: ${favFlipped ? '#ef4444' : '#10b981'}; font-size: 9px; font-weight: 700;">${favFlipped ? 'FLIPPED!' : (hasSpreadData ? currentFav : 'TBD')}</div>
                         </div>
                     </div>
                     
-                    <!-- STATUS BADGE - COMPACT -->
-                    <div style="margin-top: 6px; padding: 6px 10px; background: ${data.rlm.rlm_potential ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.25), rgba(168, 85, 247, 0.2))' : (data.rlm.majority_pct >= 70 ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(239, 68, 68, 0.2))' : 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(59, 130, 246, 0.2))')}; border-radius: 8px; text-align: center;">
-                        <span style="font-weight: 700; font-size: 10px; color: ${data.rlm.rlm_potential ? '#a78bfa' : (data.rlm.majority_pct >= 70 ? '#f59e0b' : '#10b981')};">
-                            ${data.rlm.rlm_potential ? '💰 SHARP MONEY DETECTED: ' + (data.rlm.spread_rlm_sharp_side || data.rlm.totals_rlm_sharp_side || 'RLM') : (data.rlm.majority_pct >= 70 ? '⚠️ PUBLIC HEAVY (' + data.rlm.majority_pct + '%)' : '✅ BALANCED ACTION')}
+                    <!-- STATUS BADGE - Clear with team name -->
+                    <div style="margin-top: 6px; padding: 6px 10px; background: ${rlmPotential ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.25), rgba(168, 85, 247, 0.2))' : (isPublicHeavy ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(239, 68, 68, 0.2))' : 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(59, 130, 246, 0.2))')}; border-radius: 8px; text-align: center;">
+                        <span style="font-weight: 700; font-size: 10px; color: ${rlmPotential ? '#a78bfa' : (isPublicHeavy ? '#f59e0b' : '#10b981')};">
+                            ${rlmPotential && rlmSharpSide ? '💰 RLM: Sharps betting ' + rlmSharpSide : (isPublicHeavy ? '⚠️ ' + publicHeavyPct + '% of bets on ' + publicHeavyTeam : '✅ BALANCED ACTION')}
                         </span>
                     </div>
                 </div>
