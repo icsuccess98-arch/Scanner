@@ -7942,8 +7942,8 @@ def api_live_scores():
             for game in resp.json().get("games", []):
                 game_state = game.get("gameState", "")
                 if game_state in ("LIVE", "FINAL", "OFF", "CRIT"):
-                    away_name = game.get("awayTeam", {}).get("commonName", {}).get("default", "")
-                    home_name = game.get("homeTeam", {}).get("commonName", {}).get("default", "")
+                    away_name = game.get("awayTeam", {}).get("name", {}).get("default", "")
+                    home_name = game.get("homeTeam", {}).get("name", {}).get("default", "")
                     away_score = game.get("awayTeam", {}).get("score", 0)
                     home_score = game.get("homeTeam", {}).get("score", 0)
                     period = game.get("periodDescriptor", {}).get("number", 0)
