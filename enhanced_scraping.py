@@ -513,7 +513,7 @@ class CoversScraper:
 def get_covers_matchup_stats(league: str = 'NBA') -> Dict:
     """
     Scrape all matchup stats from Covers.com matchups page.
-    Returns a dict keyed by team abbreviation with full stats.
+    Returns a dict keyed by team abbreviation AND full name with full stats.
     
     BULLETPROOF implementation that parses:
     - Win/Loss records (overall and home/road)
@@ -522,8 +522,8 @@ def get_covers_matchup_stats(league: str = 'NBA') -> Dict:
     """
     stats_by_team = {}
     
-    # Team abbreviation to nickname mapping
-    abbr_to_name = {
+    # NBA Team abbreviation to nickname mapping
+    nba_abbr_to_name = {
         'LAL': 'Lakers', 'BOS': 'Celtics', 'NYK': 'Knicks', 'NY': 'Knicks',
         'PHI': 'Sixers', 'MIA': 'Heat', 'CHI': 'Bulls', 'DET': 'Pistons',
         'CLE': 'Cavaliers', 'TOR': 'Raptors', 'ORL': 'Magic', 'SAC': 'Kings',
@@ -534,6 +534,40 @@ def get_covers_matchup_stats(league: str = 'NBA') -> Dict:
         'BK': 'Nets', 'BKN': 'Nets', 'HOU': 'Rockets', 'DAL': 'Mavericks',
         'SAS': 'Spurs', 'SA': 'Spurs', 'POR': 'Trail Blazers', 'UTA': 'Jazz', 'OKC': 'Thunder'
     }
+    
+    # CBB Team abbreviation to full name mapping (common teams)
+    cbb_abbr_to_name = {
+        'GASO': 'GA Southern', 'ULM': 'UL Monroe', 'KENT': 'Kent State', 'AKR': 'Akron',
+        'PRIN': 'Princeton', 'COR': 'Cornell', 'SIE': 'Siena', 'NIAG': 'Niagara',
+        'IUPU': 'IU Indy', 'YSU': 'Youngstown St', 'PENN': 'Penn', 'COLUM': 'Columbia',
+        'MSM': 'Mount St Marys', 'SPU': "Saint Peter's", 'LOYCH': 'Loyola Chicago',
+        'VCU': 'VCU', 'HARV': 'Harvard', 'BRWN': 'Brown', 'MAR': 'Marist', 'CAN': 'Canisius',
+        'DUKE': 'Duke', 'UNC': 'North Carolina', 'UK': 'Kentucky', 'KU': 'Kansas',
+        'GONZ': 'Gonzaga', 'PURD': 'Purdue', 'ARIZ': 'Arizona', 'TENN': 'Tennessee',
+        'HOU': 'Houston', 'BAMA': 'Alabama', 'CONN': 'UConn', 'TXAM': 'Texas A&M',
+        'MARQ': 'Marquette', 'ISU': 'Iowa State', 'CREI': 'Creighton', 'MICH': 'Michigan',
+        'MSU': 'Michigan State', 'WIS': 'Wisconsin', 'IU': 'Indiana', 'OSU': 'Ohio State',
+        'OKLA': 'Oklahoma', 'TEX': 'Texas', 'BAY': 'Baylor', 'TCU': 'TCU', 'TTU': 'Texas Tech',
+        'UCLA': 'UCLA', 'USC': 'USC', 'OREG': 'Oregon', 'WASH': 'Washington', 'COLO': 'Colorado',
+        'STAN': 'Stanford', 'CAL': 'California', 'UTAH': 'Utah', 'ASU': 'Arizona State',
+        'NAVY': 'Navy', 'ARMY': 'Army', 'AF': 'Air Force', 'ND': 'Notre Dame',
+        'SCAR': 'South Carolina', 'MISS': 'Ole Miss', 'LSU': 'LSU', 'ARK': 'Arkansas',
+        'AUB': 'Auburn', 'UGA': 'Georgia', 'MIZ': 'Missouri', 'FLA': 'Florida', 'VANDY': 'Vanderbilt',
+        'WAKE': 'Wake Forest', 'VT': 'Virginia Tech', 'UVA': 'Virginia', 'LOU': 'Louisville',
+        'SYR': 'Syracuse', 'CLEM': 'Clemson', 'FSU': 'Florida State', 'GT': 'Georgia Tech',
+        'PITT': 'Pittsburgh', 'BC': 'Boston College', 'MIA': 'Miami', 'NCST': 'NC State',
+        'SDSU': 'San Diego State', 'NEV': 'Nevada', 'UNLV': 'UNLV', 'CSU': 'Colorado State',
+        'FRES': 'Fresno State', 'BSU': 'Boise State', 'USU': 'Utah State', 'SJSU': 'San Jose State',
+        'BYU': 'BYU', 'CINC': 'Cincinnati', 'UCF': 'UCF', 'USF': 'USF', 'MEM': 'Memphis',
+        'SMU': 'SMU', 'TULN': 'Tulane', 'ECU': 'East Carolina', 'TEM': 'Temple', 'WVU': 'West Virginia',
+        'XAV': 'Xavier', 'BUT': 'Butler', 'PROV': 'Providence', 'SETON': 'Seton Hall',
+        'DEP': 'DePaul', 'GTWN': 'Georgetown', 'SJU': "St. John's", 'VILL': 'Villanova',
+        'DAV': 'Davidson', 'RICH': 'Richmond', 'GMAS': 'George Mason', 'FORD': 'Fordham',
+        'SLU': 'Saint Louis', 'MASS': 'UMass', 'URI': 'Rhode Island', 'LAS': 'La Salle',
+        'DUQ': 'Duquesne', 'SBU': 'St. Bonaventure', 'ZONA': 'Arizona',
+    }
+    
+    abbr_to_name = nba_abbr_to_name if league == 'NBA' else cbb_abbr_to_name
     
     try:
         if league == 'NBA':
@@ -569,8 +603,25 @@ def get_covers_matchup_stats(league: str = 'NBA') -> Dict:
                 away_abbr = team_anchors[0].get_text(strip=True)
                 home_abbr = team_anchors[1].get_text(strip=True)
                 
+                # Get name from mapping, or extract from href URL
                 away_name = abbr_to_name.get(away_abbr, away_abbr)
                 home_name = abbr_to_name.get(home_abbr, home_abbr)
+                
+                # For CBB, also try to extract full name from href URL
+                if league == 'CBB':
+                    away_href = team_anchors[0].get('href', '')
+                    home_href = team_anchors[1].get('href', '')
+                    # Extract name from URL like "/teams/main/georgia-southern-eagles"
+                    if '/teams/main/' in away_href:
+                        url_name = away_href.split('/teams/main/')[-1].rsplit('-', 1)[0]  # Remove mascot
+                        away_url_name = ' '.join(w.capitalize() for w in url_name.split('-'))
+                    else:
+                        away_url_name = away_abbr
+                    if '/teams/main/' in home_href:
+                        url_name = home_href.split('/teams/main/')[-1].rsplit('-', 1)[0]
+                        home_url_name = ' '.join(w.capitalize() for w in url_name.split('-'))
+                    else:
+                        home_url_name = home_abbr
                 
                 # Parse stats table
                 table = gamebox.find('table')
@@ -608,11 +659,18 @@ def get_covers_matchup_stats(league: str = 'NBA') -> Dict:
                             home_stats['l10'] = home_overall
                             home_stats['l10_ats'] = home_breakdown
                 
-                # Store by both abbr and name for easy lookup
+                # Store by abbr, mapped name, and URL-extracted name for easy lookup
                 stats_by_team[away_abbr] = away_stats
                 stats_by_team[away_name] = away_stats
                 stats_by_team[home_abbr] = home_stats
                 stats_by_team[home_name] = home_stats
+                
+                # For CBB, also store by URL-extracted names
+                if league == 'CBB':
+                    if away_url_name and away_url_name != away_abbr:
+                        stats_by_team[away_url_name] = away_stats
+                    if home_url_name and home_url_name != home_abbr:
+                        stats_by_team[home_url_name] = home_stats
                 
             except Exception as e:
                 logger.debug(f"Error parsing gamebox: {e}")
