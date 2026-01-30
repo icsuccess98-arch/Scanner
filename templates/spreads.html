@@ -1590,10 +1590,11 @@
             letter-spacing: 0.5px;
             white-space: nowrap;
         }
+        /* MODEL BREAKDOWN - CONSISTENT PURPLE/GOLD THEME */
         .edge-summary-box {
-            background: linear-gradient(135deg, #0a1628 0%, #162438 100%);
-            border: 1px solid #2d4a6f;
-            border-radius: 8px;
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(255, 215, 0, 0.05) 100%);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            border-radius: 12px;
             padding: 16px;
             margin-top: 12px;
         }
@@ -1604,19 +1605,19 @@
             margin-bottom: 16px;
         }
         .edge-team {
-            color: #FFD700;
+            color: #A78BFA;
             font-size: 14px;
             font-weight: 600;
             line-height: 1.5;
         }
         .edge-team .breakdown {
-            color: #00d4ff;
+            color: #C4B5FD;
             font-weight: 500;
         }
         .edge-verdict {
             text-align: center;
             padding-top: 12px;
-            border-top: 1px solid rgba(255,255,255,0.1);
+            border-top: 1px solid rgba(139, 92, 246, 0.2);
         }
         .edge-verdict .edge-winner {
             color: #10B981;
@@ -1625,7 +1626,7 @@
             margin-bottom: 6px;
         }
         .edge-verdict .edge-desc {
-            color: #d0d0d0;
+            color: #C4B5FD;
             font-size: 13px;
             line-height: 1.5;
         }
@@ -1635,21 +1636,21 @@
             font-size: 0.7rem;
         }
         .stats-table th {
-            background: rgba(0,0,0,0.3);
-            color: var(--text-muted);
+            background: rgba(139, 92, 246, 0.15);
+            color: #A78BFA;
             font-weight: 600;
-            padding: 0.4rem 0.3rem;
+            padding: 0.5rem 0.3rem;
             text-align: center;
             font-size: 0.65rem;
-            border-bottom: 1px solid var(--border);
+            border-bottom: 1px solid rgba(139, 92, 246, 0.3);
         }
         .stats-table th.team-col {
             min-width: 70px;
         }
         .stats-table td {
-            padding: 0.35rem 0.3rem;
+            padding: 0.4rem 0.3rem;
             text-align: center;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
+            border-bottom: 1px solid rgba(139, 92, 246, 0.1);
             color: var(--text);
             white-space: nowrap;
         }
@@ -1657,46 +1658,38 @@
             text-align: left;
             padding-left: 0.5rem;
             font-weight: 500;
-            color: var(--text-muted);
+            color: #9CA3AF;
             white-space: nowrap !important;
         }
         .stats-table td.stat-winner {
-            background: rgba(16, 185, 129, 0.2);
+            background: rgba(16, 185, 129, 0.15);
             color: #10B981;
             font-weight: 700;
-            border-left: 2px solid #10b981;
         }
-        .stats-table td.edge-away {
-            background: linear-gradient(90deg, rgba(16, 185, 129, 0.15), transparent);
-            color: #10B981;
-            font-weight: 700;
-            text-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
-        }
+        /* Edge winner - unified green styling for both away and home */
+        .stats-table td.edge-away,
         .stats-table td.edge-home {
-            background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), transparent);
-            color: #3B82F6;
+            background: rgba(16, 185, 129, 0.12);
+            color: #10B981;
             font-weight: 700;
-            text-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
         }
         .stats-table td.edge-strong {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10B981;
             font-weight: 800;
-            animation: edgePulse 2s ease-in-out infinite;
-        }
-        @keyframes edgePulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.8; }
+            text-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
         }
         .stats-table tr:nth-child(odd) {
-            background: rgba(255,255,255,0.03);
+            background: rgba(139, 92, 246, 0.03);
         }
         .stats-table tr:nth-child(even) {
-            background: rgba(0,0,0,0.15);
+            background: rgba(0, 0, 0, 0.1);
         }
         .stats-table tr:hover {
-            background: rgba(139, 92, 246, 0.12);
+            background: rgba(139, 92, 246, 0.1);
         }
         
-        /* Rank badge styling - color coded by performance */
+        /* Rank badge styling - purple/gold theme */
         .rank-badge {
             display: inline-block;
             padding: 2px 6px;
@@ -1707,17 +1700,17 @@
             vertical-align: middle;
         }
         .rank-badge.rank-elite { background: linear-gradient(135deg, #10b981, #059669); color: #fff; }
-        .rank-badge.rank-good { background: rgba(16, 185, 129, 0.3); color: #34d399; }
-        .rank-badge.rank-avg { background: rgba(139, 92, 246, 0.3); color: #A78BFA; }
-        .rank-badge.rank-poor { background: rgba(245, 158, 11, 0.3); color: #fbbf24; }
-        .rank-badge.rank-bad { background: rgba(239, 68, 68, 0.3); color: #f87171; }
+        .rank-badge.rank-good { background: rgba(16, 185, 129, 0.25); color: #34d399; }
+        .rank-badge.rank-avg { background: rgba(139, 92, 246, 0.25); color: #A78BFA; }
+        .rank-badge.rank-poor { background: rgba(255, 215, 0, 0.2); color: #FFD700; }
+        .rank-badge.rank-bad { background: rgba(239, 68, 68, 0.25); color: #f87171; }
         .stat-value {
             font-weight: 500;
             vertical-align: middle;
         }
         .edge-even {
             color: #6b7280;
-            font-size: 14px;
+            font-size: 12px;
         }
         .val-strong {
             color: #10b981 !important;
@@ -1964,10 +1957,10 @@
             margin-left: auto;
         }
         
-        /* WHY THIS PLAY SUMMARY */
+        /* WHY THIS PLAY SUMMARY - Purple/Gold Theme */
         .why-summary {
-            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(59, 130, 246, 0.1));
-            border-left: 3px solid #10b981;
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(255, 215, 0, 0.05));
+            border-left: 3px solid #A78BFA;
             padding: 0.5rem 0.75rem;
             margin: 0.5rem 0;
             border-radius: 0 6px 6px 0;
@@ -3954,29 +3947,29 @@
                         </span>
                     </div>
                     
-                    <!-- BETTING CHECKLIST - Final Line Criteria -->
-                    <div style="margin-top: 8px; padding: 10px; background: rgba(15, 15, 25, 0.9); border-radius: 8px; border: 1px solid rgba(100, 100, 120, 0.3);">
-                        <div style="font-weight: 700; font-size: 10px; color: #fff; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                    <!-- BETTING CHECKLIST - Purple/Gold Theme -->
+                    <div style="margin-top: 8px; padding: 12px; background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(255, 215, 0, 0.05)); border-radius: 10px; border: 1px solid rgba(139, 92, 246, 0.3);">
+                        <div style="font-weight: 700; font-size: 11px; color: #A78BFA; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
                             <span style="font-size: 12px;">📋</span> BETTING CHECKLIST
                         </div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-                            <div style="display: flex; align-items: center; gap: 4px; font-size: 9px; color: ${hasSpreadData ? '#10b981' : '#666'};">
-                                ${hasSpreadData ? '✓' : '○'} Opening Line
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                            <div style="display: flex; align-items: center; gap: 5px; font-size: 10px; color: ${hasSpreadData ? '#10b981' : '#6b7280'};">
+                                <span style="font-size: 11px;">${hasSpreadData ? '✓' : '○'}</span> Opening Line
                             </div>
-                            <div style="display: flex; align-items: center; gap: 4px; font-size: 9px; color: ${currentSpread !== null ? '#10b981' : '#666'};">
-                                ${currentSpread !== null ? '✓' : '○'} Current Line
+                            <div style="display: flex; align-items: center; gap: 5px; font-size: 10px; color: ${currentSpread !== null ? '#10b981' : '#6b7280'};">
+                                <span style="font-size: 11px;">${currentSpread !== null ? '✓' : '○'}</span> Current Line
                             </div>
-                            <div style="display: flex; align-items: center; gap: 4px; font-size: 9px; color: ${!hasRealBettingData ? '#666' : ((hasSharpMoney && rlmPotential) || (!stagnantLineWarning) ? '#10b981' : '#f59e0b')};">
-                                ${!hasRealBettingData ? '○' : ((hasSharpMoney && rlmPotential) ? '✓' : (stagnantLineWarning ? '⚠' : '✓'))} Money/Line Align
+                            <div style="display: flex; align-items: center; gap: 5px; font-size: 10px; color: ${!hasRealBettingData ? '#6b7280' : ((hasSharpMoney && rlmPotential) || (!stagnantLineWarning) ? '#10b981' : '#FFD700')};">
+                                <span style="font-size: 11px;">${!hasRealBettingData ? '○' : ((hasSharpMoney && rlmPotential) ? '✓' : (stagnantLineWarning ? '⚠' : '✓'))}</span> Money/Line Align
                             </div>
-                            <div style="display: flex; align-items: center; gap: 4px; font-size: 9px; color: ${data.is_b2b ? '#ef4444' : '#10b981'};">
-                                ${data.is_b2b ? '✗ B2B' : '✓'} Situational
+                            <div style="display: flex; align-items: center; gap: 5px; font-size: 10px; color: ${data.is_b2b ? '#ef4444' : '#10b981'};">
+                                <span style="font-size: 11px;">${data.is_b2b ? '✗' : '✓'}</span> ${data.is_b2b ? 'B2B Game' : 'Situational'}
                             </div>
-                            <div style="display: flex; align-items: center; gap: 4px; font-size: 9px; color: ${!hasRealBettingData ? '#666' : (stagnantLineWarning ? '#ef4444' : '#10b981')};">
-                                ${!hasRealBettingData ? '○' : (stagnantLineWarning ? '⚠ Trap' : '✓')} No Traps
+                            <div style="display: flex; align-items: center; gap: 5px; font-size: 10px; color: ${!hasRealBettingData ? '#6b7280' : (stagnantLineWarning ? '#ef4444' : '#10b981')};">
+                                <span style="font-size: 11px;">${!hasRealBettingData ? '○' : (stagnantLineWarning ? '⚠' : '✓')}</span> ${stagnantLineWarning ? 'Trap Signal' : 'No Traps'}
                             </div>
-                            <div style="display: flex; align-items: center; gap: 4px; font-size: 9px; color: ${!hasSpreadData ? '#666' : (Math.abs(spreadForFav || 0) > 10 ? '#f59e0b' : '#10b981')};">
-                                ${!hasSpreadData ? '○' : (Math.abs(spreadForFav || 0) > 10 ? '⚠ Large' : '✓')} Spread Size
+                            <div style="display: flex; align-items: center; gap: 5px; font-size: 10px; color: ${!hasSpreadData ? '#6b7280' : (Math.abs(spreadForFav || 0) > 10 ? '#FFD700' : '#10b981')};">
+                                <span style="font-size: 11px;">${!hasSpreadData ? '○' : (Math.abs(spreadForFav || 0) > 10 ? '⚠' : '✓')}</span> ${Math.abs(spreadForFav || 0) > 10 ? 'Large Spread' : 'Spread OK'}
                             </div>
                         </div>
                     </div>
