@@ -7853,42 +7853,51 @@ def api_live_scores():
     et = pytz.timezone('America/New_York')
     today = datetime.now(et).date()
     today_str = today.strftime("%Y%m%d")
+    yesterday = today - timedelta(days=1)
+    yesterday_str = yesterday.strftime("%Y%m%d")
     
-    games_db = Game.query.filter_by(date=today).all()
+    games_db = Game.query.filter(Game.date >= yesterday).all()
     live_scores = {}
+    dates_to_check = [today_str, yesterday_str]
     
-    try:
-        nba_url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={today_str}"
-        resp = requests.get(nba_url, timeout=10)
-        for event in resp.json().get("events", []):
-            status = event.get("status", {})
-            state = status.get("type", {}).get("state", "")
-            if state == "in":
-                comps = event.get("competitions", [{}])[0]
-                teams = comps.get("competitors", [])
-                if len(teams) == 2:
-                    away = next((t for t in teams if t.get("homeAway") == "away"), None)
-                    home = next((t for t in teams if t.get("homeAway") == "home"), None)
-                    if away and home:
-                        away_name = away.get("team", {}).get("shortDisplayName", "")
-                        home_name = home.get("team", {}).get("shortDisplayName", "")
-                        away_score = int(away.get("score", 0))
-                        home_score = int(home.get("score", 0))
-                        period = status.get("period", 0)
-                        clock = status.get("displayClock", "")
-                        for g in games_db:
-                            if g.league == "NBA" and g.away_team == away_name and g.home_team == home_name:
-                                live_scores[f"{g.away_team}@{g.home_team}"] = {
-                                    "away_score": away_score,
-                                    "home_score": home_score,
-                                    "total": away_score + home_score,
-                                    "period": f"Q{period}",
-                                    "clock": clock,
-                                    "league": "NBA"
-                                }
-                                break
-    except Exception as e:
-        logger.debug(f"NBA live scores fetch: {e}")
+    for date_str in dates_to_check:
+        try:
+            nba_url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={date_str}"
+            resp = requests.get(nba_url, timeout=10)
+            for event in resp.json().get("events", []):
+                status = event.get("status", {})
+                state = status.get("type", {}).get("state", "")
+                if state in ("in", "post"):
+                    comps = event.get("competitions", [{}])[0]
+                    teams = comps.get("competitors", [])
+                    if len(teams) == 2:
+                        away = next((t for t in teams if t.get("homeAway") == "away"), None)
+                        home = next((t for t in teams if t.get("homeAway") == "home"), None)
+                        if away and home:
+                            away_name = away.get("team", {}).get("shortDisplayName", "")
+                            home_name = home.get("team", {}).get("shortDisplayName", "")
+                            away_score = int(away.get("score", 0))
+                            home_score = int(home.get("score", 0))
+                            period = status.get("period", 0)
+                            clock = status.get("displayClock", "")
+                            is_final = state == "post"
+                            for g in games_db:
+                                if g.league == "NBA" and g.away_team == away_name and g.home_team == home_name:
+                                    key = f"{g.away_team}@{g.home_team}"
+                                    if key not in live_scores:
+                                        live_scores[key] = {
+                                            "away_score": away_score,
+                                            "home_score": home_score,
+                                            "total": away_score + home_score,
+                                            "period": "Final" if is_final else f"Q{period}",
+                                            "clock": clock,
+                                            "league": "NBA",
+                                            "status": "Final" if is_final else "Live",
+                                            "is_final": is_final
+                                        }
+                                    break
+        except Exception as e:
+            logger.debug(f"NBA live scores fetch: {e}")
     
     try:
         cbb_url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates={today_str}&limit=100&groups=50"
@@ -7896,7 +7905,7 @@ def api_live_scores():
         for event in resp.json().get("events", []):
             status = event.get("status", {})
             state = status.get("type", {}).get("state", "")
-            if state == "in":
+            if state in ("in", "post"):
                 comps = event.get("competitions", [{}])[0]
                 teams = comps.get("competitors", [])
                 if len(teams) == 2:
@@ -7909,15 +7918,18 @@ def api_live_scores():
                         home_score = int(home.get("score", 0))
                         period = status.get("period", 0)
                         clock = status.get("displayClock", "")
+                        is_final = state == "post"
                         for g in games_db:
                             if g.league == "CBB" and g.away_team == away_name and g.home_team == home_name:
                                 live_scores[f"{g.away_team}@{g.home_team}"] = {
                                     "away_score": away_score,
                                     "home_score": home_score,
                                     "total": away_score + home_score,
-                                    "period": f"H{period}",
+                                    "period": "Final" if is_final else f"H{period}",
                                     "clock": clock,
-                                    "league": "CBB"
+                                    "league": "CBB",
+                                    "status": "Final" if is_final else "Live",
+                                    "is_final": is_final
                                 }
                                 break
     except Exception as e:
@@ -7927,23 +7939,26 @@ def api_live_scores():
         nhl_url = f"https://api-web.nhle.com/v1/score/{today.strftime('%Y-%m-%d')}"
         resp = requests.get(nhl_url, timeout=10)
         for game in resp.json().get("games", []):
-            if game.get("gameState") == "LIVE":
-                # Use commonName (team nickname) for NHL, not placeName (city)
+            game_state = game.get("gameState", "")
+            if game_state in ("LIVE", "FINAL", "OFF"):
                 away_name = game.get("awayTeam", {}).get("commonName", {}).get("default", "")
                 home_name = game.get("homeTeam", {}).get("commonName", {}).get("default", "")
                 away_score = game.get("awayTeam", {}).get("score", 0)
                 home_score = game.get("homeTeam", {}).get("score", 0)
                 period = game.get("periodDescriptor", {}).get("number", 0)
                 clock = game.get("clock", {}).get("timeRemaining", "")
+                is_final = game_state in ("FINAL", "OFF")
                 for g in games_db:
                     if g.league == "NHL" and g.away_team == away_name and g.home_team == home_name:
                         live_scores[f"{g.away_team}@{g.home_team}"] = {
                             "away_score": away_score,
                             "home_score": home_score,
                             "total": away_score + home_score,
-                            "period": f"P{period}",
+                            "period": "Final" if is_final else f"P{period}",
                             "clock": clock,
-                            "league": "NHL"
+                            "league": "NHL",
+                            "status": "Final" if is_final else "Live",
+                            "is_final": is_final
                         }
                         break
     except Exception as e:
