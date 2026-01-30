@@ -3446,14 +3446,17 @@
                         content.dataset.loaded = 'true';
                     } catch (error) {
                         console.error('Error fetching matchup data:', error);
-                        // Show retry button only after all attempts fail
+                        // Auto-retry silently after 2 seconds
                         content.innerHTML = `
                             <div class="text-center p-4">
-                                <button onclick="this.closest('.matchup-content').dataset.loaded=''; toggleMatchup(this.closest('.matchup-content').previousElementSibling)" 
-                                        style="background: #7B2CBF; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 13px;">
-                                    <i class="bi bi-arrow-clockwise"></i> Load Stats
-                                </button>
+                                <div style="color: #666; font-size: 12px;">
+                                    <i class="bi bi-hourglass-split"></i> Loading stats...
+                                </div>
                             </div>`;
+                        setTimeout(() => {
+                            content.dataset.loaded = '';
+                            toggleMatchup(content.previousElementSibling);
+                        }, 2000);
                     }
                 }
             } else {
@@ -4122,9 +4125,11 @@
             return null;
         }
         
-        // Poll live lines every 5 seconds
-        setInterval(fetchLiveLines, 5000);
-        fetchLiveLines(); // Initial fetch
+        // NOTE: Live lines polling DISABLED for spreads page
+        // Spreads use NBA.com, Covers.com, Cleaning the Glass, TeamRankings only
+        // Odds API is only used for TOTALS page
+        // setInterval(fetchLiveLines, 5000);
+        // fetchLiveLines();
         
         let lastRefreshTime = new Date();
         
