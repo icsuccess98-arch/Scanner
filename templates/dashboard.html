@@ -1505,6 +1505,7 @@
                             <span style="color: #9ca3af; font-size: 10px;" id="supermax-period"></span>
                         </div>
                         <div style="font-size: 22px; font-weight: 700; color: #fff;" id="supermax-live-score">0 - 0</div>
+                        <div style="font-size: 10px; color: #9ca3af; margin-top: 2px;" id="supermax-live-total">Total: 0</div>
                     </div>
                 </div>
                 
@@ -2601,8 +2602,10 @@
                                 if (live) {
                                     const scoreEl = document.getElementById('supermax-live-score');
                                     const periodEl = document.getElementById('supermax-period');
+                                    const liveTotalEl = document.getElementById('supermax-live-total');
                                     if (scoreEl) scoreEl.textContent = `${scoreData.away_score} - ${scoreData.home_score}`;
                                     if (periodEl) periodEl.textContent = `${scoreData.period || ''} ${scoreData.clock || ''}`;
+                                    if (liveTotalEl) liveTotalEl.textContent = `Total: ${total}`;
                                     live.style.display = 'block';
                                 }
                             }
