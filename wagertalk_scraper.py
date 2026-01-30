@@ -172,18 +172,37 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                         elif _is_nba_team(cell_text) and away_team and not home_team:
                             home_team = _normalize_team_name(cell_text.split('\n')[0])
                         
-                        # Extract percentages (format: "53%" or "u60" for under 60%)
-                        pct_match = re.search(r'(\d{1,3})%', cell_text)
+                        # Extract percentages - WagerTalk format:
+                        # "78%" = spread betting percentage
+                        # "O78%" = Over percentage for totals
+                        # "u60" or "u60%" = Under percentage for totals
+                        
+                        # Check for Over percentage (O prefix)
+                        over_match = re.search(r'[oO](\d{1,3})%?', cell_text)
+                        if over_match:
+                            pct = int(over_match.group(1))
+                            if pct > 0 and pct <= 100:
+                                over_tickets_pct = pct
+                                over_money_pct = pct  # Assume same if not specified
+                        
+                        # Check for Under percentage (u prefix)
+                        under_match = re.search(r'[uU](\d{1,3})%?', cell_text)
+                        if under_match and not over_match:
+                            pct = int(under_match.group(1))
+                            if pct > 0 and pct <= 100:
+                                over_tickets_pct = 100 - pct  # Convert under to over
+                                over_money_pct = 100 - pct
+                        
+                        # Regular spread percentage (no O or u prefix)
+                        pct_match = re.search(r'^(\d{1,3})%$', cell_text)
                         if pct_match:
                             percentages.append(int(pct_match.group(1)))
                         
-                        # Look for "uXX" format (under percentage for totals)
-                        under_match = re.search(r'[uU](\d{1,3})%?', cell_text)
-                        if under_match and not pct_match:
-                            # This is an under percentage, so over = 100 - under
-                            under_pct = int(under_match.group(1))
-                            if under_pct > 0 and under_pct <= 100:
-                                over_tickets_pct = 100 - under_pct
+                        # Also match "XX%" without prefix (spread)
+                        if not over_match and not under_match:
+                            plain_pct = re.search(r'(\d{1,3})%', cell_text)
+                            if plain_pct and cell_text[0].isdigit():
+                                percentages.append(int(plain_pct.group(1)))
                         
                         # Extract spread lines (format: "-11.5", "+3.5", etc)
                         spread_match = re.search(r'([+-]?\d+\.?\d*)\s*$', cell_text)
