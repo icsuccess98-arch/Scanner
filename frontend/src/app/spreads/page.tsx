@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import api from '@/lib/api'
 import { Header, MobileNav } from '@/components/layout'
 
 interface Game {
@@ -48,8 +49,7 @@ export default function SpreadsPage() {
 
   const fetchGames = useCallback(async () => {
     try {
-      const res = await fetch('/api/dashboard_data')
-      const data = await res.json()
+      const data = await api.getDashboardData()
       setGames(data.games || [])
     } catch (err) {
       console.error('Failed to fetch games:', err)
@@ -60,8 +60,7 @@ export default function SpreadsPage() {
 
   const fetchLiveScores = useCallback(async () => {
     try {
-      const res = await fetch('/api/live_scores')
-      const data = await res.json()
+      const data = await api.getLiveScores()
       setLiveScores(data.live_scores || {})
     } catch (err) {
       console.error('Failed to fetch live scores:', err)
@@ -78,7 +77,7 @@ export default function SpreadsPage() {
   const handleRefresh = async () => {
     setRefreshing(true)
     try {
-      await fetch('/fetch_odds', { method: 'POST' })
+      await api.fetchOdds()
       await fetchGames()
       await fetchLiveScores()
     } catch (err) {

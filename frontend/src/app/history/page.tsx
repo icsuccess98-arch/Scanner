@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import api from '@/lib/api'
 import { Header, MobileNav } from '@/components/layout'
 
 interface Pick {
@@ -22,8 +23,7 @@ export default function HistoryPage() {
 
   const fetchHistory = useCallback(async () => {
     try {
-      const res = await fetch('/api/history_data')
-      const data = await res.json()
+      const data = await api.getHistoryData()
       setPicks(data.picks || [])
     } catch (err) {
       console.error('Failed to fetch history:', err)
@@ -41,11 +41,7 @@ export default function HistoryPage() {
   const handleUpdateResult = async (pickId: number, result: 'W' | 'L' | 'P') => {
     setUpdating(pickId)
     try {
-      await fetch(`/update_result/${pickId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ result })
-      })
+      await api.updateResult(pickId, result)
       await fetchHistory()
     } catch (err) {
       console.error('Failed to update result:', err)
@@ -56,7 +52,7 @@ export default function HistoryPage() {
 
   const handleCheckResults = async () => {
     try {
-      await fetch('/check_results', { method: 'POST' })
+      await api.checkResults()
       fetchHistory()
     } catch (err) {
       console.error('Check results failed:', err)
