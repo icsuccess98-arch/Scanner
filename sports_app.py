@@ -450,25 +450,89 @@ EXTENDED_THRESHOLDS = {
 
 def calculate_rlm(game) -> bool:
     """
-    Detect Reverse Line Movement.
-    RLM = Line moves OPPOSITE of public betting.
+    CORRECTED RLM Detection - detects when line moves opposite to public money.
+    
+    Example: Bucks @ Wizards
+    - Opening: Bucks -3
+    - Current: Bucks -1.5 (moved 1.5 pts toward Wizards)
+    - Public: 68% money on Bucks
+    - Result: RLM detected, sharp money on Wizards
     """
+    # Check if we have spread_line field (current spread)
+    current_spread_field = 'spread_line' if hasattr(game, 'spread_line') else 'spread'
+    
+    # Validate required data
     if not all([
-        getattr(game, 'opening_spread', None),
-        getattr(game, 'spread', None),
-        getattr(game, 'away_tickets_pct', None),
-        getattr(game, 'home_tickets_pct', None)
+        getattr(game, 'opening_spread', None) is not None,
+        getattr(game, current_spread_field, None) is not None,
+        getattr(game, 'away_tickets_pct', None) is not None,
+        getattr(game, 'home_tickets_pct', None) is not None
     ]):
         return False
     
-    movement = (game.spread or 0) - (game.opening_spread or 0)
-    public_on_away = (game.away_tickets_pct or 0) > (game.home_tickets_pct or 0)
+    try:
+        opening_spread = float(game.opening_spread)
+        current_spread = float(getattr(game, current_spread_field))
+        away_tickets = float(game.away_tickets_pct or 0)
+        home_tickets = float(game.home_tickets_pct or 0)
+        away_money = float(getattr(game, 'away_money_pct', None) or away_tickets)
+        home_money = float(getattr(game, 'home_money_pct', None) or home_tickets)
+        
+    except (ValueError, TypeError):
+        return False
     
-    if public_on_away and movement > 0.5:
-        return True
-    elif not public_on_away and movement < -0.5:
-        return True
-    return False
+    # Calculate movement
+    movement = current_spread - opening_spread
+    movement_abs = abs(movement)
+    
+    # Need at least 0.5 point movement
+    if movement_abs < 0.5:
+        return False
+    
+    # Determine which side public is on (use money % as it's more meaningful)
+    if away_money >= 55:
+        public_side = 'away'
+        public_team = game.away_team
+        public_pct = away_money
+    elif home_money >= 55:
+        public_side = 'home'
+        public_team = game.home_team
+        public_pct = home_money
+    else:
+        # Balanced action, no clear RLM
+        return False
+    
+    # Determine which direction line moved
+    # Positive movement = line moved toward home
+    # Negative movement = line moved toward away
+    if movement > 0:
+        line_moved_toward = 'home'
+        sharp_team = game.home_team
+    else:
+        line_moved_toward = 'away'
+        sharp_team = game.away_team
+    
+    # RLM DETECTION: Did line move OPPOSITE to public?
+    rlm_detected = False
+    
+    if public_side == 'away' and line_moved_toward == 'home':
+        # Public on away, line moved toward home → RLM
+        rlm_detected = True
+        # Store details if game object supports it
+        if hasattr(game, 'rlm_sharp_side'):
+            game.rlm_sharp_side = sharp_team
+            game.rlm_explanation = f"RLM: {public_pct:.0f}% money on {public_team}, but line moved {movement_abs:.1f} pts toward {sharp_team}"
+            game.rlm_detected = True
+    
+    elif public_side == 'home' and line_moved_toward == 'away':
+        # Public on home, line moved toward away → RLM
+        rlm_detected = True
+        if hasattr(game, 'rlm_sharp_side'):
+            game.rlm_sharp_side = sharp_team
+            game.rlm_explanation = f"RLM: {public_pct:.0f}% money on {public_team}, but line moved {movement_abs:.1f} pts toward {sharp_team}"
+            game.rlm_detected = True
+    
+    return rlm_detected
 
 
 def calculate_sharp_side(game) -> str:
@@ -5564,6 +5628,39 @@ class Game(db.Model):
     torvik_away_rank = db.Column(db.Integer)
     torvik_home_rank = db.Column(db.Integer)
     
+    # Betting action data (WagerTalk) - for "Closed" line display
+    opening_spread = db.Column(db.Float)  # First spread seen
+    opening_total = db.Column(db.Float)  # First total seen
+    closed_spread = db.Column(db.Float)  # Final spread before game starts
+    closed_total = db.Column(db.Float)  # Final total before game starts
+    closed_spread_odds = db.Column(db.String(10))  # e.g., "-110"
+    closed_total_odds = db.Column(db.String(10))
+    current_spread = db.Column(db.Float)  # Live spread (updates during game)
+    current_total = db.Column(db.Float)  # Live total (updates during game)
+    game_started = db.Column(db.Boolean, default=False)
+    
+    # Betting percentages (from WagerTalk - don't update after game starts)
+    away_tickets_pct = db.Column(db.Float)
+    home_tickets_pct = db.Column(db.Float)
+    away_money_pct = db.Column(db.Float)
+    home_money_pct = db.Column(db.Float)
+    over_tickets_pct = db.Column(db.Float)
+    under_tickets_pct = db.Column(db.Float)
+    over_money_pct = db.Column(db.Float)
+    under_money_pct = db.Column(db.Float)
+    
+    # RLM detection results
+    rlm_detected = db.Column(db.Boolean, default=False)
+    rlm_severity = db.Column(db.String(20))  # 'moderate', 'strong', 'extreme'
+    rlm_confidence = db.Column(db.Float)  # 0-100
+    rlm_sharp_side = db.Column(db.String(50))  # Team name
+    rlm_explanation = db.Column(db.Text)
+    totals_rlm_detected = db.Column(db.Boolean, default=False)
+    totals_rlm_severity = db.Column(db.String(20))
+    totals_rlm_confidence = db.Column(db.Float)
+    totals_rlm_sharp_side = db.Column(db.String(10))  # 'Over' or 'Under'
+    totals_rlm_explanation = db.Column(db.Text)
+    
     __table_args__ = (
         db.Index('idx_date_league', 'date', 'league'),
         db.Index('idx_qualified', 'is_qualified'),
@@ -9528,6 +9625,37 @@ def api_history_data():
         'pushes': pushes,
         'picks': picks_data
     })
+
+
+@app.route('/api/line_movement_updates')
+def api_line_movement_updates():
+    """
+    Fast API endpoint for line movement updates (betting action display).
+    Returns ONLY current lines for LINE MOVEMENT section.
+    Updates every 5 seconds - fast and efficient.
+    """
+    et = pytz.timezone('America/New_York')
+    today = datetime.now(et).date()
+    
+    games = Game.query.filter_by(date=today).all()
+    
+    result = {
+        'games': [
+            {
+                'id': g.id,
+                'away_team': g.away_team,
+                'home_team': g.home_team,
+                'current_spread': float(g.current_spread) if g.current_spread else (float(g.spread_line) if g.spread_line else None),
+                'current_total': float(g.current_total) if g.current_total else (float(g.line) if g.line else None),
+                'game_started': g.game_started if hasattr(g, 'game_started') else False
+            }
+            for g in games if g.away_team and g.home_team
+        ],
+        'timestamp': datetime.now(et).isoformat(),
+        'update_frequency': '5 seconds'
+    }
+    
+    return jsonify(result)
 
 @app.route('/api/win_rate_analytics')
 def win_rate_analytics():
