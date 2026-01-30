@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 _wagertalk_cache = {}
 _wagertalk_cache_time = {}
-CACHE_TTL = 180
+CACHE_TTL = 60  # 1 minute for faster updates
 
 
 def _is_cache_valid(key: str) -> bool:
@@ -99,9 +99,10 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
             url = f'https://www.wagertalk.com/odds?sport=today&cb={cb}'
             
             logger.info(f"[WagerTalk] Navigating to: {url}")
-            await page.goto(url, wait_until='domcontentloaded', timeout=60000)
+            await page.goto(url, wait_until='domcontentloaded', timeout=30000)
             
-            await asyncio.sleep(8)
+            # Faster wait - just enough for JS to render
+            await asyncio.sleep(4)
             
             rows = await page.query_selector_all('tr.reg, tr.alt, tr[class*="game"], tbody tr')
             logger.info(f"[WagerTalk] Found {len(rows)} table rows")
@@ -240,7 +241,7 @@ def get_wagertalk_odds(league: str = 'NBA') -> Dict[str, Dict]:
             import concurrent.futures
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(_run_async_in_thread, league)
-                result = future.result(timeout=60)
+                result = future.result(timeout=45)  # Faster timeout
         except RuntimeError:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
