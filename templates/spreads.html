@@ -1661,13 +1661,24 @@
             color: #9CA3AF;
             white-space: nowrap !important;
         }
-        /* Metric and stat value columns stay neutral - no highlighting */
+        /* Metric names stay neutral - never highlighted */
         .stats-table td.metric-name {
             background: transparent !important;
             color: #9CA3AF !important;
             font-weight: 500 !important;
         }
-        .stats-table td.stat-value-cell {
+        /* Stat values get team colors when winning */
+        .stats-table td.stat-winner-away {
+            background: rgba(139, 92, 246, 0.15);
+            color: #A78BFA;
+            font-weight: 700;
+        }
+        .stats-table td.stat-winner-home {
+            background: rgba(255, 215, 0, 0.12);
+            color: #FFD700;
+            font-weight: 700;
+        }
+        .stats-table td.stat-neutral {
             background: transparent;
             color: #E5E7EB;
             font-weight: 500;
@@ -3391,9 +3402,9 @@
                 const pctDiff = avgVal > 0 ? (diff / avgVal) * 100 : 0;
                 const isSignificant = pctDiff > 15;
                 
-                // No highlighting on stat value cells - only Edge column gets colors
-                const awayClass = 'stat-value-cell';
-                const homeClass = 'stat-value-cell';
+                // Stat values get team colors when winning
+                const awayClass = awayWins ? 'stat-winner-away' : 'stat-neutral';
+                const homeClass = homeWins ? 'stat-winner-home' : 'stat-neutral';
                 const winner = awayWins ? awayTeam : homeTeam;
                 
                 // Edge display - just team name, no badges
