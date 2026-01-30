@@ -2345,49 +2345,11 @@ class MatchupIntelligence:
                 except Exception as e:
                     logger.warning(f"Error detecting spread RLM: {e}")
                 
-                # TOTALS RLM: Detect reverse line movement for totals
-                try:
-                    if total_open_line and total_current_line:
-                        # Parse total values
-                        open_total_str = str(total_open_line).replace('O', '').replace('U', '').replace('o', '').replace('u', '').strip()
-                        current_total_str = str(total_current_line).replace('O', '').replace('U', '').replace('o', '').replace('u', '').strip()
-                        
-                        open_total = float(open_total_str)
-                        current_total = float(current_total_str)
-                        total_movement = current_total - open_total
-                        movement_abs = abs(total_movement)
-                        
-                        # Need at least 0.5 point movement
-                        if movement_abs >= 0.5:
-                            # Determine which side public BETS are on (bet% = tickets = public action)
-                            # NOT money% - money is sharp action
-                            if over_bet_pct >= 55:
-                                public_side = 'over'
-                            elif under_bet_pct >= 55:
-                                public_side = 'under'
-                            else:
-                                public_side = 'balanced'
-                            
-                            # RLM for totals:
-                            # Public on Over → total should go UP (harder for Over)
-                            # If total goes DOWN → RLM (sharp on Over)
-                            # 
-                            # Public on Under → total should go DOWN (harder for Under)
-                            # If total goes UP → RLM (sharp on Under)
-                            
-                            if public_side == 'over' and total_movement < 0:
-                                # Public on Over, total dropped → RLM
-                                totals_rlm_detected = True
-                                totals_rlm_sharp_side = 'Over'
-                            elif public_side == 'under' and total_movement > 0:
-                                # Public on Under, total rose → RLM
-                                totals_rlm_detected = True
-                                totals_rlm_sharp_side = 'Under'
-                except Exception as e:
-                    logger.warning(f"Error detecting totals RLM: {e}")
+                # NOTE: RLM is only for SPREADS, not totals. Totals uses different strategy on dashboard.
+                # totals_rlm_detected stays False
                 
-                # Combined RLM potential (either spread or totals has RLM)
-                rlm_potential = spread_rlm_detected or totals_rlm_detected
+                # RLM potential (spreads only)
+                rlm_potential = spread_rlm_detected
                 
                 # Sharp money detection (use RLM-detected values)
                 sharp_detected = totals_rlm_detected
@@ -10883,34 +10845,8 @@ def get_matchup_data(game_id):
                 except:
                     pass
             
-            # TOTALS RLM: Use BET/TICKET percentages (public action, not sharp money)
-            if current_total is not None and open_total is not None:
-                try:
-                    total_move = float(current_total) - float(open_total)
-                    movement_abs = abs(total_move)
-                    
-                    # Need at least 0.5 point movement
-                    if movement_abs >= 0.5:
-                        # Determine public side using BET % (tickets = public action)
-                        # NOT money% - money is sharp action
-                        if over_bet >= 55:
-                            public_side = 'over'
-                        elif under_bet >= 55:
-                            public_side = 'under'
-                        else:
-                            public_side = 'balanced'
-                        
-                        # RLM for totals: Public vs line direction
-                        if public_side == 'over' and total_move < 0:
-                            # Public on Over, total dropped → RLM (sharp on Over)
-                            totals_rlm_detected = True
-                            totals_rlm_sharp_side = 'OVER'
-                        elif public_side == 'under' and total_move > 0:
-                            # Public on Under, total rose → RLM (sharp on Under)
-                            totals_rlm_detected = True
-                            totals_rlm_sharp_side = 'UNDER'
-                except:
-                    pass
+            # NOTE: RLM is only for SPREADS, not totals. Totals uses different strategy on dashboard.
+            # totals_rlm_detected stays False
             
             # Majority team
             majority_pct = max(away_bet, home_bet)
