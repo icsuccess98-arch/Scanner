@@ -442,6 +442,55 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.7; }
         }
+        .pikkit-score-area {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .pikkit-score {
+            font-size: 28px;
+            font-weight: 700;
+            color: #fff;
+        }
+        .pikkit-quarter {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1px;
+        }
+        .pikkit-quarter-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #9ca3af;
+        }
+        .pikkit-quarter-time {
+            font-size: 12px;
+            font-weight: 700;
+            color: #ef4444;
+        }
+        .pikkit-final-display {
+            text-align: center;
+            padding: 6px 12px;
+            background: rgba(100, 100, 120, 0.2);
+            border-radius: 8px;
+        }
+        .pikkit-final-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: #9ca3af;
+            letter-spacing: 1px;
+            margin-bottom: 2px;
+        }
+        .pikkit-final-score {
+            font-size: 18px;
+            font-weight: 700;
+            color: #fff;
+        }
+        .pikkit-final-total {
+            font-size: 10px;
+            color: #9ca3af;
+            margin-top: 2px;
+        }
         .pikkit-totals-bar {
             display: flex;
             align-items: center;
@@ -1603,12 +1652,27 @@
                             <div class="pikkit-team-record">{{ game.away_record or '--' }}</div>
                         </div>
                         <div class="pikkit-center" id="pikkit-center-{{ game.id }}">
+                            <div class="pikkit-live-area" id="live-score-{{ game.id }}" style="display: none;">
+                                <div class="pikkit-score-area">
+                                    <span class="pikkit-score away-score">0</span>
+                                    <div class="pikkit-quarter">
+                                        <span class="pikkit-quarter-label live-period">Q1</span>
+                                        <span class="pikkit-quarter-time live-clock">12:00</span>
+                                    </div>
+                                    <span class="pikkit-score home-score">0</span>
+                                </div>
+                            </div>
+                            <div class="pikkit-final-area" id="final-score-{{ game.id }}" style="display: none;">
+                                <div class="pikkit-final-display">
+                                    <div class="pikkit-final-label">FINAL</div>
+                                    <div class="pikkit-final-score"><span class="away-final">0</span> - <span class="home-final">0</span></div>
+                                    <div class="pikkit-final-total">Total: <span class="total-pts">0</span></div>
+                                </div>
+                            </div>
                             <div class="pikkit-pregame" id="pregame-{{ game.id }}">
                                 <div class="pikkit-game-time">{{ game.game_time or 'TBD' }}</div>
                                 <div class="pikkit-at-symbol">@</div>
                             </div>
-                            <div class="pikkit-live" id="live-score-{{ game.id }}" style="display: none;"></div>
-                            <div class="pikkit-final" id="final-score-{{ game.id }}" style="display: none;"></div>
                         </div>
                         <div class="pikkit-team">
                             <img src="{{ game.home_logo }}" alt="{{ game.home_team }}" class="pikkit-team-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
@@ -2036,12 +2100,27 @@
                             <div class="pikkit-team-record">{{ game.away_record or '--' }}</div>
                         </div>
                         <div class="pikkit-center" id="pikkit-center-{{ game.id }}">
+                            <div class="pikkit-live-area" id="live-score-{{ game.id }}" style="display: none;">
+                                <div class="pikkit-score-area">
+                                    <span class="pikkit-score away-score">0</span>
+                                    <div class="pikkit-quarter">
+                                        <span class="pikkit-quarter-label live-period">Q1</span>
+                                        <span class="pikkit-quarter-time live-clock">12:00</span>
+                                    </div>
+                                    <span class="pikkit-score home-score">0</span>
+                                </div>
+                            </div>
+                            <div class="pikkit-final-area" id="final-score-{{ game.id }}" style="display: none;">
+                                <div class="pikkit-final-display">
+                                    <div class="pikkit-final-label">FINAL</div>
+                                    <div class="pikkit-final-score"><span class="away-final">0</span> - <span class="home-final">0</span></div>
+                                    <div class="pikkit-final-total">Total: <span class="total-pts">0</span></div>
+                                </div>
+                            </div>
                             <div class="pikkit-pregame" id="pregame-{{ game.id }}">
                                 <div class="pikkit-game-time">{{ game.game_time or 'TBD' }}</div>
                                 <div class="pikkit-at-symbol">@</div>
                             </div>
-                            <div class="pikkit-live" id="live-score-{{ game.id }}" style="display: none;"></div>
-                            <div class="pikkit-final" id="final-score-{{ game.id }}" style="display: none;"></div>
                         </div>
                         <div class="pikkit-team">
                             <img src="{{ game.home_logo }}" alt="{{ game.home_team }}" class="pikkit-team-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
@@ -2452,11 +2531,12 @@
                                 if (pregameEl) pregameEl.style.display = 'none';
                                 if (liveEl) liveEl.style.display = 'none';
                                 if (finalEl) {
-                                    finalEl.innerHTML = `
-                                        <div style="font-size: 10px; font-weight: 700; color: #9ca3af; letter-spacing: 1px; margin-bottom: 2px;">FINAL</div>
-                                        <div style="font-size: 18px; font-weight: 700; color: #fff;">${scoreData.away_score} - ${scoreData.home_score}</div>
-                                        <div style="font-size: 10px; color: #9ca3af; margin-top: 2px;">Total: ${total}</div>
-                                    `;
+                                    const awayFinal = finalEl.querySelector('.away-final');
+                                    const homeFinal = finalEl.querySelector('.home-final');
+                                    const totalPts = finalEl.querySelector('.total-pts');
+                                    if (awayFinal) awayFinal.textContent = scoreData.away_score;
+                                    if (homeFinal) homeFinal.textContent = scoreData.home_score;
+                                    if (totalPts) totalPts.textContent = total;
                                     finalEl.style.display = 'block';
                                 }
                                 card.classList.remove('game-live');
@@ -2466,16 +2546,18 @@
                                 if (pregameEl) pregameEl.style.display = 'none';
                                 if (finalEl) finalEl.style.display = 'none';
                                 if (liveEl) {
-                                    liveEl.innerHTML = `
-                                        <div style="display: flex; align-items: center; justify-content: center; gap: 4px; margin-bottom: 4px;">
-                                            <span style="background: #fff; color: #dc2626; padding: 2px 6px; border-radius: 8px; font-size: 9px; font-weight: 700;">LIVE</span>
-                                            <span style="color: rgba(255,255,255,0.8); font-size: 10px;">${scoreData.period || ''} ${scoreData.clock || ''}</span>
-                                        </div>
-                                        <div style="font-size: 18px; font-weight: 700; color: #fff;">${scoreData.away_score} - ${scoreData.home_score}</div>
-                                    `;
+                                    const awayScore = liveEl.querySelector('.away-score');
+                                    const homeScore = liveEl.querySelector('.home-score');
+                                    const period = liveEl.querySelector('.live-period');
+                                    const clock = liveEl.querySelector('.live-clock');
+                                    if (awayScore) awayScore.textContent = scoreData.away_score;
+                                    if (homeScore) homeScore.textContent = scoreData.home_score;
+                                    if (period) period.textContent = scoreData.period || 'Q1';
+                                    if (clock) clock.textContent = scoreData.clock || '';
                                     liveEl.style.display = 'block';
                                 }
                                 card.classList.add('game-live');
+                                card.classList.remove('game-final');
                             }
                         }
                     });
