@@ -10037,11 +10037,35 @@ def get_matchup_data(game_id):
     """Fetch live matchup data from TeamRankings matchup page."""
     game = Game.query.get_or_404(game_id)
     
+    # Check if game has started based on game time
+    game_started = False
+    try:
+        from datetime import datetime
+        import pytz
+        eastern = pytz.timezone('US/Eastern')
+        now = datetime.now(eastern)
+        
+        # Parse game time (format like "7:10p")
+        game_time_str = game.game_time if hasattr(game, 'game_time') and game.game_time else None
+        if game_time_str:
+            # Handle format like "7:10p" or "7:10 PM"
+            time_str = game_time_str.replace('p', ' PM').replace('a', ' AM').upper()
+            try:
+                game_time_obj = datetime.strptime(time_str.strip(), "%I:%M %p")
+                game_datetime = now.replace(hour=game_time_obj.hour, minute=game_time_obj.minute, second=0)
+                # Game considered started if current time is past game time
+                game_started = now >= game_datetime
+            except:
+                pass
+    except Exception as e:
+        logging.debug(f"Game started check error: {e}")
+    
     result = {
         'game_id': game_id,
         'away_team': game.away_team,
         'home_team': game.home_team,
         'league': game.league,
+        'game_started': game_started,
         'away_season': {},
         'home_season': {},
         'away_l3': {},

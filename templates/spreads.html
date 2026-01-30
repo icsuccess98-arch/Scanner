@@ -3041,14 +3041,14 @@
                     <!-- Header -->
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
                         <div style="font-weight: 700; font-size: 12px; color: #fff; display: flex; align-items: center; gap: 6px;">
-                            <span style="font-size: 14px;">🔥</span> BETTING ACTION
+                            <span style="font-size: 14px;">${data.game_started ? '🔒' : '🔥'}</span> ${data.game_started ? 'CLV LOCKED' : 'BETTING ACTION'}
                         </div>
-                        <div style="background: linear-gradient(135deg, #7B2CBF, #9D4EDD); padding: 3px 8px; border-radius: 12px; font-size: 9px; font-weight: 700; color: #fff;">LIVE</div>
+                        <div style="background: linear-gradient(135deg, ${data.game_started ? '#f59e0b, #d97706' : '#7B2CBF, #9D4EDD'}); padding: 3px 8px; border-radius: 12px; font-size: 9px; font-weight: 700; color: #fff;">${data.game_started ? 'CLOSED' : 'LIVE'}</div>
                     </div>
                     
                     <!-- LINE MOVEMENT - WITH TEAM NAMES -->
-                    <div style="background: rgba(30, 30, 50, 0.6); border-radius: 8px; padding: 8px; margin-bottom: 8px; border: 1px solid rgba(59, 130, 246, 0.3);">
-                        <div style="font-weight: 600; font-size: 9px; color: #888; margin-bottom: 6px; text-transform: uppercase;">Line Movement</div>
+                    <div style="background: rgba(30, 30, 50, 0.6); border-radius: 8px; padding: 8px; margin-bottom: 8px; border: 1px solid ${data.game_started ? 'rgba(251, 191, 36, 0.4)' : 'rgba(59, 130, 246, 0.3)'};">
+                        <div style="font-weight: 600; font-size: 9px; color: ${data.game_started ? '#fbbf24' : '#888'}; margin-bottom: 6px; text-transform: uppercase;">${data.game_started ? '🔒 CLV - CLOSING LINE VALUE' : 'Line Movement'}</div>
                         <div style="display: flex; align-items: center; justify-content: space-between;">
                             <div style="text-align: center; flex: 1;">
                                 <div style="font-size: 8px; color: #666;">OPEN</div>
@@ -3058,8 +3058,8 @@
                                 <div style="font-size: 16px; color: ${hasLineMove ? '#3b82f6' : '#444'};">${hasLineMove ? '→' : '•'}</div>
                             </div>
                             <div style="text-align: center; flex: 1;">
-                                <div style="font-size: 8px; color: #666;">CURRENT</div>
-                                <div style="font-size: 12px; font-weight: 700; color: ${hasLineMove ? '#3b82f6' : '#fff'};">${currentSpreadDisplay}</div>
+                                <div style="font-size: 8px; color: ${data.game_started ? '#fbbf24' : '#666'};">${data.game_started ? 'CLOSED' : 'CURRENT'}</div>
+                                <div style="font-size: 12px; font-weight: 700; color: ${data.game_started ? '#fbbf24' : (hasLineMove ? '#3b82f6' : '#fff')};">${currentSpreadDisplay}</div>
                             </div>
                         </div>
                         ${hasLineMove ? `
@@ -3130,51 +3130,51 @@
                         ${data.rlm.spread_sharp_detected ? `<div style="margin-top: 8px; background: rgba(139, 92, 246, 0.2); border-radius: 6px; padding: 6px 10px; text-align: center;"><span style="font-size: 10px; font-weight: 600; color: #a78bfa;">💰 SHARP MONEY: ${data.rlm.spread_sharp_side}</span></div>` : ''}
                     </div>
                     
-                    <!-- TOTALS BETTING - Clear Layout -->
+                    <!-- TOTALS BETTING - Team Color Coded -->
                     <div style="background: rgba(25, 30, 45, 0.9); border-radius: 8px; padding: 12px; margin-bottom: 10px; border: 1px solid rgba(139, 92, 246, 0.3);">
-                        <!-- Header with Line Movement -->
+                        <!-- Header with Line Movement - CLV for started games -->
                         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid rgba(139, 92, 246, 0.2);">
                             <div style="font-weight: 700; font-size: 11px; color: #a78bfa; text-transform: uppercase;">GAME TOTAL</div>
                             <div style="text-align: right;">
                                 <div style="font-size: 10px; color: #888;">Open: <span style="color: #fff; font-weight: 600;">${hasTotalData ? openTotal : 'N/A'}</span></div>
-                                <div style="font-size: 11px; color: #fff; font-weight: 700;">Now: <span style="color: #a78bfa;">${hasTotalData ? currentTotal : 'N/A'}</span> <span style="color: #888; font-size: 9px;">(${data.rlm.total_current_odds || '-110'})</span></div>
+                                <div style="font-size: 11px; color: #fff; font-weight: 700;">${data.game_started ? 'CLOSED:' : 'Now:'} <span style="color: ${data.game_started ? '#fbbf24' : '#a78bfa'};">${hasTotalData ? currentTotal : 'N/A'}</span> <span style="color: #888; font-size: 9px;">(${data.rlm.total_current_odds || '-110'})</span></div>
                             </div>
                         </div>
                         
                         ${hasTotalMove ? `
-                        <div style="margin-bottom: 8px; background: ${totalMove < 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}; border-radius: 6px; padding: 4px 8px; text-align: center;">
-                            <span style="font-size: 10px; font-weight: 600; color: ${totalMove < 0 ? '#10b981' : '#ef4444'};">
+                        <div style="margin-bottom: 8px; background: ${totalMove < 0 ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.2)'}; border-radius: 6px; padding: 4px 8px; text-align: center;">
+                            <span style="font-size: 10px; font-weight: 600; color: #a78bfa;">
                                 ${totalMove < 0 ? '📉 Line dropped ' + Math.abs(totalMove).toFixed(1) + ' pts → Sharps on UNDER' : '📈 Line rose ' + Math.abs(totalMove).toFixed(1) + ' pts → Sharps on OVER'}
                             </span>
                         </div>
                         ` : ''}
                         
                         ${(overBetPct > 0 && overBetPct !== 50) || (underBetPct > 0 && underBetPct !== 50) ? `
-                        <!-- OVER Row -->
+                        <!-- OVER Row - Away Team Color -->
                         <div style="margin-bottom: 8px;">
                             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-                                <span style="font-size: 11px; font-weight: 700; color: #10b981;">OVER ${hasTotalData ? currentTotal : ''}</span>
+                                <span style="font-size: 11px; font-weight: 700; color: ${awayColor};">OVER ${hasTotalData ? currentTotal : ''}</span>
                                 <div style="display: flex; gap: 12px;">
                                     <span style="font-size: 10px; color: #888;">Tickets: <span style="color: #fff; font-weight: 600;">${overBetPct}%</span></span>
                                     <span style="font-size: 10px; color: #888;">Money: <span style="color: #fff; font-weight: 600;">${overMoneyPct}%</span></span>
                                 </div>
                             </div>
                             <div style="height: 12px; background: rgba(40, 45, 60, 0.8); border-radius: 6px; overflow: hidden;">
-                                <div style="width: ${overBetPct}%; height: 100%; background: #10b981;"></div>
+                                <div style="width: ${overBetPct}%; height: 100%; background: ${awayColor};"></div>
                             </div>
                         </div>
                         
-                        <!-- UNDER Row -->
+                        <!-- UNDER Row - Home Team Color -->
                         <div>
                             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-                                <span style="font-size: 11px; font-weight: 700; color: #ef4444;">UNDER ${hasTotalData ? currentTotal : ''}</span>
+                                <span style="font-size: 11px; font-weight: 700; color: ${homeColor};">UNDER ${hasTotalData ? currentTotal : ''}</span>
                                 <div style="display: flex; gap: 12px;">
                                     <span style="font-size: 10px; color: #888;">Tickets: <span style="color: #fff; font-weight: 600;">${underBetPct}%</span></span>
                                     <span style="font-size: 10px; color: #888;">Money: <span style="color: #fff; font-weight: 600;">${underMoneyPct}%</span></span>
                                 </div>
                             </div>
                             <div style="height: 12px; background: rgba(40, 45, 60, 0.8); border-radius: 6px; overflow: hidden;">
-                                <div style="width: ${underBetPct}%; height: 100%; background: #ef4444;"></div>
+                                <div style="width: ${underBetPct}%; height: 100%; background: ${homeColor};"></div>
                             </div>
                         </div>
                         ` : `
