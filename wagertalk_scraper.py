@@ -143,6 +143,10 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                         cell_text = await cell.inner_text()
                         cell_values.append(cell_text.strip())
                     
+                    # Debug: Log cell values for first few rows with NBA teams
+                    if games_found < 3 and any(_is_nba_team(cv) for cv in cell_values):
+                        logger.info(f"[WagerTalk DEBUG] Cells: {cell_values[:8]}")
+                    
                     away_team = None
                     home_team = None
                     
@@ -172,15 +176,15 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                         elif _is_nba_team(cell_text) and away_team and not home_team:
                             home_team = _normalize_team_name(cell_text.split('\n')[0])
                         
-                        # Extract percentages - WagerTalk format:
-                        # "78%" = spread betting percentage (standalone or in text)
-                        # "O78%" or "o78" = Over percentage for totals
-                        # "u60" or "U60%" = Under percentage for totals
+                        # Extract percentages - WagerTalk format from screenshot:
+                        # "53%" or "63%" = Spread betting percentage (NO prefix)
+                        # "u60%" or "u78%" = Under percentage for totals
+                        # "o69%" = Over percentage for totals
                         
-                        # Check for Over percentage (O prefix - must be capital or lowercase O followed by number)
-                        over_match = re.search(r'\b[oO](\d{1,3})%?\b', cell_text)
-                        # Check for Under percentage (u/U prefix)
-                        under_match = re.search(r'\b[uU](\d{1,3})%?\b', cell_text)
+                        # Check for Over percentage (lowercase o followed by number)
+                        over_match = re.search(r'[oO](\d{1,3})%?', cell_text)
+                        # Check for Under percentage (lowercase u followed by number)  
+                        under_match = re.search(r'[uU](\d{1,3})%?', cell_text)
                         
                         if over_match:
                             pct = int(over_match.group(1))
@@ -188,18 +192,20 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                                 over_tickets_pct = pct
                                 over_money_pct = pct
                         elif under_match:
+                            # Under percentage - convert to over (100 - under = over)
                             pct = int(under_match.group(1))
                             if 0 < pct <= 100:
                                 over_tickets_pct = 100 - pct
                                 over_money_pct = 100 - pct
                         else:
-                            # Regular spread percentage - any number followed by %
-                            # Must NOT have O/u prefix (already handled above)
-                            spread_pct_match = re.search(r'(\d{1,3})%', cell_text)
-                            if spread_pct_match:
-                                pct = int(spread_pct_match.group(1))
-                                if 0 < pct <= 100:
-                                    percentages.append(pct)
+                            # Plain percentage = spread betting (no o/u prefix)
+                            # Must start with a digit (not o/u)
+                            if cell_text and cell_text[0].isdigit():
+                                spread_pct_match = re.search(r'^(\d{1,3})%?$', cell_text.strip())
+                                if spread_pct_match:
+                                    pct = int(spread_pct_match.group(1))
+                                    if 0 < pct <= 100:
+                                        percentages.append(pct)
                         
                         # Extract spread lines (format: "-11.5", "+3.5", etc)
                         spread_match = re.search(r'([+-]?\d+\.?\d*)\s*$', cell_text)
@@ -287,7 +293,7 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                                 'source': 'wagertalk'
                             }
                             games_found += 1
-                            logger.info(f"[WagerTalk] Found: {matchup_key} - Tickets {spread_tickets_pct}% / Money {spread_money_pct}% | Spread: {open_spread} → {current_spread} | Total: {open_total}")
+                            logger.info(f"[WagerTalk] Found: {matchup_key} - Spread: {spread_tickets_pct}%/{spread_money_pct}% | O/U: {over_tickets_pct}%/{100-over_tickets_pct}% | Lines: {open_spread}→{current_spread}, Tot: {open_total}→{current_total}")
                         else:
                             # Update existing entry with additional data (totals row)
                             existing = result[matchup_key]
