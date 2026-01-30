@@ -7935,34 +7935,40 @@ def api_live_scores():
     except Exception as e:
         logger.debug(f"CBB live scores fetch: {e}")
     
-    try:
-        nhl_url = f"https://api-web.nhle.com/v1/score/{today.strftime('%Y-%m-%d')}"
-        resp = requests.get(nhl_url, timeout=10)
-        for game in resp.json().get("games", []):
-            game_state = game.get("gameState", "")
-            if game_state in ("LIVE", "FINAL", "OFF"):
-                away_name = game.get("awayTeam", {}).get("commonName", {}).get("default", "")
-                home_name = game.get("homeTeam", {}).get("commonName", {}).get("default", "")
-                away_score = game.get("awayTeam", {}).get("score", 0)
-                home_score = game.get("homeTeam", {}).get("score", 0)
-                period = game.get("periodDescriptor", {}).get("number", 0)
-                clock = game.get("clock", {}).get("timeRemaining", "")
-                is_final = game_state in ("FINAL", "OFF")
-                for g in games_db:
-                    if g.league == "NHL" and g.away_team == away_name and g.home_team == home_name:
-                        live_scores[f"{g.away_team}@{g.home_team}"] = {
-                            "away_score": away_score,
-                            "home_score": home_score,
-                            "total": away_score + home_score,
-                            "period": "Final" if is_final else f"P{period}",
-                            "clock": clock,
-                            "league": "NHL",
-                            "status": "Final" if is_final else "Live",
-                            "is_final": is_final
-                        }
-                        break
-    except Exception as e:
-        logger.debug(f"NHL live scores fetch: {e}")
+    for nhl_date in [today, yesterday]:
+        try:
+            nhl_url = f"https://api-web.nhle.com/v1/score/{nhl_date.strftime('%Y-%m-%d')}"
+            resp = requests.get(nhl_url, timeout=10)
+            for game in resp.json().get("games", []):
+                game_state = game.get("gameState", "")
+                if game_state in ("LIVE", "FINAL", "OFF", "CRIT"):
+                    away_name = game.get("awayTeam", {}).get("commonName", {}).get("default", "")
+                    home_name = game.get("homeTeam", {}).get("commonName", {}).get("default", "")
+                    away_score = game.get("awayTeam", {}).get("score", 0)
+                    home_score = game.get("homeTeam", {}).get("score", 0)
+                    period = game.get("periodDescriptor", {}).get("number", 0)
+                    clock = game.get("clock", {}).get("timeRemaining", "")
+                    is_final = game_state in ("FINAL", "OFF")
+                    for g in games_db:
+                        if g.league == "NHL":
+                            away_match = g.away_team.lower() in away_name.lower() or away_name.lower() in g.away_team.lower()
+                            home_match = g.home_team.lower() in home_name.lower() or home_name.lower() in g.home_team.lower()
+                            if away_match and home_match:
+                                key = f"{g.away_team}@{g.home_team}"
+                                if key not in live_scores:
+                                    live_scores[key] = {
+                                        "away_score": away_score,
+                                        "home_score": home_score,
+                                        "total": away_score + home_score,
+                                        "period": "Final" if is_final else f"P{period}",
+                                        "clock": clock,
+                                        "league": "NHL",
+                                        "status": "Final" if is_final else "Live",
+                                        "is_final": is_final
+                                    }
+                                break
+        except Exception as e:
+            logger.debug(f"NHL live scores fetch: {e}")
     
     try:
         results_updated = check_finished_games_results()
