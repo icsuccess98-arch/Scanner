@@ -1715,14 +1715,51 @@
             font-weight: 500;
             vertical-align: middle;
         }
-        .stat-value.significantly-better {
-            color: #10b981;
-            font-weight: 700;
+        /* Mobile-friendly σ (sigma) badges for significant edges */
+        .sigma-badge {
+            display: inline-block;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-size: 9px;
+            font-weight: 800;
+            margin-right: 3px;
+            vertical-align: middle;
         }
-        .stat-value.significantly-worse {
-            color: #ef4444;
-            font-weight: 600;
-            opacity: 0.8;
+        .sigma-badge.sigma-2 {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: #fff;
+            box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+        }
+        .sigma-badge.sigma-1 {
+            background: rgba(59, 130, 246, 0.4);
+            color: #93c5fd;
+        }
+        .edge-even {
+            color: #6b7280;
+            font-size: 14px;
+        }
+        .val-2sigma {
+            color: #10b981 !important;
+            font-weight: 800 !important;
+        }
+        .val-1sigma {
+            color: #60a5fa !important;
+            font-weight: 600 !important;
+        }
+        .row-significant {
+            background: rgba(16, 185, 129, 0.08) !important;
+            border-left: 3px solid #10b981;
+        }
+        
+        /* Mobile optimizations for sigma badges */
+        @media (max-width: 768px) {
+            .sigma-badge {
+                font-size: 8px;
+                padding: 1px 3px;
+            }
+            .sigma-badge.sigma-2 {
+                box-shadow: 0 0 4px rgba(16, 185, 129, 0.5);
+            }
         }
         
         .hidden { display: none !important; }
@@ -3477,15 +3514,31 @@
                 const diff = Math.abs(aw - hm);
                 const noEdge = diff < threshold;
                 
-                // Determine if edge is significant (2+ std dev proxy: large % difference)
+                // 2σ detection - significant statistical edge (mobile-visible)
                 const avgVal = (aw + hm) / 2;
                 const pctDiff = avgVal > 0 ? (diff / avgVal) * 100 : 0;
-                const isStrongEdge = pctDiff > 10; // >10% difference = strong edge
+                const is2Sigma = pctDiff > 15; // >15% = 2σ level edge
+                const is1Sigma = pctDiff > 8 && pctDiff <= 15; // 8-15% = 1σ edge
                 
                 const awayClass = awayWins ? 'stat-winner' : '';
                 const homeClass = homeWins ? 'stat-winner' : '';
-                const edge = noEdge ? 'Even' : (awayWins ? awayTeam : homeTeam);
-                const edgeClass = noEdge ? '' : ((awayWins ? 'edge-away' : 'edge-home') + (isStrongEdge ? ' edge-strong' : ''));
+                const winner = awayWins ? awayTeam : homeTeam;
+                
+                // Mobile-friendly edge display with σ badge
+                let edgeText, edgeClass;
+                if (noEdge) {
+                    edgeText = '<span class="edge-even">—</span>';
+                    edgeClass = '';
+                } else if (is2Sigma) {
+                    edgeText = `<span class="sigma-badge sigma-2">2σ</span>${winner}`;
+                    edgeClass = awayWins ? 'edge-away edge-strong' : 'edge-home edge-strong';
+                } else if (is1Sigma) {
+                    edgeText = `<span class="sigma-badge sigma-1">1σ</span>${winner}`;
+                    edgeClass = awayWins ? 'edge-away' : 'edge-home';
+                } else {
+                    edgeText = winner;
+                    edgeClass = awayWins ? 'edge-away' : 'edge-home';
+                }
                 
                 // Format values based on type
                 let valFormat, valFormat2;
@@ -3504,22 +3557,19 @@
                 const awayRankClass = getRankClass(awayRank, higherIsBetter);
                 const homeRankClass = getRankClass(homeRank, higherIsBetter);
                 
-                // Value significance classes
-                const awayValClass = awayWins && isStrongEdge ? 'significantly-better' : (homeWins && isStrongEdge ? 'significantly-worse' : '');
-                const homeValClass = homeWins && isStrongEdge ? 'significantly-better' : (awayWins && isStrongEdge ? 'significantly-worse' : '');
+                // Value styling - bold green for significant winner
+                const awayValClass = awayWins && is2Sigma ? 'val-2sigma' : (awayWins && is1Sigma ? 'val-1sigma' : '');
+                const homeValClass = homeWins && is2Sigma ? 'val-2sigma' : (homeWins && is1Sigma ? 'val-1sigma' : '');
                 
                 // Display rank as badge, value separately
                 const awayDisplay = awayRank ? `<span class="rank-badge ${awayRankClass}">#${awayRank}</span><span class="stat-value ${awayValClass}">${valFormat}</span>` : `<span class="stat-value ${awayValClass}">${valFormat}</span>`;
                 const homeDisplay = homeRank ? `<span class="rank-badge ${homeRankClass}">#${homeRank}</span><span class="stat-value ${homeValClass}">${valFormat2}</span>` : `<span class="stat-value ${homeValClass}">${valFormat2}</span>`;
                 
-                // Add strong edge indicator
-                const edgeIcon = isStrongEdge ? '⚡' : '';
-                
-                return `<tr>
+                return `<tr class="${is2Sigma ? 'row-significant' : ''}">
                     <td class="metric-name">${metric}</td>
                     <td class="${awayClass}">${awayDisplay}</td>
                     <td class="${homeClass}">${homeDisplay}</td>
-                    <td class="${edgeClass}">${edgeIcon}${edge}</td>
+                    <td class="${edgeClass}">${edgeText}</td>
                 </tr>`;
             }
             
