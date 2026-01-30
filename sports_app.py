@@ -7439,6 +7439,9 @@ def dashboard():
     # Show all games from today's slate (includes in-progress and completed)
     all_games = all_games_db
     
+    # Get NBA standings for records/rankings
+    nba_standings = get_nba_standings()
+    
     # Add time window and logos to each game for weekend slate grouping
     for g in all_games:
         g.time_window = get_game_window(g.game_time)
@@ -7446,15 +7449,34 @@ def dashboard():
         if g.league == 'NBA':
             g.away_logo = nba_team_logos.get(g.away_team, 'https://a.espncdn.com/i/teamlogos/nba/500/nba.png')
             g.home_logo = nba_team_logos.get(g.home_team, 'https://a.espncdn.com/i/teamlogos/nba/500/nba.png')
+            # Add records and standings from ESPN
+            away_stand = nba_standings.get(g.away_team, {})
+            home_stand = nba_standings.get(g.home_team, {})
+            g.away_record = away_stand.get('record', '--')
+            g.home_record = home_stand.get('record', '--')
+            g.away_standing = away_stand.get('standing', '')
+            g.home_standing = home_stand.get('standing', '')
         elif g.league == 'CBB':
             g.away_logo = get_transparent_cbb_logo(g.away_team) or get_cbb_logo(g.away_team) or 'https://a.espncdn.com/i/teamlogos/leagues/500-dark/nba.png'
             g.home_logo = get_transparent_cbb_logo(g.home_team) or get_cbb_logo(g.home_team) or 'https://a.espncdn.com/i/teamlogos/leagues/500-dark/nba.png'
+            g.away_record = '--'
+            g.home_record = '--'
+            g.away_standing = ''
+            g.home_standing = ''
         elif g.league == 'NHL':
             g.away_logo = nhl_team_logos.get(g.away_team, 'https://a.espncdn.com/i/teamlogos/nhl/500/nhl.png')
             g.home_logo = nhl_team_logos.get(g.home_team, 'https://a.espncdn.com/i/teamlogos/nhl/500/nhl.png')
+            g.away_record = '--'
+            g.home_record = '--'
+            g.away_standing = ''
+            g.home_standing = ''
         else:
             g.away_logo = ''
             g.home_logo = ''
+            g.away_record = '--'
+            g.home_record = '--'
+            g.away_standing = ''
+            g.home_standing = ''
     
     # PURE MODEL: Games qualified ONLY by edge threshold (TOTALS ONLY)
     # Rule: Difference = Projected_Total - Bovada_Line must meet threshold
