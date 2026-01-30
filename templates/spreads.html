@@ -1826,8 +1826,7 @@
                         </div>
                         <div class="pikkit-final-area" id="final-score-{{ game.id }}" style="display: none;">
                             <div class="pikkit-final-display">
-                                <div class="pikkit-final-label">FINAL</div>
-                                <div class="pikkit-final-score"><span class="away-final">0</span> - <span class="home-final">0</span></div>
+                                <div class="pikkit-final-score"><span class="away-final">0</span> <span style="color:#9ca3af; font-size:10px; font-weight:700; letter-spacing:1px;">FINAL</span> <span class="home-final">0</span></div>
                                 <div class="pikkit-final-total">Total: <span class="total-pts">0</span></div>
                             </div>
                         </div>
@@ -2095,8 +2094,7 @@
                     const total = (data.away_score || 0) + (data.home_score || 0);
                     finalContainer.innerHTML = `
                         <div class="pikkit-final-display">
-                            <div class="pikkit-final-label">FINAL</div>
-                            <div class="pikkit-final-score">${data.away_score} - ${data.home_score}</div>
+                            <div class="pikkit-final-score">${data.away_score} <span style="color:#9ca3af; font-size:10px; font-weight:700; letter-spacing:1px;">FINAL</span> ${data.home_score}</div>
                             <div class="pikkit-final-total">Total: ${total}</div>
                         </div>
                     `;

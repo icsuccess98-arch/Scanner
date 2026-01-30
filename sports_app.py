@@ -7439,8 +7439,10 @@ def dashboard():
     # Show all games from today's slate (includes in-progress and completed)
     all_games = all_games_db
     
-    # Get NBA standings for records/rankings
+    # Get standings for all leagues
     nba_standings = get_nba_standings()
+    cbb_standings = get_cbb_standings()
+    nhl_standings = get_nhl_standings()
     
     # Add time window and logos to each game for weekend slate grouping
     for g in all_games:
@@ -7449,7 +7451,6 @@ def dashboard():
         if g.league == 'NBA':
             g.away_logo = nba_team_logos.get(g.away_team, 'https://a.espncdn.com/i/teamlogos/nba/500/nba.png')
             g.home_logo = nba_team_logos.get(g.home_team, 'https://a.espncdn.com/i/teamlogos/nba/500/nba.png')
-            # Add records and standings from ESPN
             away_stand = nba_standings.get(g.away_team, {})
             home_stand = nba_standings.get(g.home_team, {})
             g.away_record = away_stand.get('record', '--')
@@ -7459,17 +7460,21 @@ def dashboard():
         elif g.league == 'CBB':
             g.away_logo = get_transparent_cbb_logo(g.away_team) or get_cbb_logo(g.away_team) or 'https://a.espncdn.com/i/teamlogos/leagues/500-dark/nba.png'
             g.home_logo = get_transparent_cbb_logo(g.home_team) or get_cbb_logo(g.home_team) or 'https://a.espncdn.com/i/teamlogos/leagues/500-dark/nba.png'
-            g.away_record = '--'
-            g.home_record = '--'
+            away_stand = cbb_standings.get(g.away_team, {})
+            home_stand = cbb_standings.get(g.home_team, {})
+            g.away_record = away_stand.get('record', '--')
+            g.home_record = home_stand.get('record', '--')
             g.away_standing = ''
             g.home_standing = ''
         elif g.league == 'NHL':
             g.away_logo = nhl_team_logos.get(g.away_team, 'https://a.espncdn.com/i/teamlogos/nhl/500/nhl.png')
             g.home_logo = nhl_team_logos.get(g.home_team, 'https://a.espncdn.com/i/teamlogos/nhl/500/nhl.png')
-            g.away_record = '--'
-            g.home_record = '--'
-            g.away_standing = ''
-            g.home_standing = ''
+            away_stand = nhl_standings.get(g.away_team, {})
+            home_stand = nhl_standings.get(g.home_team, {})
+            g.away_record = away_stand.get('record', '--')
+            g.home_record = home_stand.get('record', '--')
+            g.away_standing = away_stand.get('standing', '')
+            g.home_standing = home_stand.get('standing', '')
         else:
             g.away_logo = ''
             g.home_logo = ''
@@ -9915,14 +9920,104 @@ def get_nba_standings():
         logger.warning(f"Error fetching NBA standings: {e}")
     return standings
 
+_cbb_standings_cache = {'data': {}, 'timestamp': 0}
+
+def get_cbb_standings():
+    """Fetch CBB standings from ESPN scoreboard API with caching."""
+    global _cbb_standings_cache
+    import time
+    from datetime import datetime
+    
+    if _cbb_standings_cache['data'] and time.time() - _cbb_standings_cache['timestamp'] < 1800:
+        return _cbb_standings_cache['data']
+    
+    standings = {}
+    try:
+        today = datetime.now().strftime('%Y%m%d')
+        url = f'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates={today}&limit=200'
+        resp = requests.get(url, timeout=15)
+        if resp.status_code == 200:
+            data = resp.json()
+            for event in data.get('events', []):
+                comps = event.get('competitions', [{}])[0]
+                for team in comps.get('competitors', []):
+                    team_info = team.get('team', {})
+                    records = team.get('records', [])
+                    record = records[0].get('summary', '--') if records else '--'
+                    team_data = {'record': record, 'standing': ''}
+                    short_name = team_info.get('shortDisplayName', '')
+                    display_name = team_info.get('displayName', '')
+                    nickname = team_info.get('nickname', '')
+                    abbrev = team_info.get('abbreviation', '')
+                    if short_name and short_name not in standings:
+                        standings[short_name] = team_data
+                    if display_name and display_name not in standings:
+                        standings[display_name] = team_data
+                    if nickname and nickname not in standings:
+                        standings[nickname] = team_data
+                    if abbrev and abbrev not in standings:
+                        standings[abbrev] = team_data
+        _cbb_standings_cache = {'data': standings, 'timestamp': time.time()}
+        logger.info(f"Fetched CBB standings for {len(standings)} teams from scoreboard")
+    except Exception as e:
+        logger.warning(f"Error fetching CBB standings: {e}")
+    return standings
+
+_nhl_standings_cache = {'data': {}, 'timestamp': 0}
+
+def get_nhl_standings():
+    """Fetch NHL standings from ESPN API with caching."""
+    global _nhl_standings_cache
+    import time
+    
+    if _nhl_standings_cache['data'] and time.time() - _nhl_standings_cache['timestamp'] < 3600:
+        return _nhl_standings_cache['data']
+    
+    standings = {}
+    try:
+        url = 'https://site.api.espn.com/apis/v2/sports/hockey/nhl/standings'
+        resp = requests.get(url, timeout=10)
+        if resp.status_code == 200:
+            data = resp.json()
+            for child in data.get('children', []):
+                conf_name = child.get('name', '')
+                conf_abbr = 'East' if 'east' in conf_name.lower() else 'West'
+                entries = child.get('standings', {}).get('entries', [])
+                sorted_entries = sorted(entries, key=lambda x: -float([s.get('value',0) for s in x.get('stats',[]) if s.get('name')=='points'][0] if [s.get('value',0) for s in x.get('stats',[]) if s.get('name')=='points'] else 0))
+                for idx, entry in enumerate(sorted_entries, 1):
+                    team_info = entry.get('team', {})
+                    team_name = team_info.get('displayName', '').split()[-1]
+                    stats = {s['name']: s.get('value', 0) for s in entry.get('stats', [])}
+                    wins = int(float(stats.get('wins', 0)))
+                    losses = int(float(stats.get('losses', 0)))
+                    otl = int(float(stats.get('otLosses', 0)))
+                    if 11 <= idx <= 13:
+                        suffix = 'th'
+                    else:
+                        suffix = ['th','st','nd','rd','th','th','th','th','th','th'][idx % 10]
+                    standings[team_name] = {
+                        'record': f"{wins}-{losses}-{otl}",
+                        'standing': f"{idx}{suffix} {conf_abbr}",
+                        'wins': wins,
+                        'losses': losses,
+                        'conf': conf_abbr
+                    }
+        _nhl_standings_cache = {'data': standings, 'timestamp': time.time()}
+        logger.info(f"Fetched NHL standings for {len(standings)} teams")
+    except Exception as e:
+        logger.warning(f"Error fetching NHL standings: {e}")
+    return standings
+
 @app.route('/spreads')
 def spreads():
     """Spreads page - shows all upcoming games with spread data (no totals filtering)."""
     et = pytz.timezone('America/New_York')
     today = datetime.now(et).date()
     
-    # Fetch NBA standings for records
+    # Fetch standings for all leagues
     nba_standings = get_nba_standings()
+    cbb_standings = get_cbb_standings()
+    nhl_standings = get_nhl_standings()
     
     # Get ALL games for today without any totals filtering
     all_games = Game.query.filter_by(date=today).order_by(Game.game_time.asc()).all()
@@ -9938,21 +10033,36 @@ def spreads():
     
     for g in all_games:
         if g.league in games_by_league:
-            # Add team logos for NBA
             if g.league == 'NBA':
                 g.away_logo = nba_team_logos.get(g.away_team, 'https://a.espncdn.com/i/teamlogos/nba/500/nba.png')
                 g.home_logo = nba_team_logos.get(g.home_team, 'https://a.espncdn.com/i/teamlogos/nba/500/nba.png')
-                # Add records and standings from ESPN
                 away_stand = nba_standings.get(g.away_team, {})
                 home_stand = nba_standings.get(g.home_team, {})
                 g.away_record = away_stand.get('record', '--')
                 g.home_record = home_stand.get('record', '--')
                 g.away_standing = away_stand.get('standing', '')
                 g.home_standing = home_stand.get('standing', '')
-            else:
-                # CBB uses transparent team-specific logos from automated_loading_system
+            elif g.league == 'CBB':
                 g.away_logo = get_transparent_cbb_logo(g.away_team) or get_cbb_logo(g.away_team) or 'https://a.espncdn.com/i/teamlogos/leagues/500-dark/nba.png'
                 g.home_logo = get_transparent_cbb_logo(g.home_team) or get_cbb_logo(g.home_team) or 'https://a.espncdn.com/i/teamlogos/leagues/500-dark/nba.png'
+                away_stand = cbb_standings.get(g.away_team, {})
+                home_stand = cbb_standings.get(g.home_team, {})
+                g.away_record = away_stand.get('record', '--')
+                g.home_record = home_stand.get('record', '--')
+                g.away_standing = ''
+                g.home_standing = ''
+            elif g.league == 'NHL':
+                g.away_logo = nhl_team_logos.get(g.away_team, 'https://a.espncdn.com/i/teamlogos/nhl/500/nhl.png')
+                g.home_logo = nhl_team_logos.get(g.home_team, 'https://a.espncdn.com/i/teamlogos/nhl/500/nhl.png')
+                away_stand = nhl_standings.get(g.away_team, {})
+                home_stand = nhl_standings.get(g.home_team, {})
+                g.away_record = away_stand.get('record', '--')
+                g.home_record = home_stand.get('record', '--')
+                g.away_standing = away_stand.get('standing', '')
+                g.home_standing = home_stand.get('standing', '')
+            else:
+                g.away_logo = ''
+                g.home_logo = ''
                 g.away_record = '--'
                 g.home_record = '--'
                 g.away_standing = ''

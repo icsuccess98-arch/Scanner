@@ -1674,8 +1674,7 @@
                             </div>
                             <div class="pikkit-final-area" id="final-score-{{ game.id }}" style="display: none;">
                                 <div class="pikkit-final-display">
-                                    <div class="pikkit-final-label">FINAL</div>
-                                    <div class="pikkit-final-score"><span class="away-final">0</span> - <span class="home-final">0</span></div>
+                                    <div class="pikkit-final-score"><span class="away-final">0</span> <span style="color:#9ca3af; font-size:10px; font-weight:700; letter-spacing:1px;">FINAL</span> <span class="home-final">0</span></div>
                                     <div class="pikkit-final-total">Total: <span class="total-pts">0</span></div>
                                 </div>
                             </div>
@@ -2131,8 +2130,7 @@
                             </div>
                             <div class="pikkit-final-area" id="final-score-{{ game.id }}" style="display: none;">
                                 <div class="pikkit-final-display">
-                                    <div class="pikkit-final-label">FINAL</div>
-                                    <div class="pikkit-final-score"><span class="away-final">0</span> - <span class="home-final">0</span></div>
+                                    <div class="pikkit-final-score"><span class="away-final">0</span> <span style="color:#9ca3af; font-size:10px; font-weight:700; letter-spacing:1px;">FINAL</span> <span class="home-final">0</span></div>
                                     <div class="pikkit-final-total">Total: <span class="total-pts">0</span></div>
                                 </div>
                             </div>
@@ -2612,7 +2610,7 @@
                                 if (final) {
                                     const scoreEl = document.getElementById('supermax-score');
                                     const totalEl = document.getElementById('supermax-total');
-                                    if (scoreEl) scoreEl.textContent = `${scoreData.away_score} - ${scoreData.home_score}`;
+                                    if (scoreEl) scoreEl.innerHTML = `${scoreData.away_score} <span style="color:#9ca3af; font-size:10px; font-weight:700; letter-spacing:1px;">FINAL</span> ${scoreData.home_score}`;
                                     if (totalEl) totalEl.textContent = `Total: ${total}`;
                                     final.style.display = 'block';
                                 }
