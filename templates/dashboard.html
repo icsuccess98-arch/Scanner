@@ -2516,7 +2516,7 @@
             .catch(err => console.log('Live scores error:', err));
         }
         
-        setInterval(fetchLiveScores, 5000);
+        setInterval(fetchLiveScores, 2500);
         fetchLiveScores();
         
         if ('Notification' in window && 'serviceWorker' in navigator) {
