@@ -10107,8 +10107,14 @@ def get_nhl_standings():
                     team_info = entry.get('team', {})
                     full_name = team_info.get('displayName', '')
                     team_name = full_name.split()[-1]
-                    if 'Trail Blazers' in full_name:
-                        team_name = 'Trail Blazers'
+                    if 'Blue Jackets' in full_name:
+                        team_name = 'Blue Jackets'
+                    elif 'Maple Leafs' in full_name:
+                        team_name = 'Maple Leafs'
+                    elif 'Golden Knights' in full_name:
+                        team_name = 'Golden Knights'
+                    elif 'Red Wings' in full_name:
+                        team_name = 'Red Wings'
                     stats = {s['name']: s.get('value', 0) for s in entry.get('stats', [])}
                     wins = int(float(stats.get('wins', 0)))
                     losses = int(float(stats.get('losses', 0)))
