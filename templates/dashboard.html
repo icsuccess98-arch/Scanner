@@ -1700,12 +1700,18 @@
                     </div>
                     {% endif %}
                     
+                    <!-- DEF EDGE BAR (full width like O/U bar) -->
+                    {% if game.def_mismatch %}
+                    <div style="text-align:center; padding:4px 0; background:rgba(0,191,255,0.08); border-top:1px solid rgba(0,191,255,0.15);">
+                        <span style="color:#00BFFF; font-size:11px; font-weight:600; white-space:nowrap;">🛡️ DEF EDGE</span>
+                    </div>
+                    {% endif %}
+                    
                     <!-- BADGES ROW -->
-                    {% if game.is_back_to_back_away or game.is_back_to_back_home or game.is_away_favorite or game.def_mismatch %}
+                    {% if game.is_back_to_back_away or game.is_back_to_back_home or game.is_away_favorite %}
                     <div class="pikkit-badges">
                         {% if game.is_back_to_back_away or game.is_back_to_back_home %}<span class="pikkit-badge b2b">B2B</span>{% endif %}
                         {% if game.is_away_favorite %}<span class="pikkit-badge away-fav">AWAY FAV</span>{% endif %}
-                        {% if game.def_mismatch %}<span class="pikkit-badge def-edge">DEF EDGE</span>{% endif %}
                     </div>
                     {% endif %}
                     
@@ -2151,12 +2157,18 @@
                     </div>
                     {% endif %}
                     
+                    <!-- DEF EDGE BAR (full width like O/U bar) -->
+                    {% if game.def_mismatch %}
+                    <div style="text-align:center; padding:4px 0; background:rgba(0,191,255,0.08); border-top:1px solid rgba(0,191,255,0.15);">
+                        <span style="color:#00BFFF; font-size:11px; font-weight:600; white-space:nowrap;">🛡️ DEF EDGE</span>
+                    </div>
+                    {% endif %}
+                    
                     <!-- BADGES ROW -->
-                    {% if game.is_back_to_back_away or game.is_back_to_back_home or game.is_away_favorite or game.def_mismatch %}
+                    {% if game.is_back_to_back_away or game.is_back_to_back_home or game.is_away_favorite %}
                     <div class="pikkit-badges">
                         {% if game.is_back_to_back_away or game.is_back_to_back_home %}<span class="pikkit-badge b2b">B2B</span>{% endif %}
                         {% if game.is_away_favorite %}<span class="pikkit-badge away-fav">AWAY FAV</span>{% endif %}
-                        {% if game.def_mismatch %}<span class="pikkit-badge def-edge">DEF EDGE</span>{% endif %}
                     </div>
                     {% endif %}
                     
