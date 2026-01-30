@@ -229,20 +229,22 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                             if spread_m:
                                 money_percentages.append(int(spread_m.group(1)))
                     
-                    # Parse LINES column (index 7) - spread and total lines
+                    # Parse OPEN column (index 7) - opening spread and total lines
                     if len(cell_values) > 7:
                         lines_cell = cell_values[7].replace('\xa0', '')
                         for line in lines_cell.split('\n'):
                             line = line.strip()
                             if not line:
                                 continue
-                            # Spread with odds: "-3-10" = -3 spread
-                            spread_m = re.match(r'^([+-]?\d+\.?\d*)-(\d+)$', line)
+                            # Spread with odds: "-3-10" or "-3½-10" = -3 or -3.5 spread
+                            spread_m = re.match(r'^([+-]?\d+)(½)?-(\d+)$', line)
                             if spread_m:
                                 try:
                                     val = float(spread_m.group(1))
+                                    if spread_m.group(2):  # Has ½
+                                        val += 0.5 if val >= 0 else -0.5
                                     if abs(val) < 50:
-                                        lines_found.append(('spread', val))
+                                        open_spread = val
                                 except:
                                     pass
                                 continue
@@ -252,7 +254,7 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                                 try:
                                     val = float(total_m.group(1)) + 0.5
                                     if 150 < val < 300:
-                                        lines_found.append(('total', val))
+                                        open_total = val
                                 except:
                                     pass
                                 continue
@@ -262,7 +264,46 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                                 try:
                                     val = float(plain_m.group(1))
                                     if 150 < val < 300:
-                                        lines_found.append(('total', val))
+                                        open_total = val
+                                except:
+                                    pass
+                    
+                    # Parse CURRENT/DraftKings column (index 8) - current/closing spread and total
+                    if len(cell_values) > 8:
+                        lines_cell = cell_values[8].replace('\xa0', '')
+                        for line in lines_cell.split('\n'):
+                            line = line.strip()
+                            if not line:
+                                continue
+                            # Spread with odds: "-3-10" or "-3½-20" = -3 or -3.5 spread
+                            spread_m = re.match(r'^([+-]?\d+)(½)?-(\d+)$', line)
+                            if spread_m:
+                                try:
+                                    val = float(spread_m.group(1))
+                                    if spread_m.group(2):  # Has ½
+                                        val += 0.5 if val >= 0 else -0.5
+                                    if abs(val) < 50:
+                                        current_spread = val
+                                except:
+                                    pass
+                                continue
+                            # Total with fraction: "225½o-15"
+                            total_m = re.match(r'^(\d{3})½', line)
+                            if total_m:
+                                try:
+                                    val = float(total_m.group(1)) + 0.5
+                                    if 150 < val < 300:
+                                        current_total = val
+                                except:
+                                    pass
+                                continue
+                            # Plain total: "225"
+                            plain_m = re.match(r'^(\d{3})$', line)
+                            if plain_m:
+                                try:
+                                    val = float(plain_m.group(1))
+                                    if 150 < val < 300:
+                                        current_total = val
                                 except:
                                     pass
                     
@@ -337,19 +378,6 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                         if len(team_candidates) >= 2:
                             away_team = _normalize_team_name(team_candidates[0])
                             home_team = _normalize_team_name(team_candidates[1])
-                    
-                    # Assign line values
-                    for line_type, value in lines_found:
-                        if line_type == 'spread':
-                            if open_spread is None:
-                                open_spread = value
-                            else:
-                                current_spread = value
-                        elif line_type == 'total':
-                            if open_total is None:
-                                open_total = value
-                            else:
-                                current_total = value
                     
                     if away_team and home_team and away_team != home_team:
                         matchup_key = f"{away_team} vs {home_team}"
