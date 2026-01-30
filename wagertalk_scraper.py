@@ -173,16 +173,27 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                             result[matchup_key] = {
                                 'away_team': away_team,
                                 'home_team': home_team,
+                                # Spread betting data
+                                'spread_tickets_pct': tickets_pct,
+                                'spread_money_pct': money_pct,
                                 'away_tickets_pct': tickets_pct,
                                 'home_tickets_pct': 100 - tickets_pct,
+                                'away_bet_pct': tickets_pct,
+                                'home_bet_pct': 100 - tickets_pct,
                                 'away_money_pct': money_pct,
                                 'home_money_pct': 100 - money_pct,
+                                # Totals betting data (default 50/50 for now)
                                 'over_bet_pct': 50,
                                 'under_bet_pct': 50,
                                 'over_money_pct': 50,
                                 'under_money_pct': 50,
+                                'total_tickets_pct': 50,
+                                'total_money_pct': 50,
+                                # Sharp money detection
                                 'sharp_detected': abs(tickets_pct - money_pct) >= 15,
                                 'sharp_side': away_team if money_pct > tickets_pct else home_team,
+                                'spread_sharp_detected': abs(tickets_pct - money_pct) >= 15,
+                                'spread_sharp_side': away_team if money_pct > tickets_pct else home_team,
                                 'source': 'wagertalk'
                             }
                             games_found += 1
