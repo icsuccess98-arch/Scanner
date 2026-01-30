@@ -10788,66 +10788,16 @@ def get_matchup_data(game_id):
             spread_sharp_detected = abs(away_sharp_diff) >= 10 or abs(home_sharp_diff) >= 10
             spread_sharp_side = game.away_team if away_sharp_diff >= 10 else (game.home_team if home_sharp_diff >= 10 else None)
             
-            # Detect RLM (line moves opposite to public betting)
-            spread_rlm_detected = False
-            spread_rlm_sharp_side = None
-            totals_rlm_detected = False
+            # USE CACHED RLM DATA from fetch_rlm_data (single source of truth)
+            # RLM FORMULA: Line 📉 + Money to new favorite 📈 = RLM
+            # Detection is done in fetch_rlm_data, we just use the cached results here
+            spread_rlm_detected = rlm_data.get('spread_rlm_detected', False)
+            spread_rlm_sharp_side = rlm_data.get('spread_rlm_sharp_side', None)
+            totals_rlm_detected = False  # RLM is for SPREADS only
             totals_rlm_sharp_side = None
             
-            # Get favorite info from RLM data - use open_favorite ONLY
-            open_favorite = rlm_data.get('open_favorite', '')  # Already normalized in fetch_rlm_data
-            
-            # Determine favorite/underdog based on open_favorite from WagerTalk
-            favorite_team = None
-            underdog_team = None
-            if open_favorite == game.away_team:
-                favorite_team = game.away_team
-                underdog_team = game.home_team
-            elif open_favorite == game.home_team:
-                favorite_team = game.home_team
-                underdog_team = game.away_team
-            # No fallback - if open_favorite doesn't match, leave as None
-            
-            # SPREAD RLM: FORMULA: Line 📉 + Money to new favorite 📈 = RLM
-            # - Line must move DOWN/AWAY from original favorite (spread decreases)
-            # - Money (handle %) must be HIGHER on the NEW favorite (team line moved toward)
-            if current_spread is not None and open_spread is not None and favorite_team and underdog_team:
-                try:
-                    spread_change = float(current_spread) - float(open_spread)
-                    movement_abs = abs(spread_change)
-                    
-                    # Need at least 0.5 point movement
-                    if movement_abs >= 0.5:
-                        # RLM FORMULA: Line 📉 + Money to new favorite 📈 = RLM
-                        # Step 1: Line must move DOWN (spread decreased = away from original favorite)
-                        line_moved_down = spread_change < 0
-                        
-                        # Step 2: Determine NEW favorite (team line moved toward)
-                        # Spread decreased → line moved toward UNDERDOG (they become more favored)
-                        if spread_change < 0:
-                            new_favorite = underdog_team
-                        else:
-                            new_favorite = None  # Line didn't move down, no RLM possible
-                        
-                        # Step 3: Check if MONEY (handle %) favors the NEW favorite
-                        # Money% is where sharp action is - NOT tickets/bets%
-                        money_favors_new_favorite = False
-                        if new_favorite:
-                            if new_favorite == game.away_team:
-                                money_favors_new_favorite = away_money > home_money
-                            else:
-                                money_favors_new_favorite = home_money > away_money
-                        
-                        # RLM: Line moved DOWN + Money on NEW favorite = RLM detected
-                        if line_moved_down and new_favorite and money_favors_new_favorite:
-                            spread_rlm_detected = True
-                            spread_rlm_sharp_side = new_favorite
-                            logging.info(f"RLM DETECTED: Line 📉 {open_spread} to {current_spread}, Money 📈 on {new_favorite}")
-                except:
-                    pass
-            
-            # NOTE: RLM is only for SPREADS, not totals. Totals uses different strategy on dashboard.
-            # totals_rlm_detected stays False
+            # Get favorite info from RLM data
+            open_favorite = rlm_data.get('open_favorite', '')
             
             # Majority team
             majority_pct = max(away_bet, home_bet)
