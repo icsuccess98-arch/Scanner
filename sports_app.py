@@ -10180,44 +10180,55 @@ def spreads():
                 large_spread_teams.add(g.away_team)
     large_spread_display = ', '.join(large_spread_matchups) if large_spread_matchups else 'None'
     
-    # L10 Records - Updated daily from ESPN/NBA.com
-    # Format: team_name -> (wins, losses) in last 10 games
-    nba_l10_records = {
-        # Cold teams (3 wins or less in L10)
-        'Wizards': (1, 9),
-        'Nets': (2, 8),
-        'Jazz': (3, 7),
-        'Trail Blazers': (3, 7),
-        'Blazers': (3, 7),
-        'Hornets': (3, 7),
-        # Moderate teams
-        'Pelicans': (4, 6),
-        'Raptors': (4, 6),
-        'Bulls': (5, 5),
-        'Hawks': (5, 5),
-        'Heat': (5, 5),
-        'Spurs': (5, 5),
-        '76ers': (5, 5),
-        'Magic': (5, 5),
-        'Pacers': (5, 5),
-        'Nuggets': (6, 4),
-        'Lakers': (6, 4),
-        'Suns': (6, 4),
-        'Kings': (4, 6),
-        'Warriors': (6, 4),
-        'Mavericks': (6, 4),
-        'Timberwolves': (7, 3),
-        'Rockets': (7, 3),
-        'Bucks': (7, 3),
-        'Clippers': (7, 3),
-        'Knicks': (7, 3),
-        # Hot teams (8+ wins in L10)
-        'Celtics': (8, 2),
-        'Cavaliers': (8, 2),
-        'Thunder': (9, 1),
-        'Grizzlies': (8, 2),
-        'Pistons': (8, 2),
-    }
+    # L10 Records - Fetched dynamically from ESPN Standings API
+    nba_l10_records = {}
+    try:
+        standings_url = "https://site.api.espn.com/apis/v2/sports/basketball/nba/standings"
+        resp = requests.get(standings_url, timeout=15)
+        if resp.status_code == 200:
+            data = resp.json()
+            for child in data.get('children', []):
+                for standing in child.get('standings', {}).get('entries', []):
+                    team_info = standing.get('team', {})
+                    team_name = team_info.get('shortDisplayName', '')
+                    if not team_name:
+                        team_name = team_info.get('displayName', '').split()[-1]
+                    # Find L10 record in stats
+                    for stat in standing.get('stats', []):
+                        if stat.get('name') == 'streak' or stat.get('abbreviation') == 'L10':
+                            continue
+                        if stat.get('name') == 'record' and 'Last Ten' in str(stat.get('description', '')):
+                            l10_val = stat.get('displayValue', '0-0')
+                            if '-' in l10_val:
+                                parts = l10_val.split('-')
+                                nba_l10_records[team_name] = (int(parts[0]), int(parts[1]))
+                    # Try alternate L10 stat location
+                    for stat in standing.get('stats', []):
+                        if stat.get('abbreviation') == 'L10' or 'last10' in stat.get('name', '').lower():
+                            l10_val = stat.get('displayValue', '0-0')
+                            if '-' in l10_val:
+                                parts = l10_val.split('-')
+                                nba_l10_records[team_name] = (int(parts[0]), int(parts[1]))
+        # If ESPN standings didn't get L10, try team-by-team
+        if not nba_l10_records:
+            # Fallback: fetch from scoreboard/team endpoints
+            teams_url = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams"
+            resp = requests.get(teams_url, timeout=15)
+            if resp.status_code == 200:
+                for team in resp.json().get('sports', [{}])[0].get('leagues', [{}])[0].get('teams', []):
+                    team_info = team.get('team', {})
+                    team_name = team_info.get('shortDisplayName', '')
+                    record = team_info.get('record', {})
+                    # Some ESPN endpoints include L10 in record items
+                    for item in record.get('items', []):
+                        if 'Last 10' in item.get('description', '') or item.get('type') == 'last10':
+                            l10_val = item.get('summary', '0-0')
+                            if '-' in l10_val:
+                                parts = l10_val.split('-')
+                                nba_l10_records[team_name] = (int(parts[0]), int(parts[1]))
+        logger.info(f"Fetched L10 records for {len(nba_l10_records)} NBA teams")
+    except Exception as e:
+        logger.warning(f"Error fetching L10 records: {e}")
     
     # Get all teams playing today
     teams_today = set()
@@ -10259,23 +10270,23 @@ def spreads():
             bad_defense_set.add(g.home_team)
     bad_defense_display = ', '.join(bad_defense_in_slate) if bad_defense_in_slate else 'None'
     
-    # 5. B2B teams - check yesterday's games
-    # Teams that played yesterday (January 28, 2026) - update daily
-    # Source: NBA schedule
-    teams_played_yesterday = {
-        'Thunder',      # vs Grizzlies
-        'Grizzlies',    # vs Thunder
-        'Rockets',      # vs Clippers
-        'Clippers',     # vs Rockets
-        'Pistons',      # vs Magic
-        'Magic',        # vs Pistons
-        'Hornets',      # vs Cavaliers
-        'Cavaliers',    # vs Hornets
-        'Bucks',        # vs Celtics
-        'Celtics',      # vs Bucks
-        'Nets',         # vs Knicks
-        'Knicks',       # vs Nets
-    }
+    # 5. B2B teams - dynamically fetch yesterday's games from ESPN
+    teams_played_yesterday = set()
+    try:
+        yesterday = today - timedelta(days=1)
+        yesterday_str = yesterday.strftime('%Y%m%d')
+        yesterday_url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={yesterday_str}"
+        resp = requests.get(yesterday_url, timeout=10)
+        if resp.status_code == 200:
+            for event in resp.json().get('events', []):
+                comps = event.get('competitions', [{}])[0]
+                for team in comps.get('competitors', []):
+                    team_name = team.get('team', {}).get('shortDisplayName', '')
+                    if team_name:
+                        teams_played_yesterday.add(team_name)
+        logger.info(f"B2B detection: {len(teams_played_yesterday)} teams played yesterday")
+    except Exception as e:
+        logger.warning(f"Error fetching yesterday's games for B2B: {e}")
     
     b2b_teams_list = []
     b2b_set = set()
