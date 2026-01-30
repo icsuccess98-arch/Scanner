@@ -1,12 +1,18 @@
 """
 Reverse Line Movement (RLM) Detection Module
 Professional-grade implementation with correct logic for spreads and totals.
+
+Key Principles from Sharp Betting Strategy:
+- Sharp money = lower bet % but higher handle/money % (e.g., 40% bets but 70% money = sharp side)
+- RLM = line moves AGAINST majority of bets (not money)
+- Opening line matters most - Vegas sets it with elite information
+- Stagnant lines with heavy money = Vegas resisting, warning sign
 """
 
 import logging
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, List
 from enum import Enum
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +45,41 @@ class RLMResult:
     public_side: str
     sharp_side: str  # Which side sharp money is on
     confidence: float  # 0-100, how confident we are in this RLM
+
+
+@dataclass
+class SharpMoneyResult:
+    """
+    Result of sharp money detection based on bet % vs money % divergence.
+    Key principle: Sharp money = lower bet % but higher money/handle %
+    Example: 40% of bets but 70% of money = sharp side
+    """
+    sharp_detected: bool
+    sharp_side: str  # 'away', 'home', 'over', 'under', 'none'
+    sharp_team: str  # Team name or O/U
+    bet_pct: float  # Percentage of tickets
+    money_pct: float  # Percentage of handle
+    divergence: float  # money_pct - bet_pct (positive = sharp action)
+    severity: str  # 'none', 'moderate', 'strong', 'extreme'
+    explanation: str
+    stagnant_line_warning: bool  # Heavy money but no line movement
+
+
+@dataclass
+class BettingChecklist:
+    """
+    Final line checklist from professional betting strategy.
+    All criteria must pass for a qualified bet.
+    """
+    opening_line_confirmed: bool
+    current_line_validated: bool
+    money_stats_line_align: bool  # Money, stats, and line movement align
+    situational_factors_clear: bool  # No hidden fatigue, travel, injury
+    no_traps_detected: bool  # No warning signs
+    total_checks_passed: int
+    total_checks: int
+    is_qualified: bool  # All 5 criteria pass
+    details: List[str] = field(default_factory=list)
 
 
 class ReverseLineMovementDetector:
@@ -409,6 +450,232 @@ class ReverseLineMovementDetector:
             public_side='unknown',
             sharp_side='unknown',
             confidence=0.0
+        )
+    
+    def detect_sharp_money(
+        self,
+        away_bet_pct: float,
+        away_money_pct: float,
+        home_bet_pct: float,
+        home_money_pct: float,
+        away_team: str = "Away",
+        home_team: str = "Home",
+        line_movement: float = 0.0,
+        min_divergence: float = 10.0
+    ) -> SharpMoneyResult:
+        """
+        Detect sharp money based on bet % vs money % divergence.
+        
+        Key Principle: Sharp money appears when lower bet % but higher handle %
+        Example: 40% of bets but 70% of money = sharp side
+        
+        Args:
+            away_bet_pct: Percentage of tickets on away team
+            away_money_pct: Percentage of money/handle on away team  
+            home_bet_pct: Percentage of tickets on home team
+            home_money_pct: Percentage of money/handle on home team
+            away_team: Away team name
+            home_team: Home team name
+            line_movement: How much the line has moved (for stagnant line detection)
+            min_divergence: Minimum divergence to flag sharp money (default 10%)
+        
+        Returns:
+            SharpMoneyResult with detection details
+        """
+        # Calculate divergence (money % - bet %) for each side
+        away_divergence = away_money_pct - away_bet_pct
+        home_divergence = home_money_pct - home_bet_pct
+        
+        # Determine which side has sharp action (positive divergence = sharps)
+        sharp_detected = False
+        sharp_side = 'none'
+        sharp_team = 'None'
+        divergence = 0.0
+        bet_pct = 0.0
+        money_pct = 0.0
+        
+        # Check for stagnant line warning (heavy money but line didn't move)
+        total_money_one_side = max(away_money_pct, home_money_pct)
+        stagnant_warning = total_money_one_side >= 65 and abs(line_movement) < 0.5
+        
+        if away_divergence >= min_divergence:
+            sharp_detected = True
+            sharp_side = 'away'
+            sharp_team = away_team
+            divergence = away_divergence
+            bet_pct = away_bet_pct
+            money_pct = away_money_pct
+        elif home_divergence >= min_divergence:
+            sharp_detected = True
+            sharp_side = 'home'
+            sharp_team = home_team
+            divergence = home_divergence
+            bet_pct = home_bet_pct
+            money_pct = home_money_pct
+        
+        # Determine severity based on divergence
+        if divergence >= 30:
+            severity = 'extreme'
+        elif divergence >= 20:
+            severity = 'strong'
+        elif divergence >= 10:
+            severity = 'moderate'
+        else:
+            severity = 'none'
+        
+        # Build explanation
+        if sharp_detected:
+            explanation = (
+                f"SHARP MONEY on {sharp_team}: {bet_pct:.0f}% of bets but {money_pct:.0f}% of money "
+                f"(+{divergence:.0f}% divergence). Big bettors backing {sharp_team}."
+            )
+            if stagnant_warning:
+                explanation += " WARNING: Heavy money but line hasn't moved - Vegas may be resisting."
+        else:
+            explanation = "No significant sharp money divergence detected. Public and sharp action aligned."
+        
+        return SharpMoneyResult(
+            sharp_detected=sharp_detected,
+            sharp_side=sharp_side,
+            sharp_team=sharp_team,
+            bet_pct=bet_pct,
+            money_pct=money_pct,
+            divergence=divergence,
+            severity=severity,
+            explanation=explanation,
+            stagnant_line_warning=stagnant_warning
+        )
+    
+    def generate_betting_checklist(
+        self,
+        opening_line: Optional[float],
+        current_line: Optional[float],
+        sharp_result: Optional[SharpMoneyResult],
+        rlm_result: Optional[RLMResult],
+        is_home_team: bool = False,
+        is_b2b: bool = False,
+        spread_size: float = 0.0,
+        team_l10_wins: int = 5,
+        is_bottom_tier: bool = False
+    ) -> BettingChecklist:
+        """
+        Generate final line checklist for bet qualification.
+        
+        Checklist criteria:
+        1. Opening line confirmed
+        2. Current line validated
+        3. Money, stats, and line movement align
+        4. Situational factors make sense (no B2B trap, home court, etc.)
+        5. No hidden traps detected
+        
+        Args:
+            opening_line: Opening spread/total
+            current_line: Current spread/total
+            sharp_result: Sharp money detection result
+            rlm_result: RLM detection result
+            is_home_team: Is this the home team (home court advantage)
+            is_b2b: Is team on back-to-back
+            spread_size: Absolute spread size (avoid >10)
+            team_l10_wins: Team wins in last 10 games
+            is_bottom_tier: Is team considered bottom-tier
+        
+        Returns:
+            BettingChecklist with pass/fail for each criterion
+        """
+        details = []
+        checks_passed = 0
+        
+        # 1. Opening line confirmed
+        opening_confirmed = opening_line is not None
+        if opening_confirmed:
+            details.append(f"✓ Opening line: {opening_line:+.1f}")
+            checks_passed += 1
+        else:
+            details.append("✗ Opening line not available")
+        
+        # 2. Current line validated
+        current_validated = current_line is not None
+        if current_validated:
+            details.append(f"✓ Current line: {current_line:+.1f}")
+            checks_passed += 1
+        else:
+            details.append("✗ Current line not available")
+        
+        # 3. Money, stats, line movement align
+        alignment = False
+        if sharp_result and rlm_result:
+            # Sharp money and RLM should point same direction, or no conflicting signals
+            if sharp_result.sharp_detected and rlm_result.rlm_detected:
+                alignment = True
+                details.append(f"✓ Sharp money + RLM aligned on {sharp_result.sharp_team}")
+            elif not sharp_result.stagnant_line_warning:
+                alignment = True
+                details.append("✓ No conflicting money/line signals")
+            else:
+                details.append("⚠ Stagnant line warning - Vegas resisting")
+        else:
+            alignment = True  # No data = pass by default
+            details.append("✓ Line data consistent")
+        if alignment:
+            checks_passed += 1
+        
+        # 4. Situational factors clear
+        situational_clear = True
+        situational_notes = []
+        
+        if is_b2b:
+            situational_clear = False
+            situational_notes.append("B2B fatigue")
+        if spread_size > 10:
+            situational_clear = False
+            situational_notes.append(f"Large spread ({spread_size:.1f})")
+        if is_bottom_tier:
+            situational_clear = False
+            situational_notes.append("Bottom-tier team")
+        if team_l10_wins <= 3:
+            situational_notes.append("Cold streak (L10)")
+        if is_home_team:
+            situational_notes.append("Home court ✓")
+        
+        if situational_clear:
+            details.append("✓ Situational factors clear" + (f" ({', '.join(situational_notes)})" if situational_notes else ""))
+            checks_passed += 1
+        else:
+            details.append(f"✗ Situational concerns: {', '.join(situational_notes)}")
+        
+        # 5. No traps detected
+        no_traps = True
+        trap_notes = []
+        
+        if sharp_result and sharp_result.stagnant_line_warning:
+            no_traps = False
+            trap_notes.append("Vegas resistance")
+        if is_b2b:
+            trap_notes.append("Fatigue trap")
+        if is_bottom_tier and spread_size < 5:
+            trap_notes.append("Trap game potential")
+        
+        if no_traps and not trap_notes:
+            details.append("✓ No trap signals detected")
+            checks_passed += 1
+        elif no_traps:
+            details.append(f"⚠ Minor concerns: {', '.join(trap_notes)}")
+            checks_passed += 1
+        else:
+            details.append(f"✗ Trap warning: {', '.join(trap_notes)}")
+        
+        is_qualified = checks_passed >= 4  # Need at least 4/5 to qualify
+        
+        return BettingChecklist(
+            opening_line_confirmed=opening_confirmed,
+            current_line_validated=current_validated,
+            money_stats_line_align=alignment,
+            situational_factors_clear=situational_clear,
+            no_traps_detected=no_traps,
+            total_checks_passed=checks_passed,
+            total_checks=5,
+            is_qualified=is_qualified,
+            details=details
         )
 
 

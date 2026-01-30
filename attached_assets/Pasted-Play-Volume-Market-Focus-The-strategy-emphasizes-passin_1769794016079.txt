@@ -1,0 +1,269 @@
+Play Volume & Market Focus
+
+The strategy emphasizes passing far more games than playing. Only 1–2 high-value plays per day are taken. Parlays, excessive volume, player props, and totals are avoided because they encourage chasing and reduce edge.
+
+Primary markets only:
+
+
+
+
+
+Point spreads
+
+
+
+Moneylines
+
+This “less is more” approach protects bankrolls and prevents playing into the sportsbook’s advantage.
+
+
+
+Non-Negotiable Filters
+
+Certain rules are always enforced:
+
+
+
+
+
+Avoid bad or bottom-tier teams, especially those with poor recent records
+
+
+
+Prefer teams with momentum and form
+
+
+
+Home-court advantage is strongly favored
+
+
+
+Rarely play spreads above -10
+
+
+
+Recent performance (last 3–5 games) matters more than season-long narratives
+
+These filters eliminate low-quality bets before deeper analysis even begins.
+
+
+
+Money, Bets & Line Movement
+
+Understanding the betting market is critical:
+
+
+
+
+
+Bets = tickets (public action)
+
+
+
+Handle = money (sharp action)
+
+The opening line matters most, especially in college basketball. Vegas sets the opening number with elite information, so deviations from it must be respected.
+
+Key principles:
+
+
+
+
+
+Sharp money appears when lower bet % but higher handle % exists
+
+
+
+Example: 40% of bets but 70% of money = sharp side
+
+
+
+Stagnant lines with heavy money are warning signs
+
+
+
+If money piles on one side and the line does NOT move, Vegas is signaling resistance
+
+Reverse line movement is a tool, not a guarantee, and must always be confirmed with stats and situational logic.
+
+
+
+Statistical Edges Prioritized
+
+The system focuses on predictive, repeatable stats, not box-score noise.
+
+Basketball core stats (in order):
+
+
+
+
+
+Offensive rebounding
+
+
+
+Defensive rebounding
+
+
+
+Turnover margin
+
+
+
+Effective field goal percentage
+
+College basketball adjustment:
+
+
+
+
+
+Strength of Schedule becomes the top stat
+
+If a team controls rebounds and forces turnovers, it can stay competitive even without elite shooting.
+
+
+
+Situational Angles
+
+Situations often create hidden value:
+
+
+
+
+
+Rest vs fatigue (especially NBA back-to-backs)
+
+
+
+Road trips of 5–7 games causing exhaustion
+
+
+
+Motivation and urgency, especially near playoff races
+
+
+
+Teams eliminated from contention are often fades
+
+
+
+Matchup advantages (size, pace, physicality)
+
+
+
+Pace of play matters more today than in past eras
+
+Games evolve, and bettors must evolve with them. Rigid systems fail over time.
+
+
+
+Injury & News Discipline
+
+Always confirm why a line is moving:
+
+
+
+
+
+Sharp money vs injury-driven movement
+
+
+
+Understand player impact through stats, not name recognition
+
+
+
+Free resources like ESPN, NBA.com, Covers, and TeamRankings are sufficient for most bettors
+
+There’s no excuse for ignoring injuries when information is publicly available.
+
+
+
+Final Line Checklist
+
+Before placing any bet:
+
+
+
+
+
+Opening line confirmed
+
+
+
+Current line validated
+
+
+
+Money, stats, and line movement align
+
+
+
+Situational factors make sense
+
+
+
+No hidden fatigue, travel, or injury traps
+
+If everything aligns, the bet qualifies. If not, it’s passed.
+
+
+
+Live Example – NBA (Lakers vs Cavaliers)
+
+
+
+
+
+Line opened Cavaliers -2.5, moved to -3
+
+
+
+Lakers had more bets, but Cavaliers had far more handle
+
+
+
+Sharp money favored Cleveland
+
+
+
+Cavaliers led in rebounding and turnover stats at home
+
+
+
+Lakers were on an extended road trip (fatigue edge)
+
+
+
+Injury to Evan Mobley flagged as a key risk factor
+
+Conclusion: Cleveland was the preferred side, but not a “lock”—just a qualified system play.
+
+
+
+Live Example – College Basketball (Texas vs Auburn)
+
+
+
+
+
+Line opened Auburn -5.5, moved to -6.5/-7
+
+
+
+Public leaned Texas; sharper money leaned Auburn
+
+
+
+Auburn led in strength of schedule and defensive rebounding
+
+
+
+Game played at Auburn (home edge)
+
+
+
+Auburn entering strong form with key wins and SEC Player of the Week
+
+Conclusion: Auburn checked line, stat, situational, and schedule boxes, making it a high-quality system spot.
