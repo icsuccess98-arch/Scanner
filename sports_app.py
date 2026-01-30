@@ -1062,7 +1062,7 @@ class MatchupIntelligence:
                 'rockets': 'rockets', 'houston': 'rockets', 'pelicans': 'pelicans', 'new orleans': 'pelicans',
                 'spurs': 'spurs', 'san antonio': 'spurs', 'thunder': 'thunder', 'oklahoma city': 'thunder', 'okc': 'thunder',
                 'timberwolves': 'timberwolves', 'wolves': 'timberwolves', 'minnesota': 'timberwolves',
-                'trail blazers': 'trailblazers', 'blazers': 'trailblazers', 'portland': 'trailblazers',
+                'trail blazers': 'trail-blazers', 'blazers': 'trail-blazers', 'portland': 'trail-blazers',
                 'jazz': 'jazz', 'utah': 'jazz', 'kings': 'kings', 'sacramento': 'kings'
             }
             
