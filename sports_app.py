@@ -9895,6 +9895,76 @@ def bankroll():
     return render_template('bankroll.html')
 
 _nba_standings_cache = {'data': {}, 'timestamp': 0}
+_nba_team_stats_cache = {'data': {}, 'timestamp': 0}
+
+def get_nba_team_stats():
+    """Fetch comprehensive NBA team stats including ATS, Last 10, Home/Road records."""
+    global _nba_team_stats_cache
+    import time
+    
+    # Check cache (30 min TTL)
+    if _nba_team_stats_cache['data'] and time.time() - _nba_team_stats_cache['timestamp'] < 1800:
+        return _nba_team_stats_cache['data']
+    
+    stats = {}
+    try:
+        # Fetch from ESPN API for team records
+        url = 'https://site.api.espn.com/apis/v2/sports/basketball/nba/standings'
+        resp = requests.get(url, timeout=15)
+        if resp.status_code == 200:
+            data = resp.json()
+            for conf in data.get('children', []):
+                conf_name = 'Eastern' if 'east' in conf.get('name', '').lower() else 'Western'
+                entries = conf.get('standings', {}).get('entries', [])
+                
+                for entry in entries:
+                    team_info = entry.get('team', {})
+                    full_name = team_info.get('displayName', '')
+                    team_name = full_name.split()[-1]  # Last word (nickname)
+                    team_abbr = team_info.get('abbreviation', '')
+                    
+                    # Handle special cases like "Trail Blazers" (two-word nickname)
+                    if 'Trail Blazers' in full_name:
+                        team_name = 'Trail Blazers'
+                    
+                    # Parse all available stats - use displayValue for formatted records
+                    raw_stats = {}
+                    for s in entry.get('stats', []):
+                        name = s.get('name', '')
+                        raw_stats[name] = s.get('displayValue', str(s.get('value', '--')))
+                    
+                    overall_wins = int(float(raw_stats.get('wins', '0').replace(',', ''))) if raw_stats.get('wins', '0').replace(',', '').isdigit() else 0
+                    overall_losses = int(float(raw_stats.get('losses', '0').replace(',', ''))) if raw_stats.get('losses', '0').replace(',', '').isdigit() else 0
+                    
+                    # Get Home, Road, and Last Ten directly from displayValue
+                    home_record = raw_stats.get('Home', '--')
+                    road_record = raw_stats.get('Road', '--')
+                    last_10 = raw_stats.get('Last Ten Games', '--')
+                    
+                    team_data = {
+                        'overall_record': f"{overall_wins}-{overall_losses}",
+                        'home_record': home_record,
+                        'road_record': road_record,
+                        'wins': overall_wins,
+                        'losses': overall_losses,
+                        'conf': conf_name,
+                        'last_10': last_10,
+                        # ATS data needs Covers.com
+                        'ats_record': '--',
+                        'ats_home': '--',
+                        'ats_road': '--',
+                        'last_10_ats': '--'
+                    }
+                    
+                    stats[team_name] = team_data
+                    stats[team_abbr] = team_data
+        
+        _nba_team_stats_cache = {'data': stats, 'timestamp': time.time()}
+        logger.info(f"Fetched NBA team stats for {len(stats)} teams")
+    except Exception as e:
+        logger.warning(f"Error fetching NBA team stats: {e}")
+    
+    return stats
 
 def get_nba_standings():
     """Fetch NBA standings from ESPN API with caching."""
@@ -9919,7 +9989,10 @@ def get_nba_standings():
                 sorted_entries = sorted(entries, key=lambda x: -float([s.get('value',0) for s in x.get('stats',[]) if s.get('name')=='wins'][0] if [s.get('value',0) for s in x.get('stats',[]) if s.get('name')=='wins'] else 0))
                 for idx, entry in enumerate(sorted_entries, 1):
                     team_info = entry.get('team', {})
-                    team_name = team_info.get('displayName', '').split()[-1]  # Get last word (nickname)
+                    full_name = team_info.get('displayName', '')
+                    team_name = full_name.split()[-1]  # Get last word (nickname)
+                    if 'Trail Blazers' in full_name:
+                        team_name = 'Trail Blazers'
                     stats = {s['name']: s.get('value', 0) for s in entry.get('stats', [])}
                     wins = int(float(stats.get('wins', 0)))
                     losses = int(float(stats.get('losses', 0)))
@@ -10007,7 +10080,10 @@ def get_nhl_standings():
                 sorted_entries = sorted(entries, key=lambda x: -float([s.get('value',0) for s in x.get('stats',[]) if s.get('name')=='points'][0] if [s.get('value',0) for s in x.get('stats',[]) if s.get('name')=='points'] else 0))
                 for idx, entry in enumerate(sorted_entries, 1):
                     team_info = entry.get('team', {})
-                    team_name = team_info.get('displayName', '').split()[-1]
+                    full_name = team_info.get('displayName', '')
+                    team_name = full_name.split()[-1]
+                    if 'Trail Blazers' in full_name:
+                        team_name = 'Trail Blazers'
                     stats = {s['name']: s.get('value', 0) for s in entry.get('stats', [])}
                     wins = int(float(stats.get('wins', 0)))
                     losses = int(float(stats.get('losses', 0)))
@@ -10040,6 +10116,9 @@ def spreads():
     cbb_standings = get_cbb_standings()
     nhl_standings = get_nhl_standings()
     
+    # Fetch comprehensive team stats (includes ATS, L10, Home/Road)
+    nba_team_stats = get_nba_team_stats()
+    
     # Get ALL games for today without any totals filtering
     all_games = Game.query.filter_by(date=today).order_by(Game.game_time.asc()).all()
     
@@ -10063,6 +10142,22 @@ def spreads():
                 g.home_record = home_stand.get('record', '--')
                 g.away_standing = away_stand.get('standing', '')
                 g.home_standing = home_stand.get('standing', '')
+                
+                # Add Covers-style stats (ATS, Last 10, Home/Road)
+                away_stats = nba_team_stats.get(g.away_team, {})
+                home_stats = nba_team_stats.get(g.home_team, {})
+                g.away_overall = away_stats.get('overall_record', g.away_record)
+                g.home_overall = home_stats.get('overall_record', g.home_record)
+                g.away_road_record = away_stats.get('road_record', '--')
+                g.home_home_record = home_stats.get('home_record', '--')
+                g.away_ats = away_stats.get('ats_record', '--')
+                g.home_ats = home_stats.get('ats_record', '--')
+                g.away_ats_road = away_stats.get('ats_road', '--')
+                g.home_ats_home = home_stats.get('ats_home', '--')
+                g.away_l10 = away_stats.get('last_10', '--')
+                g.home_l10 = home_stats.get('last_10', '--')
+                g.away_l10_ats = away_stats.get('last_10_ats', '--')
+                g.home_l10_ats = home_stats.get('last_10_ats', '--')
             elif g.league == 'CBB':
                 g.away_logo = get_transparent_cbb_logo(g.away_team) or get_cbb_logo(g.away_team) or 'https://a.espncdn.com/i/teamlogos/leagues/500-dark/nba.png'
                 g.home_logo = get_transparent_cbb_logo(g.home_team) or get_cbb_logo(g.home_team) or 'https://a.espncdn.com/i/teamlogos/leagues/500-dark/nba.png'
@@ -10072,6 +10167,19 @@ def spreads():
                 g.home_record = home_stand.get('record', '--')
                 g.away_standing = ''
                 g.home_standing = ''
+                # CBB defaults (ESPN data not as detailed for CBB)
+                g.away_overall = g.away_record
+                g.home_overall = g.home_record
+                g.away_road_record = '--'
+                g.home_home_record = '--'
+                g.away_ats = '--'
+                g.home_ats = '--'
+                g.away_ats_road = '--'
+                g.home_ats_home = '--'
+                g.away_l10 = '--'
+                g.home_l10 = '--'
+                g.away_l10_ats = '--'
+                g.home_l10_ats = '--'
             elif g.league == 'NHL':
                 g.away_logo = nhl_team_logos.get(g.away_team, 'https://a.espncdn.com/i/teamlogos/nhl/500/nhl.png')
                 g.home_logo = nhl_team_logos.get(g.home_team, 'https://a.espncdn.com/i/teamlogos/nhl/500/nhl.png')
@@ -10190,9 +10298,12 @@ def spreads():
             for child in data.get('children', []):
                 for standing in child.get('standings', {}).get('entries', []):
                     team_info = standing.get('team', {})
+                    full_name = team_info.get('displayName', '')
                     team_name = team_info.get('shortDisplayName', '')
                     if not team_name:
-                        team_name = team_info.get('displayName', '').split()[-1]
+                        team_name = full_name.split()[-1]
+                    if 'Trail Blazers' in full_name:
+                        team_name = 'Trail Blazers'
                     # Find L10 record in stats
                     for stat in standing.get('stats', []):
                         if stat.get('name') == 'streak' or stat.get('abbreviation') == 'L10':

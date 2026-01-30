@@ -435,6 +435,123 @@ class CoversScraper:
         except Exception as e:
             logger.error(f"Error fetching Covers matchup details: {e}")
             return {}
+    
+    def get_team_trends(self, team_name: str, league: str = 'NBA') -> Dict:
+        """
+        Get team trends and records from Covers.com team page.
+        
+        Returns:
+            Dictionary with:
+            - overall_record: "28-18"
+            - home_record: "15-8"
+            - road_record: "13-10"
+            - ats_record: "24-21-1"
+            - ats_home: "14-12-0"
+            - ats_road: "10-9-1"
+            - last_10: "5-5"
+            - last_10_ats: "5-5-0"
+        """
+        cache_key = f"trends_{league}_{team_name}"
+        if self._is_cache_valid(cache_key):
+            return self._cache[cache_key]
+        
+        trends = {}
+        try:
+            # Normalize team name for URL
+            team_slug = team_name.lower().replace(' ', '-').replace("'", '')
+            
+            if league == 'NBA':
+                url = f"{self.BASE_URL}/sport/basketball/nba/teams/main/{team_slug}/trends"
+            else:
+                url = f"{self.BASE_URL}/sport/basketball/ncaab/teams/main/{team_slug}/trends"
+            
+            response = self.session.get(url, timeout=10)
+            if response.status_code != 200:
+                return trends
+            
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            # Parse trends table rows
+            rows = soup.find_all('tr')
+            for row in rows:
+                cells = row.find_all(['td', 'th'])
+                if len(cells) >= 2:
+                    label = cells[0].text.strip().lower()
+                    value = cells[1].text.strip()
+                    
+                    if 'overall' in label:
+                        trends['overall_record'] = value
+                    elif 'home' in label and 'ats' not in label:
+                        trends['home_record'] = value
+                    elif 'road' in label or 'away' in label:
+                        if 'ats' in label:
+                            trends['ats_road'] = value
+                        else:
+                            trends['road_record'] = value
+                    elif 'ats' in label and 'home' in label:
+                        trends['ats_home'] = value
+                    elif 'ats' in label:
+                        trends['ats_record'] = value
+                    elif 'last 10' in label:
+                        if 'ats' in label:
+                            trends['last_10_ats'] = value
+                        else:
+                            trends['last_10'] = value
+            
+            # Cache results
+            self._cache[cache_key] = trends
+            self._cache_time[cache_key] = time.time()
+            
+            logger.debug(f"Fetched trends for {team_name}: {trends}")
+            return trends
+            
+        except Exception as e:
+            logger.debug(f"Error fetching team trends for {team_name}: {e}")
+            return trends
+
+
+def get_nba_team_stats() -> Dict:
+    """
+    Fetch comprehensive NBA team stats including ATS, Last 10, Home/Road records.
+    Uses ESPN API for reliable data.
+    """
+    stats = {}
+    try:
+        # Fetch from ESPN standings API which has more details
+        url = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams'
+        resp = requests.get(url, timeout=15)
+        if resp.status_code == 200:
+            data = resp.json()
+            for team in data.get('sports', [{}])[0].get('leagues', [{}])[0].get('teams', []):
+                team_info = team.get('team', {})
+                team_name = team_info.get('displayName', '').split()[-1]
+                team_abbr = team_info.get('abbreviation', '')
+                
+                # Get record from team summary
+                record = team_info.get('record', {})
+                items = record.get('items', [])
+                
+                for item in items:
+                    if item.get('type') == 'total':
+                        stats_list = item.get('stats', [])
+                        wins = losses = 0
+                        for s in stats_list:
+                            if s.get('name') == 'wins':
+                                wins = int(s.get('value', 0))
+                            if s.get('name') == 'losses':
+                                losses = int(s.get('value', 0))
+                        stats[team_name] = {
+                            'overall_record': f"{wins}-{losses}",
+                            'wins': wins,
+                            'losses': losses
+                        }
+                        stats[team_abbr] = stats[team_name]
+        
+        logger.info(f"Fetched NBA team stats for {len(stats)} teams")
+    except Exception as e:
+        logger.warning(f"Error fetching NBA team stats: {e}")
+    
+    return stats
 
 
 # ============================================================
