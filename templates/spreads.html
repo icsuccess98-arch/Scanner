@@ -3513,20 +3513,17 @@
                 const homeClass = homeWins ? 'stat-winner' : '';
                 const winner = awayWins ? awayTeam : homeTeam;
                 
-                // Mobile-friendly edge display with σ badge
+                // Edge display - just team name, no badges
                 let edgeText, edgeClass;
                 if (noEdge) {
                     edgeText = '<span class="edge-even">—</span>';
                     edgeClass = '';
-                } else if (is2Sigma) {
-                    edgeText = `<span class="sigma-badge sigma-2">2σ</span>${winner}`;
-                    edgeClass = awayWins ? 'edge-away edge-strong' : 'edge-home edge-strong';
-                } else if (is1Sigma) {
-                    edgeText = `<span class="sigma-badge sigma-1">1σ</span>${winner}`;
-                    edgeClass = awayWins ? 'edge-away' : 'edge-home';
                 } else {
                     edgeText = winner;
                     edgeClass = awayWins ? 'edge-away' : 'edge-home';
+                    if (is2Sigma) {
+                        edgeClass += ' edge-strong';
+                    }
                 }
                 
                 // Format values based on type
