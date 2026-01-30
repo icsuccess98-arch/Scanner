@@ -650,6 +650,21 @@
             font-weight: 700;
             color: #ef4444;
         }
+        .game-live .pikkit-quarter-label {
+            background: #dc2626;
+            color: #fff;
+            padding: 2px 6px;
+            border-radius: 4px;
+            animation: pulse-live 1.5s infinite;
+        }
+        @keyframes pulse-live {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .game-live {
+            border: 2px solid #dc2626 !important;
+            box-shadow: 0 0 15px rgba(220, 38, 38, 0.3);
+        }
         .pikkit-game-time {
             font-size: 12px;
             font-weight: 600;
@@ -1678,20 +1693,19 @@
                         <div class="pikkit-team-record">{{ game.away_record or '--' }}</div>
                         {% if game.away_standing %}<div class="pikkit-team-standing">{{ game.away_standing }}</div>{% endif %}
                     </div>
-                    <div class="pikkit-center">
-                        {% if game.is_live %}
-                        <div class="pikkit-score-area">
-                            <span class="pikkit-score">{{ game.away_score or 0 }}</span>
+                    <div class="pikkit-center" id="pikkit-center-{{ game.id }}">
+                        <div class="pikkit-score-area" id="live-score-{{ game.id }}" style="display: none;">
+                            <span class="pikkit-score away-score">0</span>
                             <div class="pikkit-quarter">
-                                <span class="pikkit-quarter-label">{{ game.quarter or 'Q1' }}</span>
-                                <span class="pikkit-quarter-time">{{ game.clock or '12:00' }}</span>
+                                <span class="pikkit-quarter-label live-period">Q1</span>
+                                <span class="pikkit-quarter-time live-clock">12:00</span>
                             </div>
-                            <span class="pikkit-score">{{ game.home_score or 0 }}</span>
+                            <span class="pikkit-score home-score">0</span>
                         </div>
-                        {% else %}
-                        <div class="pikkit-game-time">{% if game.game_time %}{{ game.game_time }}{% else %}TBD{% endif %}</div>
-                        <div class="pikkit-at-symbol">@</div>
-                        {% endif %}
+                        <div class="pikkit-pregame" id="pregame-{{ game.id }}">
+                            <div class="pikkit-game-time">{% if game.game_time %}{{ game.game_time }}{% else %}TBD{% endif %}</div>
+                            <div class="pikkit-at-symbol">@</div>
+                        </div>
                     </div>
                     <div class="pikkit-team">
                         <img src="{{ game.home_logo }}" alt="{{ game.home_team }}" class="pikkit-team-logo"
@@ -3073,6 +3087,50 @@
                 });
             });
         });
+        
+        async function fetchLiveScores() {
+            try {
+                const response = await fetch('/api/live_scores');
+                if (!response.ok) return;
+                
+                const data = await response.json();
+                const liveScores = data.live_scores || {};
+                
+                document.querySelectorAll('.game-card').forEach(card => {
+                    const gameId = card.dataset.gameId;
+                    const awayTeam = card.dataset.away;
+                    const homeTeam = card.dataset.home;
+                    const key = `${awayTeam}@${homeTeam}`;
+                    
+                    const liveEl = document.getElementById(`live-score-${gameId}`);
+                    const pregameEl = document.getElementById(`pregame-${gameId}`);
+                    
+                    if (!liveEl || !pregameEl) return;
+                    
+                    if (liveScores[key]) {
+                        const score = liveScores[key];
+                        liveEl.querySelector('.away-score').textContent = score.away_score || 0;
+                        liveEl.querySelector('.home-score').textContent = score.home_score || 0;
+                        liveEl.querySelector('.live-period').textContent = score.period || 'Q1';
+                        liveEl.querySelector('.live-clock').textContent = score.clock || '';
+                        
+                        liveEl.style.display = 'flex';
+                        pregameEl.style.display = 'none';
+                        
+                        card.classList.add('game-live');
+                    } else {
+                        liveEl.style.display = 'none';
+                        pregameEl.style.display = 'block';
+                        card.classList.remove('game-live');
+                    }
+                });
+            } catch (error) {
+                console.log('Live scores fetch:', error.message);
+            }
+        }
+        
+        fetchLiveScores();
+        setInterval(fetchLiveScores, 30000);
     </script>
 </body>
 </html>
