@@ -1661,10 +1661,21 @@
             color: #9CA3AF;
             white-space: nowrap !important;
         }
-        .stats-table td.stat-winner {
-            background: rgba(16, 185, 129, 0.15);
-            color: #10B981;
+        /* Remove generic stat-winner - use team-specific classes */
+        .stats-table td.stat-winner-away {
+            background: rgba(139, 92, 246, 0.15);
+            color: #A78BFA;
             font-weight: 700;
+        }
+        .stats-table td.stat-winner-home {
+            background: rgba(255, 215, 0, 0.12);
+            color: #FFD700;
+            font-weight: 700;
+        }
+        /* Ensure metric column never gets highlighted */
+        .stats-table td.metric-name {
+            background: transparent !important;
+            color: #A0A0B0 !important;
         }
         /* Edge winner - Away team = Purple, Home team = Gold */
         .stats-table td.edge-away {
@@ -3385,8 +3396,8 @@
                 const pctDiff = avgVal > 0 ? (diff / avgVal) * 100 : 0;
                 const isSignificant = pctDiff > 15;
                 
-                const awayClass = awayWins ? 'stat-winner' : '';
-                const homeClass = homeWins ? 'stat-winner' : '';
+                const awayClass = awayWins ? 'stat-winner-away' : '';
+                const homeClass = homeWins ? 'stat-winner-home' : '';
                 const winner = awayWins ? awayTeam : homeTeam;
                 
                 // Edge display - just team name, no badges
