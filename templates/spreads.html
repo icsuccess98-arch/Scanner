@@ -3027,7 +3027,7 @@
                     // Public heavy team - clearly identify which team
                     const publicHeavyTeam = awayBetPct > homeBetPct ? awayName : homeName;
                     const publicHeavyPct = Math.max(awayBetPct, homeBetPct);
-                    const isPublicHeavy = publicHeavyPct >= 65;
+                    const isPublicHeavy = publicHeavyPct >= 55; // 55%+ is considered public lean
                     
                     // RLM detection - Reverse Line Movement (when sharps bet against public)
                     const spreadRlmDetected = data.rlm.spread_rlm_detected || false;
