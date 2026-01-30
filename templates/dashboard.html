@@ -389,9 +389,16 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: center;
             gap: 4px;
-            padding: 0 8px;
-            min-width: 70px;
+            padding: 0 12px;
+            min-width: 80px;
+            flex: 1;
+        }
+        .pikkit-pregame {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
         .pikkit-game-time {
             font-size: 11px;
@@ -400,8 +407,29 @@
             text-align: center;
         }
         .pikkit-at-symbol {
-            font-size: 12px;
-            color: #6b7280;
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--text-muted);
+            margin: 2px 0;
+        }
+        .pikkit-final {
+            text-align: center;
+            padding: 6px 10px;
+            background: rgba(100, 100, 120, 0.2);
+            border-radius: 8px;
+        }
+        .pikkit-live {
+            text-align: center;
+            padding: 6px 10px;
+            background: linear-gradient(135deg, #dc2626, #991b1b);
+            border-radius: 8px;
+        }
+        .game-final {
+            border: 1px solid rgba(100, 100, 120, 0.5) !important;
+        }
+        .game-live {
+            border: 2px solid #dc2626 !important;
+            box-shadow: 0 0 15px rgba(220, 38, 38, 0.3);
         }
         .pikkit-totals-bar {
             display: flex;
@@ -1399,9 +1427,23 @@
                     <div style="font-size: 0.7rem; color: var(--text-muted);">{{ supermax_lock.away_record or '--' }}</div>
                 </div>
                 
-                <div class="text-center flex-grow-1 px-2">
-                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 2px;">{{ supermax_lock.game_time }}</div>
-                    <div style="font-size: 1.25rem; font-weight: 500; color: var(--text-muted);">@</div>
+                <div class="text-center flex-grow-1 px-2" id="supermax-center">
+                    <div class="supermax-pregame" id="supermax-pregame">
+                        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 2px;">{{ supermax_lock.game_time }}</div>
+                        <div style="font-size: 1.25rem; font-weight: 500; color: var(--text-muted);">@</div>
+                    </div>
+                    <div class="supermax-final" id="supermax-final" style="display: none;">
+                        <div style="font-size: 10px; font-weight: 700; color: #9ca3af; letter-spacing: 1px; margin-bottom: 2px;">FINAL</div>
+                        <div style="font-size: 22px; font-weight: 700; color: #fff;" id="supermax-score">0 - 0</div>
+                        <div style="font-size: 10px; color: #9ca3af; margin-top: 2px;" id="supermax-total">Total: 0</div>
+                    </div>
+                    <div class="supermax-live" id="supermax-live" style="display: none;">
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 4px; margin-bottom: 4px;">
+                            <span style="background: #dc2626; color: #fff; padding: 2px 6px; border-radius: 8px; font-size: 9px; font-weight: 700; animation: pulse 1s infinite;">LIVE</span>
+                            <span style="color: #9ca3af; font-size: 10px;" id="supermax-period"></span>
+                        </div>
+                        <div style="font-size: 22px; font-weight: 700; color: #fff;" id="supermax-live-score">0 - 0</div>
+                    </div>
                 </div>
                 
                 <div class="d-flex flex-column align-items-center" style="width: 80px;">
@@ -1540,7 +1582,7 @@
                     <span style="color: var(--text-muted); font-size: 0.8rem; margin-left: auto;">{{ window_games|length }} game{% if window_games|length != 1 %}s{% endif %}</span>
                 </div>
                 {% for game in window_games %}
-                <div class="game-card {% if game.is_qualified %}qualified{% endif %} {% if supermax_lock and game.id == supermax_lock.id %}lock-card{% endif %}" data-away="{{ game.away_team }}" data-home="{{ game.home_team }}" style="padding: 0; overflow: hidden;">
+                <div class="game-card {% if game.is_qualified %}qualified{% endif %} {% if supermax_lock and game.id == supermax_lock.id %}lock-card{% endif %}" data-game-id="{{ game.id }}" data-away="{{ game.away_team }}" data-home="{{ game.home_team }}" style="padding: 0; overflow: hidden;">
                     <!-- PIKKIT-STYLE HEADER WITH LOGOS -->
                     <div class="pikkit-header">
                         <div class="pikkit-team">
@@ -1549,9 +1591,13 @@
                             <div class="pikkit-team-name">{{ game.away_team }}</div>
                             <div class="pikkit-team-record">{{ game.away_record or '--' }}</div>
                         </div>
-                        <div class="pikkit-center">
-                            <div class="pikkit-game-time">{{ game.game_time or 'TBD' }}</div>
-                            <div class="pikkit-at-symbol">@</div>
+                        <div class="pikkit-center" id="pikkit-center-{{ game.id }}">
+                            <div class="pikkit-pregame" id="pregame-{{ game.id }}">
+                                <div class="pikkit-game-time">{{ game.game_time or 'TBD' }}</div>
+                                <div class="pikkit-at-symbol">@</div>
+                            </div>
+                            <div class="pikkit-live" id="live-score-{{ game.id }}" style="display: none;"></div>
+                            <div class="pikkit-final" id="final-score-{{ game.id }}" style="display: none;"></div>
                         </div>
                         <div class="pikkit-team">
                             <img src="{{ game.home_logo }}" alt="{{ game.home_team }}" class="pikkit-team-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
@@ -1969,7 +2015,7 @@
                 {% endfor %}
                 {% else %}
                 {% for game in league_games %}
-                <div class="game-card {% if game.is_qualified %}qualified{% endif %} {% if lock and game.id == lock.id %}lock-card{% endif %}" data-away="{{ game.away_team }}" data-home="{{ game.home_team }}" style="padding: 0; overflow: hidden;">
+                <div class="game-card {% if game.is_qualified %}qualified{% endif %} {% if lock and game.id == lock.id %}lock-card{% endif %}" data-game-id="{{ game.id }}" data-away="{{ game.away_team }}" data-home="{{ game.home_team }}" style="padding: 0; overflow: hidden;">
                     <!-- PIKKIT-STYLE HEADER WITH LOGOS -->
                     <div class="pikkit-header">
                         <div class="pikkit-team">
@@ -1978,9 +2024,13 @@
                             <div class="pikkit-team-name">{{ game.away_team }}</div>
                             <div class="pikkit-team-record">{{ game.away_record or '--' }}</div>
                         </div>
-                        <div class="pikkit-center">
-                            <div class="pikkit-game-time">{{ game.game_time or 'TBD' }}</div>
-                            <div class="pikkit-at-symbol">@</div>
+                        <div class="pikkit-center" id="pikkit-center-{{ game.id }}">
+                            <div class="pikkit-pregame" id="pregame-{{ game.id }}">
+                                <div class="pikkit-game-time">{{ game.game_time or 'TBD' }}</div>
+                                <div class="pikkit-at-symbol">@</div>
+                            </div>
+                            <div class="pikkit-live" id="live-score-{{ game.id }}" style="display: none;"></div>
+                            <div class="pikkit-final" id="final-score-{{ game.id }}" style="display: none;"></div>
                         </div>
                         <div class="pikkit-team">
                             <img src="{{ game.home_logo }}" alt="{{ game.home_team }}" class="pikkit-team-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
@@ -2368,26 +2418,94 @@
             fetch('/api/live_scores')
             .then(r => r.json())
             .then(data => {
-                if (data.count > 0) {
-                    document.querySelectorAll('.game-row').forEach(row => {
-                        const awayTeam = row.dataset.away;
-                        const homeTeam = row.dataset.home;
+                if (data.live_scores) {
+                    // Update game cards
+                    document.querySelectorAll('.game-card').forEach(card => {
+                        const awayTeam = card.dataset.away;
+                        const homeTeam = card.dataset.home;
+                        const gameId = card.dataset.gameId || card.querySelector('[id^="pregame-"]')?.id?.replace('pregame-', '');
+                        if (!gameId) return;
+                        
                         const key = `${awayTeam}@${homeTeam}`;
                         const scoreData = data.live_scores[key];
+                        
+                        const pregameEl = document.getElementById(`pregame-${gameId}`);
+                        const liveEl = document.getElementById(`live-score-${gameId}`);
+                        const finalEl = document.getElementById(`final-score-${gameId}`);
+                        
                         if (scoreData) {
-                            const liveEl = row.querySelector('.live-score');
-                            if (liveEl) {
-                                liveEl.innerHTML = `<span class="badge bg-danger me-2">LIVE</span>${scoreData.away_score}-${scoreData.home_score} (${scoreData.total}) ${scoreData.period} ${scoreData.clock}`;
-                                liveEl.style.display = 'block';
+                            const total = (scoreData.away_score || 0) + (scoreData.home_score || 0);
+                            
+                            if (scoreData.status === 'Final' || scoreData.is_final) {
+                                // FINAL
+                                if (pregameEl) pregameEl.style.display = 'none';
+                                if (liveEl) liveEl.style.display = 'none';
+                                if (finalEl) {
+                                    finalEl.innerHTML = `
+                                        <div style="font-size: 10px; font-weight: 700; color: #9ca3af; letter-spacing: 1px; margin-bottom: 2px;">FINAL</div>
+                                        <div style="font-size: 18px; font-weight: 700; color: #fff;">${scoreData.away_score} - ${scoreData.home_score}</div>
+                                        <div style="font-size: 10px; color: #9ca3af; margin-top: 2px;">Total: ${total}</div>
+                                    `;
+                                    finalEl.style.display = 'block';
+                                }
+                                card.classList.remove('game-live');
+                                card.classList.add('game-final');
+                            } else if (scoreData.is_live) {
+                                // LIVE
+                                if (pregameEl) pregameEl.style.display = 'none';
+                                if (finalEl) finalEl.style.display = 'none';
+                                if (liveEl) {
+                                    liveEl.innerHTML = `
+                                        <div style="display: flex; align-items: center; justify-content: center; gap: 4px; margin-bottom: 4px;">
+                                            <span style="background: #fff; color: #dc2626; padding: 2px 6px; border-radius: 8px; font-size: 9px; font-weight: 700;">LIVE</span>
+                                            <span style="color: rgba(255,255,255,0.8); font-size: 10px;">${scoreData.period || ''} ${scoreData.clock || ''}</span>
+                                        </div>
+                                        <div style="font-size: 18px; font-weight: 700; color: #fff;">${scoreData.away_score} - ${scoreData.home_score}</div>
+                                    `;
+                                    liveEl.style.display = 'block';
+                                }
+                                card.classList.add('game-live');
                             }
                         }
                     });
+                    
+                    // Update SUPERMAX section
+                    const supermaxAway = document.querySelector('.lock-hero')?.querySelector('[alt]')?.alt;
+                    const supermaxHome = document.querySelector('.lock-hero [style*="width: 80px"]:last-child [alt]')?.alt;
+                    if (supermaxAway && supermaxHome) {
+                        const key = `${supermaxAway}@${supermaxHome}`;
+                        const scoreData = data.live_scores[key];
+                        if (scoreData) {
+                            const pregame = document.getElementById('supermax-pregame');
+                            const live = document.getElementById('supermax-live');
+                            const final = document.getElementById('supermax-final');
+                            const total = (scoreData.away_score || 0) + (scoreData.home_score || 0);
+                            
+                            if (scoreData.status === 'Final' || scoreData.is_final) {
+                                if (pregame) pregame.style.display = 'none';
+                                if (live) live.style.display = 'none';
+                                if (final) {
+                                    document.getElementById('supermax-score').textContent = `${scoreData.away_score} - ${scoreData.home_score}`;
+                                    document.getElementById('supermax-total').textContent = `Total: ${total}`;
+                                    final.style.display = 'block';
+                                }
+                            } else if (scoreData.is_live) {
+                                if (pregame) pregame.style.display = 'none';
+                                if (final) final.style.display = 'none';
+                                if (live) {
+                                    document.getElementById('supermax-live-score').textContent = `${scoreData.away_score} - ${scoreData.home_score}`;
+                                    document.getElementById('supermax-period').textContent = `${scoreData.period || ''} ${scoreData.clock || ''}`;
+                                    live.style.display = 'block';
+                                }
+                            }
+                        }
+                    }
                 }
             })
-            .catch(() => {});
+            .catch(err => console.log('Live scores error:', err));
         }
         
-        setInterval(fetchLiveScores, 30000);
+        setInterval(fetchLiveScores, 10000);
         fetchLiveScores();
         
         if ('Notification' in window && 'serviceWorker' in navigator) {
