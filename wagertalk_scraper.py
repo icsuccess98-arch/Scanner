@@ -1,85 +1,128 @@
 """
-WagerTalk.com Scraper - Betting Action Data
+WAGERTALK BETTING SPLITS SCRAPER
+=================================
 
-Extracts Tickets %, Money %, and Line Movement for Spreads and Totals.
-Uses Playwright with stealth mode to bypass bot detection.
+MANDATORY SOURCE: WagerTalk.com ONLY
+No fallbacks. No alternatives.
+
+Extracts betting splits exactly as shown:
+- Tickets % (public betting)
+- Money % (sharp money)
+- Opening lines
+- Current lines
+
+Format understanding:
+- "53%" = 53% on spread (away team)
+- "O78%" = 78% on Over for totals
+- "u60" or "u60%" = 60% on Under for totals
+
+Uses aggressive anti-detection and session persistence.
 """
 
 import logging
-import re
 import time
-import random
+import re
 import asyncio
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
+# Cache for WagerTalk data
 _wagertalk_cache = {}
 _wagertalk_cache_time = {}
-CACHE_TTL = 60  # 1 minute for faster updates
 
-
-def _is_cache_valid(key: str) -> bool:
-    if key not in _wagertalk_cache:
-        return False
-    age = time.time() - _wagertalk_cache_time.get(key, 0)
-    return age < CACHE_TTL
-
-
-def _normalize_team_name(name: str) -> str:
-    if not name:
-        return ''
-    name = re.sub(r'\s+', ' ', name.strip())
-    name = name.replace('Trail Blazers', 'Blazers')
-    return name
-
-
+# NBA team names for matching
 NBA_TEAMS = [
-    'Hawks', 'Celtics', 'Nets', 'Hornets', 'Bulls', 'Cavaliers', 'Mavericks',
-    'Nuggets', 'Pistons', 'Warriors', 'Rockets', 'Pacers', 'Clippers', 'Lakers',
-    'Grizzlies', 'Heat', 'Bucks', 'Timberwolves', 'Pelicans', 'Knicks', 'Thunder',
-    'Magic', 'Sixers', '76ers', 'Suns', 'Blazers', 'Kings', 'Spurs', 'Raptors',
-    'Jazz', 'Wizards', 'Atlanta', 'Boston', 'Brooklyn', 'Charlotte', 'Chicago',
-    'Cleveland', 'Dallas', 'Denver', 'Detroit', 'Golden State', 'Houston',
-    'Indiana', 'Los Angeles', 'Memphis', 'Miami', 'Milwaukee', 'Minnesota',
-    'New Orleans', 'New York', 'Oklahoma City', 'Orlando', 'Philadelphia',
-    'Phoenix', 'Portland', 'Sacramento', 'San Antonio', 'Toronto', 'Utah', 'Washington'
+    'hawks', 'celtics', 'nets', 'hornets', 'bulls', 'cavaliers', 'mavericks',
+    'nuggets', 'pistons', 'warriors', 'rockets', 'pacers', 'clippers', 'lakers',
+    'grizzlies', 'heat', 'bucks', 'timberwolves', 'wolves', 'pelicans', 'knicks',
+    'thunder', 'magic', 'sixers', '76ers', 'suns', 'blazers', 'trail blazers',
+    'kings', 'spurs', 'raptors', 'jazz', 'wizards',
+    'atlanta', 'boston', 'brooklyn', 'charlotte', 'chicago', 'cleveland',
+    'dallas', 'denver', 'detroit', 'golden state', 'houston', 'indiana',
+    'la clippers', 'la lakers', 'los angeles', 'memphis', 'miami', 'milwaukee',
+    'minnesota', 'new orleans', 'new york', 'oklahoma city', 'oklahoma',
+    'orlando', 'philadelphia', 'phoenix', 'portland', 'sacramento',
+    'san antonio', 'toronto', 'utah', 'washington'
 ]
 
+def _is_nba_team(text: str) -> bool:
+    """Check if text contains an NBA team name."""
+    text_lower = text.lower().strip()
+    return any(team in text_lower for team in NBA_TEAMS)
 
-def _is_nba_team(name: str) -> bool:
-    if not name:
+def _normalize_team_name(text: str) -> str:
+    """Normalize team name to standard format."""
+    text = text.strip()
+    name_map = {
+        'hawks': 'Hawks', 'atlanta': 'Hawks',
+        'celtics': 'Celtics', 'boston': 'Celtics',
+        'nets': 'Nets', 'brooklyn': 'Nets',
+        'hornets': 'Hornets', 'charlotte': 'Hornets',
+        'bulls': 'Bulls', 'chicago': 'Bulls',
+        'cavaliers': 'Cavaliers', 'cavs': 'Cavaliers', 'cleveland': 'Cavaliers',
+        'mavericks': 'Mavericks', 'mavs': 'Mavericks', 'dallas': 'Mavericks',
+        'nuggets': 'Nuggets', 'denver': 'Nuggets',
+        'pistons': 'Pistons', 'detroit': 'Pistons',
+        'warriors': 'Warriors', 'golden state': 'Warriors',
+        'rockets': 'Rockets', 'houston': 'Rockets',
+        'pacers': 'Pacers', 'indiana': 'Pacers',
+        'clippers': 'Clippers', 'la clippers': 'Clippers',
+        'lakers': 'Lakers', 'la lakers': 'Lakers',
+        'grizzlies': 'Grizzlies', 'memphis': 'Grizzlies',
+        'heat': 'Heat', 'miami': 'Heat',
+        'bucks': 'Bucks', 'milwaukee': 'Bucks',
+        'timberwolves': 'Timberwolves', 'wolves': 'Timberwolves', 'minnesota': 'Timberwolves',
+        'pelicans': 'Pelicans', 'new orleans': 'Pelicans',
+        'knicks': 'Knicks', 'new york': 'Knicks',
+        'thunder': 'Thunder', 'oklahoma city': 'Thunder', 'oklahoma': 'Thunder',
+        'magic': 'Magic', 'orlando': 'Magic',
+        'sixers': '76ers', '76ers': '76ers', 'philadelphia': '76ers',
+        'suns': 'Suns', 'phoenix': 'Suns',
+        'blazers': 'Trail Blazers', 'trail blazers': 'Trail Blazers', 'portland': 'Trail Blazers',
+        'kings': 'Kings', 'sacramento': 'Kings',
+        'spurs': 'Spurs', 'san antonio': 'Spurs',
+        'raptors': 'Raptors', 'toronto': 'Raptors',
+        'jazz': 'Jazz', 'utah': 'Jazz',
+        'wizards': 'Wizards', 'washington': 'Wizards'
+    }
+    text_lower = text.lower()
+    for key, val in name_map.items():
+        if key in text_lower:
+            return val
+    return text.split('\n')[0].strip()
+
+def _is_cache_valid(cache_key: str, ttl: int = 60) -> bool:
+    """Check if cache is still valid."""
+    if cache_key not in _wagertalk_cache:
         return False
-    name_lower = name.lower()
-    return any(team.lower() in name_lower for team in NBA_TEAMS)
+    age = time.time() - _wagertalk_cache_time.get(cache_key, 0)
+    return age < ttl
 
+def _get_highlight_color(percentage: int) -> str:
+    """Determine highlight color based on percentage threshold."""
+    if percentage >= 75:
+        return 'red'
+    elif percentage >= 60:
+        return 'yellow'
+    elif percentage >= 50:
+        return 'green'
+    else:
+        return 'none'
 
 async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
-    """Async function to fetch WagerTalk data with Playwright."""
-    try:
-        from playwright.async_api import async_playwright
-    except ImportError:
-        logger.error("[WagerTalk] Playwright not installed")
-        return {}
+    """Fetch betting data from WagerTalk using Playwright."""
+    from playwright.async_api import async_playwright
     
     result = {}
     browser = None
     
     try:
         async with async_playwright() as p:
-            logger.info("[WagerTalk] Launching browser...")
-            
             browser = await p.chromium.launch(
                 headless=True,
-                args=[
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-gpu',
-                    '--single-process',
-                    '--disable-blink-features=AutomationControlled'
-                ]
+                args=['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
             )
             
             context = await browser.new_context(
@@ -89,19 +132,14 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
             
             await context.add_init_script("""
                 Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-                window.chrome = { runtime: {} };
             """)
             
             page = await context.new_page()
-            page.set_default_timeout(30000)
             
-            cb = random.random()
-            url = f'https://www.wagertalk.com/odds?sport=today&cb={cb}'
-            
+            url = f"https://www.wagertalk.com/odds?sport=today&cb={time.time()}"
             logger.info(f"[WagerTalk] Navigating to: {url}")
-            await page.goto(url, wait_until='domcontentloaded', timeout=30000)
             
-            # Faster wait - just enough for JS to render
+            await page.goto(url, wait_until='domcontentloaded', timeout=30000)
             await asyncio.sleep(4)
             
             rows = await page.query_selector_all('tr.reg, tr.alt, tr[class*="game"], tbody tr')
@@ -109,17 +147,11 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
             
             if len(rows) == 0:
                 tables = await page.query_selector_all('table')
-                logger.info(f"[WagerTalk] Found {len(tables)} tables on page")
-                
                 for table in tables:
                     rows.extend(await table.query_selector_all('tr'))
                 logger.info(f"[WagerTalk] Total rows from all tables: {len(rows)}")
             
             games_found = 0
-            
-            # WagerTalk table format has alternating rows for spread/total per game
-            # Each game typically has 2 rows - one for spread, one for total
-            # Format: Team | Tickets | Money | Open | Current/DraftKings
             
             for row in rows:
                 try:
@@ -137,7 +169,6 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                     if len(cells) < 3:
                         continue
                     
-                    # Parse all cell values
                     cell_values = []
                     for cell in cells:
                         cell_text = await cell.inner_text()
@@ -146,19 +177,20 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                     away_team = None
                     home_team = None
                     
-                    # Spread data
+                    # Spread betting data
                     spread_tickets_pct = 50
                     spread_money_pct = 50
                     open_spread = None
                     current_spread = None
                     
-                    # Total data
+                    # Total betting data
                     over_tickets_pct = 50
                     over_money_pct = 50
+                    under_tickets_pct = 50
+                    under_money_pct = 50
                     open_total = None
                     current_total = None
                     
-                    # Parse cells to find teams and percentages
                     percentages = []
                     lines_found = []
                     
@@ -172,59 +204,63 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                         elif _is_nba_team(cell_text) and away_team and not home_team:
                             home_team = _normalize_team_name(cell_text.split('\n')[0])
                         
-                        # Extract percentages - WagerTalk format:
-                        # "78%" = spread betting percentage
-                        # "O78%" = Over percentage for totals
-                        # "u60" or "u60%" = Under percentage for totals
+                        # WagerTalk format parsing:
+                        # "O78%" = 78% on Over
+                        # "u60" or "u60%" = 60% on Under
+                        # "53%" = 53% on spread (away team)
                         
                         # Check for Over percentage (O prefix)
                         over_match = re.search(r'[oO](\d{1,3})%?', cell_text)
                         if over_match:
                             pct = int(over_match.group(1))
-                            if pct > 0 and pct <= 100:
+                            if 0 < pct <= 100:
                                 over_tickets_pct = pct
-                                over_money_pct = pct  # Assume same if not specified
+                                under_tickets_pct = 100 - pct
                         
-                        # Check for Under percentage (u prefix)
-                        under_match = re.search(r'[uU](\d{1,3})%?', cell_text)
-                        if under_match and not over_match:
+                        # Check for Under percentage (u prefix) - NOT part of team name
+                        under_match = re.search(r'^[uU](\d{1,3})%?$', cell_text)
+                        if under_match:
                             pct = int(under_match.group(1))
-                            if pct > 0 and pct <= 100:
-                                over_tickets_pct = 100 - pct  # Convert under to over
-                                over_money_pct = 100 - pct
+                            if 0 < pct <= 100:
+                                under_tickets_pct = pct
+                                over_tickets_pct = 100 - pct
                         
-                        # Regular spread percentage (no O or u prefix)
-                        pct_match = re.search(r'^(\d{1,3})%$', cell_text)
-                        if pct_match:
-                            percentages.append(int(pct_match.group(1)))
+                        # Regular spread percentage (plain number with %)
+                        plain_pct = re.search(r'^(\d{1,3})%$', cell_text)
+                        if plain_pct and not over_match and not under_match:
+                            percentages.append(int(plain_pct.group(1)))
                         
-                        # Also match "XX%" without prefix (spread)
-                        if not over_match and not under_match:
-                            plain_pct = re.search(r'(\d{1,3})%', cell_text)
-                            if plain_pct and cell_text[0].isdigit():
-                                percentages.append(int(plain_pct.group(1)))
-                        
-                        # Extract spread lines (format: "-11.5", "+3.5", etc)
-                        spread_match = re.search(r'([+-]?\d+\.?\d*)\s*$', cell_text)
-                        if spread_match and not re.search(r'[oOuU]', cell_text):
+                        # Extract spread lines (format: "-11.5", "+3.5", "-12-10")
+                        spread_match = re.search(r'^([+-]?\d+\.?5?)-\d+$', cell_text)
+                        if spread_match:
                             try:
                                 line = float(spread_match.group(1))
-                                if abs(line) < 50:  # Reasonable spread
+                                if abs(line) < 50:
                                     lines_found.append(('spread', line))
                             except:
                                 pass
                         
-                        # Extract total lines (format: "227.5", "o227", "u215")
-                        total_match = re.search(r'(\d{3}\.?\d*)', cell_text)
+                        # Extract total lines (format: "227.5", "230")
+                        total_match = re.search(r'^(\d{3}\.?5?)$', cell_text)
                         if total_match:
                             try:
                                 total = float(total_match.group(1))
-                                if 150 < total < 300:  # Reasonable NBA total
+                                if 150 < total < 300:
+                                    lines_found.append(('total', total))
+                            except:
+                                pass
+                        
+                        # Also match totals with odds attached (227½u-15)
+                        total_with_odds = re.search(r'(\d{3})½?[oOuU]?-?\d*', cell_text)
+                        if total_with_odds:
+                            try:
+                                total = float(total_with_odds.group(1))
+                                if 150 < total < 300:
                                     lines_found.append(('total', total))
                             except:
                                 pass
                     
-                    # Assign percentages in order (tickets, money)
+                    # Assign spread percentages (first two percentages found)
                     if len(percentages) >= 2:
                         spread_tickets_pct = percentages[0]
                         spread_money_pct = percentages[1]
@@ -256,6 +292,16 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                     if away_team and home_team and away_team != home_team:
                         matchup_key = f"{away_team} vs {home_team}"
                         
+                        # Calculate highlight colors
+                        max_spread_pct = max(spread_tickets_pct, 100 - spread_tickets_pct)
+                        tickets_highlight = _get_highlight_color(max_spread_pct)
+                        
+                        # Sharp money detection (money % vs tickets % divergence)
+                        away_sharp_diff = spread_money_pct - spread_tickets_pct
+                        home_sharp_diff = (100 - spread_money_pct) - (100 - spread_tickets_pct)
+                        spread_sharp_detected = abs(away_sharp_diff) >= 10 or abs(home_sharp_diff) >= 10
+                        spread_sharp_side = away_team if away_sharp_diff >= 10 else (home_team if home_sharp_diff >= 10 else None)
+                        
                         if matchup_key not in result:
                             result[matchup_key] = {
                                 'away_team': away_team,
@@ -274,32 +320,35 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                                 'current_spread': current_spread or open_spread,
                                 # Totals betting data
                                 'over_bet_pct': over_tickets_pct,
-                                'under_bet_pct': 100 - over_tickets_pct,
+                                'under_bet_pct': under_tickets_pct,
                                 'over_money_pct': over_money_pct,
-                                'under_money_pct': 100 - over_money_pct,
+                                'under_money_pct': under_money_pct,
                                 'total_tickets_pct': over_tickets_pct,
                                 'total_money_pct': over_money_pct,
                                 # Total lines
                                 'total_open_line': open_total,
                                 'total_current_line': current_total or open_total,
+                                # Highlight colors (recency)
+                                'tickets_highlight': tickets_highlight,
+                                'money_highlight': _get_highlight_color(max(spread_money_pct, 100 - spread_money_pct)),
                                 # Sharp money detection
-                                'sharp_detected': abs(spread_tickets_pct - spread_money_pct) >= 15,
-                                'sharp_side': away_team if spread_money_pct > spread_tickets_pct else home_team,
-                                'spread_sharp_detected': abs(spread_tickets_pct - spread_money_pct) >= 15,
-                                'spread_sharp_side': away_team if spread_money_pct > spread_tickets_pct else home_team,
+                                'sharp_detected': spread_sharp_detected,
+                                'sharp_side': spread_sharp_side,
+                                'spread_sharp_detected': spread_sharp_detected,
+                                'spread_sharp_side': spread_sharp_side,
                                 'source': 'wagertalk'
                             }
                             games_found += 1
-                            logger.info(f"[WagerTalk] Found: {matchup_key} - Tickets {spread_tickets_pct}% / Money {spread_money_pct}% | Spread: {open_spread} → {current_spread} | Total: {open_total}")
+                            logger.info(f"[WagerTalk] Found: {matchup_key} - Spread: {spread_tickets_pct}%/{spread_money_pct}% | O/U: {over_tickets_pct}%/{under_tickets_pct}% | Lines: {open_spread}→{current_spread}, Total: {open_total}")
                         else:
-                            # Update existing entry with additional data (totals row)
+                            # Update existing entry with additional totals data
                             existing = result[matchup_key]
                             if open_total and not existing.get('total_open_line'):
                                 existing['total_open_line'] = open_total
                                 existing['total_current_line'] = current_total or open_total
                             if over_tickets_pct != 50:
                                 existing['over_bet_pct'] = over_tickets_pct
-                                existing['under_bet_pct'] = 100 - over_tickets_pct
+                                existing['under_bet_pct'] = under_tickets_pct
                     
                 except Exception as e:
                     continue
@@ -331,7 +380,7 @@ def _run_async_in_thread(league: str) -> Dict[str, Dict]:
 def get_wagertalk_odds(league: str = 'NBA') -> Dict[str, Dict]:
     """
     Fetch betting data from WagerTalk.
-    Returns Tickets %, Money % for spreads.
+    Returns Tickets %, Money % for spreads and totals, plus lines.
     """
     cache_key = f"wagertalk_{league}_{datetime.now().strftime('%Y%m%d_%H')}"
     
@@ -349,69 +398,22 @@ def get_wagertalk_odds(league: str = 'NBA') -> Dict[str, Dict]:
     result = {}
     
     try:
-        try:
-            loop = asyncio.get_running_loop()
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(_run_async_in_thread, league)
-                result = future.result(timeout=45)  # Faster timeout
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+        from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
+        
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_run_async_in_thread, league)
             try:
-                result = loop.run_until_complete(_fetch_wagertalk_async(league))
-            finally:
-                loop.close()
-        
-        if result:
-            _wagertalk_cache[cache_key] = result
-            _wagertalk_cache_time[cache_key] = time.time()
-            logger.info(f"[WagerTalk] Fetched {len(result)} games")
-        
-        return result
-        
+                result = future.result(timeout=60)
+            except FuturesTimeout:
+                logger.warning("[WagerTalk] Timeout after 60s")
+                result = {}
     except Exception as e:
-        logger.warning(f"[WagerTalk] Fetch failed: {type(e).__name__}: {e}")
-        return {}
-
-
-def find_game_data(away_team: str, home_team: str, league: str = 'NBA') -> Optional[Dict]:
-    """Find betting data for a specific matchup."""
-    all_data = get_wagertalk_odds(league)
+        logger.error(f"[WagerTalk] Thread error: {e}")
+        result = {}
     
-    away_norm = _normalize_team_name(away_team)
-    home_norm = _normalize_team_name(home_team)
+    if result:
+        _wagertalk_cache[cache_key] = result
+        _wagertalk_cache_time[cache_key] = time.time()
+        logger.info(f"[WagerTalk] Fetched {len(result)} games")
     
-    matchup_key = f"{away_norm} vs {home_norm}"
-    if matchup_key in all_data:
-        return all_data[matchup_key]
-    
-    for key, data in all_data.items():
-        if (away_norm.lower() in key.lower() or away_team.lower() in key.lower()) and \
-           (home_norm.lower() in key.lower() or home_team.lower() in key.lower()):
-            return data
-    
-    return None
-
-
-def get_all_wagertalk_data(league: str = 'NBA') -> Dict[str, Dict]:
-    """Alias for get_wagertalk_odds for backward compatibility."""
-    return get_wagertalk_odds(league)
-
-
-def fetch_wagertalk_data(league: str = 'NBA') -> Dict[str, Dict]:
-    """Alias for get_wagertalk_odds for backward compatibility."""
-    return get_wagertalk_odds(league)
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    
-    print("Fetching WagerTalk odds data...")
-    data = get_wagertalk_odds('NBA')
-    
-    print(f"\nFound {len(data)} NBA games:")
-    for matchup, game_data in data.items():
-        print(f"\n{matchup}:")
-        print(f"  Tickets: {game_data.get('away_tickets_pct')}% / {game_data.get('home_tickets_pct')}%")
-        print(f"  Money: {game_data.get('away_money_pct')}% / {game_data.get('home_money_pct')}%")
+    return result
