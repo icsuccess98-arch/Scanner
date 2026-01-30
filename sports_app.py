@@ -2213,6 +2213,7 @@ class MatchupIntelligence:
                 'Cleveland': 'Cavaliers', 'Dallas': 'Mavericks', 'Denver': 'Nuggets',
                 'Detroit': 'Pistons', 'Golden State': 'Warriors', 'Houston': 'Rockets',
                 'Indiana': 'Pacers', 'LA Clippers': 'Clippers', 'LA Lakers': 'Lakers',
+                'L.A. Clippers': 'Clippers', 'L.A. Lakers': 'Lakers',
                 'Los Angeles Lakers': 'Lakers', 'Los Angeles Clippers': 'Clippers',
                 'Memphis': 'Grizzlies', 'Miami': 'Heat', 'Minnesota': 'Timberwolves',
                 'New Orleans': 'Pelicans', 'New York': 'Knicks', 'Oklahoma City': 'Thunder',
