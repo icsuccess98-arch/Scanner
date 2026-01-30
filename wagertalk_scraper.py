@@ -117,6 +117,10 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
             
             games_found = 0
             
+            # WagerTalk table format has alternating rows for spread/total per game
+            # Each game typically has 2 rows - one for spread, one for total
+            # Format: Team | Tickets | Money | Open | Current/DraftKings
+            
             for row in rows:
                 try:
                     row_text = await row.inner_text()
@@ -133,38 +137,102 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                     if len(cells) < 3:
                         continue
                     
-                    away_team = None
-                    home_team = None
-                    tickets_pct = 50
-                    money_pct = 50
-                    
+                    # Parse all cell values
+                    cell_values = []
                     for cell in cells:
                         cell_text = await cell.inner_text()
-                        cell_text = cell_text.strip()
-                        
+                        cell_values.append(cell_text.strip())
+                    
+                    away_team = None
+                    home_team = None
+                    
+                    # Spread data
+                    spread_tickets_pct = 50
+                    spread_money_pct = 50
+                    open_spread = None
+                    current_spread = None
+                    
+                    # Total data
+                    over_tickets_pct = 50
+                    over_money_pct = 50
+                    open_total = None
+                    current_total = None
+                    
+                    # Parse cells to find teams and percentages
+                    percentages = []
+                    lines_found = []
+                    
+                    for cell_text in cell_values:
                         if not cell_text:
                             continue
                         
+                        # Find team names
                         if _is_nba_team(cell_text) and not away_team:
                             away_team = _normalize_team_name(cell_text.split('\n')[0])
                         elif _is_nba_team(cell_text) and away_team and not home_team:
                             home_team = _normalize_team_name(cell_text.split('\n')[0])
                         
+                        # Extract percentages (format: "53%" or "u60" for under 60%)
                         pct_match = re.search(r'(\d{1,3})%', cell_text)
                         if pct_match:
-                            pct = int(pct_match.group(1))
-                            if pct > 0 and pct <= 100:
-                                if tickets_pct == 50:
-                                    tickets_pct = pct
-                                elif money_pct == 50:
-                                    money_pct = pct
+                            percentages.append(int(pct_match.group(1)))
+                        
+                        # Look for "uXX" format (under percentage for totals)
+                        under_match = re.search(r'[uU](\d{1,3})%?', cell_text)
+                        if under_match and not pct_match:
+                            # This is an under percentage, so over = 100 - under
+                            under_pct = int(under_match.group(1))
+                            if under_pct > 0 and under_pct <= 100:
+                                over_tickets_pct = 100 - under_pct
+                        
+                        # Extract spread lines (format: "-11.5", "+3.5", etc)
+                        spread_match = re.search(r'([+-]?\d+\.?\d*)\s*$', cell_text)
+                        if spread_match and not re.search(r'[oOuU]', cell_text):
+                            try:
+                                line = float(spread_match.group(1))
+                                if abs(line) < 50:  # Reasonable spread
+                                    lines_found.append(('spread', line))
+                            except:
+                                pass
+                        
+                        # Extract total lines (format: "227.5", "o227", "u215")
+                        total_match = re.search(r'(\d{3}\.?\d*)', cell_text)
+                        if total_match:
+                            try:
+                                total = float(total_match.group(1))
+                                if 150 < total < 300:  # Reasonable NBA total
+                                    lines_found.append(('total', total))
+                            except:
+                                pass
                     
+                    # Assign percentages in order (tickets, money)
+                    if len(percentages) >= 2:
+                        spread_tickets_pct = percentages[0]
+                        spread_money_pct = percentages[1]
+                    elif len(percentages) == 1:
+                        spread_tickets_pct = percentages[0]
+                        spread_money_pct = percentages[0]
+                    
+                    # Find teams from full row text if not found
                     lines = row_text.split('\n')
                     if not away_team or not home_team:
                         team_candidates = [l.strip() for l in lines if _is_nba_team(l.strip())]
                         if len(team_candidates) >= 2:
                             away_team = _normalize_team_name(team_candidates[0])
                             home_team = _normalize_team_name(team_candidates[1])
+                    
+                    # Assign line values
+                    for line_type, value in lines_found:
+                        if line_type == 'spread':
+                            if open_spread is None:
+                                open_spread = value
+                            else:
+                                current_spread = value
+                        elif line_type == 'total':
+                            if open_total is None:
+                                open_total = value
+                            else:
+                                current_total = value
                     
                     if away_team and home_team and away_team != home_team:
                         matchup_key = f"{away_team} vs {home_team}"
@@ -174,30 +242,45 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                                 'away_team': away_team,
                                 'home_team': home_team,
                                 # Spread betting data
-                                'spread_tickets_pct': tickets_pct,
-                                'spread_money_pct': money_pct,
-                                'away_tickets_pct': tickets_pct,
-                                'home_tickets_pct': 100 - tickets_pct,
-                                'away_bet_pct': tickets_pct,
-                                'home_bet_pct': 100 - tickets_pct,
-                                'away_money_pct': money_pct,
-                                'home_money_pct': 100 - money_pct,
-                                # Totals betting data (default 50/50 for now)
-                                'over_bet_pct': 50,
-                                'under_bet_pct': 50,
-                                'over_money_pct': 50,
-                                'under_money_pct': 50,
-                                'total_tickets_pct': 50,
-                                'total_money_pct': 50,
+                                'spread_tickets_pct': spread_tickets_pct,
+                                'spread_money_pct': spread_money_pct,
+                                'away_tickets_pct': spread_tickets_pct,
+                                'home_tickets_pct': 100 - spread_tickets_pct,
+                                'away_bet_pct': spread_tickets_pct,
+                                'home_bet_pct': 100 - spread_tickets_pct,
+                                'away_money_pct': spread_money_pct,
+                                'home_money_pct': 100 - spread_money_pct,
+                                # Spread lines
+                                'open_spread': open_spread,
+                                'current_spread': current_spread or open_spread,
+                                # Totals betting data
+                                'over_bet_pct': over_tickets_pct,
+                                'under_bet_pct': 100 - over_tickets_pct,
+                                'over_money_pct': over_money_pct,
+                                'under_money_pct': 100 - over_money_pct,
+                                'total_tickets_pct': over_tickets_pct,
+                                'total_money_pct': over_money_pct,
+                                # Total lines
+                                'total_open_line': open_total,
+                                'total_current_line': current_total or open_total,
                                 # Sharp money detection
-                                'sharp_detected': abs(tickets_pct - money_pct) >= 15,
-                                'sharp_side': away_team if money_pct > tickets_pct else home_team,
-                                'spread_sharp_detected': abs(tickets_pct - money_pct) >= 15,
-                                'spread_sharp_side': away_team if money_pct > tickets_pct else home_team,
+                                'sharp_detected': abs(spread_tickets_pct - spread_money_pct) >= 15,
+                                'sharp_side': away_team if spread_money_pct > spread_tickets_pct else home_team,
+                                'spread_sharp_detected': abs(spread_tickets_pct - spread_money_pct) >= 15,
+                                'spread_sharp_side': away_team if spread_money_pct > spread_tickets_pct else home_team,
                                 'source': 'wagertalk'
                             }
                             games_found += 1
-                            logger.info(f"[WagerTalk] Found: {matchup_key} - Tickets {tickets_pct}% / Money {money_pct}%")
+                            logger.info(f"[WagerTalk] Found: {matchup_key} - Tickets {spread_tickets_pct}% / Money {spread_money_pct}% | Spread: {open_spread} → {current_spread} | Total: {open_total}")
+                        else:
+                            # Update existing entry with additional data (totals row)
+                            existing = result[matchup_key]
+                            if open_total and not existing.get('total_open_line'):
+                                existing['total_open_line'] = open_total
+                                existing['total_current_line'] = current_total or open_total
+                            if over_tickets_pct != 50:
+                                existing['over_bet_pct'] = over_tickets_pct
+                                existing['under_bet_pct'] = 100 - over_tickets_pct
                     
                 except Exception as e:
                     continue

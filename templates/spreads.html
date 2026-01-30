@@ -3121,8 +3121,8 @@
                         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid rgba(139, 92, 246, 0.2);">
                             <div style="font-weight: 700; font-size: 11px; color: #a78bfa; text-transform: uppercase;">GAME TOTAL</div>
                             <div style="text-align: right;">
-                                <div style="font-size: 10px; color: #888;">Open: <span style="color: #fff; font-weight: 600;">${hasTotalData ? openTotal : 'Waiting'}</span></div>
-                                <div style="font-size: 11px; color: #fff; font-weight: 700;">Now: <span style="color: #a78bfa;">${hasTotalData ? currentTotal : 'Waiting'}</span> <span style="color: #888; font-size: 9px;">(${data.rlm.total_current_odds || '-110'})</span></div>
+                                <div style="font-size: 10px; color: #888;">Open: <span style="color: #fff; font-weight: 600;">${hasTotalData ? openTotal : 'N/A'}</span></div>
+                                <div style="font-size: 11px; color: #fff; font-weight: 700;">Now: <span style="color: #a78bfa;">${hasTotalData ? currentTotal : 'N/A'}</span> <span style="color: #888; font-size: 9px;">(${data.rlm.total_current_odds || '-110'})</span></div>
                             </div>
                         </div>
                         
@@ -3134,6 +3134,7 @@
                         </div>
                         ` : ''}
                         
+                        ${(overBetPct > 0 && overBetPct !== 50) || (underBetPct > 0 && underBetPct !== 50) ? `
                         <!-- OVER Row -->
                         <div style="margin-bottom: 8px;">
                             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
@@ -3161,6 +3162,12 @@
                                 <div style="width: ${underBetPct}%; height: 100%; background: #ef4444;"></div>
                             </div>
                         </div>
+                        ` : `
+                        <div style="text-align: center; padding: 15px; color: #888; font-size: 11px;">
+                            <div style="margin-bottom: 4px;">📊 Totals betting data not available</div>
+                            <div style="font-size: 9px; color: #666;">WagerTalk only provides spread betting percentages</div>
+                        </div>
+                        `}
                         
                         ${data.rlm.sharp_detected ? `<div style="margin-top: 8px; background: rgba(245, 158, 11, 0.2); border-radius: 6px; padding: 6px 10px; text-align: center;"><span style="font-size: 10px; font-weight: 600; color: #fbbf24;">💰 SHARP MONEY on ${data.rlm.sharp_side}</span></div>` : ''}
                     </div>
