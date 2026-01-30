@@ -1540,6 +1540,102 @@
         
         .hidden { display: none !important; }
         
+        /* BEST BET OF THE DAY - SUPERMAX STYLE */
+        .best-bet-hero {
+            background: linear-gradient(145deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.05));
+            border: 2px solid rgba(16, 185, 129, 0.4);
+            border-radius: 16px;
+            padding: 1rem;
+            margin: 0 0.5rem 1rem;
+            position: relative;
+            display: none;
+        }
+        .best-bet-hero.show { display: block; }
+        .best-bet-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: #fff;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.35rem 0.75rem;
+            border-radius: 20px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .best-bet-league {
+            background: var(--bg-card);
+            color: var(--text-muted);
+            font-size: 0.7rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            margin-left: 0.5rem;
+        }
+        .best-bet-matchup {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 0.75rem;
+        }
+        .best-bet-team {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 80px;
+        }
+        .best-bet-team img {
+            width: 48px;
+            height: 48px;
+            object-fit: contain;
+        }
+        .best-bet-team-name {
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-top: 0.35rem;
+            text-align: center;
+        }
+        .best-bet-center {
+            flex: 1;
+            text-align: center;
+        }
+        .best-bet-time {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        .best-bet-at {
+            font-size: 1.1rem;
+            color: var(--text-muted);
+        }
+        .best-bet-pick {
+            margin-top: 0.75rem;
+            text-align: center;
+        }
+        .best-bet-side {
+            display: inline-block;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 700;
+            padding: 0.5rem 1.25rem;
+            border-radius: 8px;
+        }
+        .best-bet-reasons {
+            margin-top: 0.75rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+            justify-content: center;
+        }
+        .best-bet-reason {
+            background: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+            font-size: 0.65rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        
         /* DIVERGENCE BAR */
         .divergence-bar {
             display: flex;
@@ -1868,6 +1964,32 @@
             <a href="/" class="fetch-link">Go to Dashboard</a>
         </div>
         {% else %}
+        
+        <!-- BEST BET OF THE DAY - Shows 2hrs before games with all criteria passing -->
+        <div class="best-bet-hero" id="best-bet-hero">
+            <div class="d-flex align-items-center">
+                <span class="best-bet-badge"><i class="bi bi-trophy-fill"></i> Best Bet</span>
+                <span class="best-bet-league" id="best-bet-league">NBA</span>
+            </div>
+            <div class="best-bet-matchup">
+                <div class="best-bet-team">
+                    <img id="best-bet-away-logo" src="" alt="">
+                    <div class="best-bet-team-name" id="best-bet-away-name">--</div>
+                </div>
+                <div class="best-bet-center">
+                    <div class="best-bet-time" id="best-bet-time">--</div>
+                    <div class="best-bet-at">@</div>
+                </div>
+                <div class="best-bet-team">
+                    <img id="best-bet-home-logo" src="" alt="">
+                    <div class="best-bet-team-name" id="best-bet-home-name">--</div>
+                </div>
+            </div>
+            <div class="best-bet-pick">
+                <span class="best-bet-side" id="best-bet-side">--</span>
+            </div>
+            <div class="best-bet-reasons" id="best-bet-reasons"></div>
+        </div>
         
         <!-- Elimination Process Section - Always Show for NBA -->
         {% if eliminated_large_spread|length > 0 or eliminated_bad_teams|length > 0 or eliminated_bad_defense|length > 0 or qualifying_picks|length > 0 %}
@@ -3681,6 +3803,148 @@
         setInterval(fetchLiveScores, 2500);
         setInterval(updateRefreshTime, 10000);
         updateRefreshTime();
+        
+        // BEST BET OF THE DAY - Only shows 2hrs before game with all criteria passing
+        let bestBetData = {};
+        
+        function evaluateBestBet() {
+            const now = Date.now();
+            const TWO_HOURS = 2 * 60 * 60 * 1000;
+            let bestGame = null;
+            let bestScore = 0;
+            
+            // Evaluate each game in bestBetData
+            Object.keys(bestBetData).forEach(gameId => {
+                const data = bestBetData[gameId];
+                if (!data || !data.gameTimeMs) return;
+                
+                // Only consider games within 2 hours
+                const timeUntil = data.gameTimeMs - now;
+                if (timeUntil > TWO_HOURS || timeUntil < 0) return;
+                
+                // Must have sharp money (10%+ divergence)
+                if (!data.hasSharpMoney) return;
+                
+                // Must have good checklist score (5+ of 6)
+                if (data.checklistScore < 5) return;
+                
+                // Calculate score: divergence + checklist bonus + RLM bonus
+                let score = data.divergence + (data.checklistScore * 5);
+                if (data.rlmDetected) score += 20;
+                if (data.spreadSize <= 7) score += 10;
+                
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestGame = { gameId, ...data };
+                }
+            });
+            
+            const heroCard = document.getElementById('best-bet-hero');
+            if (bestGame && heroCard) {
+                heroCard.classList.add('show');
+                document.getElementById('best-bet-league').textContent = bestGame.league || 'NBA';
+                document.getElementById('best-bet-away-name').textContent = bestGame.awayTeam;
+                document.getElementById('best-bet-home-name').textContent = bestGame.homeTeam;
+                document.getElementById('best-bet-time').textContent = bestGame.gameTime || '';
+                document.getElementById('best-bet-side').textContent = 
+                    bestGame.sharpSide + ' ' + (bestGame.spread || '');
+                
+                // Set logos
+                if (bestGame.awayLogo) {
+                    document.getElementById('best-bet-away-logo').src = bestGame.awayLogo;
+                }
+                if (bestGame.homeLogo) {
+                    document.getElementById('best-bet-home-logo').src = bestGame.homeLogo;
+                }
+                
+                // Build reasons
+                const reasons = [];
+                if (bestGame.divergence >= 30) reasons.push('💰 EXTREME Sharp (' + bestGame.divergence.toFixed(0) + '%)');
+                else if (bestGame.divergence >= 20) reasons.push('💰 Strong Sharp (' + bestGame.divergence.toFixed(0) + '%)');
+                else reasons.push('💰 Sharp Money (' + bestGame.divergence.toFixed(0) + '%)');
+                if (bestGame.rlmDetected) reasons.push('📈 RLM Confirmed');
+                if (bestGame.checklistScore >= 5) reasons.push('✅ ' + bestGame.checklistScore + '/6 Checklist');
+                if (bestGame.spreadSize <= 7) reasons.push('🎯 Small Spread');
+                
+                document.getElementById('best-bet-reasons').innerHTML = 
+                    reasons.map(r => '<span class="best-bet-reason">' + r + '</span>').join('');
+            } else if (heroCard) {
+                heroCard.classList.remove('show');
+            }
+        }
+        
+        // Hook into matchup data loading to capture betting info
+        const originalToggleMatchup = window.toggleMatchup;
+        if (typeof toggleMatchup !== 'undefined') {
+            const _origUpdateMatchupStats = window.updateMatchupStats;
+            window.updateMatchupStats = function(container, data) {
+                // Call original first
+                if (_origUpdateMatchupStats) _origUpdateMatchupStats(container, data);
+                
+                // Extract game info from container
+                const gameCard = container.closest('.game-card');
+                if (!gameCard) return;
+                
+                const gameId = gameCard.dataset.gameId;
+                const rlm = data.rlm || {};
+                const awayBetPct = parseInt(rlm.away_bet_pct) || 50;
+                const homeBetPct = parseInt(rlm.home_bet_pct) || 50;
+                const awayMoneyPct = parseInt(rlm.away_money_pct) || 50;
+                const homeMoneyPct = parseInt(rlm.home_money_pct) || 50;
+                const awaySharpDiff = awayMoneyPct - awayBetPct;
+                const homeSharpDiff = homeMoneyPct - homeBetPct;
+                const hasSharpMoney = awaySharpDiff >= 10 || homeSharpDiff >= 10;
+                const sharpSide = awaySharpDiff >= homeSharpDiff ? data.away_team : data.home_team;
+                const divergence = Math.max(awaySharpDiff, homeSharpDiff);
+                
+                // Calculate checklist score
+                let checklistScore = 0;
+                if (rlm.open_spread) checklistScore++;
+                if (rlm.current_spread) checklistScore++;
+                if (!data.is_b2b) checklistScore++;
+                const spread = parseFloat(rlm.current_spread) || 0;
+                if (Math.abs(spread) <= 10) checklistScore++;
+                const heavyMoney = Math.max(awayMoneyPct, homeMoneyPct);
+                const stagnant = heavyMoney >= 65 && Math.abs((parseFloat(rlm.current_spread) || 0) - (parseFloat(rlm.open_spread) || 0)) < 0.5;
+                if (!stagnant) checklistScore++;
+                if (hasSharpMoney && (rlm.spread_rlm_detected || divergence >= 15)) checklistScore++;
+                
+                // Get game time
+                const timeBar = gameCard.querySelector('.game-time');
+                const gameTimeText = timeBar ? timeBar.textContent.trim() : '';
+                
+                // Get logos
+                const logos = gameCard.querySelectorAll('.team-logo');
+                const awayLogo = logos[0] ? logos[0].src : '';
+                const homeLogo = logos[1] ? logos[1].src : '';
+                
+                // Get league
+                const leagueSection = gameCard.closest('.league-section');
+                const league = leagueSection ? leagueSection.dataset.league : 'NBA';
+                
+                bestBetData[gameId] = {
+                    awayTeam: data.away_team,
+                    homeTeam: data.home_team,
+                    hasSharpMoney,
+                    sharpSide,
+                    divergence,
+                    rlmDetected: rlm.spread_rlm_detected || false,
+                    spreadSize: Math.abs(spread),
+                    spread: rlm.current_spread,
+                    checklistScore,
+                    gameTimeMs: data.game_time_ms || Date.now() + 3600000,
+                    gameTime: gameTimeText,
+                    awayLogo,
+                    homeLogo,
+                    league
+                };
+                
+                evaluateBestBet();
+            };
+        }
+        
+        // Check for best bet every minute
+        setInterval(evaluateBestBet, 60000);
         
         (function() {
             const pullRefresh = document.getElementById('pull-refresh');
