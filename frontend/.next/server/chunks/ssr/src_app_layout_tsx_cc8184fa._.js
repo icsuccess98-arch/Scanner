@@ -1,3 +1,0 @@
-module.exports=[27572,a=>{"use strict";var b=a.i(7997);function c({children:a}){return(0,b.jsxs)("html",{lang:"en",children:[(0,b.jsxs)("head",{children:[(0,b.jsx)("link",{href:"https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css",rel:"stylesheet"}),(0,b.jsx)("link",{href:"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap",rel:"stylesheet"})]}),(0,b.jsx)("body",{children:a})]})}a.s(["default",()=>c,"metadata",0,{title:"730's Locks",description:"Sports betting analytics - Edge-based TOTALS picks",manifest:"/manifest.json",appleWebApp:{capable:!0,statusBarStyle:"black-translucent",title:"730 Locks"}},"viewport",0,{themeColor:"#d4af37"}])}];
-
-//# sourceMappingURL=src_app_layout_tsx_cc8184fa._.js.map
