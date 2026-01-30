@@ -18,6 +18,7 @@ export default function HistoryPage() {
   const [picks, setPicks] = useState<Pick[]>([])
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState<number | null>(null)
+  const [filters, setFilters] = useState({ league: 'all', date: 'all', result: 'all' })
 
   const fetchHistory = useCallback(async () => {
     try {
@@ -33,10 +34,6 @@ export default function HistoryPage() {
 
   useEffect(() => {
     fetchHistory()
-  }, [fetchHistory])
-
-  // Auto-refresh every 30 seconds
-  useEffect(() => {
     const interval = setInterval(fetchHistory, 30000)
     return () => clearInterval(interval)
   }, [fetchHistory])
@@ -57,260 +54,120 @@ export default function HistoryPage() {
     }
   }
 
-  // Calculate stats
+  const handleCheckResults = async () => {
+    try {
+      await fetch('/check_results', { method: 'POST' })
+      fetchHistory()
+    } catch (err) {
+      console.error('Check results failed:', err)
+    }
+  }
+
   const wins = picks.filter(p => p.result === 'W').length
   const losses = picks.filter(p => p.result === 'L').length
-  const pushes = picks.filter(p => p.result === 'P').length
   const decided = wins + losses
-  const winRate = decided > 0 ? ((wins / decided) * 100).toFixed(1) : '0.0'
+  const winRate = decided > 0 ? ((wins / decided) * 100).toFixed(0) : '-'
+
+  const filteredPicks = picks.filter(p => {
+    if (filters.league !== 'all' && p.league !== filters.league) return false
+    if (filters.result !== 'all') {
+      if (filters.result === 'W' && p.result !== 'W') return false
+      if (filters.result === 'L' && p.result !== 'L') return false
+      if (filters.result === 'pending' && p.result !== null) return false
+    }
+    return true
+  })
 
   if (loading) {
     return (
-      <>
-        <Header />
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
-          <div className="spinner" />
-        </div>
-        <MobileNav />
-      </>
+      <div className="min-h-screen bg-[#0a0a12] flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-[#7B2CBF] border-t-transparent rounded-full animate-spin"></div>
+      </div>
     )
   }
 
   return (
-    <>
+    <div className="min-h-screen bg-[#0a0a12] text-[#F8F8FF] font-inter pb-20">
       <Header />
 
-      <div className="container" style={{ maxWidth: '600px', margin: '0 auto', padding: '1rem' }}>
-        {/* Stats Row */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: '0.75rem',
-          marginBottom: '1.5rem'
-        }}>
-          <div style={{
-            background: 'linear-gradient(135deg, var(--bg-card) 0%, rgba(123, 44, 191, 0.08) 100%)',
-            border: '1px solid var(--border)',
-            borderRadius: '12px',
-            padding: '1rem',
-            textAlign: 'center'
-          }}>
-            <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#FFD700' }}>{wins}</div>
-            <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '0.25rem' }}>Wins</div>
+      <div className="max-w-[600px] mx-auto p-4">
+        <div className="grid grid-cols-3 gap-3 mb-6">
+          <div className="bg-gradient-to-br from-[#12101a] to-[rgba(123,44,191,0.08)] border border-[#2d2640] rounded-xl p-4 text-center">
+            <div className="text-2xl font-extrabold text-[#FFD700]">{wins}</div>
+            <div className="text-[10px] text-[#9990B0] uppercase font-bold tracking-wider mt-1">Wins</div>
           </div>
-          <div style={{
-            background: 'linear-gradient(135deg, var(--bg-card) 0%, rgba(123, 44, 191, 0.08) 100%)',
-            border: '1px solid var(--border)',
-            borderRadius: '12px',
-            padding: '1rem',
-            textAlign: 'center'
-          }}>
-            <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#9D4EDD' }}>{losses}</div>
-            <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '0.25rem' }}>Losses</div>
+          <div className="bg-gradient-to-br from-[#12101a] to-[rgba(123,44,191,0.08)] border border-[#2d2640] rounded-xl p-4 text-center">
+            <div className="text-2xl font-extrabold text-[#9D4EDD]">{losses}</div>
+            <div className="text-[10px] text-[#9990B0] uppercase font-bold tracking-wider mt-1">Losses</div>
           </div>
-          <div style={{
-            background: 'linear-gradient(135deg, var(--bg-card) 0%, rgba(123, 44, 191, 0.08) 100%)',
-            border: '1px solid var(--border)',
-            borderRadius: '12px',
-            padding: '1rem',
-            textAlign: 'center'
-          }}>
-            <div style={{
-              fontSize: '1.75rem',
-              fontWeight: 800,
-              background: 'linear-gradient(135deg, #FFD700 0%, #FFF8DC 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent'
-            }}>{winRate}%</div>
-            <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '0.25rem' }}>Win Rate</div>
+          <div className="bg-gradient-to-br from-[#12101a] to-[rgba(123,44,191,0.08)] border border-[#2d2640] rounded-xl p-4 text-center">
+            <div className="text-2xl font-extrabold bg-gradient-to-r from-[#FFD700] to-[#FFF8DC] bg-clip-text text-transparent">{winRate}{winRate !== '-' ? '%' : ''}</div>
+            <div className="text-[10px] text-[#9990B0] uppercase font-bold tracking-wider mt-1">Win Rate</div>
           </div>
         </div>
 
-        {/* Section Title */}
-        <div style={{
-          fontSize: '0.875rem',
-          fontWeight: 600,
-          color: 'var(--text-muted)',
-          marginBottom: '0.75rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem'
-        }}>
-          <i className="bi bi-trophy-fill" style={{ color: 'var(--gold)' }} />
-          Lock of the Day History
+        <div className="flex flex-wrap gap-2 mb-6 items-center">
+          <select 
+            value={filters.league} 
+            onChange={(e) => setFilters({...filters, league: e.target.value})}
+            className="bg-[#1a1825] border border-[#2d2640] text-[#F8F8FF] text-xs font-bold rounded-lg px-3 py-2 outline-none"
+          >
+            <option value="all">All Leagues</option>
+            <option value="NBA">NBA</option>
+            <option value="CBB">CBB</option>
+            <option value="NHL">NHL</option>
+          </select>
+          <select 
+            value={filters.result} 
+            onChange={(e) => setFilters({...filters, result: e.target.value})}
+            className="bg-[#1a1825] border border-[#2d2640] text-[#F8F8FF] text-xs font-bold rounded-lg px-3 py-2 outline-none"
+          >
+            <option value="all">All Results</option>
+            <option value="W">Wins</option>
+            <option value="L">Losses</option>
+            <option value="pending">Pending</option>
+          </select>
+          <button 
+            onClick={handleCheckResults}
+            className="ml-auto flex items-center gap-1 bg-[rgba(123,44,191,0.1)] border border-[#7B2CBF] text-xs font-bold px-3 py-2 rounded-lg active:scale-95 transition-all"
+          >
+            <i className="bi bi-arrow-repeat"></i> Sync
+          </button>
         </div>
 
-        {/* Picks List */}
-        {picks.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-            <p>No pick history yet.</p>
-          </div>
-        ) : (
-          picks.map(pick => (
-            <PickCard
-              key={pick.id}
-              pick={pick}
-              onUpdateResult={handleUpdateResult}
-              updating={updating === pick.id}
-            />
-          ))
-        )}
+        <div className="space-y-3">
+          {filteredPicks.map(pick => (
+            <div key={pick.id} className={`bg-[#12101a] border border-[#2d2640] rounded-xl p-4 relative overflow-hidden ${pick.result === 'W' ? 'border-l-4 border-l-[#FFD700]' : pick.result === 'L' ? 'border-l-4 border-l-[#9D4EDD]' : ''}`}>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-[10px] text-[#9990B0]">{pick.date}</span>
+                <span className={`text-[9px] font-bold px-2 py-0.5 rounded text-white ${
+                  pick.league === 'NBA' ? 'bg-[#17408B]' : 'bg-[#1e40af]'
+                }`}>{pick.league}</span>
+              </div>
+              <div className="font-bold text-sm flex items-center gap-2 mb-3">
+                {pick.is_lock && <i className="bi bi-lock-fill text-[#FFD700] text-[10px]"></i>}
+                {pick.matchup}
+              </div>
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <span className={`text-[10px] font-extrabold px-2 py-1 rounded ${pick.pick.toLowerCase().includes('over') ? 'bg-[#10B98133] text-[#10B981]' : 'bg-[#FF525233] text-[#FF5252]'}`}>{pick.pick}</span>
+                  <span className="text-[10px] text-[#FFD700] font-bold">{pick.edge.toFixed(1)} edge</span>
+                </div>
+                {pick.result ? (
+                  <span className={`text-[9px] font-bold px-2.5 py-1 rounded-md ${pick.result === 'W' ? 'bg-[#FFD70033] text-[#FFD700]' : 'bg-[#9D4EDD33] text-[#9D4EDD]'}`}>{pick.result === 'W' ? 'WIN' : 'LOSS'}</span>
+                ) : (
+                  <div className="flex gap-1.5">
+                    <button onClick={() => handleUpdateResult(pick.id, 'W')} className="bg-[#FFD70026] border border-[#FFD7004d] text-[#FFD700] text-[9px] font-extrabold px-2 py-1 rounded active:scale-90">WIN</button>
+                    <button onClick={() => handleUpdateResult(pick.id, 'L')} className="bg-[#9D4EDD26] border border-[#9D4EDD4d] text-[#9D4EDD] text-[9px] font-extrabold px-2 py-1 rounded active:scale-90">LOSS</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       <MobileNav />
-    </>
-  )
-}
-
-function PickCard({ pick, onUpdateResult, updating }: {
-  pick: Pick
-  onUpdateResult: (id: number, result: 'W' | 'L' | 'P') => void
-  updating: boolean
-}) {
-  const isOver = pick.pick.toLowerCase().includes('over')
-  const isUnder = pick.pick.toLowerCase().includes('under')
-
-  const leagueGradients: Record<string, string> = {
-    NBA: 'linear-gradient(135deg, #17408B, #C9082A)',
-    CBB: 'linear-gradient(135deg, #1e40af, #7c3aed)',
-    NFL: 'linear-gradient(135deg, #013369, #D50A0A)',
-    CFB: 'linear-gradient(135deg, #7c3aed, #dc2626)',
-    NHL: 'linear-gradient(135deg, #000000, #A2AAAD)',
-  }
-
-  return (
-    <div style={{
-      background: 'var(--bg-card)',
-      border: '1px solid var(--border)',
-      borderRadius: '12px',
-      padding: '1rem',
-      marginBottom: '0.75rem',
-      position: 'relative',
-      overflow: 'hidden',
-      borderLeftWidth: '4px',
-      borderLeftStyle: 'solid',
-      borderLeftColor: pick.result === 'W' ? '#FFD700' : pick.result === 'L' ? '#9D4EDD' : 'var(--border)'
-    }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{pick.date}</span>
-        <span style={{
-          fontSize: '0.6rem',
-          fontWeight: 700,
-          padding: '0.2rem 0.5rem',
-          borderRadius: '4px',
-          color: 'white',
-          background: leagueGradients[pick.league] || 'var(--border)'
-        }}>
-          {pick.league}
-        </span>
-      </div>
-
-      {/* Matchup */}
-      <div style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        {pick.is_lock && <i className="bi bi-lock-fill" style={{ color: 'var(--gold)', fontSize: '0.875rem' }} />}
-        {pick.matchup}
-      </div>
-
-      {/* Pick Details */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <span style={{
-            fontWeight: 700,
-            fontSize: '0.8rem',
-            padding: '0.25rem 0.5rem',
-            borderRadius: '4px',
-            background: isOver ? 'rgba(0, 230, 118, 0.2)' : isUnder ? 'rgba(255, 82, 82, 0.2)' : 'rgba(123, 44, 191, 0.2)',
-            color: isOver ? '#00E676' : isUnder ? '#FF5252' : '#E0B0FF'
-          }}>
-            {pick.pick}
-          </span>
-          <span style={{ fontSize: '0.75rem', color: 'var(--gold)', fontWeight: 600 }}>
-            {pick.edge.toFixed(1)} edge
-          </span>
-        </div>
-
-        {/* Result Badge */}
-        {pick.result && (
-          <span style={{
-            fontWeight: 700,
-            fontSize: '0.7rem',
-            padding: '0.3rem 0.6rem',
-            borderRadius: '6px',
-            textTransform: 'uppercase',
-            background: pick.result === 'W' ? 'rgba(255, 215, 0, 0.2)' : pick.result === 'L' ? 'rgba(157, 78, 221, 0.2)' : 'rgba(218, 165, 32, 0.2)',
-            color: pick.result === 'W' ? '#FFD700' : pick.result === 'L' ? '#9D4EDD' : '#DAA520'
-          }}>
-            {pick.result === 'W' ? 'WIN' : pick.result === 'L' ? 'LOSS' : 'PUSH'}
-          </span>
-        )}
-      </div>
-
-      {/* Result Buttons (if no result) */}
-      {!pick.result && (
-        <div style={{
-          display: 'flex',
-          gap: '0.375rem',
-          marginTop: '0.75rem',
-          paddingTop: '0.75rem',
-          borderTop: '1px solid var(--border)'
-        }}>
-          <button
-            onClick={() => onUpdateResult(pick.id, 'W')}
-            disabled={updating}
-            style={{
-              flex: 1,
-              background: 'rgba(255, 215, 0, 0.15)',
-              border: '1px solid rgba(255, 215, 0, 0.3)',
-              borderRadius: '6px',
-              padding: '0.5rem',
-              color: '#FFD700',
-              fontSize: '0.75rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-          >
-            WIN
-          </button>
-          <button
-            onClick={() => onUpdateResult(pick.id, 'L')}
-            disabled={updating}
-            style={{
-              flex: 1,
-              background: 'rgba(157, 78, 221, 0.15)',
-              border: '1px solid rgba(157, 78, 221, 0.3)',
-              borderRadius: '6px',
-              padding: '0.5rem',
-              color: '#9D4EDD',
-              fontSize: '0.75rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-          >
-            LOSS
-          </button>
-          <button
-            onClick={() => onUpdateResult(pick.id, 'P')}
-            disabled={updating}
-            style={{
-              flex: 1,
-              background: 'rgba(218, 165, 32, 0.15)',
-              border: '1px solid rgba(218, 165, 32, 0.3)',
-              borderRadius: '6px',
-              padding: '0.5rem',
-              color: '#DAA520',
-              fontSize: '0.75rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-          >
-            PUSH
-          </button>
-        </div>
-      )}
     </div>
   )
 }

@@ -14,6 +14,10 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#d4af37",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({
@@ -29,11 +33,11 @@ export default function RootLayout({
           rel="stylesheet"
         />
         <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Pacifico&display=swap"
           rel="stylesheet"
         />
       </head>
-      <body>
+      <body className="antialiased selection:bg-[#7B2CBF] selection:text-white">
         {children}
       </body>
     </html>

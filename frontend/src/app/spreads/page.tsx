@@ -36,14 +36,13 @@ export default function SpreadsPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [selectedLeague, setSelectedLeague] = useState<string>('ALL')
   const [today, setToday] = useState('')
-  const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
 
   useEffect(() => {
     const date = new Date()
     setToday(date.toLocaleDateString('en-US', {
-      weekday: 'long',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
+      year: 'numeric'
     }))
   }, [])
 
@@ -69,29 +68,25 @@ export default function SpreadsPage() {
     }
   }, [])
 
+  useEffect(() => {
+    fetchGames()
+    fetchLiveScores()
+    const interval = setInterval(fetchLiveScores, 2500)
+    return () => clearInterval(interval)
+  }, [fetchGames, fetchLiveScores])
+
   const handleRefresh = async () => {
     setRefreshing(true)
     try {
       await fetch('/fetch_odds', { method: 'POST' })
       await fetchGames()
       await fetchLiveScores()
-      setLastRefresh(new Date())
     } catch (err) {
       console.error('Refresh failed:', err)
     } finally {
       setRefreshing(false)
     }
   }
-
-  useEffect(() => {
-    fetchGames()
-    fetchLiveScores()
-  }, [fetchGames, fetchLiveScores])
-
-  useEffect(() => {
-    const interval = setInterval(fetchLiveScores, 2500)
-    return () => clearInterval(interval)
-  }, [fetchLiveScores])
 
   const leagues = ['ALL', 'NBA', 'CBB', 'NFL', 'CFB', 'NHL']
   const filteredGames = selectedLeague === 'ALL'
@@ -104,62 +99,43 @@ export default function SpreadsPage() {
     return acc
   }, {} as Record<string, Game[]>)
 
-  const getLiveScore = (game: Game): LiveScore | null => {
-    const key = `${game.away_team}@${game.home_team}`
-    return liveScores[key] || null
-  }
-
   if (loading) {
     return (
-      <>
-        <Header />
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
-          <div className="spinner" />
-        </div>
-        <MobileNav />
-      </>
+      <div className="min-h-screen bg-[#0a0a12] flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-[#7B2CBF] border-t-transparent rounded-full animate-spin"></div>
+      </div>
     )
   }
 
   return (
-    <>
+    <div className="min-h-screen bg-[#0a0a12] text-[#F8F8FF] font-inter pb-20">
       <Header />
 
-      {/* Header Section */}
-      <div className="header-section">
-        <div className="control-panel">
-          <div className="date-display">{today}</div>
-
-          <div className="stats-grid">
-            <div className="stat-card">
-              <div className="value">{games.length}</div>
-              <div className="label">Total Games</div>
+      <div className="bg-gradient-to-b from-[#0d0b12] via-[#12101a] to-[#0a0a12] border-b border-[#2d2640] py-8 px-4">
+        <div className="max-w-[480px] mx-auto bg-gradient-to-br from-[rgba(26,24,37,0.95)] to-[rgba(18,16,26,0.98)] border border-[rgba(123,44,191,0.25)] rounded-[20px] p-6 shadow-[0_8px_32px_rgba(0,0,0,0.4),0_0_60px_rgba(123,44,191,0.08)]">
+          <div className="text-2xl font-bold text-center mb-5 tracking-tight">{today}</div>
+          
+          <div className="grid grid-cols-2 gap-3 mb-5">
+            <div className="bg-gradient-to-br from-[rgba(45,38,64,0.5)] to-[rgba(26,24,37,0.8)] border border-[rgba(255,215,0,0.15)] rounded-xl p-4 text-center">
+              <div className="text-3xl font-extrabold bg-gradient-to-r from-[#FFD700] to-[#FFEC8B] bg-clip-text text-transparent leading-none">{games.length}</div>
+              <div className="text-[11px] text-[#9990B0] uppercase font-bold tracking-wider mt-1">Total Games</div>
             </div>
-            <div className="stat-card qualified">
-              <div className="value">{games.filter(g => g.is_qualified).length}</div>
-              <div className="label">With Lines</div>
+            <div className="bg-gradient-to-br from-[rgba(255,215,0,0.08)] to-[rgba(26,24,37,0.9)] border border-[rgba(255,215,0,0.35)] rounded-xl p-4 text-center">
+              <div className="text-3xl font-extrabold bg-gradient-to-r from-[#FFD700] to-[#FFEC8B] bg-clip-text text-transparent leading-none">{games.filter(g => g.is_qualified).length}</div>
+              <div className="text-[11px] text-[#9990B0] uppercase font-bold tracking-wider mt-1">With Lines</div>
             </div>
           </div>
 
-          {/* League Filter */}
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center', marginBottom: '1rem' }}>
+          <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
             {leagues.map(league => (
               <button
                 key={league}
                 onClick={() => setSelectedLeague(league)}
-                style={{
-                  background: selectedLeague === league
-                    ? 'linear-gradient(135deg, #7B2CBF 0%, #9D4EDD 100%)'
-                    : 'var(--bg-input)',
-                  border: selectedLeague === league ? 'none' : '1px solid var(--border)',
-                  color: 'var(--text)',
-                  padding: '0.5rem 1rem',
-                  borderRadius: '8px',
-                  fontSize: '0.8rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
+                className={`flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold transition-all ${
+                  selectedLeague === league 
+                  ? 'bg-gradient-to-r from-[#7B2CBF] to-[#9D4EDD] text-white shadow-lg shadow-[rgba(123,44,191,0.3)]' 
+                  : 'bg-[rgba(30,30,45,0.8)] text-[#9990B0] border border-[rgba(255,255,255,0.1)]'
+                }`}
               >
                 {league}
               </button>
@@ -168,148 +144,72 @@ export default function SpreadsPage() {
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="container" style={{ maxWidth: '1200px', margin: '0 auto', padding: '1rem' }}>
+      <div className="max-w-[800px] mx-auto p-4">
         {Object.entries(gamesByLeague).map(([league, leagueGames]) => (
-          <div key={league} className="league-section">
-            <div className="league-header">
-              <div className={`league-icon ${league.toLowerCase()}`}>{league}</div>
+          <div key={league} className="mb-8">
+            <div className="flex items-center gap-4 py-4 border-b border-[#2d2640] mb-4">
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-[11px] text-white ${
+                league === 'NBA' ? 'bg-gradient-to-br from-[#17408B] to-[#C9082A]' :
+                league === 'CBB' ? 'bg-gradient-to-br from-[#1e40af] to-[#7c3aed]' :
+                league === 'NFL' ? 'bg-gradient-to-br from-[#013369] to-[#D50A0A]' :
+                league === 'CFB' ? 'bg-gradient-to-br from-[#7c3aed] to-[#dc2626]' :
+                'bg-gradient-to-br from-[#000000] to-[#A2AAAD]'
+              }`}>{league}</div>
               <div>
-                <div className="league-title">{league}</div>
-                <div className="league-count">{leagueGames.length} games</div>
+                <div className="text-xl font-bold">{league}</div>
+                <div className="text-[#9990B0] text-sm">{leagueGames.length} games</div>
               </div>
             </div>
 
-            {leagueGames.map(game => (
-              <GameCard key={game.id} game={game} liveScore={getLiveScore(game)} />
-            ))}
+            {leagueGames.map(game => {
+              const live = liveScores[`${game.away_team}@${game.home_team}`]
+              return (
+                <div key={game.id} className={`bg-[#12101a] border border-[#2d2640] rounded-xl mb-3 relative overflow-hidden transition-all hover:border-[#7B2CBF] ${game.is_qualified ? 'border-l-[5px] border-l-[#FFD700]' : ''}`}>
+                  <div className="flex items-center justify-between p-4 bg-gradient-to-b from-[rgba(25,25,35,0.98)] to-[rgba(18,18,26,1)]">
+                    <div className="flex-1 flex flex-col items-center">
+                      <img src={game.away_logo} alt={game.away_team} className="w-10 h-10 object-contain" />
+                      <div className="text-[11px] font-bold mt-1">{game.away_team}</div>
+                    </div>
+                    <div className="flex flex-col items-center min-w-[80px]">
+                      {live ? (
+                        <div className="text-center">
+                          <span className="bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded animate-pulse">LIVE</span>
+                          <div className="text-lg font-bold">{live.away_score} - {live.home_score}</div>
+                        </div>
+                      ) : (
+                        <div className="text-center text-[#9ca3af]">
+                          <div className="text-[10px] font-bold">{game.game_time}</div>
+                          <div className="text-lg">@</div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 flex flex-col items-center">
+                      <img src={game.home_logo} alt={game.home_team} className="w-10 h-10 object-contain" />
+                      <div className="text-[11px] font-bold mt-1">{game.home_team}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between p-2.5 bg-[rgba(15,23,42,0.8)] border-t border-[rgba(139,92,246,0.1)]">
+                    <div className="flex-1 text-center"><div className="text-[8px] text-[#6b7280]">Line</div><div className="text-[13px] font-bold">{game.line || '--'}</div></div>
+                    <div className="flex-1 text-center border-l border-[rgba(139,92,246,0.1)]"><div className="text-[8px] text-[#6b7280]">Proj</div><div className="text-[13px] font-bold">{game.projected_total?.toFixed(1) || '--'}</div></div>
+                    <div className="flex-1 text-center border-l border-[rgba(139,92,246,0.1)]"><div className="text-[8px] text-[#6b7280]">Edge</div><div className="text-[13px] font-bold text-[#F59E0B]">{game.edge?.toFixed(1) || '--'}</div></div>
+                    <div className="flex-1 flex justify-center border-l border-[rgba(139,92,246,0.1)]">
+                      <span className={`px-2 py-1 rounded-full text-[10px] font-extrabold ${game.direction === 'O' ? 'text-[#10B981] bg-[#10B9811a]' : 'text-[#EF4444] bg-[#EF44441a]'}`}>
+                        {game.direction === 'O' ? 'OVER' : 'UNDER'} {game.line}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         ))}
-
-        {filteredGames.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-            <p>No games found for {selectedLeague}.</p>
-          </div>
-        )}
       </div>
 
-      {/* Floating Refresh Button */}
-      <button
-        onClick={handleRefresh}
-        disabled={refreshing}
-        className="floating-refresh"
-        style={{
-          position: 'fixed',
-          bottom: '90px',
-          right: '20px',
-          width: '56px',
-          height: '56px',
-          borderRadius: '50%',
-          background: 'linear-gradient(135deg, #7B2CBF, #9D4EDD)',
-          border: 'none',
-          color: '#fff',
-          fontSize: '24px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 4px 15px rgba(123, 44, 191, 0.4)',
-          cursor: 'pointer',
-          zIndex: 1000
-        }}
-      >
-        <i className={`bi bi-arrow-repeat ${refreshing ? 'spinning' : ''}`} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
+      <button onClick={handleRefresh} disabled={refreshing} className="fixed bottom-[90px] right-5 w-14 h-14 rounded-full bg-gradient-to-br from-[#7B2CBF] to-[#9D4EDD] flex items-center justify-center text-white shadow-xl z-[1000] active:scale-95">
+        <i className={`bi bi-arrow-repeat text-2xl ${refreshing ? 'animate-spin' : ''}`}></i>
       </button>
 
       <MobileNav />
-
-      <style jsx>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
-    </>
-  )
-}
-
-function GameCard({ game, liveScore }: { game: Game; liveScore: LiveScore | null }) {
-  const isLive = liveScore && !liveScore.is_final && liveScore.away_score !== undefined
-  const isFinal = liveScore?.is_final
-
-  return (
-    <div className={`game-card ${game.league.toLowerCase()} ${game.is_qualified ? 'qualified' : ''} ${isLive ? 'game-live' : ''} ${isFinal ? 'game-final' : ''}`}>
-      <div className="pikkit-header">
-        <div className="pikkit-team">
-          {game.away_logo ? (
-            <img src={game.away_logo} alt={game.away_team} className="pikkit-team-logo" />
-          ) : (
-            <div style={{ width: '48px', height: '48px', background: 'rgba(139,92,246,0.2)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 600, color: '#8B5CF6' }}>
-              {game.away_team.substring(0, 3)}
-            </div>
-          )}
-          <div className="pikkit-team-name">{game.away_team}</div>
-          <div className="pikkit-team-record">{game.away_record || '--'}</div>
-        </div>
-
-        <div className="pikkit-center">
-          {isFinal ? (
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '10px', fontWeight: 700, color: '#9ca3af', letterSpacing: '1px' }}>FINAL</div>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff' }}>
-                {liveScore?.away_score} - {liveScore?.home_score}
-              </div>
-            </div>
-          ) : isLive ? (
-            <div style={{ textAlign: 'center' }}>
-              <span className="pikkit-live-badge">LIVE</span>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: '#fff', marginTop: '4px' }}>
-                {liveScore?.away_score} - {liveScore?.home_score}
-              </div>
-            </div>
-          ) : (
-            <div className="pikkit-pregame">
-              <div className="pikkit-game-time">{game.game_time}</div>
-              <div className="pikkit-at-symbol">@</div>
-            </div>
-          )}
-        </div>
-
-        <div className="pikkit-team">
-          {game.home_logo ? (
-            <img src={game.home_logo} alt={game.home_team} className="pikkit-team-logo" />
-          ) : (
-            <div style={{ width: '48px', height: '48px', background: 'rgba(139,92,246,0.2)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 600, color: '#8B5CF6' }}>
-              {game.home_team.substring(0, 3)}
-            </div>
-          )}
-          <div className="pikkit-team-name">{game.home_team}</div>
-          <div className="pikkit-team-record">{game.home_record || '--'}</div>
-        </div>
-      </div>
-
-      <div className="pikkit-totals-bar">
-        <div className="totals-stat">
-          <div className="totals-stat-label">Line</div>
-          <div className="totals-stat-value">{game.line || '--'}</div>
-        </div>
-        <div className="totals-stat">
-          <div className="totals-stat-label">Proj</div>
-          <div className="totals-stat-value">{game.projected_total?.toFixed(1) || '--'}</div>
-        </div>
-        <div className="totals-stat">
-          <div className="totals-stat-label">Edge</div>
-          <div className={`totals-stat-value ${(game.edge || 0) >= 10 ? 'edge-high' : ''}`}>
-            {game.edge?.toFixed(1) || '--'}
-          </div>
-        </div>
-        {game.direction && (
-          <div className="totals-stat">
-            <span className={`pikkit-pick-chip ${game.direction === 'O' ? 'over' : 'under'}`}>
-              {game.direction === 'O' ? 'OVER' : 'UNDER'}
-            </span>
-          </div>
-        )}
-      </div>
     </div>
   )
 }

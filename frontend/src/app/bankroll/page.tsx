@@ -9,329 +9,174 @@ interface WeekData {
   target: number
 }
 
-const GOAL_PRESETS = [50, 100, 150, 200, 250, 300]
+const GOAL_PRESETS = [10000, 20000, 40000, 52000, 100000]
 
 export default function BankrollPage() {
-  const [weeklyGoal, setWeeklyGoal] = useState(100)
+  const [yearlyGoal, setYearlyGoal] = useState(20000)
   const [currentWeek, setCurrentWeek] = useState(1)
   const [weeks, setWeeks] = useState<WeekData[]>([])
-  const [inputGoal, setInputGoal] = useState('100')
+  const [inputGoal, setInputGoal] = useState('20000')
 
-  // Load from localStorage
   useEffect(() => {
-    const saved = localStorage.getItem('bankroll_data')
+    const saved = localStorage.getItem('bankroll_data_v2')
     if (saved) {
       const data = JSON.parse(saved)
-      setWeeklyGoal(data.weeklyGoal || 100)
+      setYearlyGoal(data.yearlyGoal || 20000)
       setCurrentWeek(data.currentWeek || 1)
       setWeeks(data.weeks || [])
-      setInputGoal((data.weeklyGoal || 100).toString())
+      setInputGoal((data.yearlyGoal || 20000).toString())
     }
   }, [])
 
-  // Save to localStorage
   useEffect(() => {
-    localStorage.setItem('bankroll_data', JSON.stringify({
-      weeklyGoal,
-      currentWeek,
-      weeks
-    }))
-  }, [weeklyGoal, currentWeek, weeks])
+    localStorage.setItem('bankroll_data_v2', JSON.stringify({ yearlyGoal, currentWeek, weeks }))
+  }, [yearlyGoal, currentWeek, weeks])
 
-  const handleGoalChange = (value: number) => {
-    setWeeklyGoal(value)
-    setInputGoal(value.toString())
-  }
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInputGoal(e.target.value)
-    const val = parseInt(e.target.value)
-    if (!isNaN(val) && val > 0) {
-      setWeeklyGoal(val)
-    }
-  }
+  const weeklyTarget = Math.round(yearlyGoal / 52)
+  const dailyTarget = Math.round(weeklyTarget / 7)
+  const totalDeposited = weeks.reduce((sum, w) => sum + w.profit, 0)
+  const progress = Math.min((weeks.length / 52) * 100, 100)
 
   const logWeek = (profit: number) => {
-    const newWeek: WeekData = {
-      week: currentWeek,
-      profit,
-      target: weeklyGoal
-    }
+    if (currentWeek > 52) return
+    const newWeek = { week: currentWeek, profit, target: weeklyTarget }
     setWeeks([...weeks, newWeek])
     setCurrentWeek(currentWeek + 1)
   }
 
+  const undoLast = () => {
+    if (weeks.length === 0) return
+    const newWeeks = [...weeks]
+    newWeeks.pop()
+    setWeeks(newWeeks)
+    setCurrentWeek(currentWeek - 1)
+  }
+
   const resetAll = () => {
     if (confirm('Reset all bankroll data?')) {
-      setWeeklyGoal(100)
+      setYearlyGoal(20000)
       setCurrentWeek(1)
       setWeeks([])
-      setInputGoal('100')
+      setInputGoal('20000')
     }
   }
 
-  // Calculate stats
-  const totalProfit = weeks.reduce((sum, w) => sum + w.profit, 0)
-  const weeksHit = weeks.filter(w => w.profit >= w.target).length
-  const hitRate = weeks.length > 0 ? ((weeksHit / weeks.length) * 100).toFixed(0) : '0'
-  const yearlyProjection = weeklyGoal * 52
-  const weeksRemaining = 52 - currentWeek + 1
-  const projectedTotal = totalProfit + (weeklyGoal * weeksRemaining)
-
   return (
-    <>
+    <div className="min-h-screen bg-[#0a0a12] text-[#F8F8FF] pb-24">
       <Header />
 
-      {/* Hero Section */}
-      <div style={{
-        background: 'linear-gradient(135deg, #7C3AED 0%, #8B5CF6 50%, #7B2CBF 100%)',
-        padding: '1.25rem 1rem',
-        position: 'relative',
-        overflow: 'hidden'
-      }}>
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <h1 style={{
-            fontSize: '1.5rem',
-            fontWeight: 800,
-            textAlign: 'center',
-            marginBottom: '1rem',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '0.5rem',
-            textShadow: '0 2px 10px rgba(0,0,0,0.3)'
-          }}>
-            <i className="bi bi-trophy-fill" style={{ color: '#FBBF24', fontSize: '1.25rem' }} />
-            52 Week Challenge
+      <div className="bg-gradient-to-br from-[#7C3AED] via-[#8B5CF6] to-[#7B2CBF] p-5 relative overflow-hidden">
+        <div className="relative z-10">
+          <h1 className="text-2xl font-extrabold text-center mb-4 flex items-center justify-center gap-2 drop-shadow-lg">
+            <i className="bi bi-trophy-fill text-[#FBBF24]"></i> 52 Week Bankroll Builder
           </h1>
 
-          {/* Goal Editor */}
-          <div style={{
-            background: 'rgba(0,0,0,0.4)',
-            borderRadius: '12px',
-            padding: '1rem',
-            marginBottom: '1rem',
-            border: '1px solid rgba(255,255,255,0.1)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-              <span style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.9)', fontWeight: 600 }}>
-                Weekly Target
-              </span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{ color: 'rgba(255,255,255,0.7)' }}>$</span>
-                <input
-                  type="number"
-                  value={inputGoal}
-                  onChange={handleInputChange}
-                  style={{
-                    background: 'rgba(0,0,0,0.3)',
-                    border: '2px solid #F59E0B',
-                    borderRadius: '8px',
-                    color: 'var(--text)',
-                    fontSize: '1.25rem',
-                    fontWeight: 700,
-                    padding: '0.5rem 0.75rem',
-                    width: '100px',
-                    textAlign: 'center'
-                  }}
-                />
-              </div>
+          <div className="bg-[rgba(0,0,0,0.4)] rounded-xl p-4 mb-4 border border-[rgba(255,255,255,0.1)]">
+            <div className="flex items-center justify-between mb-3 text-xs font-semibold text-[rgba(255,255,255,0.9)] uppercase">
+              <span><i className="bi bi-gear-fill mr-1"></i> Yearly Goal</span>
             </div>
-
-            {/* Presets */}
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              {GOAL_PRESETS.map(preset => (
-                <button
-                  key={preset}
-                  onClick={() => handleGoalChange(preset)}
-                  style={{
-                    background: weeklyGoal === preset ? '#F59E0B' : 'rgba(255,255,255,0.1)',
-                    border: '1px solid ' + (weeklyGoal === preset ? '#F59E0B' : 'rgba(255,255,255,0.2)'),
-                    borderRadius: '6px',
-                    color: weeklyGoal === preset ? '#0a0a12' : 'var(--text)',
-                    padding: '0.35rem 0.6rem',
-                    fontSize: '0.7rem',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  ${preset}
+            <div className="flex items-center justify-center gap-2 mb-3">
+              <span className="text-xl font-bold text-[#F59E0B]">$</span>
+              <input 
+                type="number" 
+                value={inputGoal}
+                onChange={(e) => {
+                  setInputGoal(e.target.value)
+                  const val = parseInt(e.target.value)
+                  if (!isNaN(val)) setYearlyGoal(val)
+                }}
+                className="bg-[rgba(0,0,0,0.3)] border-2 border-[#F59E0B] rounded-lg text-xl font-bold p-2 w-32 text-center"
+              />
+              <span className="text-sm text-[rgba(255,255,255,0.7)]">/year</span>
+            </div>
+            <div className="flex gap-2 flex-wrap justify-center mb-4">
+              {GOAL_PRESETS.map(goal => (
+                <button key={goal} onClick={() => { setYearlyGoal(goal); setInputGoal(goal.toString()) }} className={`px-3 py-1.5 rounded-md text-[10px] font-bold border transition-all ${yearlyGoal === goal ? 'bg-[#F59E0B] text-[#0a0a12] border-[#F59E0B]' : 'bg-[rgba(255,255,255,0.1)] border-[rgba(255,255,255,0.2)]'}`}>
+                  ${(goal/1000)}K
                 </button>
               ))}
             </div>
-
-            {/* Summary */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem', marginTop: '0.75rem' }}>
-              <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '6px', padding: '0.5rem', textAlign: 'center' }}>
-                <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Yearly Goal
-                </div>
-                <div style={{ fontSize: '1rem', fontWeight: 700, color: '#F59E0B' }}>
-                  ${yearlyProjection.toLocaleString()}
-                </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-[rgba(255,255,255,0.05)] rounded p-2 text-center">
+                <div className="text-[10px] text-[rgba(255,255,255,0.6)] uppercase">Weekly Target</div>
+                <div className="text-base font-bold text-[#F59E0B]">${weeklyTarget}</div>
               </div>
-              <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '6px', padding: '0.5rem', textAlign: 'center' }}>
-                <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Week
-                </div>
-                <div style={{ fontSize: '1rem', fontWeight: 700, color: '#F59E0B' }}>
-                  {currentWeek} / 52
-                </div>
+              <div className="bg-[rgba(255,255,255,0.05)] rounded p-2 text-center">
+                <div className="text-[10px] text-[rgba(255,255,255,0.6)] uppercase">Daily Target</div>
+                <div className="text-base font-bold text-[#F59E0B]">${dailyTarget}</div>
               </div>
             </div>
           </div>
 
-          {/* Stats Row */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
-            <div style={{
-              background: 'rgba(0,0,0,0.3)',
-              borderRadius: '8px',
-              padding: '0.75rem 0.5rem',
-              textAlign: 'center'
-            }}>
-              <div style={{ fontSize: '1.25rem', fontWeight: 800, color: totalProfit >= 0 ? '#10B981' : '#EF4444' }}>
-                {totalProfit >= 0 ? '+' : ''}${totalProfit}
-              </div>
-              <div style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase' }}>
-                Total P/L
-              </div>
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            <div className="bg-[rgba(0,0,0,0.3)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-xl p-3 text-center">
+              <div className="text-lg font-bold">{currentWeek}</div>
+              <div className="text-[9px] text-[rgba(255,255,255,0.7)] uppercase font-bold mt-1">Week</div>
             </div>
-            <div style={{
-              background: 'rgba(0,0,0,0.3)',
-              borderRadius: '8px',
-              padding: '0.75rem 0.5rem',
-              textAlign: 'center'
-            }}>
-              <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#FBBF24' }}>
-                {hitRate}%
-              </div>
-              <div style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase' }}>
-                Hit Rate
-              </div>
+            <div className="bg-[rgba(0,0,0,0.3)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-xl p-3 text-center">
+              <div className="text-lg font-bold">${totalDeposited}</div>
+              <div className="text-[9px] text-[rgba(255,255,255,0.7)] uppercase font-bold mt-1">Deposited</div>
             </div>
-            <div style={{
-              background: 'rgba(0,0,0,0.3)',
-              borderRadius: '8px',
-              padding: '0.75rem 0.5rem',
-              textAlign: 'center'
-            }}>
-              <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#06B6D4' }}>
-                ${projectedTotal}
-              </div>
-              <div style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase' }}>
-                Projected
-              </div>
+            <div className="bg-[rgba(0,0,0,0.3)] backdrop-blur-md border border-[rgba(255,255,255,0.1)] rounded-xl p-3 text-center">
+              <div className="text-lg font-bold">{weeks.length}</div>
+              <div className="text-[9px] text-[rgba(255,255,255,0.7)] uppercase font-bold mt-1">Streak</div>
+            </div>
+          </div>
+
+          <div className="bg-[rgba(0,0,0,0.3)] rounded-xl p-3 border border-[rgba(255,255,255,0.1)]">
+            <div className="flex justify-between text-[11px] font-bold mb-2">
+              <span>Goal Progress</span>
+              <span>{Math.round(progress)}%</span>
+            </div>
+            <div className="w-full h-2.5 bg-[rgba(0,0,0,0.4)] rounded-full overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-[#10B981] to-[#06B6D4] shadow-[0_0_15px_rgba(16,185,129,0.5)] transition-all duration-700" style={{ width: `${progress}%` }}></div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="container" style={{ maxWidth: '600px', margin: '0 auto', padding: '1rem' }}>
-
-        {/* Log Week Section */}
-        <div style={{
-          background: 'var(--bg-card)',
-          border: '1px solid var(--border)',
-          borderRadius: '12px',
-          padding: '1rem',
-          marginBottom: '1rem'
-        }}>
-          <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text)', marginBottom: '0.75rem' }}>
-            Log Week {currentWeek} Result
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
-            {[-weeklyGoal, 0, Math.round(weeklyGoal * 0.5), weeklyGoal, Math.round(weeklyGoal * 1.5), weeklyGoal * 2].map(profit => (
-              <button
-                key={profit}
-                onClick={() => logWeek(profit)}
-                style={{
-                  background: profit >= weeklyGoal
-                    ? 'linear-gradient(135deg, #10B981, #059669)'
-                    : profit > 0
-                      ? 'linear-gradient(135deg, #F59E0B, #D97706)'
-                      : profit === 0
-                        ? 'var(--bg-input)'
-                        : 'linear-gradient(135deg, #EF4444, #DC2626)',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '0.75rem',
-                  color: 'white',
-                  fontSize: '0.9rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  transition: 'transform 0.2s'
-                }}
-              >
-                {profit >= 0 ? '+' : ''}${profit}
+      <div className="max-w-[600px] mx-auto p-4">
+        <div className="bg-[#13111c] border border-[#2d2640] rounded-2xl p-4 mb-6 shadow-xl">
+          <h3 className="text-sm font-bold mb-4">Log Week {currentWeek} Result</h3>
+          <div className="grid grid-cols-3 gap-2">
+            {[-weeklyTarget, 0, Math.round(weeklyTarget*0.5), weeklyTarget, Math.round(weeklyTarget*1.5), weeklyTarget*2].map(p => (
+              <button key={p} onClick={() => logWeek(p)} className={`py-3 rounded-xl text-white font-bold text-sm active:scale-95 transition-all ${p >= weeklyTarget ? 'bg-gradient-to-br from-[#10B981] to-[#059669]' : p > 0 ? 'bg-gradient-to-br from-[#F59E0B] to-[#D97706]' : p === 0 ? 'bg-[#1e1a2a]' : 'bg-gradient-to-br from-[#EF4444] to-[#DC2626]'}`}>
+                {p >= 0 ? '+' : ''}${p}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Week History */}
         {weeks.length > 0 && (
-          <div style={{
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border)',
-            borderRadius: '12px',
-            padding: '1rem'
-          }}>
-            <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text)', marginBottom: '0.75rem' }}>
-              Week History
-            </div>
-            {[...weeks].reverse().slice(0, 10).map(week => (
-              <div
-                key={week.week}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '0.5rem 0',
-                  borderBottom: '1px solid var(--border)'
-                }}
-              >
-                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Week {week.week}</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-                    Target: ${week.target}
-                  </span>
-                  <span style={{
-                    fontWeight: 700,
-                    fontSize: '0.9rem',
-                    color: week.profit >= week.target ? '#10B981' : week.profit > 0 ? '#F59E0B' : '#EF4444'
-                  }}>
-                    {week.profit >= 0 ? '+' : ''}${week.profit}
-                  </span>
-                  {week.profit >= week.target && (
-                    <i className="bi bi-check-circle-fill" style={{ color: '#10B981' }} />
-                  )}
+          <div className="bg-[#13111c] border border-[#2d2640] rounded-2xl p-4">
+            <h3 className="text-sm font-bold mb-4">Week History</h3>
+            <div className="space-y-3">
+              {[...weeks].reverse().map(w => (
+                <div key={w.week} className="flex justify-between items-center py-2 border-b border-[#2d2640] last:border-0">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold ${w.profit >= w.target ? 'bg-[#10B981] text-white' : 'bg-[#1e1a2a] text-[#9990B0]'}`}>{w.week}</div>
+                    <span className="text-sm font-medium">Week {w.week}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[10px] text-[#9990B0]">Target: ${w.target}</span>
+                    <span className={`text-sm font-bold ${w.profit >= w.target ? 'text-[#10B981]' : w.profit > 0 ? 'text-[#F59E0B]' : 'text-[#EF4444]'}`}>
+                      {w.profit >= 0 ? '+' : ''}${w.profit}
+                    </span>
+                    {w.profit >= w.target && <i className="bi bi-check-circle-fill text-[#10B981]"></i>}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
 
-        {/* Reset Button */}
-        <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
-          <button
-            onClick={resetAll}
-            style={{
-              background: 'transparent',
-              border: '1px solid var(--border)',
-              borderRadius: '8px',
-              padding: '0.5rem 1rem',
-              color: 'var(--text-muted)',
-              fontSize: '0.8rem',
-              cursor: 'pointer'
-            }}
-          >
-            Reset All Data
-          </button>
+        <div className="flex justify-center gap-4 mt-8">
+          <button onClick={undoLast} disabled={weeks.length === 0} className="px-4 py-2 border border-red-500 text-red-500 rounded-lg text-xs font-bold active:scale-95 disabled:opacity-30">Undo Last</button>
+          <button onClick={resetAll} className="px-4 py-2 border border-[#2d2640] text-[#9990B0] rounded-lg text-xs font-bold active:scale-95">Reset All</button>
         </div>
       </div>
 
       <MobileNav />
-    </>
+    </div>
   )
 }
