@@ -3585,17 +3585,26 @@
                     const openFavorite = data.rlm.open_favorite;
                     
                     // Determine favorite from explicit field, or fallback to spread parsing
-                    let openFav, currentFav;
+                    let openFav, currentFav, underdogName;
                     if (favoriteIsAway !== null && favoriteIsAway !== undefined) {
                         openFav = favoriteIsAway ? awayName : homeName;
+                        underdogName = favoriteIsAway ? homeName : awayName;
                         currentFav = openFav; // Assume favorite doesn't change (rare)
                     } else if (openFavorite) {
                         openFav = openFavorite;
                         currentFav = openFavorite;
+                        // Determine underdog based on which team is favorite
+                        underdogName = (openFavorite === awayName) ? homeName : awayName;
                     } else {
                         openFav = 'N/A';
                         currentFav = 'N/A';
+                        underdogName = 'N/A';
                     }
+                    
+                    // LINE MOVEMENT DIRECTION - CRITICAL LOGIC:
+                    // Spread DECREASED (6.5 → 2.5, lineMove = -4): favorite giving fewer points = line moved toward UNDERDOG
+                    // Spread INCREASED (6.5 → 8.5, lineMove = +2): favorite giving more points = line moved toward FAVORITE
+                    const lineMovedToward = lineMove < 0 ? underdogName : openFav;
                     
                     // Display format: Spread is now stored as positive value, show with favorite team
                     const openSpreadDisplay = !hasSpreadData ? '—' : (openFav !== 'N/A' ? `${openFav} -${openSpread}` : 'Pick');
@@ -3673,7 +3682,7 @@
                         ${hasLineMove ? `
                         <div style="margin-top: 6px; background: ${favFlipped ? 'rgba(239, 68, 68, 0.2)' : 'rgba(59, 130, 246, 0.2)'}; border-radius: 6px; padding: 4px 8px; text-align: center;">
                             <span style="font-size: 10px; font-weight: 600; color: ${favFlipped ? '#ef4444' : '#3b82f6'};">
-                                ${favFlipped ? '🔄 FAV FLIPPED!' : `📈 ${Math.abs(lineMove).toFixed(1)} pts ${lineMove > 0 ? 'toward ' + homeName : 'toward ' + awayName}`}
+                                ${favFlipped ? '🔄 FAV FLIPPED!' : `📈 ${Math.abs(lineMove).toFixed(1)} pts toward ${lineMovedToward}`}
                             </span>
                         </div>
                         ` : ''}
@@ -3771,7 +3780,7 @@
                         <div style="background: ${hasLineMove ? 'rgba(59, 130, 246, 0.15)' : 'rgba(100, 100, 120, 0.2)'}; padding: 6px; border-radius: 6px; text-align: center;">
                             <span style="font-size: 12px;">${hasLineMove ? '📈' : '➖'}</span>
                             <div style="color: #888; font-size: 7px; margin-top: 2px;">LINE MOVE</div>
-                            <div style="color: ${hasLineMove ? '#3b82f6' : '#888'}; font-size: 9px; font-weight: 700;">${hasLineMove ? 'To ' + (lineMove > 0 ? homeName : awayName) : 'Stable'}</div>
+                            <div style="color: ${hasLineMove ? '#3b82f6' : '#888'}; font-size: 9px; font-weight: 700;">${hasLineMove ? 'To ' + lineMovedToward : 'Stable'}</div>
                         </div>
                         <div style="background: ${favFlipped ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.15)'}; padding: 6px; border-radius: 6px; text-align: center;">
                             <span style="font-size: 12px;">${favFlipped ? '🔄' : '✅'}</span>
