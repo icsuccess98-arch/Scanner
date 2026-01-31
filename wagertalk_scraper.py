@@ -15,60 +15,12 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
+# Import centralized utilities
+from utils import validate_percentage, validate_spread, validate_total
+
 _wagertalk_cache = {}
 _wagertalk_cache_time = {}
 CACHE_TTL = 60  # 1 minute for faster updates
-
-# ============================================================
-# Data Validation Functions
-# ============================================================
-def validate_percentage(value: float, field_name: str = 'percentage') -> Optional[float]:
-    """Validate percentage is in valid range (0-100). Returns None if invalid."""
-    if value is None:
-        return None
-    try:
-        val = float(value)
-        if 0 <= val <= 100:
-            return val
-        logger.warning(f"Invalid {field_name}: {val} (outside 0-100 range)")
-        return None
-    except (ValueError, TypeError):
-        return None
-
-def validate_spread(value: float) -> Optional[float]:
-    """Validate spread is in reasonable range (-50 to +50). Returns None if invalid."""
-    if value is None:
-        return None
-    try:
-        val = float(value)
-        if abs(val) <= 50:
-            return val
-        logger.warning(f"Invalid spread value: {val} (outside -50 to +50 range)")
-        return None
-    except (ValueError, TypeError):
-        return None
-
-def validate_total(value: float, league: str = 'NBA') -> Optional[float]:
-    """Validate total is in reasonable range based on league. Returns None if invalid."""
-    if value is None:
-        return None
-    try:
-        val = float(value)
-        # Reasonable ranges by league
-        ranges = {
-            'NBA': (150, 300),
-            'CBB': (100, 200),
-            'NFL': (25, 75),
-            'CFB': (25, 100),
-            'NHL': (3, 10),
-        }
-        min_val, max_val = ranges.get(league, (0, 500))
-        if min_val <= val <= max_val:
-            return val
-        logger.warning(f"Invalid total for {league}: {val} (outside {min_val}-{max_val} range)")
-        return None
-    except (ValueError, TypeError):
-        return None
 
 
 def _is_cache_valid(key: str) -> bool:

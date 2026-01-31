@@ -29,36 +29,10 @@ from functools import lru_cache
 from cachetools import TTLCache
 import json
 
+# Import centralized utilities
+from utils import validate_percentage, validate_odds_value
+
 logger = logging.getLogger(__name__)
-
-# ============================================================
-# Data Validation Functions
-# ============================================================
-def validate_percentage(value, field_name: str = 'percentage'):
-    """Validate percentage is in valid range (0-100). Returns None if invalid."""
-    if value is None:
-        return None
-    try:
-        val = float(value)
-        if 0 <= val <= 100:
-            return val
-        logger.debug(f"Invalid {field_name}: {val} (outside 0-100 range)")
-        return None
-    except (ValueError, TypeError):
-        return None
-
-def validate_odds_value(value, min_val: float, max_val: float, field_name: str = 'value'):
-    """Validate odds-related value is in acceptable range."""
-    if value is None:
-        return None
-    try:
-        val = float(value)
-        if min_val <= val <= max_val:
-            return val
-        logger.debug(f"Invalid {field_name}: {val} (outside {min_val}-{max_val} range)")
-        return None
-    except (ValueError, TypeError):
-        return None
 
 
 # ============================================================

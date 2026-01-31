@@ -6066,6 +6066,7 @@ class Pick(db.Model):
         db.Index('idx_pick_type', 'pick_type'),
         db.Index('idx_date_result', 'date', 'result'),
         db.Index('idx_is_lock_date', 'is_lock', 'date'),
+        db.Index('idx_pick_game', 'game_id'),  # For joining with Game table
     )
 
 def parse_game_time_hour(game_time_str: str) -> Optional[int]:

@@ -468,3 +468,124 @@ def parse_total_string(total_str: str) -> Optional[float]:
         pass
 
     return None
+
+
+# ============================================================
+# API RESPONSE UTILITIES
+# ============================================================
+
+def api_response(
+    success: bool,
+    data: Any = None,
+    error: Optional[str] = None,
+    **extra
+) -> Dict[str, Any]:
+    """
+    Create a standardized API response dictionary.
+
+    All API endpoints should use this for consistent response format.
+
+    Args:
+        success: Whether the operation succeeded
+        data: Response data (optional)
+        error: Error message if failed (optional)
+        **extra: Additional fields to include
+
+    Returns:
+        Standardized response dictionary
+    """
+    from datetime import datetime
+    response = {
+        'success': success,
+        'timestamp': datetime.utcnow().isoformat() + 'Z'
+    }
+    if data is not None:
+        response['data'] = data
+    if error is not None:
+        response['error'] = error
+    response.update(extra)
+    return response
+
+
+# ============================================================
+# RETRY UTILITIES
+# ============================================================
+
+import time
+from functools import wraps
+
+
+def retry_on_failure(
+    max_retries: int = 3,
+    delay: float = 1.0,
+    backoff: float = 2.0,
+    exceptions: tuple = (Exception,)
+):
+    """
+    Decorator for retrying failed operations with exponential backoff.
+
+    Args:
+        max_retries: Maximum number of retry attempts
+        delay: Initial delay between retries in seconds
+        backoff: Multiplier for delay after each retry
+        exceptions: Tuple of exception types to catch and retry
+
+    Returns:
+        Decorated function with retry logic
+
+    Example:
+        @retry_on_failure(max_retries=3, delay=1.0, exceptions=(requests.RequestException,))
+        def fetch_data():
+            return requests.get(url)
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            last_exception = None
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as e:
+                    last_exception = e
+                    if attempt < max_retries - 1:
+                        sleep_time = delay * (backoff ** attempt)
+                        logger.debug(
+                            f"Retry {attempt + 1}/{max_retries} for {func.__name__} "
+                            f"after {sleep_time:.1f}s: {e}"
+                        )
+                        time.sleep(sleep_time)
+            # All retries exhausted
+            logger.warning(f"{func.__name__} failed after {max_retries} attempts: {last_exception}")
+            raise last_exception
+        return wrapper
+    return decorator
+
+
+def validate_odds_value(
+    value: Any,
+    min_val: float,
+    max_val: float,
+    field_name: str = 'value'
+) -> Optional[float]:
+    """
+    Validate odds-related value is in acceptable range.
+
+    Args:
+        value: Value to validate
+        min_val: Minimum acceptable value
+        max_val: Maximum acceptable value
+        field_name: Name for logging purposes
+
+    Returns:
+        Float value if valid, None if invalid
+    """
+    if value is None:
+        return None
+    try:
+        val = float(value)
+        if min_val <= val <= max_val:
+            return val
+        logger.debug(f"Invalid {field_name}: {val} (outside {min_val}-{max_val} range)")
+        return None
+    except (ValueError, TypeError):
+        return None
