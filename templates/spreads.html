@@ -2074,7 +2074,7 @@
             </div>
             
             <!-- CBB Daily Slate Analysis -->
-            <div id="cbb-slate-analysis" class="slate-analysis-panel" style="background: linear-gradient(135deg, rgba(15, 18, 30, 0.98), rgba(20, 25, 45, 0.95)); border-radius: 14px; padding: 16px; border: 1px solid rgba(139, 92, 246, 0.4); box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+            <div id="cbb-slate-analysis" class="slate-analysis-panel" style="background: linear-gradient(135deg, rgba(15, 18, 30, 0.98), rgba(20, 25, 45, 0.95)); border-radius: 14px; padding: 16px; border: 1px solid rgba(139, 92, 246, 0.4); box-shadow: 0 4px 20px rgba(0,0,0,0.3); display: none;">
                 <div style="text-align: center; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 2px solid rgba(139, 92, 246, 0.3);">
                     <div style="font-weight: 800; font-size: 14px; color: #a78bfa; text-transform: uppercase; letter-spacing: 1.5px;">{{ today.strftime('%B %d, %Y') }}</div>
                     <div style="font-size: 10px; color: #8b5cf6; margin-top: 2px; letter-spacing: 0.5px;">CBB DAILY SLATE ANALYSIS</div>
@@ -3988,9 +3988,9 @@
                         nbaSlate.style.display = 'none';
                         cbbSlate.style.display = 'block';
                     } else {
-                        // "All" tab - show CBB by default (prioritized)
+                        // "All" tab - hide both slate analyses
                         nbaSlate.style.display = 'none';
-                        cbbSlate.style.display = 'block';
+                        cbbSlate.style.display = 'none';
                     }
                 }
             });
