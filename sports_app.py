@@ -10798,124 +10798,163 @@ def spreads():
     # Fetch ESPN CBB rankings (reliable API, no auth required)
     fetch_espn_cbb_rankings()
     
-    # CBB Top 25 Teams in today's slate
+    # CBB Top 25 Teams in today's slate (used for filtering all other categories)
     cbb_top25_list = []
     cbb_top25_set = set()
+    cbb_top25_ranks = {}  # Track rank for each team
     for g in cbb_games:
         away_rank = get_cbb_team_rank(g.away_team)
         home_rank = get_cbb_team_rank(g.home_team)
         if away_rank <= 25 and g.away_team not in cbb_top25_set:
             cbb_top25_list.append(f'<span style="white-space:nowrap">#{away_rank} {g.away_team}</span>')
             cbb_top25_set.add(g.away_team)
+            cbb_top25_ranks[g.away_team] = away_rank
         if home_rank <= 25 and g.home_team not in cbb_top25_set:
             cbb_top25_list.append(f'<span style="white-space:nowrap">#{home_rank} {g.home_team}</span>')
             cbb_top25_set.add(g.home_team)
+            cbb_top25_ranks[g.home_team] = home_rank
     cbb_top25_list.sort(key=lambda x: int(x.split('#')[1].split(' ')[0]))
     cbb_top25_display = ', '.join(cbb_top25_list) if cbb_top25_list else 'None'
     
-    # CBB Cold Teams (use Covers L10 data - 3 or fewer wins)
+    # CBB Cold Teams - ONLY Top 25 teams (use Covers L10 data - 3 or fewer wins)
     cbb_cold_teams_list = []
     cbb_cold_teams_set = set()
     for g in cbb_games:
-        # Check away team L10
-        if hasattr(g, 'away_l10') and g.away_l10 and g.away_l10 != '--':
-            try:
-                l10_parts = g.away_l10.replace(' ', '').split('-')
-                if len(l10_parts) >= 2:
-                    wins = int(l10_parts[0])
-                    losses = int(l10_parts[1])
-                    if wins <= 3 and g.away_team not in cbb_cold_teams_set:
-                        cbb_cold_teams_list.append(f'<span style="white-space:nowrap">{g.away_team} ({wins}-{losses})</span>')
-                        cbb_cold_teams_set.add(g.away_team)
-            except:
-                pass
-        # Check home team L10
-        if hasattr(g, 'home_l10') and g.home_l10 and g.home_l10 != '--':
-            try:
-                l10_parts = g.home_l10.replace(' ', '').split('-')
-                if len(l10_parts) >= 2:
-                    wins = int(l10_parts[0])
-                    losses = int(l10_parts[1])
-                    if wins <= 3 and g.home_team not in cbb_cold_teams_set:
-                        cbb_cold_teams_list.append(f'<span style="white-space:nowrap">{g.home_team} ({wins}-{losses})</span>')
-                        cbb_cold_teams_set.add(g.home_team)
-            except:
-                pass
-    cbb_cold_teams_display = ', '.join(sorted(cbb_cold_teams_list, key=lambda x: int(x.split('(')[1].split('-')[0]))) if cbb_cold_teams_list else 'None'
+        # Check away team L10 - ONLY if Top 25
+        if g.away_team in cbb_top25_set:
+            if hasattr(g, 'away_l10') and g.away_l10 and g.away_l10 != '--':
+                try:
+                    l10_parts = g.away_l10.replace(' ', '').split('-')
+                    if len(l10_parts) >= 2:
+                        wins = int(l10_parts[0])
+                        losses = int(l10_parts[1])
+                        if wins <= 3 and g.away_team not in cbb_cold_teams_set:
+                            rank = cbb_top25_ranks.get(g.away_team, 99)
+                            cbb_cold_teams_list.append(f'<span style="white-space:nowrap">#{rank} {g.away_team} ({wins}-{losses})</span>')
+                            cbb_cold_teams_set.add(g.away_team)
+                except:
+                    pass
+        # Check home team L10 - ONLY if Top 25
+        if g.home_team in cbb_top25_set:
+            if hasattr(g, 'home_l10') and g.home_l10 and g.home_l10 != '--':
+                try:
+                    l10_parts = g.home_l10.replace(' ', '').split('-')
+                    if len(l10_parts) >= 2:
+                        wins = int(l10_parts[0])
+                        losses = int(l10_parts[1])
+                        if wins <= 3 and g.home_team not in cbb_cold_teams_set:
+                            rank = cbb_top25_ranks.get(g.home_team, 99)
+                            cbb_cold_teams_list.append(f'<span style="white-space:nowrap">#{rank} {g.home_team} ({wins}-{losses})</span>')
+                            cbb_cold_teams_set.add(g.home_team)
+                except:
+                    pass
+    cbb_cold_teams_display = ', '.join(sorted(cbb_cold_teams_list, key=lambda x: int(x.split('#')[1].split(' ')[0]))) if cbb_cold_teams_list else 'None'
     
-    # CBB Hot Teams (8+ wins in L10) - don't fade these
+    # CBB Hot Teams - ONLY Top 25 teams (8+ wins in L10)
     cbb_hot_teams_list = []
     cbb_hot_teams_set = set()
     for g in cbb_games:
-        # Check away team L10
-        if hasattr(g, 'away_l10') and g.away_l10 and g.away_l10 != '--':
-            try:
-                l10_parts = g.away_l10.replace(' ', '').split('-')
-                if len(l10_parts) >= 2:
-                    wins = int(l10_parts[0])
-                    losses = int(l10_parts[1])
-                    if wins >= 8 and g.away_team not in cbb_hot_teams_set:
-                        cbb_hot_teams_list.append(f'<span style="white-space:nowrap">{g.away_team} ({wins}-{losses})</span>')
-                        cbb_hot_teams_set.add(g.away_team)
-            except:
-                pass
-        # Check home team L10
-        if hasattr(g, 'home_l10') and g.home_l10 and g.home_l10 != '--':
-            try:
-                l10_parts = g.home_l10.replace(' ', '').split('-')
-                if len(l10_parts) >= 2:
-                    wins = int(l10_parts[0])
-                    losses = int(l10_parts[1])
-                    if wins >= 8 and g.home_team not in cbb_hot_teams_set:
-                        cbb_hot_teams_list.append(f'<span style="white-space:nowrap">{g.home_team} ({wins}-{losses})</span>')
-                        cbb_hot_teams_set.add(g.home_team)
-            except:
-                pass
-    cbb_hot_teams_display = ', '.join(sorted(cbb_hot_teams_list, key=lambda x: -int(x.split('(')[1].split('-')[0]))) if cbb_hot_teams_list else 'None'
+        # Check away team L10 - ONLY if Top 25
+        if g.away_team in cbb_top25_set:
+            if hasattr(g, 'away_l10') and g.away_l10 and g.away_l10 != '--':
+                try:
+                    l10_parts = g.away_l10.replace(' ', '').split('-')
+                    if len(l10_parts) >= 2:
+                        wins = int(l10_parts[0])
+                        losses = int(l10_parts[1])
+                        if wins >= 8 and g.away_team not in cbb_hot_teams_set:
+                            rank = cbb_top25_ranks.get(g.away_team, 99)
+                            cbb_hot_teams_list.append(f'<span style="white-space:nowrap">#{rank} {g.away_team} ({wins}-{losses})</span>')
+                            cbb_hot_teams_set.add(g.away_team)
+                except:
+                    pass
+        # Check home team L10 - ONLY if Top 25
+        if g.home_team in cbb_top25_set:
+            if hasattr(g, 'home_l10') and g.home_l10 and g.home_l10 != '--':
+                try:
+                    l10_parts = g.home_l10.replace(' ', '').split('-')
+                    if len(l10_parts) >= 2:
+                        wins = int(l10_parts[0])
+                        losses = int(l10_parts[1])
+                        if wins >= 8 and g.home_team not in cbb_hot_teams_set:
+                            rank = cbb_top25_ranks.get(g.home_team, 99)
+                            cbb_hot_teams_list.append(f'<span style="white-space:nowrap">#{rank} {g.home_team} ({wins}-{losses})</span>')
+                            cbb_hot_teams_set.add(g.home_team)
+                except:
+                    pass
+    cbb_hot_teams_display = ', '.join(sorted(cbb_hot_teams_list, key=lambda x: int(x.split('#')[1].split(' ')[0]))) if cbb_hot_teams_list else 'None'
     
-    # CBB Bad Defense (bottom 5 defensive efficiency from KenPom/Torvik)
+    # CBB Bad Defense - ONLY Top 25 teams (bottom 10 defensive efficiency from KenPom)
     cbb_bad_defense_list = []
     cbb_bad_defense_set = set()
     for g in cbb_games:
-        away_data = get_torvik_team(g.away_team) or {}
-        home_data = get_torvik_team(g.home_team) or {}
-        # Higher adj_d = worse defense
-        away_def = away_data.get('adj_d', 0)
-        home_def = home_data.get('adj_d', 0)
-        if away_def and away_def > 105 and g.away_team not in cbb_bad_defense_set:
-            cbb_bad_defense_list.append(f'<span style="white-space:nowrap">{g.away_team} ({away_def:.1f})</span>')
-            cbb_bad_defense_set.add(g.away_team)
-        if home_def and home_def > 105 and g.home_team not in cbb_bad_defense_set:
-            cbb_bad_defense_list.append(f'<span style="white-space:nowrap">{g.home_team} ({home_def:.1f})</span>')
-            cbb_bad_defense_set.add(g.home_team)
+        # Only check Top 25 teams
+        if g.away_team in cbb_top25_set:
+            away_data = get_torvik_team(g.away_team) or {}
+            away_def = away_data.get('adj_d', 0)
+            if away_def and away_def > 105 and g.away_team not in cbb_bad_defense_set:
+                rank = cbb_top25_ranks.get(g.away_team, 99)
+                cbb_bad_defense_list.append(f'<span style="white-space:nowrap">#{rank} {g.away_team} ({away_def:.1f})</span>')
+                cbb_bad_defense_set.add(g.away_team)
+        if g.home_team in cbb_top25_set:
+            home_data = get_torvik_team(g.home_team) or {}
+            home_def = home_data.get('adj_d', 0)
+            if home_def and home_def > 105 and g.home_team not in cbb_bad_defense_set:
+                rank = cbb_top25_ranks.get(g.home_team, 99)
+                cbb_bad_defense_list.append(f'<span style="white-space:nowrap">#{rank} {g.home_team} ({home_def:.1f})</span>')
+                cbb_bad_defense_set.add(g.home_team)
     cbb_bad_defense_list.sort(key=lambda x: -float(x.split('(')[1].split(')')[0]))
     cbb_bad_defense_display = ', '.join(cbb_bad_defense_list[:10]) if cbb_bad_defense_list else 'None'
     
-    # CBB Large Spreads (10+ points) 
+    # CBB Large Spreads (10+ points) - ONLY Top 25 teams (using WagerTalk open line or DB spread)
     cbb_large_spread_teams = set()
     cbb_large_spread_matchups = []
+    
+    # Get WagerTalk data for open lines
+    try:
+        from wagertalk_scraper import get_wagertalk_odds
+        wt_cbb_data = get_wagertalk_odds('CBB')
+    except:
+        wt_cbb_data = {}
+    
     for g in cbb_games:
-        if g.spread_line is not None:
-            spread_val = abs(g.spread_line)
-            if spread_val >= 10:
-                if g.spread_line < 0:
-                    cbb_large_spread_matchups.append(f"{g.away_team} {g.spread_line}")
-                    cbb_large_spread_teams.add(g.home_team)
-                else:
-                    cbb_large_spread_matchups.append(f"{g.home_team} -{spread_val}")
+        # Only process games with Top 25 teams
+        away_is_top25 = g.away_team in cbb_top25_set
+        home_is_top25 = g.home_team in cbb_top25_set
+        if not (away_is_top25 or home_is_top25):
+            continue
+        
+        # Try to get open spread from WagerTalk
+        open_spread = None
+        for key, data in wt_cbb_data.items():
+            if g.away_team.lower() in key.lower() or g.home_team.lower() in key.lower():
+                open_spread = data.get('open_spread')
+                break
+        
+        # Fallback to database spread
+        spread_val = open_spread if open_spread else (abs(g.spread_line) if g.spread_line else 0)
+        
+        if spread_val and spread_val >= 10:
+            if g.spread_line and g.spread_line < 0:
+                # Away team is favorite
+                if away_is_top25:
+                    rank = cbb_top25_ranks.get(g.away_team, 99)
+                    cbb_large_spread_matchups.append(f'<span style="white-space:nowrap">#{rank} {g.away_team} -{spread_val}</span>')
                     cbb_large_spread_teams.add(g.away_team)
+            else:
+                # Home team is favorite
+                if home_is_top25:
+                    rank = cbb_top25_ranks.get(g.home_team, 99)
+                    cbb_large_spread_matchups.append(f'<span style="white-space:nowrap">#{rank} {g.home_team} -{spread_val}</span>')
+                    cbb_large_spread_teams.add(g.home_team)
     cbb_large_spread_display = ', '.join(cbb_large_spread_matchups) if cbb_large_spread_matchups else 'None'
     
-    # CBB Remaining Teams (prioritize Top 25 matchups)
-    cbb_all_teams = set()
-    for g in cbb_games:
-        cbb_all_teams.add(g.away_team)
-        cbb_all_teams.add(g.home_team)
-    cbb_eliminated = cbb_cold_teams_set | cbb_large_spread_teams | cbb_bad_defense_set
-    cbb_remaining = cbb_all_teams - cbb_eliminated
-    # Sort remaining with Top 25 first
-    cbb_remaining_sorted = sorted(cbb_remaining, key=lambda x: (get_cbb_team_rank(x), x))
-    cbb_remaining_display = ', '.join(cbb_remaining_sorted) if cbb_remaining_sorted else 'All flagged - proceed with caution'
+    # CBB Remaining Teams - ONLY Top 25 teams not in other categories
+    cbb_eliminated_top25 = cbb_cold_teams_set | cbb_large_spread_teams | cbb_bad_defense_set
+    cbb_remaining_top25 = cbb_top25_set - cbb_eliminated_top25
+    # Sort by ranking
+    cbb_remaining_sorted = sorted(cbb_remaining_top25, key=lambda x: cbb_top25_ranks.get(x, 99))
+    cbb_remaining_display = ', '.join([f'#{cbb_top25_ranks.get(t, 99)} {t}' for t in cbb_remaining_sorted]) if cbb_remaining_sorted else 'No Top 25 teams remaining'
     
     # Reorder games_by_league to prioritize CBB
     ordered_games_by_league = {
