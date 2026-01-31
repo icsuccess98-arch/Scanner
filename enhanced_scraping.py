@@ -1142,3 +1142,349 @@ if __name__ == "__main__":
         print(f"\n{game.get('away_team')} @ {game.get('home_team')}")
         print(f"  Closing Spread: {game.get('closing_spread')}")
         print(f"  Closing Total: {game.get('closing_total')}")
+
+
+# ============================================================
+# CBB COVERS + KENPOM SCRAPER
+# ============================================================
+
+# KenPom team name mappings (Covers name -> KenPom URL slug)
+KENPOM_TEAM_SLUGS = {
+    'Duke': 'Duke', 'North Carolina': 'North.Carolina', 'UNC': 'North.Carolina',
+    'Kentucky': 'Kentucky', 'Kansas': 'Kansas', 'Gonzaga': 'Gonzaga',
+    'Auburn': 'Auburn', 'Houston': 'Houston', 'Tennessee': 'Tennessee',
+    'Alabama': 'Alabama', 'Purdue': 'Purdue', 'Florida': 'Florida',
+    'Iowa State': 'Iowa.St.', 'Iowa St': 'Iowa.St.', 'Iowa St.': 'Iowa.St.',
+    'Michigan State': 'Michigan.St.', 'Michigan St': 'Michigan.St.',
+    'Ohio State': 'Ohio.St.', 'Ohio St': 'Ohio.St.', 'Ohio St.': 'Ohio.St.',
+    'Texas Tech': 'Texas.Tech', 'Texas': 'Texas', 'Arizona': 'Arizona',
+    'UCLA': 'UCLA', 'UConn': 'Connecticut', 'Connecticut': 'Connecticut',
+    'Baylor': 'Baylor', 'Illinois': 'Illinois', 'Wisconsin': 'Wisconsin',
+    'Michigan': 'Michigan', 'Indiana': 'Indiana', 'Maryland': 'Maryland',
+    'Oregon': 'Oregon', 'Creighton': 'Creighton', 'Marquette': 'Marquette',
+    'St. John\'s': 'St..John\'s', "St. John's": "St..John's",
+    'Villanova': 'Villanova', 'Xavier': 'Xavier', 'Cincinnati': 'Cincinnati',
+    'Louisville': 'Louisville', 'Memphis': 'Memphis', 'SMU': 'SMU',
+    'TCU': 'TCU', 'Texas A&M': 'Texas.A&M', 'Arkansas': 'Arkansas',
+    'LSU': 'LSU', 'Missouri': 'Missouri', 'Mississippi St': 'Mississippi.St.',
+    'Mississippi State': 'Mississippi.St.', 'Ole Miss': 'Mississippi',
+    'South Carolina': 'South.Carolina', 'Georgia': 'Georgia',
+    'Vanderbilt': 'Vanderbilt', 'Oklahoma': 'Oklahoma',
+    'Oklahoma St': 'Oklahoma.St.', 'Oklahoma State': 'Oklahoma.St.',
+    'Kansas St': 'Kansas.St.', 'Kansas State': 'Kansas.St.',
+    'West Virginia': 'West.Virginia', 'BYU': 'BYU', 'Colorado': 'Colorado',
+    'Utah': 'Utah', 'Arizona St': 'Arizona.St.', 'Arizona State': 'Arizona.St.',
+    'Penn St': 'Penn.St.', 'Penn State': 'Penn.St.', 'Rutgers': 'Rutgers',
+    'Minnesota': 'Minnesota', 'Nebraska': 'Nebraska', 'Iowa': 'Iowa',
+    'Northwestern': 'Northwestern', 'Syracuse': 'Syracuse',
+    'Wake Forest': 'Wake.Forest', 'NC State': 'N.C..State',
+    'Virginia Tech': 'Virginia.Tech', 'Clemson': 'Clemson',
+    'Virginia': 'Virginia', 'Miami': 'Miami.FL', 'Florida St': 'Florida.St.',
+    'Florida State': 'Florida.St.', 'Boston College': 'Boston.College',
+    'Georgia Tech': 'Georgia.Tech', 'Pitt': 'Pittsburgh', 'Pittsburgh': 'Pittsburgh',
+    'Notre Dame': 'Notre.Dame', 'Stanford': 'Stanford', 'Cal': 'California',
+    'USC': 'USC', 'Washington': 'Washington', 'Washington St': 'Washington.St.',
+    'San Diego St': 'San.Diego.St.', 'San Diego State': 'San.Diego.St.',
+    'Nevada': 'Nevada', 'UNLV': 'UNLV', 'New Mexico': 'New.Mexico',
+    'Boise St': 'Boise.St.', 'Boise State': 'Boise.St.',
+    'VCU': 'VCU', 'Richmond': 'Richmond', 'Dayton': 'Dayton',
+    'Saint Louis': 'Saint.Louis', 'UMass': 'Massachusetts',
+    'George Mason': 'George.Mason', 'St. Bonaventure': 'St..Bonaventure',
+    'Wichita St': 'Wichita.St.', 'Wichita State': 'Wichita.St.',
+    'Murray St': 'Murray.St.', 'Murray State': 'Murray.St.',
+    'Drake': 'Drake', 'Loyola Chicago': 'Loyola.Chicago',
+    'UNC Asheville': 'UNC.Asheville', 'UNC Greensboro': 'UNC.Greensboro',
+    'UNCG': 'UNC.Greensboro', 'Winthrop': 'Winthrop', 'The Citadel': 'Citadel',
+}
+
+
+def get_kenpom_slug(team_name: str) -> str:
+    """Convert team name to KenPom URL slug."""
+    # Try exact match first
+    if team_name in KENPOM_TEAM_SLUGS:
+        return KENPOM_TEAM_SLUGS[team_name]
+    
+    # Try case-insensitive match
+    for key, slug in KENPOM_TEAM_SLUGS.items():
+        if key.lower() == team_name.lower():
+            return slug
+    
+    # Default: replace spaces with dots
+    return team_name.replace(' ', '.')
+
+
+def scrape_covers_cbb_slate(date_str: str = None) -> List[Dict]:
+    """
+    Scrape today's CBB matchups from Covers.com.
+    
+    Returns list of games with:
+    - away_team, home_team
+    - away_record, home_record
+    - away_ats, home_ats
+    - away_l10, home_l10
+    - spread, total
+    - game_time
+    """
+    from datetime import date, datetime
+    
+    if not date_str:
+        date_str = date.today().strftime('%Y-%m-%d')
+    
+    games = []
+    try:
+        url = f"https://www.covers.com/sports/ncaab/matchups?selectedDate={date_str}"
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'text/html,application/xhtml+xml',
+        }
+        
+        logger.info(f"Fetching CBB matchups from Covers.com for {date_str}")
+        resp = requests.get(url, headers=headers, timeout=20)
+        if resp.status_code != 200:
+            logger.warning(f"Covers CBB fetch failed: {resp.status_code}")
+            return games
+        
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        
+        # Find all game cards
+        game_cards = soup.find_all('div', class_=re.compile(r'cmg_matchup_game_box|matchup-card', re.I))
+        if not game_cards:
+            # Try alternate selectors
+            game_cards = soup.find_all('article', class_=re.compile(r'game-card', re.I))
+        if not game_cards:
+            game_cards = soup.select('[data-game-id], .covers-MatchupCard, .matchup-container')
+        
+        logger.info(f"Found {len(game_cards)} CBB game cards on Covers")
+        
+        for card in game_cards:
+            try:
+                game = {}
+                
+                # Extract team names
+                team_elements = card.find_all(['span', 'div', 'a'], class_=re.compile(r'team.*name|name', re.I))
+                if len(team_elements) >= 2:
+                    game['away_team'] = team_elements[0].get_text(strip=True)
+                    game['home_team'] = team_elements[1].get_text(strip=True)
+                
+                # Extract records (Win/Loss)
+                record_elements = card.find_all(string=re.compile(r'\d+-\d+'))
+                if record_elements:
+                    for i, rec in enumerate(record_elements[:4]):
+                        rec_text = rec.strip() if hasattr(rec, 'strip') else str(rec)
+                        match = re.search(r'(\d+-\d+)', rec_text)
+                        if match:
+                            if i == 0:
+                                game['away_record'] = match.group(1)
+                            elif i == 1:
+                                game['home_record'] = match.group(1)
+                
+                # Extract ATS records
+                ats_elements = card.find_all(string=re.compile(r'\d+-\d+-\d+\s*ATS|\(\d+-\d+-\d+\s*ATS\)'))
+                for i, ats in enumerate(ats_elements[:2]):
+                    ats_match = re.search(r'(\d+-\d+-\d+)', str(ats))
+                    if ats_match:
+                        if i == 0:
+                            game['away_ats'] = ats_match.group(1)
+                        else:
+                            game['home_ats'] = ats_match.group(1)
+                
+                # Extract Last 10
+                l10_section = card.find(string=re.compile(r'Last\s*10', re.I))
+                if l10_section:
+                    parent = l10_section.find_parent()
+                    if parent:
+                        l10_values = parent.find_all(string=re.compile(r'\d+-\d+'))
+                        for i, val in enumerate(l10_values[:2]):
+                            l10_match = re.search(r'(\d+-\d+)', str(val))
+                            if l10_match:
+                                if i == 0:
+                                    game['away_l10'] = l10_match.group(1)
+                                else:
+                                    game['home_l10'] = l10_match.group(1)
+                
+                # Extract spread and total
+                spread_elements = card.find_all(string=re.compile(r'[+-]?\d+\.?\d*'))
+                for el in spread_elements:
+                    text = str(el).strip()
+                    if 'o/u' in text.lower() or text.startswith('o/u'):
+                        total_match = re.search(r'(\d+\.?\d*)', text)
+                        if total_match:
+                            game['total'] = float(total_match.group(1))
+                    elif text.startswith('+') or text.startswith('-'):
+                        try:
+                            game['spread'] = float(text)
+                        except:
+                            pass
+                
+                if game.get('away_team') and game.get('home_team'):
+                    games.append(game)
+                    
+            except Exception as e:
+                logger.debug(f"Error parsing CBB game card: {e}")
+                continue
+        
+        logger.info(f"Parsed {len(games)} CBB games from Covers.com")
+        return games
+        
+    except Exception as e:
+        logger.error(f"Error scraping Covers CBB slate: {e}")
+        return games
+
+
+def scrape_kenpom_team_metrics(team_name: str) -> Dict:
+    """
+    Scrape key metrics from a team's KenPom page.
+    
+    Returns:
+    - adj_o (Adjusted Offensive Efficiency)
+    - adj_d (Adjusted Defensive Efficiency)
+    - adj_em (Adjusted Efficiency Margin)
+    - adj_tempo (Adjusted Tempo)
+    - four_factors (eFG%, TO%, OR%, FT Rate for Off/Def)
+    - sos (Strength of Schedule)
+    - rank (Overall ranking)
+    """
+    metrics = {'team': team_name}
+    
+    try:
+        slug = get_kenpom_slug(team_name)
+        url = f"https://kenpom.com/team.php?team={slug}"
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'text/html,application/xhtml+xml',
+            'Referer': 'https://kenpom.com/',
+        }
+        
+        logger.info(f"Fetching KenPom metrics for {team_name} ({slug})")
+        resp = requests.get(url, headers=headers, timeout=15)
+        
+        if resp.status_code != 200:
+            logger.warning(f"KenPom fetch failed for {team_name}: {resp.status_code}")
+            return metrics
+        
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        
+        # Look for the Scouting Report table
+        report_table = soup.find('table', {'id': 'scout-table'})
+        if not report_table:
+            # Try finding by class or nearby text
+            tables = soup.find_all('table')
+            for t in tables:
+                if 'Adj. Efficiency' in t.get_text() or 'Four Factors' in t.get_text():
+                    report_table = t
+                    break
+        
+        if report_table:
+            rows = report_table.find_all('tr')
+            for row in rows:
+                cells = row.find_all(['td', 'th'])
+                if len(cells) >= 3:
+                    label = cells[0].get_text(strip=True).lower()
+                    off_val = cells[1].get_text(strip=True)
+                    def_val = cells[2].get_text(strip=True)
+                    
+                    try:
+                        if 'adj. efficiency' in label or 'adj efficiency' in label:
+                            metrics['adj_o'] = float(re.sub(r'[^\d.]', '', off_val)) if off_val else None
+                            metrics['adj_d'] = float(re.sub(r'[^\d.]', '', def_val)) if def_val else None
+                        elif 'adj. tempo' in label or 'tempo' in label:
+                            metrics['adj_tempo'] = float(re.sub(r'[^\d.]', '', off_val)) if off_val else None
+                        elif 'effective fg' in label or 'efg' in label:
+                            metrics['efg_off'] = float(re.sub(r'[^\d.]', '', off_val)) if off_val else None
+                            metrics['efg_def'] = float(re.sub(r'[^\d.]', '', def_val)) if def_val else None
+                        elif 'turnover' in label or 'to%' in label:
+                            metrics['to_off'] = float(re.sub(r'[^\d.]', '', off_val)) if off_val else None
+                            metrics['to_def'] = float(re.sub(r'[^\d.]', '', def_val)) if def_val else None
+                        elif 'off. reb' in label or 'or%' in label:
+                            metrics['or_off'] = float(re.sub(r'[^\d.]', '', off_val)) if off_val else None
+                            metrics['or_def'] = float(re.sub(r'[^\d.]', '', def_val)) if def_val else None
+                        elif 'fta/fga' in label or 'ft rate' in label:
+                            metrics['ftr_off'] = float(re.sub(r'[^\d.]', '', off_val)) if off_val else None
+                            metrics['ftr_def'] = float(re.sub(r'[^\d.]', '', def_val)) if def_val else None
+                    except (ValueError, TypeError):
+                        pass
+        
+        # Calculate adj_em if we have both
+        if metrics.get('adj_o') and metrics.get('adj_d'):
+            metrics['adj_em'] = round(metrics['adj_o'] - metrics['adj_d'], 1)
+        
+        # Try to find SOS
+        sos_section = soup.find(string=re.compile(r'Strength of Schedule', re.I))
+        if sos_section:
+            parent = sos_section.find_parent('table') or sos_section.find_parent()
+            if parent:
+                sos_vals = re.findall(r'([+-]?\d+\.?\d*)', parent.get_text())
+                if sos_vals:
+                    metrics['sos'] = float(sos_vals[0])
+        
+        # Try to find overall rank
+        rank_match = re.search(r'#(\d+)\s+in', resp.text) or re.search(r'Rank:\s*(\d+)', resp.text)
+        if rank_match:
+            metrics['rank'] = int(rank_match.group(1))
+        
+        logger.info(f"KenPom metrics for {team_name}: adj_o={metrics.get('adj_o')}, adj_d={metrics.get('adj_d')}")
+        return metrics
+        
+    except Exception as e:
+        logger.error(f"Error scraping KenPom for {team_name}: {e}")
+        return metrics
+
+
+def get_cbb_slate_with_kenpom(date_str: str = None) -> List[Dict]:
+    """
+    Get today's CBB slate from Covers.com enriched with KenPom metrics.
+    
+    This is the main function that:
+    1. Scrapes Covers.com for today's matchups (records, ATS, L10, spreads)
+    2. For each team, scrapes KenPom for key metrics
+    3. Returns combined data
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    
+    # Step 1: Get today's games from Covers
+    games = scrape_covers_cbb_slate(date_str)
+    if not games:
+        logger.warning("No CBB games found on Covers.com")
+        return []
+    
+    # Step 2: Get all unique team names
+    all_teams = set()
+    for g in games:
+        if g.get('away_team'):
+            all_teams.add(g['away_team'])
+        if g.get('home_team'):
+            all_teams.add(g['home_team'])
+    
+    logger.info(f"Fetching KenPom metrics for {len(all_teams)} teams...")
+    
+    # Step 3: Fetch KenPom metrics in parallel
+    team_metrics = {}
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        future_to_team = {executor.submit(scrape_kenpom_team_metrics, team): team for team in all_teams}
+        for future in as_completed(future_to_team):
+            team = future_to_team[future]
+            try:
+                metrics = future.result()
+                team_metrics[team] = metrics
+            except Exception as e:
+                logger.warning(f"Error fetching KenPom for {team}: {e}")
+                team_metrics[team] = {'team': team}
+    
+    # Step 4: Enrich games with KenPom metrics
+    for game in games:
+        away = game.get('away_team')
+        home = game.get('home_team')
+        
+        if away and away in team_metrics:
+            for key, val in team_metrics[away].items():
+                if key != 'team':
+                    game[f'away_{key}'] = val
+        
+        if home and home in team_metrics:
+            for key, val in team_metrics[home].items():
+                if key != 'team':
+                    game[f'home_{key}'] = val
+    
+    logger.info(f"Enriched {len(games)} CBB games with KenPom metrics")
+    return games

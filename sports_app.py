@@ -19,7 +19,7 @@ from sqlalchemy import delete
 import requests
 import pytz
 from bs4 import BeautifulSoup
-from enhanced_scraping import get_cbb_logo, CBB_TEAM_LOGOS, get_covers_matchup_stats
+from enhanced_scraping import get_cbb_logo, CBB_TEAM_LOGOS, get_covers_matchup_stats, scrape_covers_cbb_slate, scrape_kenpom_team_metrics, get_cbb_slate_with_kenpom
 from automated_loading_system import (
     setup_automatic_loading, 
     get_transparent_cbb_logo, 
@@ -8385,95 +8385,93 @@ def fetch_nfl_team_stats(team_id):
 torvik_cache = {}
 torvik_cache_date = None
 
-# KenPom API Integration
-kenpom_cache = {}
-kenpom_cache_date = None
+# ESPN CBB Rankings Integration (reliable, no auth required)
+espn_cbb_rankings_cache = {}
+espn_cbb_rankings_date = None
 
-def fetch_kenpom_ratings():
-    """Fetch KenPom team ratings via official API. Cached daily."""
-    global kenpom_cache, kenpom_cache_date
+def fetch_espn_cbb_rankings():
+    """Fetch CBB AP Top 25 rankings from ESPN API. Cached daily."""
+    global espn_cbb_rankings_cache, espn_cbb_rankings_date
     today = date.today()
-    if kenpom_cache_date == today and kenpom_cache:
-        logger.info(f"Using cached KenPom data ({len(kenpom_cache)} teams)")
-        return kenpom_cache
-    
-    api_key = os.environ.get('CBB_API_KEY')
-    if not api_key:
-        logger.warning("CBB_API_KEY not set, skipping KenPom fetch")
-        return kenpom_cache
+    if espn_cbb_rankings_date == today and espn_cbb_rankings_cache:
+        logger.info(f"Using cached ESPN CBB rankings ({len(espn_cbb_rankings_cache)} teams)")
+        return espn_cbb_rankings_cache
     
     try:
-        logger.info("Fetching KenPom CBB ratings via API...")
-        headers = {
-            'Authorization': f'Bearer {api_key}',
-            'User-Agent': 'Mozilla/5.0'
-        }
-        
-        # Fetch ratings endpoint
-        ratings_url = "https://kenpom.com/api/v1/ratings"
-        resp = requests.get(ratings_url, headers=headers, timeout=20)
+        logger.info("Fetching ESPN CBB rankings...")
+        url = "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/rankings"
+        resp = requests.get(url, timeout=15)
         
         if resp.status_code == 200:
             data = resp.json()
-            new_cache = {}
-            for team in data if isinstance(data, list) else data.get('teams', []):
-                team_name = team.get('team', team.get('name', ''))
-                if team_name:
-                    new_cache[team_name.lower()] = {
-                        'rank': team.get('rank', team.get('rk', 0)),
-                        'team': team_name,
-                        'conf': team.get('conf', ''),
-                        'record': team.get('record', team.get('w_l', '')),
-                        'adj_em': team.get('adj_em', team.get('adjem', 0)),
-                        'adj_o': team.get('adj_o', team.get('adjo', 0)),
-                        'adj_d': team.get('adj_d', team.get('adjd', 0)),
-                        'adj_t': team.get('adj_t', team.get('adjt', 0)),
-                        'luck': team.get('luck', 0),
-                        'sos': team.get('sos', team.get('sos_adj_em', 0)),
-                        'ncsos': team.get('ncsos', 0),
-                    }
-            if new_cache:
-                kenpom_cache = new_cache
-                kenpom_cache_date = today
-                logger.info(f"KenPom data loaded: {len(new_cache)} teams")
-            return kenpom_cache
+            rankings = data.get('rankings', [])
+            if rankings:
+                ap_poll = rankings[0]  # First poll is typically AP
+                ranks = ap_poll.get('ranks', [])
+                
+                new_cache = {}
+                for team_data in ranks:
+                    rank = team_data.get('current', 999)
+                    team_info = team_data.get('team', {})
+                    team_name = team_info.get('displayName', team_info.get('name', ''))
+                    team_abbr = team_info.get('abbreviation', '')
+                    record = team_data.get('recordSummary', '')
+                    
+                    if team_name:
+                        team_entry = {
+                            'rank': rank,
+                            'team': team_name,
+                            'abbr': team_abbr,
+                            'record': record,
+                            'id': team_info.get('id'),
+                        }
+                        new_cache[team_name.lower()] = team_entry
+                        # Also add by abbreviation for easier matching
+                        if team_abbr:
+                            new_cache[team_abbr.lower()] = team_entry
+                
+                if new_cache:
+                    espn_cbb_rankings_cache = new_cache
+                    espn_cbb_rankings_date = today
+                    logger.info(f"ESPN CBB rankings loaded: {len(ranks)} teams")
+                return espn_cbb_rankings_cache
         else:
-            logger.warning(f"KenPom API returned {resp.status_code}")
-            # Fall back to Torvik if KenPom fails
-            return kenpom_cache
+            logger.warning(f"ESPN rankings API returned {resp.status_code}")
+            return espn_cbb_rankings_cache
     except Exception as e:
-        logger.error(f"KenPom fetch error: {e}")
-        return kenpom_cache
+        logger.error(f"ESPN rankings fetch error: {e}")
+        return espn_cbb_rankings_cache
 
-def get_kenpom_team(team_name: str) -> Optional[dict]:
-    """Get KenPom stats for a team by name (fuzzy match)."""
-    if not kenpom_cache:
-        fetch_kenpom_ratings()
-    if not kenpom_cache:
+def get_espn_cbb_ranking(team_name: str) -> Optional[dict]:
+    """Get ESPN ranking for a CBB team by name (fuzzy match)."""
+    if not espn_cbb_rankings_cache:
+        fetch_espn_cbb_rankings()
+    if not espn_cbb_rankings_cache:
         return None
     name_lower = team_name.lower().strip()
-    if name_lower in kenpom_cache:
-        return kenpom_cache[name_lower]
-    for key, data in kenpom_cache.items():
+    if name_lower in espn_cbb_rankings_cache:
+        return espn_cbb_rankings_cache[name_lower]
+    for key, data in espn_cbb_rankings_cache.items():
         if name_lower in key or key in name_lower:
             return data
     return None
 
 def is_top_25_cbb(team_name: str) -> bool:
-    """Check if a CBB team is ranked in the top 25."""
-    kp = get_kenpom_team(team_name)
-    if kp and kp.get('rank', 999) <= 25:
+    """Check if a CBB team is ranked in the AP Top 25."""
+    espn_rank = get_espn_cbb_ranking(team_name)
+    if espn_rank and espn_rank.get('rank', 999) <= 25:
         return True
+    # Fallback to Torvik if available
     tv = get_torvik_team(team_name)
     if tv and tv.get('rank', 999) <= 25:
         return True
     return False
 
 def get_cbb_team_rank(team_name: str) -> int:
-    """Get CBB team ranking (KenPom or Torvik)."""
-    kp = get_kenpom_team(team_name)
-    if kp:
-        return kp.get('rank', 999)
+    """Get CBB team ranking (ESPN AP Top 25 or Torvik fallback)."""
+    espn_rank = get_espn_cbb_ranking(team_name)
+    if espn_rank:
+        return espn_rank.get('rank', 999)
     tv = get_torvik_team(team_name)
     if tv:
         return tv.get('rank', 999)
@@ -10772,9 +10770,8 @@ def spreads():
     # ========== CBB DAILY SLATE ANALYSIS (Same logic as NBA) ==========
     cbb_games = games_by_league.get('CBB', [])
     
-    # Fetch KenPom/Torvik ratings for ranking data
-    fetch_kenpom_ratings()
-    fetch_torvik_ratings()
+    # Fetch ESPN CBB rankings (reliable API, no auth required)
+    fetch_espn_cbb_rankings()
     
     # CBB Top 25 Teams in today's slate
     cbb_top25_list = []
