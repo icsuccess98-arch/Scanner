@@ -544,9 +544,9 @@ def _run_async_in_thread(league: str) -> Dict[str, Dict]:
         loop.close()
 
 
-def get_wagertalk_odds(league: str = 'NBA') -> Dict[str, Dict]:
+def get_wagertalk_odds(league: str = 'NBA', max_retries: int = 3) -> Dict[str, Dict]:
     """
-    Fetch betting data from WagerTalk.
+    Fetch betting data from WagerTalk with retry logic.
     Returns Tickets %, Money % for spreads.
     """
     cache_key = f"wagertalk_{league}_{datetime.now().strftime('%Y%m%d_%H')}"
@@ -563,32 +563,41 @@ def get_wagertalk_odds(league: str = 'NBA') -> Dict[str, Dict]:
         return {}
     
     result = {}
+    last_error = None
     
-    try:
+    for attempt in range(max_retries):
         try:
-            loop = asyncio.get_running_loop()
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(_run_async_in_thread, league)
-                result = future.result(timeout=45)  # Faster timeout
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
             try:
-                result = loop.run_until_complete(_fetch_wagertalk_async(league))
-            finally:
-                loop.close()
-        
-        if result:
-            _wagertalk_cache[cache_key] = result
-            _wagertalk_cache_time[cache_key] = time.time()
-            logger.info(f"[WagerTalk] Fetched {len(result)} games")
-        
-        return result
-        
-    except Exception as e:
-        logger.warning(f"[WagerTalk] Fetch failed: {type(e).__name__}: {e}")
-        return {}
+                loop = asyncio.get_running_loop()
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(_run_async_in_thread, league)
+                    result = future.result(timeout=60)  # Increased timeout for retries
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    result = loop.run_until_complete(_fetch_wagertalk_async(league))
+                finally:
+                    loop.close()
+            
+            if result:
+                _wagertalk_cache[cache_key] = result
+                _wagertalk_cache_time[cache_key] = time.time()
+                logger.info(f"[WagerTalk] Fetched {len(result)} games on attempt {attempt + 1}")
+                return result
+            
+        except Exception as e:
+            last_error = e
+            logger.warning(f"[WagerTalk] Attempt {attempt + 1}/{max_retries} failed: {type(e).__name__}: {e}")
+            if attempt < max_retries - 1:
+                wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s
+                logger.info(f"[WagerTalk] Retrying in {wait_time}s...")
+                time.sleep(wait_time)
+    
+    if last_error:
+        logger.warning(f"[WagerTalk] All {max_retries} attempts failed: {last_error}")
+    return result
 
 
 def find_game_data(away_team: str, home_team: str, league: str = 'NBA') -> Optional[Dict]:

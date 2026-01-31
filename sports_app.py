@@ -409,6 +409,8 @@ class GameConstants:
     CACHE_TTL_HISTORICAL = 43200
     CACHE_TTL_SCHEDULE = 43200
     CACHE_TTL_OPENING_LINE = 86400
+    CACHE_TTL_CTG = 14400  # 4 hours for CTG data
+    CACHE_TTL_PRE_GAME = 86400  # 24 hours for pre-game stats
     
     # Rate limits (requests per second)
     RATE_LIMIT_ESPN = 5
@@ -1341,12 +1343,24 @@ class MatchupIntelligence:
         'raptors': 28, 'toronto': 28, 'jazz': 29, 'utah': 29, 'wizards': 30, 'washington': 30
     }
     
+    # CTG cache: team_name -> {data: dict, timestamp: float}
+    _ctg_cache = {}
+    
     @staticmethod
     def fetch_ctg_four_factors(team_name: str) -> dict:
         """
-        Fetch Four Factors data from Cleaning the Glass (FREE tier).
+        Fetch Four Factors data from Cleaning the Glass with bulletproof caching and retry.
         Returns eFG%, TOV%, ORB%, FT Rate for offense and defense.
+        Uses 4-hour cache to minimize requests and handle timeouts gracefully.
         """
+        import time
+        
+        # Check cache first (4 hour TTL)
+        cache_key = team_name.lower()
+        cached = MatchupIntelligence._ctg_cache.get(cache_key)
+        if cached and time.time() - cached.get('timestamp', 0) < GameConstants.CACHE_TTL_CTG:
+            return cached.get('data', {})
+        
         try:
             import requests
             from bs4 import BeautifulSoup
@@ -1359,20 +1373,50 @@ class MatchupIntelligence:
                     break
             
             if not team_id:
-                logger.warning(f"CTG team ID not found for: {team_name}")
                 return {}
             
             url = f"https://cleaningtheglass.com/stats/team/{team_id}/team"
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Connection': 'keep-alive',
+            }
             
-            resp = requests.get(url, headers=headers, timeout=15)
+            # Retry logic with exponential backoff
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    resp = requests.get(url, headers=headers, timeout=20)
+                    if resp.status_code == 200:
+                        break
+                    elif resp.status_code == 429:  # Rate limited
+                        time.sleep(2 ** attempt)  # Exponential backoff
+                    else:
+                        time.sleep(0.5 * (attempt + 1))
+                except requests.exceptions.Timeout:
+                    if attempt < max_retries - 1:
+                        time.sleep(1 * (attempt + 1))
+                        continue
+                    # Cache empty result to avoid repeated timeouts
+                    MatchupIntelligence._ctg_cache[cache_key] = {'data': {}, 'timestamp': time.time()}
+                    return {}
+                except Exception:
+                    if attempt < max_retries - 1:
+                        time.sleep(0.5)
+                        continue
+                    MatchupIntelligence._ctg_cache[cache_key] = {'data': {}, 'timestamp': time.time()}
+                    return {}
+            
             if resp.status_code != 200:
+                MatchupIntelligence._ctg_cache[cache_key] = {'data': {}, 'timestamp': time.time()}
                 return {}
             
             soup = BeautifulSoup(resp.text, 'html.parser')
             table = soup.find('table', {'id': 'team_stats_four_factors'})
             
             if not table:
+                MatchupIntelligence._ctg_cache[cache_key] = {'data': {}, 'timestamp': time.time()}
                 return {}
             
             result = {}
@@ -1380,20 +1424,11 @@ class MatchupIntelligence:
             if tbody:
                 rows = tbody.find_all('tr')
                 if rows:
-                    # Get current season (first row)
                     cells = rows[0].find_all('td')
                     data = [c.get_text(strip=True) for c in cells]
                     
-                    # Parse the data - CTG format: Year, rankings interspersed with values
-                    # Structure: Year, Rank, Diff, Rank, ExpW82... Offense: Pts/Poss, eFG%, TOV%, ORB%, FT Rate... Defense: same
-                    # Based on our test: indices for offense eFG% value, TOV% value, ORB% value, FT Rate value
-                    # Then defense versions
-                    
                     if len(data) >= 31:
-                        # CTG format: rank, value pairs for each metric
-                        # Offense section starts at index 10
-                        # Positions: pts_poss_rank=10, pts_poss=11, efg_rank=12, efg=13, tov_rank=14, tov=15, orb_rank=16, orb=17, ft_rank=18, ft=19
-                        result['off_ppp'] = data[11]  # Points per possession
+                        result['off_ppp'] = data[11]
                         result['off_ppp_rank'] = data[10]
                         result['off_efg'] = data[13].replace('%', '') if '%' in data[13] else data[13]
                         result['off_efg_rank'] = data[12]
@@ -1403,10 +1438,7 @@ class MatchupIntelligence:
                         result['off_orb_rank'] = data[16]
                         result['off_ft_rate'] = data[19]
                         result['off_ft_rank'] = data[18]
-                        
-                        # Defense section starts at index 21
-                        # Positions: pts_poss_rank=21, pts_poss=22, efg_rank=23, efg=24, tov_rank=25, tov=26, orb_rank=27, orb=28, ft_rank=29, ft=30
-                        result['def_ppp'] = data[22]  # Opponent points per possession
+                        result['def_ppp'] = data[22]
                         result['def_ppp_rank'] = data[21]
                         result['def_efg'] = data[24].replace('%', '') if '%' in data[24] else data[24]
                         result['def_efg_rank'] = data[23]
@@ -1417,12 +1449,16 @@ class MatchupIntelligence:
                         result['def_ft_rate'] = data[30]
                         result['def_ft_rank'] = data[29]
                         
-                        logger.info(f"CTG Four Factors for {team_name}: PPP={result.get('off_ppp')} (#{result.get('off_ppp_rank')}), FT Rate={result.get('off_ft_rate')} (#{result.get('off_ft_rank')})")
+                        logger.info(f"CTG Four Factors for {team_name}: PPP={result.get('off_ppp')} (#{result.get('off_ppp_rank')})")
             
+            # Cache the result
+            MatchupIntelligence._ctg_cache[cache_key] = {'data': result, 'timestamp': time.time()}
             return result
             
         except Exception as e:
             logger.warning(f"Error fetching CTG four factors for {team_name}: {e}")
+            # Cache empty to prevent repeated failures
+            MatchupIntelligence._ctg_cache[cache_key] = {'data': {}, 'timestamp': time.time()}
             return {}
     
     @staticmethod
@@ -9985,6 +10021,22 @@ def bankroll():
 _nba_standings_cache = {'data': {}, 'timestamp': 0}
 _nba_team_stats_cache = {'data': {}, 'timestamp': 0}
 
+# Pre-game stats cache - persists ATS/L10 data even when games start
+# Key: game_id -> {away_ats, home_ats, away_l10, home_l10, away_l10_ats, home_l10_ats, timestamp}
+_pre_game_stats_cache = {}
+CACHE_TTL_PRE_GAME = 86400  # 24 hours - games don't last longer than this
+
+def _cleanup_pre_game_cache():
+    """Remove expired entries from pre-game stats cache."""
+    global _pre_game_stats_cache
+    now = time.time()
+    expired_keys = [k for k, v in _pre_game_stats_cache.items() 
+                    if now - v.get('timestamp', 0) > CACHE_TTL_PRE_GAME]
+    for k in expired_keys:
+        del _pre_game_stats_cache[k]
+    if expired_keys:
+        logging.info(f"Cleaned up {len(expired_keys)} expired pre-game cache entries")
+
 def get_nba_team_stats():
     """Fetch comprehensive NBA team stats including ATS, Last 10, Home/Road records."""
     global _nba_team_stats_cache
@@ -10205,6 +10257,9 @@ def spreads():
     et = pytz.timezone('America/New_York')
     today = datetime.now(et).date()
     
+    # Cleanup expired pre-game cache entries
+    _cleanup_pre_game_cache()
+    
     # Fetch standings for all leagues
     nba_standings = get_nba_standings()
     cbb_standings = get_cbb_standings()
@@ -10247,19 +10302,41 @@ def spreads():
                 away_espn = nba_team_stats.get(g.away_team, {})
                 home_espn = nba_team_stats.get(g.home_team, {})
                 
-                # Use Covers data first, ESPN as fallback
+                # Check pre-game stats cache for this game
+                game_cache_key = f"{g.id}"
+                cached_stats = _pre_game_stats_cache.get(game_cache_key, {})
+                
+                # If Covers has data, use it AND cache it for when game starts
+                if away_covers and home_covers:
+                    # Cache the pre-game data
+                    _pre_game_stats_cache[game_cache_key] = {
+                        'away_ats': away_covers.get('ats', '--'),
+                        'home_ats': home_covers.get('ats', '--'),
+                        'away_ats_road': away_covers.get('ats_road', '--'),
+                        'home_ats_home': home_covers.get('ats_home', '--'),
+                        'away_l10': away_covers.get('l10', '--'),
+                        'home_l10': home_covers.get('l10', '--'),
+                        'away_l10_ats': away_covers.get('l10_ats', '--'),
+                        'home_l10_ats': home_covers.get('l10_ats', '--'),
+                        'away_road_record': away_covers.get('road_record', '--'),
+                        'home_home_record': home_covers.get('home_record', '--'),
+                        'timestamp': time.time()
+                    }
+                    cached_stats = _pre_game_stats_cache[game_cache_key]
+                
+                # Use data priority: Covers -> Cached Pre-game -> ESPN
                 g.away_overall = away_covers.get('record') or away_espn.get('overall_record', g.away_record)
                 g.home_overall = home_covers.get('record') or home_espn.get('overall_record', g.home_record)
-                g.away_road_record = away_covers.get('road_record') or away_espn.get('road_record', '--')
-                g.home_home_record = home_covers.get('home_record') or home_espn.get('home_record', '--')
-                g.away_ats = away_covers.get('ats') or away_espn.get('ats_record', '--')
-                g.home_ats = home_covers.get('ats') or home_espn.get('ats_record', '--')
-                g.away_ats_road = away_covers.get('ats_road') or away_espn.get('ats_road', '--')
-                g.home_ats_home = home_covers.get('ats_home') or home_espn.get('ats_home', '--')
-                g.away_l10 = away_covers.get('l10') or away_espn.get('last_10', '--')
-                g.home_l10 = home_covers.get('l10') or home_espn.get('last_10', '--')
-                g.away_l10_ats = away_covers.get('l10_ats') or away_espn.get('last_10_ats', '--')
-                g.home_l10_ats = home_covers.get('l10_ats') or home_espn.get('last_10_ats', '--')
+                g.away_road_record = away_covers.get('road_record') or cached_stats.get('away_road_record') or away_espn.get('road_record', '--')
+                g.home_home_record = home_covers.get('home_record') or cached_stats.get('home_home_record') or home_espn.get('home_record', '--')
+                g.away_ats = away_covers.get('ats') or cached_stats.get('away_ats') or away_espn.get('ats_record', '--')
+                g.home_ats = home_covers.get('ats') or cached_stats.get('home_ats') or home_espn.get('ats_record', '--')
+                g.away_ats_road = away_covers.get('ats_road') or cached_stats.get('away_ats_road') or away_espn.get('ats_road', '--')
+                g.home_ats_home = home_covers.get('ats_home') or cached_stats.get('home_ats_home') or home_espn.get('ats_home', '--')
+                g.away_l10 = away_covers.get('l10') or cached_stats.get('away_l10') or away_espn.get('last_10', '--')
+                g.home_l10 = home_covers.get('l10') or cached_stats.get('home_l10') or home_espn.get('last_10', '--')
+                g.away_l10_ats = away_covers.get('l10_ats') or cached_stats.get('away_l10_ats') or away_espn.get('last_10_ats', '--')
+                g.home_l10_ats = home_covers.get('l10_ats') or cached_stats.get('home_l10_ats') or home_espn.get('last_10_ats', '--')
             elif g.league == 'CBB':
                 g.away_logo = get_transparent_cbb_logo(g.away_team) or get_cbb_logo(g.away_team) or 'https://a.espncdn.com/i/teamlogos/leagues/500-dark/nba.png'
                 g.home_logo = get_transparent_cbb_logo(g.home_team) or get_cbb_logo(g.home_team) or 'https://a.espncdn.com/i/teamlogos/leagues/500-dark/nba.png'
@@ -10269,21 +10346,44 @@ def spreads():
                 g.home_record = home_stand.get('record', '--')
                 g.away_standing = ''
                 g.home_standing = ''
-                # CBB Covers-style stats
+                # CBB Covers-style stats with pre-game caching
                 away_covers = covers_cbb_stats.get(g.away_team, {})
                 home_covers = covers_cbb_stats.get(g.home_team, {})
+                
+                # Check pre-game stats cache for this game
+                game_cache_key = f"{g.id}"
+                cached_stats = _pre_game_stats_cache.get(game_cache_key, {})
+                
+                # If Covers has data, cache it for when game starts
+                if away_covers and home_covers:
+                    _pre_game_stats_cache[game_cache_key] = {
+                        'away_ats': away_covers.get('ats', '--'),
+                        'home_ats': home_covers.get('ats', '--'),
+                        'away_ats_road': away_covers.get('ats_road', '--'),
+                        'home_ats_home': home_covers.get('ats_home', '--'),
+                        'away_l10': away_covers.get('l10', '--'),
+                        'home_l10': home_covers.get('l10', '--'),
+                        'away_l10_ats': away_covers.get('l10_ats', '--'),
+                        'home_l10_ats': home_covers.get('l10_ats', '--'),
+                        'away_road_record': away_covers.get('road_record', '--'),
+                        'home_home_record': home_covers.get('home_record', '--'),
+                        'timestamp': time.time()
+                    }
+                    cached_stats = _pre_game_stats_cache[game_cache_key]
+                
+                # Use data priority: Covers -> Cached Pre-game
                 g.away_overall = away_covers.get('record', g.away_record)
                 g.home_overall = home_covers.get('record', g.home_record)
-                g.away_road_record = away_covers.get('road_record', '--')
-                g.home_home_record = home_covers.get('home_record', '--')
-                g.away_ats = away_covers.get('ats', '--')
-                g.home_ats = home_covers.get('ats', '--')
-                g.away_ats_road = away_covers.get('ats_road', '--')
-                g.home_ats_home = home_covers.get('ats_home', '--')
-                g.away_l10 = away_covers.get('l10', '--')
-                g.home_l10 = home_covers.get('l10', '--')
-                g.away_l10_ats = away_covers.get('l10_ats', '--')
-                g.home_l10_ats = home_covers.get('l10_ats', '--')
+                g.away_road_record = away_covers.get('road_record') or cached_stats.get('away_road_record', '--')
+                g.home_home_record = home_covers.get('home_record') or cached_stats.get('home_home_record', '--')
+                g.away_ats = away_covers.get('ats') or cached_stats.get('away_ats', '--')
+                g.home_ats = home_covers.get('ats') or cached_stats.get('home_ats', '--')
+                g.away_ats_road = away_covers.get('ats_road') or cached_stats.get('away_ats_road', '--')
+                g.home_ats_home = home_covers.get('ats_home') or cached_stats.get('home_ats_home', '--')
+                g.away_l10 = away_covers.get('l10') or cached_stats.get('away_l10', '--')
+                g.home_l10 = home_covers.get('l10') or cached_stats.get('home_l10', '--')
+                g.away_l10_ats = away_covers.get('l10_ats') or cached_stats.get('away_l10_ats', '--')
+                g.home_l10_ats = home_covers.get('l10_ats') or cached_stats.get('home_l10_ats', '--')
             elif g.league == 'NHL':
                 g.away_logo = nhl_team_logos.get(g.away_team, 'https://a.espncdn.com/i/teamlogos/nhl/500/nhl.png')
                 g.home_logo = nhl_team_logos.get(g.home_team, 'https://a.espncdn.com/i/teamlogos/nhl/500/nhl.png')
@@ -10714,13 +10814,13 @@ def get_matchup_data(game_id):
                 rlm_future = executor.submit(fetch_rlm)
                 
                 try:
-                    away_ctg = ctg_away_future.result(timeout=10)
+                    away_ctg = ctg_away_future.result(timeout=45)  # Allow time for retries
                 except Exception as e:
                     logging.warning(f"CTG away fetch error: {e}")
                     away_ctg = {}
                 
                 try:
-                    home_ctg = ctg_home_future.result(timeout=10)
+                    home_ctg = ctg_home_future.result(timeout=45)  # Allow time for retries
                 except Exception as e:
                     logging.warning(f"CTG home fetch error: {e}")
                     home_ctg = {}
