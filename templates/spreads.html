@@ -2021,7 +2021,7 @@
         </style>
     </header>
     
-    <section class="header-section">
+    <section class="header-section" id="slate-section" style="display: none;">
         <div class="control-panel">
             <!-- NBA Daily Slate Analysis -->
             <div id="nba-slate-analysis" class="slate-analysis-panel" style="background: linear-gradient(135deg, rgba(15, 18, 30, 0.98), rgba(20, 25, 45, 0.95)); border-radius: 14px; padding: 16px; border: 1px solid rgba(139, 92, 246, 0.4); box-shadow: 0 4px 20px rgba(0,0,0,0.3); display: none;">
@@ -3969,17 +3969,21 @@
                 });
                 
                 // Toggle slate analysis panels based on selected tab
+                const slateSection = document.getElementById('slate-section');
                 const nbaSlate = document.getElementById('nba-slate-analysis');
                 const cbbSlate = document.getElementById('cbb-slate-analysis');
-                if (nbaSlate && cbbSlate) {
+                if (nbaSlate && cbbSlate && slateSection) {
                     if (league === 'NBA') {
+                        slateSection.style.display = 'block';
                         nbaSlate.style.display = 'block';
                         cbbSlate.style.display = 'none';
                     } else if (league === 'CBB') {
+                        slateSection.style.display = 'block';
                         nbaSlate.style.display = 'none';
                         cbbSlate.style.display = 'block';
                     } else {
-                        // "All" tab - hide both slate analyses
+                        // "All" tab - hide entire section
+                        slateSection.style.display = 'none';
                         nbaSlate.style.display = 'none';
                         cbbSlate.style.display = 'none';
                     }
