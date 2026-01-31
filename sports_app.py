@@ -12160,16 +12160,10 @@ def spreads():
         return False
     
     for g in all_games:
-        # Keep live games even if Bovada removes them
+        # Check if game is currently live
         game_is_live = is_game_live_early(g.away_team, g.home_team)
         
-        # Filter to only show games that Bovada has lines for (but keep live games)
-        if g.league == 'CBB' and not is_bovada_game(g.away_team, g.home_team, bovada_cbb_games) and not game_is_live:
-            continue  # Skip CBB games not on Bovada (unless live)
-        if g.league == 'NBA' and not is_bovada_game(g.away_team, g.home_team, bovada_nba_games) and not game_is_live:
-            continue  # Skip NBA games not on Bovada (unless live)
-        if g.league == 'NHL' and not is_bovada_game(g.away_team, g.home_team, bovada_nhl_games) and not game_is_live:
-            continue  # Skip NHL games not on Bovada (unless live)
+        # No Bovada filter - show ALL games from Covers.com, VSIN, ESPN, etc.
         
         if g.league in games_by_league:
             if g.league == 'NBA':
