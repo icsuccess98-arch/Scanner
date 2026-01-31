@@ -2465,19 +2465,27 @@
                         <span class="vsin-badge">VSIN</span>
                     </div>
                     
-                    {% if game.vsin_open_spread and game.vsin_current_spread %}
+                    {% if game.vsin_open_spread is not none and game.vsin_current_spread is not none %}
+                    {# Convert to float for comparison - negative spread = away favorite, positive = home favorite #}
+                    {% set open_spread_num = game.vsin_open_spread|float %}
+                    {% set current_spread_num = game.vsin_current_spread|float %}
+                    {% set open_fav_name = game.away_team if open_spread_num < 0 else game.home_team %}
+                    {% set open_fav_line = open_spread_num|abs %}
+                    {% set current_fav_name = game.away_team if current_spread_num < 0 else game.home_team %}
+                    {% set current_fav_line = current_spread_num|abs %}
+                    {# Line movement: more negative = favorite got stronger (down arrow shows line went down) #}
+                    {% set movement = open_spread_num - current_spread_num %}
                     <div class="line-movement-row">
                         <div class="line-box">
                             <span class="line-label">Open</span>
-                            <span class="line-value">{% if game.vsin_open_spread > 0 %}+{% endif %}{{ game.vsin_open_spread }}</span>
+                            <span class="line-value">{{ open_fav_name[:6] }} -{{ '%.1f'|format(open_fav_line) }}</span>
                         </div>
-                        {% set movement = game.vsin_current_spread - game.vsin_open_spread %}
-                        <span class="line-arrow {% if movement > 0 %}up{% elif movement < 0 %}down{% endif %}">
-                            {% if movement > 0 %}<i class="bi bi-arrow-up-circle-fill"></i>{% elif movement < 0 %}<i class="bi bi-arrow-down-circle-fill"></i>{% else %}<i class="bi bi-arrow-right-circle"></i>{% endif %}
+                        <span class="line-arrow {% if movement > 0 %}down{% elif movement < 0 %}up{% endif %}">
+                            {% if movement > 0 %}<i class="bi bi-arrow-down-circle-fill"></i>{% elif movement < 0 %}<i class="bi bi-arrow-up-circle-fill"></i>{% else %}<i class="bi bi-arrow-right-circle"></i>{% endif %}
                         </span>
                         <div class="line-box">
                             <span class="line-label">Current</span>
-                            <span class="line-value {% if movement > 0 %}moved-up{% elif movement < 0 %}moved-down{% endif %}">{% if game.vsin_current_spread > 0 %}+{% endif %}{{ game.vsin_current_spread }}</span>
+                            <span class="line-value {% if movement > 0 %}moved-down{% elif movement < 0 %}moved-up{% endif %}">{{ current_fav_name[:6] }} -{{ '%.1f'|format(current_fav_line) }}</span>
                         </div>
                     </div>
                     {% endif %}
@@ -4069,8 +4077,18 @@
                                 })()}
                             </div>
                             <div style="text-align: right;">
-                                <div style="font-size: 10px; color: #888;">Open: <span style="color: #fff; font-weight: 600;">${data.rlm.open_spread || 'N/A'}</span></div>
-                                <div style="font-size: 11px; color: #fff; font-weight: 700;">Closing: <span style="color: ${data.game_started ? '#fbbf24' : '#3b82f6'};">${data.rlm.current_spread || 'N/A'}</span> <span style="color: #888; font-size: 9px;">(${data.rlm.spread_current_odds || '-110'})</span></div>
+                                ${(() => {
+                                    const os = parseFloat(data.rlm.open_spread);
+                                    const cs = parseFloat(data.rlm.current_spread);
+                                    const openFav = !isNaN(os) ? (os < 0 ? awayTeam : homeTeam) : null;
+                                    const currentFav = !isNaN(cs) ? (cs < 0 ? awayTeam : homeTeam) : null;
+                                    const openLine = !isNaN(os) ? Math.abs(os).toFixed(1) : 'N/A';
+                                    const currentLine = !isNaN(cs) ? Math.abs(cs).toFixed(1) : 'N/A';
+                                    return `
+                                        <div style="font-size: 10px; color: #888;">Open: <span style="color: #fff; font-weight: 600;">${openFav ? openFav + ' -' + openLine : 'N/A'}</span></div>
+                                        <div style="font-size: 11px; color: #fff; font-weight: 700;">Current: <span style="color: ${data.game_started ? '#fbbf24' : '#3b82f6'};">${currentFav ? currentFav + ' -' + currentLine : 'N/A'}</span> <span style="color: #888; font-size: 9px;">(${data.rlm.spread_current_odds || '-110'})</span></div>
+                                    `;
+                                })()}
                             </div>
                         </div>
                         
