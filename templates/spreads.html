@@ -2529,29 +2529,6 @@
                     </div>
                     {% endif %}
                 </div>
-                {% elif game.spread_line is not none %}
-                <!-- BOVADA BETTING ACTION FALLBACK (when VSIN not available) -->
-                <div class="betting-action">
-                    <div class="betting-action-header">
-                        <span class="betting-action-title">Betting Action</span>
-                        <span class="vsin-badge" style="background: #6b7280;">BOVADA</span>
-                    </div>
-                    
-                    {# Show current spread from Bovada #}
-                    {% set spread_num = game.spread_line|float %}
-                    {% set fav_name = game.away_team if spread_num < 0 else game.home_team %}
-                    {% set fav_line = spread_num|abs %}
-                    <div class="line-movement-row">
-                        <div class="line-box" style="flex: 1;">
-                            <span class="line-label">Current</span>
-                            <span class="line-value">{{ fav_name[:8] }} -{{ '%.1f'|format(fav_line) }}</span>
-                        </div>
-                    </div>
-                    
-                    <div style="text-align: center; font-size: 11px; color: #6b7280; margin-top: 8px;">
-                        <i class="bi bi-info-circle"></i> VSIN splits unavailable
-                    </div>
-                </div>
                 {% endif %}
                 
                 {% if game.league in ['CBB', 'NBA'] and (game.torvik_away_adj_o or game.away_ppg) %}
