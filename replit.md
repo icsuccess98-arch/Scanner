@@ -105,6 +105,19 @@ These stats persist even when the game starts (Covers removes live games from th
 3. ESPN fallback (limited - no ATS data)
 
 The `pregame_stats_captured` flag on each game indicates whether pre-game data has been saved. Stats update after game completion when fresh Covers data becomes available the next day.
+
+### Team Name Normalization (Jan 2026)
+Universal team name matching for KenPom and Covers.com:
+- `strip_accents()` function removes diacritics (San José → San Jose)
+- `normalize_cbb_team_name()` handles aliases, abbreviations, and case-insensitive matching
+- `find_covers_stats()` helper with multiple fallback strategies:
+  1. Direct lookup by team name
+  2. Normalized lookup via CBB_TEAM_NAME_ALIASES
+  3. Accent-stripped lookup
+  4. Fuzzy match with "St" → "State" expansion
+- CBB_TEAM_NAME_ALIASES covers 100+ variations (UNCA, WIN, CIT, STON, NCST, WAKE, etc.)
+- KENPOM_TEAM_SLUGS maps team names to KenPom API slugs
+
 -   **Stocks Data**:
     -   yfinance (Yahoo Finance)
 -   **Communication**:

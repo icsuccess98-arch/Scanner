@@ -691,17 +691,89 @@ CBB_TEAM_NAME_ALIASES = {
     'XAV': 'Xavier',
     'Butler Bulldogs': 'Butler',
     'BUT': 'Butler',
+    # Citadel
+    'The Citadel': 'Citadel',
+    'CIT': 'Citadel',
+    # Stony Brook
+    'Stony Brook Seawolves': 'Stony Brook',
+    'STON': 'Stony Brook',
+    'SBU': 'Stony Brook',
+    # Elon
+    'Elon Phoenix': 'Elon',
+    'ELON': 'Elon',
+    # San Jose State
+    'San Jose St': 'San Jose State',
+    'San Jose St.': 'San Jose State',
+    'San José St': 'San Jose State',
+    'San José State': 'San Jose State',
+    'SJSU': 'San Jose State',
+    'SJ State': 'San Jose State',
+    # More common abbreviations from Covers.com
+    'WAKE': 'Wake Forest',
+    'PROV': 'Providence',
+    'MARQ': 'Marquette',
+    'DUKE': 'Duke',
+    'GONZ': 'Gonzaga',
+    'KANS': 'Kansas',
+    'ARIZ': 'Arizona',
+    'ALAB': 'Alabama',
+    'HOUS': 'Houston',
+    'TENN': 'Tennessee',
+    'PURD': 'Purdue',
+    'FLOR': 'Florida',
+    'CLEM': 'Clemson',
+    'IOWA': 'Iowa',
+    'WISC': 'Wisconsin',
+    'MICH': 'Michigan',
+    'OREG': 'Oregon',
+    'STAN': 'Stanford',
+    'BAYLOR': 'Baylor',
+    'UCONN': 'UConn',
+    'SETON': 'Seton Hall',
+    'SHSU': 'Sam Houston',
+    'TXST': 'Texas State',
+    'TXAM': 'Texas A&M',
+    'TAMU': 'Texas A&M',
+    'ARIZ ST': 'Arizona State',
 }
+
+def strip_accents(text: str) -> str:
+    """Remove accents/diacritics from text (é -> e, ñ -> n, etc.)."""
+    import unicodedata
+    return ''.join(
+        c for c in unicodedata.normalize('NFD', text)
+        if unicodedata.category(c) != 'Mn'
+    )
 
 def normalize_cbb_team_name(name: str) -> str:
     """Normalize CBB team name for consistent matching."""
     if not name:
         return ''
     # Handle HTML entities
-    name = name.replace('&amp;', '&')
-    # Check aliases
+    name = name.replace('&amp;', '&').strip()
+    
+    # Strip accents/diacritics (San José -> San Jose)
+    name_ascii = strip_accents(name)
+    
+    # Check exact aliases first (with original name)
     if name in CBB_TEAM_NAME_ALIASES:
         return CBB_TEAM_NAME_ALIASES[name]
+    
+    # Check exact aliases with ASCII version (accents stripped)
+    if name_ascii in CBB_TEAM_NAME_ALIASES:
+        return CBB_TEAM_NAME_ALIASES[name_ascii]
+    
+    # Try uppercase version for abbreviations (UNCA, NCST, WIN, etc.)
+    name_upper = name_ascii.upper()
+    if name_upper in CBB_TEAM_NAME_ALIASES:
+        return CBB_TEAM_NAME_ALIASES[name_upper]
+    
+    # Try case-insensitive match on all aliases
+    name_lower = name_ascii.lower()
+    for alias, normalized in CBB_TEAM_NAME_ALIASES.items():
+        if strip_accents(alias).lower() == name_lower:
+            return normalized
+    
     return name.strip()
 
 def get_cbb_logo(team_name: str) -> Optional[str]:
@@ -1706,6 +1778,38 @@ KENPOM_TEAM_SLUGS = {
     'Drake': 'Drake', 'Loyola Chicago': 'Loyola.Chicago',
     'UNC Asheville': 'UNC.Asheville', 'UNC Greensboro': 'UNC.Greensboro',
     'UNCG': 'UNC.Greensboro', 'Winthrop': 'Winthrop', 'The Citadel': 'Citadel',
+    # Additional team mappings for Covers.com abbreviations
+    'UNCA': 'UNC.Asheville', 'WIN': 'Winthrop', 'CIT': 'Citadel',
+    'Citadel': 'Citadel', 'STON': 'Stony.Brook', 'Stony Brook': 'Stony.Brook',
+    'ELON': 'Elon', 'Elon': 'Elon', 'NCST': 'N.C..State', 'WAKE': 'Wake.Forest',
+    # San Jose State
+    'San Jose State': 'San.Jose.St.', 'San Jose St': 'San.Jose.St.',
+    'San José State': 'San.Jose.St.', 'San José St': 'San.Jose.St.',
+    'SJSU': 'San.Jose.St.', 'SJ State': 'San.Jose.St.',
+    # More team slugs
+    'New Mexico': 'New.Mexico', 'Air Force': 'Air.Force',
+    'Morehead State': 'Morehead.St.', 'Morehead St': 'Morehead.St.',
+    'Eastern Kentucky': 'Eastern.Kentucky', 'EKU': 'Eastern.Kentucky',
+    'Western Kentucky': 'Western.Kentucky', 'WKU': 'Western.Kentucky',
+    'Middle Tennessee': 'Middle.Tennessee', 'MTSU': 'Middle.Tennessee',
+    'North Texas': 'North.Texas', 'UNT': 'North.Texas',
+    'Texas State': 'Texas.St.', 'TXST': 'Texas.St.',
+    'Georgia State': 'Georgia.St.', 'GSU': 'Georgia.St.',
+    'Appalachian State': 'Appalachian.St.', 'App State': 'Appalachian.St.',
+    'Coastal Carolina': 'Coastal.Carolina',
+    'James Madison': 'James.Madison', 'JMU': 'James.Madison',
+    'Old Dominion': 'Old.Dominion', 'ODU': 'Old.Dominion',
+    'Southern Miss': 'Southern.Miss', 'USM': 'Southern.Miss',
+    'UT Arlington': 'UT.Arlington', 'UTA': 'UT.Arlington',
+    'Maine': 'Maine', 'Vermont': 'Vermont', 'Albany': 'Albany',
+    'UMass Lowell': 'UMass.Lowell', 'UMBC': 'UMBC',
+    'New Hampshire': 'New.Hampshire', 'UNH': 'New.Hampshire',
+    'Hartford': 'Hartford', 'Binghamton': 'Binghamton',
+    'Bryant': 'Bryant', 'NJIT': 'NJIT', 'Fairleigh Dickinson': 'Fairleigh.Dickinson',
+    'Central Connecticut': 'Central.Connecticut', 'CCSU': 'Central.Connecticut',
+    'Sacred Heart': 'Sacred.Heart', 'St. Francis (PA)': 'St..Francis.PA',
+    'Mount St. Mary\'s': 'Mount.St..Mary\'s', 'LIU': 'LIU', 'Wagner': 'Wagner',
+    'Merrimack': 'Merrimack', 'Stonehill': 'Stonehill',
 }
 
 

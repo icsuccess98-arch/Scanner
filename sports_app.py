@@ -12050,9 +12050,50 @@ def spreads():
                 g.home_record = get_cbb_team_record(g.home_team, cbb_standings)
                 g.away_standing = ''
                 g.home_standing = ''
-                # CBB Covers-style stats - simple direct lookup only
-                away_covers = covers_cbb_stats.get(g.away_team, {}) or covers_cbb_stats.get(normalize_cbb_team_name(g.away_team), {})
-                home_covers = covers_cbb_stats.get(g.home_team, {}) or covers_cbb_stats.get(normalize_cbb_team_name(g.home_team), {})
+                # CBB Covers-style stats - try multiple name variations
+                def find_covers_stats(team_name, stats_dict):
+                    """Try to find Covers stats using various name normalizations."""
+                    import unicodedata
+                    
+                    def strip_accents(text):
+                        return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
+                    
+                    # Direct lookup
+                    if team_name in stats_dict:
+                        return stats_dict[team_name]
+                    # Normalized lookup
+                    normalized = normalize_cbb_team_name(team_name)
+                    if normalized in stats_dict:
+                        return stats_dict[normalized]
+                    # Strip accents and try again (San José St -> San Jose State)
+                    ascii_name = strip_accents(team_name)
+                    if ascii_name in stats_dict:
+                        return stats_dict[ascii_name]
+                    ascii_normalized = normalize_cbb_team_name(ascii_name)
+                    if ascii_normalized in stats_dict:
+                        return stats_dict[ascii_normalized]
+                    
+                    # Stricter fuzzy match - normalize both sides and compare tokens
+                    def normalize_for_match(name):
+                        """Normalize team name for matching: strip accents, lowercase, expand abbreviations."""
+                        n = strip_accents(name).lower()
+                        # Expand common abbreviations
+                        n = n.replace(' st.', ' state').replace(' st ', ' state ')
+                        if n.endswith(' st'):
+                            n = n[:-3] + ' state'
+                        return n.strip()
+                    
+                    team_normalized = normalize_for_match(ascii_name)
+                    for key in stats_dict:
+                        key_normalized = normalize_for_match(key)
+                        # Exact match after normalization
+                        if team_normalized == key_normalized:
+                            return stats_dict[key]
+                    
+                    return {}
+                
+                away_covers = find_covers_stats(g.away_team, covers_cbb_stats)
+                home_covers = find_covers_stats(g.home_team, covers_cbb_stats)
                 
                 # If Covers has data AND we haven't captured pre-game stats yet, save to DB
                 if away_covers and home_covers and not g.pregame_stats_captured:
