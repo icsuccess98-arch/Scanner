@@ -72,11 +72,12 @@ The Sports Scanner fetches game data, stats, and odds for NBA, CBB, NFL, CFB, an
     -   NBA API (nba_api package)
     -   KenPom API (CBB_API_KEY) - Official KenPom API for CBB advanced metrics:
         - Authentication: Bearer token in Authorization header
-        - Endpoint: `https://kenpom.com/api.php?endpoint=ratings&y=2026`
-        - Data: Team rankings (RankAdjEM), adjusted efficiency (AdjOE, AdjDE, AdjEM), tempo (AdjTempo), SOS
-        - Provides win-loss records for all 365 D1 teams
-        - Used for Top 25 detection, bad defense identification (adj_d > 105), and team records display
-        - Cached daily to minimize API calls
+        - Endpoints:
+          - `https://kenpom.com/api.php?endpoint=ratings&y=2026` - Team efficiency ratings (AdjOE, AdjDE, AdjEM, Tempo, SOS)
+          - `https://kenpom.com/api.php?endpoint=four-factors&y=2026` - Four Factors data (eFG%, TOV%, ORB%, FT Rate with rankings)
+        - Four Factors API fields: eFG_Pct, RankeFG_Pct, TO_Pct, RankTO_Pct, OR_Pct, RankOR_Pct, FT_Rate, RankFT_Rate (offense) and D-prefixed versions for defense
+        - Used for: Top 25 detection, bad defense identification (adj_d > 105), Key Metrics table (KenPom Rank, Adj O/D/EM, Tempo, Four Factors)
+        - All data cached daily to minimize API calls
     -   TeamRankings.com (matchup pages)
     -   Cleaning the Glass (CTG) (NBA advanced stats)
     -   WagerTalk.com (betting action: Bet %, Money %)

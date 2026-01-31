@@ -1461,25 +1461,75 @@ class MatchupIntelligence:
             MatchupIntelligence._ctg_cache[cache_key] = {'data': {}, 'timestamp': time.time()}
             return {}
     
-    # Cache for KenPom team page stats
-    _kenpom_team_cache = {}
+    # Cache for KenPom Four Factors stats (daily)
+    _kenpom_ff_cache = {}
+    _kenpom_ff_cache_date = None
+    
+    @staticmethod
+    def fetch_kenpom_four_factors():
+        """Fetch Four Factors data from KenPom API. Cached daily."""
+        today = date.today()
+        if MatchupIntelligence._kenpom_ff_cache_date == today and MatchupIntelligence._kenpom_ff_cache:
+            return MatchupIntelligence._kenpom_ff_cache
+        
+        api_key = os.environ.get('CBB_API_KEY', '')
+        if not api_key:
+            return {}
+        
+        try:
+            url = "https://kenpom.com/api.php?endpoint=four-factors&y=2026"
+            headers = {
+                'Authorization': f'Bearer {api_key}',
+                'User-Agent': 'Mozilla/5.0 (compatible; SportsApp/1.0)'
+            }
+            
+            resp = requests.get(url, headers=headers, timeout=30)
+            if resp.status_code == 200:
+                data = resp.json()
+                cache = {}
+                for team in data:
+                    team_name = team.get('TeamName', team.get('Team', team.get('team', ''))).lower()
+                    if team_name:
+                        cache[team_name] = {
+                            # Offensive Four Factors (actual API field names)
+                            'off_efg': team.get('eFG_Pct', 0),
+                            'off_efg_rank': team.get('RankeFG_Pct', 999),
+                            'off_tov': team.get('TO_Pct', 0),
+                            'off_tov_rank': team.get('RankTO_Pct', 999),
+                            'off_orb': team.get('OR_Pct', 0),
+                            'off_orb_rank': team.get('RankOR_Pct', 999),
+                            'off_ft_rate': team.get('FT_Rate', 0),
+                            'off_ft_rank': team.get('RankFT_Rate', 999),
+                            # Defensive Four Factors (D prefix = Defense)
+                            'def_efg': team.get('DeFG_Pct', 0),
+                            'def_efg_rank': team.get('RankDeFG_Pct', 999),
+                            'def_tov': team.get('DTO_Pct', 0),
+                            'def_tov_rank': team.get('RankDTO_Pct', 999),
+                            'def_orb': team.get('DOR_Pct', 0),
+                            'def_orb_rank': team.get('RankDOR_Pct', 999),
+                            'def_ft_rate': team.get('DFT_Rate', 0),
+                            'def_ft_rank': team.get('RankDFT_Rate', 999)
+                        }
+                
+                if cache:
+                    MatchupIntelligence._kenpom_ff_cache = cache
+                    MatchupIntelligence._kenpom_ff_cache_date = today
+                    logger.info(f"KenPom Four Factors loaded: {len(cache)} teams")
+                return cache
+            else:
+                logger.warning(f"KenPom Four Factors API returned {resp.status_code}")
+                return MatchupIntelligence._kenpom_ff_cache
+        except Exception as e:
+            logger.warning(f"KenPom Four Factors fetch error: {e}")
+            return MatchupIntelligence._kenpom_ff_cache
     
     @staticmethod
     def fetch_kenpom_stats(team_name: str) -> dict:
         """
-        Fetch KenPom advanced analytics for CBB teams from team page.
-        URL format: https://kenpom.com/team.php?team=TeamName
-        
-        Returns comprehensive stats including Four Factors, efficiency metrics, etc.
+        Fetch KenPom advanced analytics for CBB teams.
+        Uses ratings API for efficiency metrics and four-factors API for Four Factors.
         """
         try:
-            # Check cache first (cache for 1 hour)
-            cache_key = team_name.lower().strip()
-            if cache_key in MatchupIntelligence._kenpom_team_cache:
-                cached = MatchupIntelligence._kenpom_team_cache[cache_key]
-                if time.time() - cached.get('timestamp', 0) < 3600:  # 1 hour cache
-                    return cached.get('data', {})
-            
             # Get basic stats from ratings API cache
             tv = get_torvik_team(team_name)
             if not tv:
@@ -1498,99 +1548,41 @@ class MatchupIntelligence:
                 'conf': tv.get('conf', '')
             }
             
-            # Try to scrape team page for detailed Four Factors
-            api_key = os.environ.get('CBB_API_KEY', '')
-            if api_key:
-                try:
-                    # Format team name for URL (replace spaces with %20 or use proper encoding)
-                    from urllib.parse import quote
-                    team_slug = quote(tv.get('team', team_name))
-                    url = f"https://kenpom.com/team.php?team={team_slug}"
-                    
-                    headers = {
-                        'Authorization': f'Bearer {api_key}',
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                    }
-                    
-                    resp = requests.get(url, headers=headers, timeout=15)
-                    if resp.status_code == 200:
-                        from bs4 import BeautifulSoup
-                        soup = BeautifulSoup(resp.text, 'html.parser')
-                        
-                        # Parse Four Factors table
-                        tables = soup.find_all('table')
-                        for table in tables:
-                            rows = table.find_all('tr')
-                            for row in rows:
-                                cells = row.find_all('td')
-                                if len(cells) >= 3:
-                                    metric = cells[0].get_text(strip=True).lower()
-                                    off_val = cells[1].get_text(strip=True)
-                                    def_val = cells[2].get_text(strip=True)
-                                    
-                                    # Extract numeric values (remove rank)
-                                    def parse_val(v):
-                                        try:
-                                            # Value format: "58.6 9" (value + rank)
-                                            parts = v.split()
-                                            return float(parts[0]) if parts else 0
-                                        except:
-                                            return 0
-                                    
-                                    def parse_rank(v):
-                                        try:
-                                            parts = v.split()
-                                            return int(parts[1]) if len(parts) > 1 else 999
-                                        except:
-                                            return 999
-                                    
-                                    # Four Factors
-                                    if 'effective fg' in metric or 'efg' in metric:
-                                        result['off_efg'] = parse_val(off_val)
-                                        result['off_efg_rank'] = parse_rank(off_val)
-                                        result['def_efg'] = parse_val(def_val)
-                                        result['def_efg_rank'] = parse_rank(def_val)
-                                    elif 'turnover' in metric and '%' in metric:
-                                        result['off_tov'] = parse_val(off_val)
-                                        result['off_tov_rank'] = parse_rank(off_val)
-                                        result['def_tov'] = parse_val(def_val)
-                                        result['def_tov_rank'] = parse_rank(def_val)
-                                    elif 'off. reb' in metric or 'orb' in metric:
-                                        result['off_orb'] = parse_val(off_val)
-                                        result['off_orb_rank'] = parse_rank(off_val)
-                                        result['def_orb'] = parse_val(def_val)
-                                        result['def_orb_rank'] = parse_rank(def_val)
-                                    elif 'fta/fga' in metric or 'ft rate' in metric:
-                                        result['off_ft_rate'] = parse_val(off_val)
-                                        result['off_ft_rank'] = parse_rank(off_val)
-                                        result['def_ft_rate'] = parse_val(def_val)
-                                        result['def_ft_rank'] = parse_rank(def_val)
-                                    # Miscellaneous
-                                    elif '3p%' in metric:
-                                        result['off_3pt'] = parse_val(off_val)
-                                        result['def_3pt'] = parse_val(def_val)
-                                    elif '2p%' in metric:
-                                        result['off_2pt'] = parse_val(off_val)
-                                        result['def_2pt'] = parse_val(def_val)
-                                    elif 'ft%' in metric:
-                                        result['off_ft'] = parse_val(off_val)
-                                        result['def_ft'] = parse_val(def_val)
-                                    elif 'block' in metric:
-                                        result['off_blk'] = parse_val(off_val)
-                                        result['def_blk'] = parse_val(def_val)
-                                    elif 'steal' in metric:
-                                        result['off_stl'] = parse_val(off_val)
-                                        result['def_stl'] = parse_val(def_val)
-                        
-                        logger.info(f"KenPom team page scraped for {team_name}: {len(result)} metrics")
-                except Exception as e:
-                    logger.warning(f"KenPom team page scrape error for {team_name}: {e}")
+            # Get Four Factors from dedicated API endpoint
+            ff_cache = MatchupIntelligence.fetch_kenpom_four_factors()
+            team_key = team_name.lower().strip()
             
-            # Cache the result
-            MatchupIntelligence._kenpom_team_cache[cache_key] = {
-                'data': result,
-                'timestamp': time.time()
-            }
+            # Try exact match first
+            ff = ff_cache.get(team_key)
+            
+            # Try fuzzy match if no exact match
+            if not ff:
+                for key, data in ff_cache.items():
+                    if team_key in key or key in team_key:
+                        ff = data
+                        break
+            
+            # Merge Four Factors into result
+            if ff:
+                result.update({
+                    'off_efg': ff.get('off_efg', 0),
+                    'off_efg_rank': ff.get('off_efg_rank', 999),
+                    'def_efg': ff.get('def_efg', 0),
+                    'def_efg_rank': ff.get('def_efg_rank', 999),
+                    'off_tov': ff.get('off_tov', 0),
+                    'off_tov_rank': ff.get('off_tov_rank', 999),
+                    'def_tov': ff.get('def_tov', 0),
+                    'def_tov_rank': ff.get('def_tov_rank', 999),
+                    'off_orb': ff.get('off_orb', 0),
+                    'off_orb_rank': ff.get('off_orb_rank', 999),
+                    'def_orb': ff.get('def_orb', 0),
+                    'def_orb_rank': ff.get('def_orb_rank', 999),
+                    'off_ft_rate': ff.get('off_ft_rate', 0),
+                    'off_ft_rank': ff.get('off_ft_rank', 999),
+                    'def_ft_rate': ff.get('def_ft_rate', 0),
+                    'def_ft_rank': ff.get('def_ft_rank', 999)
+                })
+                logger.info(f"KenPom Four Factors merged for {team_name}")
             
             return result
         except Exception as e:
