@@ -567,13 +567,36 @@ def get_covers_matchup_stats(league: str = 'NBA') -> Dict:
         'DUQ': 'Duquesne', 'SBU': 'St. Bonaventure', 'ZONA': 'Arizona',
     }
     
-    abbr_to_name = nba_abbr_to_name if league == 'NBA' else cbb_abbr_to_name
+    # NHL Team abbreviation to nickname mapping
+    nhl_abbr_to_name = {
+        'ANA': 'Ducks', 'ARI': 'Coyotes', 'BOS': 'Bruins', 'BUF': 'Sabres',
+        'CGY': 'Flames', 'CAR': 'Hurricanes', 'CHI': 'Blackhawks', 'COL': 'Avalanche',
+        'CBJ': 'Blue Jackets', 'DAL': 'Stars', 'DET': 'Red Wings', 'EDM': 'Oilers',
+        'FLA': 'Panthers', 'LA': 'Kings', 'LAK': 'Kings', 'MIN': 'Wild',
+        'MTL': 'Canadiens', 'NSH': 'Predators', 'NJ': 'Devils', 'NJD': 'Devils',
+        'NYI': 'Islanders', 'NYR': 'Rangers', 'OTT': 'Senators', 'PHI': 'Flyers',
+        'PIT': 'Penguins', 'SJ': 'Sharks', 'SJS': 'Sharks', 'SEA': 'Kraken',
+        'STL': 'Blues', 'TB': 'Lightning', 'TBL': 'Lightning', 'TOR': 'Maple Leafs',
+        'VAN': 'Canucks', 'VGK': 'Golden Knights', 'WSH': 'Capitals', 'WPG': 'Jets',
+        'UTA': 'Utah Hockey Club'
+    }
+    
+    if league == 'NBA':
+        abbr_to_name = nba_abbr_to_name
+    elif league == 'CBB':
+        abbr_to_name = cbb_abbr_to_name
+    elif league == 'NHL':
+        abbr_to_name = nhl_abbr_to_name
+    else:
+        abbr_to_name = nba_abbr_to_name
     
     try:
         if league == 'NBA':
             url = 'https://www.covers.com/sports/nba/matchups'
         elif league == 'CBB':
             url = 'https://www.covers.com/sports/ncaab/matchups'
+        elif league == 'NHL':
+            url = 'https://www.covers.com/sports/nhl/matchups'
         else:
             url = 'https://www.covers.com/sports/nba/matchups'
         
