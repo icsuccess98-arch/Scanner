@@ -12309,12 +12309,36 @@ def spreads():
     
     def is_game_live_early(away: str, home: str) -> bool:
         """Check if game is currently in progress using early ESPN check"""
+        def teams_match(name1: str, name2: str) -> bool:
+            """Stricter team name matching to avoid E Kentucky matching Kentucky"""
+            n1 = name1.lower().strip()
+            n2 = name2.lower().strip()
+            if n1 == n2:
+                return True
+            
+            # Check for directional prefixes (E/W/N/S/C) that indicate different schools
+            words1 = n1.split()
+            words2 = n2.split()
+            directional_prefixes = {'e', 'w', 'n', 's', 'c', 'east', 'west', 'north', 'south', 'central'}
+            
+            has_prefix1 = words1 and words1[0] in directional_prefixes
+            has_prefix2 = words2 and words2[0] in directional_prefixes
+            if has_prefix1 != has_prefix2:
+                base1 = ' '.join(words1[1:]) if has_prefix1 else n1
+                base2 = ' '.join(words2[1:]) if has_prefix2 else n2
+                if base1 in base2 or base2 in base1:
+                    return False  # Different schools!
+            
+            if n1 in n2 or n2 in n1:
+                len_diff = abs(len(n1) - len(n2))
+                if len_diff <= 3:
+                    return True
+            return False
+        
         for lk in early_live_keys:
             if '@' in lk:
                 la, lh = lk.split('@', 1)
-                # Fuzzy match
-                if (la.lower() in away.lower() or away.lower() in la.lower()) and \
-                   (lh.lower() in home.lower() or home.lower() in lh.lower()):
+                if teams_match(la, away) and teams_match(lh, home):
                     return True
         return False
     
@@ -13051,20 +13075,44 @@ def spreads():
     
     # Helper for fuzzy team name matching
     def teams_match_fuzzy(name1: str, name2: str) -> bool:
+        """Stricter fuzzy matching to avoid E Kentucky matching Kentucky"""
         if not name1 or not name2:
             return False
         n1 = name1.lower().strip()
         n2 = name2.lower().strip()
         if n1 == n2:
             return True
-        # Check if one contains the other
+        
+        # Get first word of each name - check for directional/regional prefixes
+        words1 = n1.split()
+        words2 = n2.split()
+        directional_prefixes = {'e', 'w', 'n', 's', 'c', 'east', 'west', 'north', 'south', 'central'}
+        
+        # If one has a directional prefix and the other doesn't, they're different schools
+        has_prefix1 = words1 and words1[0] in directional_prefixes
+        has_prefix2 = words2 and words2[0] in directional_prefixes
+        if has_prefix1 != has_prefix2:
+            # One has prefix, one doesn't - check if base names match
+            base1 = ' '.join(words1[1:]) if has_prefix1 else n1
+            base2 = ' '.join(words2[1:]) if has_prefix2 else n2
+            # If base names are similar, these are DIFFERENT schools (E Kentucky vs Kentucky)
+            if base1 in base2 or base2 in base1:
+                return False  # Different schools!
+        
+        # Check if one contains the other BUT require similar length
         if n1 in n2 or n2 in n1:
-            return True
-        # Check core tokens
-        tokens1 = {t for t in n1.replace('.', '').split() if len(t) > 2}
-        tokens2 = {t for t in n2.replace('.', '').split() if len(t) > 2}
-        if tokens1 & tokens2:
-            return True
+            len_diff = abs(len(n1) - len(n2))
+            # Only allow small differences (abbreviation differences like "St" vs "State")
+            if len_diff <= 3:
+                return True
+        # Check core tokens - but require the MAIN token (longest) to match AND same token count
+        tokens1 = [t for t in n1.replace('.', '').split() if len(t) > 2]
+        tokens2 = [t for t in n2.replace('.', '').split() if len(t) > 2]
+        if tokens1 and tokens2:
+            main1 = max(tokens1, key=len)
+            main2 = max(tokens2, key=len)
+            if main1 == main2 and len(tokens1) == len(tokens2):
+                return True
         return False
     
     # Mark games as live and sort: live games first, then by game time
