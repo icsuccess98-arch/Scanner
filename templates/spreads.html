@@ -893,6 +893,20 @@
             padding: 4px 8px !important;
             border-radius: 6px !important;
             box-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
+            animation: rlmPulse 1.5s ease-in-out infinite;
+        }
+        .split-pct.rlm-fade {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.3), rgba(220, 38, 38, 0.3)) !important;
+            color: #fca5a5 !important;
+            font-weight: 700 !important;
+            font-size: 13px !important;
+            padding: 3px 6px !important;
+            border-radius: 4px !important;
+            border: 1px dashed rgba(239, 68, 68, 0.5);
+        }
+        @keyframes rlmPulse {
+            0%, 100% { box-shadow: 0 0 10px rgba(255, 215, 0, 0.4); }
+            50% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.8); }
         }
         .split-pct.sharp-highlight {
             background: linear-gradient(135deg, #10b981, #059669) !important;
@@ -2606,11 +2620,12 @@
                             <div class="split-values">
                                 <div class="split-team">
                                     <div class="split-team-name">{{ game.away_team[:8] }}</div>
-                                    <div class="split-pct {% if (game.vsin_tickets_away or 0) > (game.vsin_tickets_home or 0) %}majority{% endif %} {% if rlm_detected and public_side == 'away' %}rlm-highlight{% endif %}">{{ game.vsin_tickets_away }}%</div>
+                                    {# RLM: Highlight the side with LESS tickets (sharp side) #}
+                                    <div class="split-pct {% if (game.vsin_tickets_away or 0) > (game.vsin_tickets_home or 0) %}majority{% endif %} {% if rlm_detected and money_side == 'away' %}rlm-fade{% endif %}">{{ game.vsin_tickets_away }}%</div>
                                 </div>
                                 <div class="split-team">
                                     <div class="split-team-name">{{ game.home_team[:8] }}</div>
-                                    <div class="split-pct {% if (game.vsin_tickets_home or 0) > (game.vsin_tickets_away or 0) %}majority{% endif %} {% if rlm_detected and public_side == 'home' %}rlm-highlight{% endif %}">{{ game.vsin_tickets_home }}%</div>
+                                    <div class="split-pct {% if (game.vsin_tickets_home or 0) > (game.vsin_tickets_away or 0) %}majority{% endif %} {% if rlm_detected and money_side == 'home' %}rlm-fade{% endif %}">{{ game.vsin_tickets_home }}%</div>
                                 </div>
                             </div>
                         </div>
@@ -2619,11 +2634,12 @@
                             <div class="split-values">
                                 <div class="split-team">
                                     <div class="split-team-name">{{ game.away_team[:8] }}</div>
-                                    <div class="split-pct {% if (game.vsin_money_away or 0) > (game.vsin_money_home or 0) %}majority{% endif %} {% if rlm_detected and money_side == 'away' %}sharp-highlight{% elif away_sharp_diff >= 15 %}sharp{% endif %}">{{ game.vsin_money_away }}%</div>
+                                    {# RLM: Highlight the side with MORE money (sharp side) with golden glow #}
+                                    <div class="split-pct {% if (game.vsin_money_away or 0) > (game.vsin_money_home or 0) %}majority{% endif %} {% if rlm_detected and money_side == 'away' %}rlm-highlight{% elif away_sharp_diff >= 15 %}sharp{% endif %}">{{ game.vsin_money_away }}%</div>
                                 </div>
                                 <div class="split-team">
                                     <div class="split-team-name">{{ game.home_team[:8] }}</div>
-                                    <div class="split-pct {% if (game.vsin_money_home or 0) > (game.vsin_money_away or 0) %}majority{% endif %} {% if rlm_detected and money_side == 'home' %}sharp-highlight{% elif home_sharp_diff >= 15 %}sharp{% endif %}">{{ game.vsin_money_home }}%</div>
+                                    <div class="split-pct {% if (game.vsin_money_home or 0) > (game.vsin_money_away or 0) %}majority{% endif %} {% if rlm_detected and money_side == 'home' %}rlm-highlight{% elif home_sharp_diff >= 15 %}sharp{% endif %}">{{ game.vsin_money_home }}%</div>
                                 </div>
                             </div>
                         </div>
