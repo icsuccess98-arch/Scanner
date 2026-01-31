@@ -2500,7 +2500,7 @@ class MatchupIntelligence:
                     underdog_team = away_team
                 # No fallback - if open_favorite doesn't match, leave as None
                 
-                logger.info(f"RLM setup: {away_team} vs {home_team} | Favorite: {favorite_team} (from open: '{open_favorite_raw}')")
+                logger.debug(f"RLM setup: {away_team} vs {home_team} | Favorite: {favorite_team} (from open: '{open_favorite}')")
                 
                 # SPREAD RLM: Detect reverse line movement for spreads
                 # FORMULA: Line 📉 + Money to new favorite 📈 = RLM
@@ -2581,8 +2581,19 @@ class MatchupIntelligence:
                     'current_spread': spread_current_line or 'N/A',
                     'spread_open_odds': spread_open_odds or '-110',
                     'spread_current_odds': spread_current_odds or '-110',
-                    'spread_tickets_pct': spread_tickets_pct,
-                    'spread_money_pct': spread_money_pct,
+                    'spread_tickets_pct': away_bet_pct,
+                    'spread_money_pct': away_money_pct,
+                    # Add VSIN-specific fields for direct access
+                    'tickets_away': away_bet_pct,
+                    'tickets_home': home_bet_pct,
+                    'money_away': away_money_pct,
+                    'money_home': home_money_pct,
+                    'open_away_spread': spread_open_line,
+                    'current_away_spread': spread_current_line,
+                    'open_away_odds': spread_open_odds,
+                    'current_away_odds': spread_current_odds,
+                    'away_team': away_team,
+                    'home_team': home_team,
                     'spread_sharp_detected': spread_sharp_detected,
                     'spread_sharp_side': spread_sharp_side,
                     'total_open_line': total_open_line or 'N/A',
@@ -11909,6 +11920,55 @@ def spreads():
     bovada_nba_games = get_bovada_games('NBA')
     bovada_nhl_games = get_bovada_games('NHL')
     
+    # Fetch VSIN betting splits and line tracker data for all leagues
+    vsin_nba_data = MatchupIntelligence.fetch_rlm_data('NBA')
+    vsin_cbb_data = MatchupIntelligence.fetch_rlm_data('CBB')
+    vsin_nhl_data = MatchupIntelligence.fetch_rlm_data('NHL')
+    vsin_all_data = {'NBA': vsin_nba_data, 'CBB': vsin_cbb_data, 'NHL': vsin_nhl_data}
+    logging.info(f"VSIN data loaded: NBA={len(vsin_nba_data)}, CBB={len(vsin_cbb_data)}, NHL={len(vsin_nhl_data)} games")
+    
+    # Helper function to match VSIN data to a game
+    def match_vsin_data(game_away: str, game_home: str, league: str) -> dict:
+        """Find matching VSIN data for a game."""
+        vsin_data = vsin_all_data.get(league, {})
+        if not vsin_data:
+            return {}
+        
+        def normalize_tokens(name: str) -> set:
+            if not name:
+                return set()
+            n = name.lower().strip()
+            for suffix in [' state', ' st', ' st.', ' university', ' univ']:
+                n = n.replace(suffix, ' ')
+            return {t for t in n.split() if len(t) > 2}
+        
+        def teams_match(vsin_team: str, game_team: str) -> bool:
+            if not vsin_team or not game_team:
+                return False
+            if vsin_team.lower() == game_team.lower():
+                return True
+            vsin_tokens = normalize_tokens(vsin_team)
+            game_tokens = normalize_tokens(game_team)
+            if vsin_tokens & game_tokens:
+                return True
+            if vsin_team.lower() in game_team.lower() or game_team.lower() in vsin_team.lower():
+                return True
+            return False
+        
+        for key, data in vsin_data.items():
+            vsin_away = data.get('away_team', '')
+            vsin_home = data.get('home_team', '')
+            if not vsin_away or not vsin_home:
+                if ' @ ' in key:
+                    parts = key.split(' @ ')
+                    if len(parts) == 2:
+                        vsin_away = parts[0].strip()
+                        vsin_home = parts[1].strip()
+            
+            if teams_match(vsin_away, game_away) and teams_match(vsin_home, game_home):
+                return data
+        return {}
+    
     # Get ALL games for today without any totals filtering
     all_games = Game.query.filter_by(date=today).order_by(Game.game_time.asc()).all()
     
@@ -12081,6 +12141,31 @@ def spreads():
                 g.home_record = '--'
                 g.away_standing = ''
                 g.home_standing = ''
+            
+            # Attach VSIN data to each game
+            vsin_match = match_vsin_data(g.away_team, g.home_team, g.league)
+            if vsin_match:
+                # Get betting splits and lines from VSIN
+                g.vsin_tickets_away = vsin_match.get('tickets_away') or 50
+                g.vsin_tickets_home = vsin_match.get('tickets_home') or 50
+                g.vsin_money_away = vsin_match.get('money_away') or 50
+                g.vsin_money_home = vsin_match.get('money_home') or 50
+                g.vsin_open_spread = vsin_match.get('open_away_spread')
+                g.vsin_current_spread = vsin_match.get('current_away_spread')
+                g.vsin_open_odds = vsin_match.get('open_away_odds')
+                g.vsin_current_odds = vsin_match.get('current_away_odds')
+                g.vsin_has_data = True
+            else:
+                g.vsin_tickets_away = 50
+                g.vsin_tickets_home = 50
+                g.vsin_money_away = 50
+                g.vsin_money_home = 50
+                g.vsin_open_spread = None
+                g.vsin_current_spread = None
+                g.vsin_open_odds = None
+                g.vsin_current_odds = None
+                g.vsin_has_data = False
+            
             games_by_league[g.league].append(g)
     
     # Set up basic attributes for all games (data fetched on-demand via API)
@@ -12740,81 +12825,93 @@ def get_matchup_data(game_id):
             # Process RLM data (already fetched in parallel above)
             rlm_data = {}
             try:
-                # Team name mappings for matching (all 30 NBA teams)
-                team_keywords = {
-                    'bulls': ['bulls', 'chicago', 'chi'],
-                    'pacers': ['pacers', 'indiana', 'ind'],
-                    'lakers': ['lakers', 'la lakers', 'l.a. lakers', 'los angeles'],
-                    'cavaliers': ['cavaliers', 'cavs', 'cleveland', 'cle'],
-                    'celtics': ['celtics', 'boston', 'bos'],
-                    'hawks': ['hawks', 'atlanta', 'atl'],
-                    'heat': ['heat', 'miami', 'mia'],
-                    'magic': ['magic', 'orlando', 'orl'],
-                    'knicks': ['knicks', 'new york', 'ny'],
-                    'raptors': ['raptors', 'toronto', 'tor'],
-                    'hornets': ['hornets', 'charlotte', 'cha'],
-                    'grizzlies': ['grizzlies', 'memphis', 'mem'],
-                    'timberwolves': ['timberwolves', 'wolves', 'minnesota', 'min'],
-                    'mavericks': ['mavericks', 'mavs', 'dallas', 'dal'],
-                    'warriors': ['warriors', 'golden state', 'gsw', 'gs'],
-                    'jazz': ['jazz', 'utah', 'uta'],
-                    'spurs': ['spurs', 'san antonio', 'sa'],
-                    'rockets': ['rockets', 'houston', 'hou'],
-                    'pelicans': ['pelicans', 'new orleans', 'nop', 'no'],
-                    'nets': ['nets', 'brooklyn', 'bkn'],
-                    '76ers': ['76ers', 'sixers', 'philadelphia', 'phi'],
-                    'pistons': ['pistons', 'detroit', 'det'],
-                    'clippers': ['clippers', 'la clippers', 'lac'],
-                    'nuggets': ['nuggets', 'denver', 'den'],
-                    'trail blazers': ['trail blazers', 'blazers', 'portland', 'por'],
-                    'thunder': ['thunder', 'oklahoma', 'okc'],
-                    'kings': ['kings', 'sacramento', 'sac'],
-                    'suns': ['suns', 'phoenix', 'phx'],
-                    'bucks': ['bucks', 'milwaukee', 'mil'],
-                    'wizards': ['wizards', 'washington', 'was', 'wiz']
-                }
+                def normalize_for_vsin_match(name: str) -> set:
+                    """Create a set of normalized tokens for fuzzy matching."""
+                    if not name:
+                        return set()
+                    n = name.lower().strip()
+                    # Remove common suffixes
+                    for suffix in [' state', ' st', ' st.', ' university', ' univ']:
+                        n = n.replace(suffix, ' ')
+                    # Clean up and tokenize
+                    tokens = set(n.split())
+                    # Filter short tokens
+                    tokens = {t for t in tokens if len(t) > 2}
+                    return tokens
                 
-                def matches_team(text, team):
-                    text = text.lower()
-                    team = team.lower()
-                    keywords = team_keywords.get(team, [team])
-                    return any(kw in text for kw in keywords)
+                def teams_match(vsin_team: str, game_team: str) -> bool:
+                    """Check if VSIN team matches game team using token overlap."""
+                    if not vsin_team or not game_team:
+                        return False
+                    vsin_tokens = normalize_for_vsin_match(vsin_team)
+                    game_tokens = normalize_for_vsin_match(game_team)
+                    # Direct match
+                    if vsin_team.lower() == game_team.lower():
+                        return True
+                    # Token overlap - at least one significant word matches
+                    overlap = vsin_tokens & game_tokens
+                    if overlap:
+                        return True
+                    # Substring match for single-word names (Duke, Gonzaga, etc)
+                    vsin_lower = vsin_team.lower()
+                    game_lower = game_team.lower()
+                    if vsin_lower in game_lower or game_lower in vsin_lower:
+                        return True
+                    return False
                 
+                # Match VSIN data to this game
                 for key, data in all_rlm.items():
-                    away_match = matches_team(key, game.away_team) or matches_team(data.get('away', {}).get('team', ''), game.away_team)
-                    home_match = matches_team(key, game.home_team) or matches_team(data.get('home', {}).get('team', ''), game.home_team)
+                    # VSIN key format: "Away Team @ Home Team"
+                    vsin_away = data.get('away_team', '')
+                    vsin_home = data.get('home_team', '')
+                    
+                    # Also try parsing from key if team fields are missing
+                    if not vsin_away or not vsin_home:
+                        if ' @ ' in key:
+                            parts = key.split(' @ ')
+                            if len(parts) == 2:
+                                vsin_away = parts[0].strip()
+                                vsin_home = parts[1].strip()
+                    
+                    away_match = teams_match(vsin_away, game.away_team)
+                    home_match = teams_match(vsin_home, game.home_team)
                     
                     if away_match and home_match:
                         rlm_data = data
                         break
                 
-                logging.info(f"RLM data for {game.away_team} vs {game.home_team}: {rlm_data}")
+                if rlm_data:
+                    logging.debug(f"VSIN match found: {game.away_team} @ {game.home_team}")
+                else:
+                    logging.debug(f"No VSIN match: {game.away_team} @ {game.home_team}")
             except Exception as e:
                 logging.warning(f"RLM fetch error: {e}")
             
-            # Get lines from WagerTalk first, fallback to database (The Odds API)
-            wt_open_spread = rlm_data.get('open_spread')
-            wt_current_spread = rlm_data.get('current_spread')
-            wt_open_total = rlm_data.get('total_open_line')
-            wt_current_total = rlm_data.get('total_current_line')
+            # Get lines from VSIN first, fallback to database (The Odds API)
+            # VSIN field names: open_away_spread, current_away_spread
+            vsin_open_spread = rlm_data.get('open_away_spread') or rlm_data.get('open_spread')
+            vsin_current_spread = rlm_data.get('current_away_spread') or rlm_data.get('current_spread')
+            vsin_open_total = rlm_data.get('total_open_line')
+            vsin_current_total = rlm_data.get('total_current_line')
             
-            # Use WagerTalk data if available, else fallback to database
+            # Use VSIN data if available, else fallback to database
             db_spread = game.spread if hasattr(game, 'spread') else None
             db_opening_spread = game.opening_spread if hasattr(game, 'opening_spread') else None
             db_total = game.total if hasattr(game, 'total') else None
             db_opening_total = game.opening_total if hasattr(game, 'opening_total') else None
             
-            # Prefer WagerTalk lines (most up-to-date)
-            open_spread = wt_open_spread if wt_open_spread else db_opening_spread
-            current_spread = wt_current_spread if wt_current_spread else db_spread
-            open_total = wt_open_total if wt_open_total else db_opening_total
-            current_total = wt_current_total if wt_current_total else db_total
+            # Prefer VSIN lines (most up-to-date)
+            open_spread = vsin_open_spread if vsin_open_spread else db_opening_spread
+            current_spread = vsin_current_spread if vsin_current_spread else db_spread
+            open_total = vsin_open_total if vsin_open_total else db_opening_total
+            current_total = vsin_current_total if vsin_current_total else db_total
             
-            # Get away/home bet percentages from WagerTalk
-            away_bet = int(rlm_data.get('away_bet_pct', rlm_data.get('away', {}).get('bet_pct', 50)) or 50)
-            home_bet = int(rlm_data.get('home_bet_pct', rlm_data.get('home', {}).get('bet_pct', 50)) or 50)
-            away_money = int(rlm_data.get('away_money_pct', rlm_data.get('away', {}).get('money_pct', 50)) or 50)
-            home_money = int(rlm_data.get('home_money_pct', rlm_data.get('home', {}).get('money_pct', 50)) or 50)
+            # Get away/home bet percentages from VSIN
+            # VSIN field names: tickets_away, tickets_home (bets %), money_away, money_home (handle %)
+            away_bet = int(rlm_data.get('tickets_away') or rlm_data.get('away_bet_pct') or 50)
+            home_bet = int(rlm_data.get('tickets_home') or rlm_data.get('home_bet_pct') or 50)
+            away_money = int(rlm_data.get('money_away') or rlm_data.get('away_money_pct') or 50)
+            home_money = int(rlm_data.get('money_home') or rlm_data.get('home_money_pct') or 50)
             
             # Get Over/Under percentages from WagerTalk
             over_bet = int(rlm_data.get('over_bet_pct', 50) or 50)

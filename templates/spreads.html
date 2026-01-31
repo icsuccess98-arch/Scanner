@@ -2212,7 +2212,11 @@
             </div>
             
             {% for game in games %}
-            <div class="game-card" data-game-id="{{ game.id }}" data-away="{{ game.away_team }}" data-home="{{ game.home_team }}" data-league="{{ league }}">
+            <div class="game-card" data-game-id="{{ game.id }}" data-away="{{ game.away_team }}" data-home="{{ game.home_team }}" data-league="{{ league }}"
+                 data-vsin-tickets-away="{{ game.vsin_tickets_away|default(50) }}" data-vsin-tickets-home="{{ game.vsin_tickets_home|default(50) }}"
+                 data-vsin-money-away="{{ game.vsin_money_away|default(50) }}" data-vsin-money-home="{{ game.vsin_money_home|default(50) }}"
+                 data-vsin-open-spread="{{ game.vsin_open_spread|default('') }}" data-vsin-current-spread="{{ game.vsin_current_spread|default('') }}"
+                 data-vsin-has-data="{{ 'true' if game.vsin_has_data else 'false' }}">
                 <!-- PIKKIT-STYLE HEADER WITH LOGOS -->
                 <div class="pikkit-header">
                     <div class="pikkit-team">
