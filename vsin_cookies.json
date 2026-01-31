@@ -1,21 +1,12 @@
 [
+  {"name": "__utp", "value": "eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwczovL2lkLnBpYW5vLmlvIiwic3ViIjoiZTc2YTM2NjUtYjNjYi00OTdiLWI5ZDYtYTllMDQ1YzMxMDlhIiwiYXVkIjoiTjFvd1lJaUFwdSIsImxvZ2luX3RpbWVzdGFtcCI6IjE3Njk4NzExMDkxNDUiLCJnaXZlbl9uYW1lIjoiU3VjY2VzcyIsImZhbWlseV9uYW1lIjoiT25seSIsImVtYWlsIjoiaWNzdWNjZXNzOThAZ21haWwuY29tIiwiZXhwIjoxNzcyNDk5MTA5LCJpYXQiOjE3Njk4NzExMDksImp0aSI6IlRJWmRveUV5cnp0OXFoYWQiLCJwYXNzd29yZFR5cGUiOiJwYXNzd29yZEV4cGlyZWQiLCJyIjp0cnVlLCJscyI6IklEIiwic2MiOjIsInRzYyI6Mn0.oynjyTCg_GX6iiKErIZCmYN_FbyhyUNROSnKJP2DzOc", "domain": ".vsin.com", "path": "/"},
   {"name": "__cf_bm", "value": "uOIuHBwgN8RC3KlSXzKu0C5_Xc69KFwJr1ga6bBoi6Y-1769871250.8130832-1.0.1.1-2AY0XXjkd4suV75ETZhU0RJOuHhxloPM98V1f5XDnAM7R.zBxq7zOYuJcia2x4n0zhdkFQM144b_LJ_JMfAJKDQhlavd.utq8zO13.0YtUYZIAu3gsEsRO9pBRAPenKX", "domain": ".vsin.com", "path": "/"},
-  {"name": "__eoi", "value": "ID=18e2e48b376e6dd7:T=1766017232:RT=1769871452:S=AA-AfjbBHwRtJ7JwkMnB_GRQkDSw", "domain": ".vsin.com", "path": "/"},
-  {"name": "__gads", "value": "ID=98faf536b552e252:T=1766017232:RT=1769871452:S=ALNI_MZBlU2KjxMlY0kVR5VG9bc4_kvKnQ", "domain": ".vsin.com", "path": "/"},
-  {"name": "__gpi", "value": "UID=0000131cca6de310:T=1766017232:RT=1769871452:S=ALNI_MZ213mygt9EeXEPebMJ4qEX3ThjmA", "domain": ".vsin.com", "path": "/"},
-  {"name": "__idr", "value": "1", "domain": ".vsin.com", "path": "/"},
-  {"name": "__pat", "value": "-18000000", "domain": ".vsin.com", "path": "/"},
-  {"name": "__pid", "value": ".vsin.com", "domain": ".vsin.com", "path": "/"},
-  {"name": "__pil", "value": "en_US", "domain": ".vsin.com", "path": "/"},
-  {"name": "__pnahc", "value": "0", "domain": "vsin.com", "path": "/"},
-  {"name": "__pvi", "value": "eyJpZCI6InYtbWwyZmY0N3p6M3Q4bnh1diIsImRvbWFpbiI6Ii52c2luLmNvbSIsInRpbWUiOjE3Njk4NzEyNDU1MDR9", "domain": ".vsin.com", "path": "/"},
-  {"name": "__qca", "value": "P1-8af5458c-3d32-4cea-98e2-7bb9304ec251", "domain": ".vsin.com", "path": "/"},
   {"name": "__tac", "value": "%7Bjax%7DjPswWs4NeapLObXV4pD293MYYgxOOknctEuVOFgiyj5Qdfp3Qrl-dy6msr5x5u0Zvl_8ADXoDpjWtQ2_CbTbIAXVsFKnw1wkltsDyOxMfN1hT0xn7EFPIB6357fseUVvtI964tn1rGUDNJj2yzO3L_CKEkwAFaT2AzwbBPvh5BwP0ppA_jaLHguKfIcwO9TCy_Ds1YB8soVMGFBgq8ySCA", "domain": ".vsin.com", "path": "/"},
   {"name": "__tae", "value": "1769871109411", "domain": ".vsin.com", "path": "/"},
   {"name": "__tbc", "value": "%7Bkpex%7DYtGBhjBBqFuFMsfBLPrfj75mxGq_yOwzatlZbah5h3c8oo7ngDFRckHJ2cnQPppK2TPalypx3nwaAVn3K3EcTUs-5WZ4tRk_hFO2dn0tHKk", "domain": ".vsin.com", "path": "/"},
-  {"name": "_au_1d", "value": "AU1D-0100-001766017230-8BPC0MO6-LGP1", "domain": ".vsin.com", "path": "/"},
-  {"name": "_awl", "value": "2.1769870894.5-be2c64ed96e3ed7d159695af9e182cae-6763652d75732d6561737431-0", "domain": ".vsin.com", "path": "/"},
-  {"name": "_cc_id", "value": "9f306f67cc3344ddab1f00168425b408", "domain": ".vsin.com", "path": "/"},
-  {"name": "_clck", "value": "1j9opfr%5E2%5Eg36%5E0%5E2178", "domain": ".vsin.com", "path": "/"},
-  {"name": "_fbp", "value": "fb.1.1769454273312.366335565338639673", "domain": ".vsin.com", "path": "/"}
+  {"name": "__pvi", "value": "eyJpZCI6InYtbWwyZmY0N3p6M3Q4bnh1diIsImRvbWFpbiI6Ii52c2luLmNvbSIsInRpbWUiOjE3Njk4NzEyNDU1MDR9", "domain": ".vsin.com", "path": "/"},
+  {"name": "__pat", "value": "-18000000", "domain": ".vsin.com", "path": "/"},
+  {"name": "__pid", "value": ".vsin.com", "domain": ".vsin.com", "path": "/"},
+  {"name": "__pil", "value": "en_US", "domain": ".vsin.com", "path": "/"},
+  {"name": "xbc", "value": "%7Bkpex%7Dt6rpDyDseO2dGsW0puFhSiQ5Drk9W4xSLij3gR-6nhuSVsaMK4I93R0EDRAa2E9X4GpNpp6JZj5VSBvD0axX11GUjZSVSRBMHIdl8RmAE2hFCb4Ecvq6jcvGWfOE0CAdtiXBPlHinpN7WP9DbPs3-18jLwERLvUjw4Rz1i1Zg1BRVG83pHCKzS1GgwaB93P42G0U-KTfRGqZFxTJnnmd-58QOB8i3mV59JGimebcyK9E-qfQ5-cJgQfP5m17Vr1bt95BZQedcNYnESHPoJHRSTn0p3cYgTwfHgpCkd2kSTKhbc9hzQBHITdz3PCN2CI6", "domain": ".vsin.com", "path": "/"}
 ]
