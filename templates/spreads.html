@@ -2690,6 +2690,78 @@
     </nav>
     
     <script>
+        // Team abbreviations like Covers.com uses
+        const TEAM_ABBREVS = {
+            // NBA
+            'hawks': 'ATL', 'celtics': 'BOS', 'nets': 'BKN', 'hornets': 'CHA', 'bulls': 'CHI',
+            'cavaliers': 'CLE', 'mavericks': 'DAL', 'nuggets': 'DEN', 'pistons': 'DET', 'warriors': 'GSW',
+            'rockets': 'HOU', 'pacers': 'IND', 'clippers': 'LAC', 'lakers': 'LAL', 'grizzlies': 'MEM',
+            'heat': 'MIA', 'bucks': 'MIL', 'timberwolves': 'MIN', 'pelicans': 'NOP', 'knicks': 'NYK',
+            'thunder': 'OKC', 'magic': 'ORL', '76ers': 'PHI', 'suns': 'PHX', 'blazers': 'POR',
+            'trail blazers': 'POR', 'kings': 'SAC', 'spurs': 'SAS', 'raptors': 'TOR', 'jazz': 'UTA', 'wizards': 'WAS',
+            // NHL
+            'ducks': 'ANA', 'coyotes': 'ARI', 'bruins': 'BOS', 'sabres': 'BUF', 'flames': 'CGY',
+            'hurricanes': 'CAR', 'blackhawks': 'CHI', 'avalanche': 'COL', 'blue jackets': 'CBJ', 'stars': 'DAL',
+            'red wings': 'DET', 'oilers': 'EDM', 'panthers': 'FLA', 'golden knights': 'VGK', 'kraken': 'SEA',
+            'kings': 'LA', 'wild': 'MIN', 'canadiens': 'MTL', 'predators': 'NSH', 'devils': 'NJD',
+            'islanders': 'NYI', 'rangers': 'NYR', 'senators': 'OTT', 'flyers': 'PHI', 'penguins': 'PIT',
+            'sharks': 'SJS', 'blues': 'STL', 'lightning': 'TBL', 'maple leafs': 'TOR', 'canucks': 'VAN', 'capitals': 'WSH', 'jets': 'WPG',
+            // CBB (comprehensive list)
+            'alabama': 'ALA', 'arizona': 'ARIZ', 'arizona st': 'ASU', 'arkansas': 'ARK', 'auburn': 'AUB',
+            'baylor': 'BAY', 'boston college': 'BC', 'brigham young': 'BYU', 'butler': 'BUT', 'california': 'CAL',
+            'cincinnati': 'CIN', 'clemson': 'CLEM', 'colorado': 'COLO', 'connecticut': 'CONN', 'uconn': 'CONN',
+            'creighton': 'CREI', 'duke': 'DUKE', 'florida': 'FLA', 'florida st': 'FSU', 'georgetown': 'GTWN',
+            'georgia': 'UGA', 'gonzaga': 'GONZ', 'houston': 'HOU', 'illinois': 'ILL', 'indiana': 'IND',
+            'iowa': 'IOWA', 'iowa st': 'ISU', 'kansas': 'KU', 'kansas st': 'KSU', 'kentucky': 'UK',
+            'louisville': 'LOU', 'lsu': 'LSU', 'marquette': 'MARQ', 'maryland': 'MD', 'memphis': 'MEM',
+            'miami': 'MIA', 'michigan': 'MICH', 'michigan st': 'MSU', 'minnesota': 'MINN', 'mississippi': 'MISS',
+            'mississippi st': 'MSST', 'missouri': 'MIZ', 'nc state': 'NCST', 'nebraska': 'NEB', 'north carolina': 'UNC',
+            'northwestern': 'NW', 'notre dame': 'ND', 'ohio st': 'OSU', 'oklahoma': 'OU', 'oklahoma st': 'OKST',
+            'oregon': 'ORE', 'oregon st': 'ORST', 'penn st': 'PSU', 'pittsburgh': 'PITT', 'providence': 'PROV',
+            'purdue': 'PUR', 'rutgers': 'RUT', 'san diego st': 'SDSU', 'seton hall': 'SH', 'south carolina': 'SC',
+            'southern california': 'USC', 'usc': 'USC', 'stanford': 'STAN', 'syracuse': 'SYR', 'tcu': 'TCU',
+            'temple': 'TEM', 'tennessee': 'TENN', 'texas': 'TEX', 'texas a&m': 'TAMU', 'texas tech': 'TTU',
+            'ucla': 'UCLA', 'vanderbilt': 'VAN', 'villanova': 'NOVA', 'virginia': 'UVA', 'virginia tech': 'VT',
+            'wake forest': 'WAKE', 'washington': 'WASH', 'washington st': 'WSU', 'west virginia': 'WVU',
+            'wisconsin': 'WIS', 'xavier': 'XAV', 'st. marys': 'SMC', "st mary's": 'SMC', 'st marys': 'SMC',
+            'william & mary': 'W&M', 'william and mary': 'W&M', 'davidson': 'DAV', 'dayton': 'DAY',
+            'depaul': 'DEP', 'richmond': 'RICH', 'saint louis': 'SLU', 'wichita st': 'WICH',
+            'campbell': 'CAMP', 'elon': 'ELON', 'drexel': 'DREX', 'towson': 'TOW', 'hofstra': 'HOF',
+            'stony brook': 'STBK', 'delaware': 'DEL', 'northeastern': 'NE', 'charleston': 'CHAR',
+            'furman': 'FUR', 'samford': 'SAM', 'wofford': 'WOF', 'chattanooga': 'CHAT', 'mercer': 'MER',
+            'ucf': 'UCF', 'smu': 'SMU', 'tulane': 'TUL', 'tulsa': 'TLSA', 'unc': 'UNC'
+        };
+        
+        function getTeamAbbrev(teamName) {
+            if (!teamName) return '';
+            const key = teamName.toLowerCase().trim();
+            // Direct lookup
+            if (TEAM_ABBREVS[key]) return TEAM_ABBREVS[key];
+            // Partial match
+            for (const [name, abbrev] of Object.entries(TEAM_ABBREVS)) {
+                if (key.includes(name) || name.includes(key)) return abbrev;
+            }
+            // Fallback: first 4 chars uppercase
+            return teamName.substring(0, 4).toUpperCase();
+        }
+        
+        // Apply abbreviations to betting action on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.split-team-name, .line-value').forEach(el => {
+                const text = el.textContent.trim();
+                // For line values like "Willia -7.5", extract team name
+                const lineMatch = text.match(/^([A-Za-z&\s]+)\s*-?([\d.]+)$/);
+                if (lineMatch) {
+                    const abbrev = getTeamAbbrev(lineMatch[1].trim());
+                    el.textContent = abbrev + ' -' + lineMatch[2];
+                } else if (!text.includes('%') && !text.includes('-')) {
+                    // Plain team name
+                    const abbrev = getTeamAbbrev(text);
+                    el.textContent = abbrev;
+                }
+            });
+        });
+        
         // PIKKIT TAB SWITCHING
         function switchBetTab(tabEl, tabType) {
             const gameCard = tabEl.closest('.game-card');
