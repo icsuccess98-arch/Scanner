@@ -4365,21 +4365,39 @@
                 document.querySelectorAll('.league-tab').forEach(t => t.classList.remove('active'));
                 this.classList.add('active');
                 
-                // Handle RLM/Sharp tab specially - filter individual games
+                // Handle RLM/Sharp tab specially - filter and sort games
                 if (league === 'rlm-sharp') {
                     // Show all league sections
                     document.querySelectorAll('.league-section').forEach(section => {
                         section.classList.remove('hidden');
                     });
-                    // Hide games that don't have RLM/Sharp
+                    
+                    // Collect RLM and Sharp games separately for sorting
+                    const rlmGames = [];
+                    const sharpGames = [];
+                    
                     document.querySelectorAll('.game-card').forEach(card => {
                         const bettingAction = card.querySelector('.betting-action');
-                        if (bettingAction && (bettingAction.classList.contains('rlm-alert') || bettingAction.classList.contains('sharp-alert-box'))) {
+                        if (bettingAction && bettingAction.classList.contains('rlm-alert')) {
+                            rlmGames.push(card);
+                            card.style.display = '';
+                        } else if (bettingAction && bettingAction.classList.contains('sharp-alert-box')) {
+                            sharpGames.push(card);
                             card.style.display = '';
                         } else {
                             card.style.display = 'none';
                         }
                     });
+                    
+                    // Reorder: RLM games first, then Sharp games
+                    // Move RLM games to top of their parent containers
+                    rlmGames.forEach(card => {
+                        const parent = card.parentElement;
+                        if (parent) {
+                            parent.insertBefore(card, parent.firstChild);
+                        }
+                    });
+                    
                     // Hide slate section
                     const slateSection = document.getElementById('slate-section');
                     if (slateSection) slateSection.style.display = 'none';
