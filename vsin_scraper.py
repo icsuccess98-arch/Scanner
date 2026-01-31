@@ -40,34 +40,37 @@ def get_vsin_splits(sport: str = 'CBB') -> dict:
         'CFB': 'https://data.vsin.com/college-football/betting-splits/',
         'NHL': 'https://data.vsin.com/nhl/betting-splits/',
     }
-    
+
     url = sport_urls.get(sport.upper(), sport_urls['CBB'])
     cookies = load_cookies()
-    
+
     if not cookies:
         return {'success': False, 'message': 'No cookies found. Please login to VSIN first.', 'data': {}}
-    
+
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
         'Referer': 'https://vsin.com/',
     }
-    
+
     try:
         response = requests.get(url, cookies=cookies, headers=headers, timeout=30)
-        
+
         if response.status_code != 200:
             return {'success': False, 'message': f'Failed to fetch: {response.status_code}', 'data': {}}
-        
+
         html = response.text
-        
+
+        # Debug: Log HTML structure for troubleshooting
+        logger.info(f"VSIN {sport} splits HTML length: {len(html)} chars")
+
         if 'logout' not in html.lower() and 'sign out' not in html.lower():
             if 'Subscribe' in html and 'Pro' in html and len(html) < 50000:
                 return {'success': False, 'message': 'Session expired. Please re-login to VSIN.', 'data': {}}
-        
+
         splits_data = parse_vsin_splits(html, sport)
-        
+
         return {'success': True, 'data': splits_data, 'count': len(splits_data)}
         
     except Exception as e:
@@ -84,6 +87,7 @@ def parse_vsin_splits(html: str, sport: str) -> dict:
 
         # Find all tables with betting data
         tables = soup.find_all('table')
+        logger.info(f"VSIN {sport} splits: Found {len(tables)} tables")
         for table in tables:
             rows = table.find_all('tr')
 
@@ -119,35 +123,13 @@ def parse_vsin_splits(html: str, sport: str) -> dict:
 
                 # Clean team names - remove History and other markers
                 teams_text = re.sub(r'History.*$', '', teams_cell).strip()
-                teams_text = re.sub(r'\s*@\s*', ' @ ', teams_text)  # Normalize @ symbol
+                teams_text = re.sub(r'Splits.*$', '', teams_text).strip()
 
-                # Try multiple parsing strategies for team names
-                away_team = None
-                home_team = None
-
-                # Strategy 1: Split on @ symbol
-                if ' @ ' in teams_text:
-                    parts = teams_text.split(' @ ')
-                    if len(parts) == 2:
-                        away_team = parts[0].strip()
-                        home_team = parts[1].strip()
-
-                # Strategy 2: Regex for concatenated team names with ranking numbers
-                if not away_team or not home_team:
-                    team_match = re.match(r'(.+?)(\s*\(\d+\)\s*)?([A-Z][a-zA-Z].*)', teams_text)
-                    if team_match:
-                        away_team = (team_match.group(1) + (team_match.group(2) or '')).strip()
-                        home_team = team_match.group(3).strip()
-
-                # Strategy 3: Look for uppercase word boundaries
-                if not away_team or not home_team:
-                    # Find where first word ends and second team begins
-                    match = re.match(r'([A-Za-z\s\.]+?)([A-Z][a-z].*)', teams_text)
-                    if match:
-                        away_team = match.group(1).strip()
-                        home_team = match.group(2).strip()
+                # Use the centralized parse_team_names function
+                away_team, home_team = parse_team_names(teams_text)
 
                 if not away_team or not home_team:
+                    logger.debug(f"Could not parse teams from splits cell: '{teams_text}'")
                     continue
 
                 # Parse percentages from handle and bets cells
@@ -245,27 +227,32 @@ def get_vsin_lines(sport: str = 'CBB') -> dict:
         'CFB': 'https://data.vsin.com/college-football/vegas-odds-linetracker/',
         'NHL': 'https://data.vsin.com/nhl/vegas-odds-linetracker/',
     }
-    
+
     url = sport_urls.get(sport.upper(), sport_urls['CBB'])
     cookies = load_cookies()
-    
+
     if not cookies:
         return {'success': False, 'message': 'No cookies found.', 'data': {}}
-    
+
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Accept': 'text/html,*/*',
         'Referer': 'https://vsin.com/',
     }
-    
+
     try:
         response = requests.get(url, cookies=cookies, headers=headers, timeout=30)
-        
+
         if response.status_code != 200:
             return {'success': False, 'message': f'Failed: {response.status_code}', 'data': {}}
-        
-        lines_data = parse_vsin_lines(response.text, sport)
-        
+
+        html = response.text
+
+        # Debug: Log HTML structure for troubleshooting
+        logger.info(f"VSIN {sport} lines HTML length: {len(html)} chars")
+
+        lines_data = parse_vsin_lines(html, sport)
+
         return {'success': True, 'data': lines_data, 'count': len(lines_data)}
         
     except Exception as e:
@@ -274,44 +261,103 @@ def get_vsin_lines(sport: str = 'CBB') -> dict:
 
 
 def parse_vsin_lines(html: str, sport: str) -> dict:
-    """Parse line tracker data from VSIN HTML"""
+    """Parse line tracker data from VSIN HTML - improved for various formats"""
     lines = {}
-    
+
     try:
         soup = BeautifulSoup(html, 'html.parser')
-        
+
         tables = soup.find_all('table')
-        for table in tables:
-            rows = table.find_all('tr')[2:]
-            
-            for row in rows:
+        logger.info(f"VSIN {sport} lines: Found {len(tables)} tables")
+
+        for table_idx, table in enumerate(tables):
+            rows = table.find_all('tr')
+
+            # Debug: Log first few rows structure
+            if table_idx == 0 and rows:
+                for row_idx, row in enumerate(rows[:3]):
+                    cells = row.find_all(['td', 'th'])
+                    cell_texts = [c.get_text(strip=True)[:30] for c in cells]
+                    logger.debug(f"VSIN lines table row {row_idx}: {cell_texts}")
+
+            # Skip header rows (first 1-2 rows typically)
+            data_rows = rows[1:] if len(rows) > 1 else rows
+
+            for row in data_rows:
                 cells = row.find_all('td')
-                if len(cells) < 4:
+                if len(cells) < 3:
                     continue
-                
-                time_cell = cells[0].get_text(strip=True)
-                teams_cell = cells[1].get_text(strip=True)
-                open_cell = cells[2].get_text(strip=True)
-                current_cell = cells[3].get_text(strip=True)
-                
-                if 'Time' in time_cell or not teams_cell:
+
+                # Try to find team names and spreads in the cells
+                # Common structures:
+                # [time, teams, open_spread, current_spread, ...]
+                # [teams, open_spread, current_spread, ...]
+
+                row_text = ' '.join([c.get_text(strip=True) for c in cells])
+
+                # Skip header-like rows
+                if 'Open' in row_text and 'Current' in row_text:
                     continue
-                
-                time_clean = re.sub(r'Splits.*$', '', time_cell).strip()
-                
+                if 'Time' in cells[0].get_text(strip=True):
+                    continue
+
+                # Try to identify teams cell (usually has @ or longer text)
+                teams_cell = None
+                teams_idx = -1
+                for idx, cell in enumerate(cells):
+                    cell_text = cell.get_text(strip=True)
+                    # Teams cell is typically longer and may have @ or concatenated names
+                    if len(cell_text) > 5 and not re.match(r'^[-+]?\d', cell_text):
+                        teams_cell = cell_text
+                        teams_idx = idx
+                        break
+
+                if not teams_cell:
+                    continue
+
+                # Parse team names
                 away_team, home_team = parse_team_names(teams_cell)
                 if not away_team or not home_team:
                     continue
-                
-                open_spread = parse_spread_line(open_cell)
-                current_spread = parse_spread_line(current_cell)
-                
+
+                # Look for spread values after teams cell
+                open_spread = {'away_spread': None, 'away_odds': None, 'home_spread': None, 'home_odds': None}
+                current_spread = {'away_spread': None, 'away_odds': None, 'home_spread': None, 'home_odds': None}
+
+                # Gather remaining cells after teams
+                remaining_cells = cells[teams_idx + 1:] if teams_idx >= 0 else cells[1:]
+
+                # First spread-like value is open, second is current
+                spread_cells_found = []
+                for cell in remaining_cells:
+                    cell_text = cell.get_text(strip=True)
+                    if cell_text and cell_text != '--':
+                        parsed = parse_spread_line(cell_text)
+                        if parsed.get('away_spread') is not None or 'PK' in cell_text.upper() or 'EVEN' in cell_text.upper():
+                            spread_cells_found.append(parsed)
+                        if len(spread_cells_found) >= 2:
+                            break
+
+                if len(spread_cells_found) >= 1:
+                    open_spread = spread_cells_found[0]
+                if len(spread_cells_found) >= 2:
+                    current_spread = spread_cells_found[1]
+
                 game_key = f"{away_team} @ {home_team}"
-                
+
+                # Calculate line movement
+                line_movement = None
+                line_direction = 'stable'
+                if open_spread.get('away_spread') is not None and current_spread.get('away_spread') is not None:
+                    line_movement = current_spread['away_spread'] - open_spread['away_spread']
+                    if line_movement < -0.4:
+                        line_direction = 'toward_away'  # Line moved toward away team (away became bigger favorite)
+                    elif line_movement > 0.4:
+                        line_direction = 'toward_home'  # Line moved toward home team (home became bigger favorite)
+
                 lines[game_key] = {
                     'away_team': away_team,
                     'home_team': home_team,
-                    'time': time_clean,
                     'open_away_spread': open_spread.get('away_spread'),
                     'open_away_odds': open_spread.get('away_odds'),
                     'open_home_spread': open_spread.get('home_spread'),
@@ -320,21 +366,64 @@ def parse_vsin_lines(html: str, sport: str) -> dict:
                     'current_away_odds': current_spread.get('away_odds'),
                     'current_home_spread': current_spread.get('home_spread'),
                     'current_home_odds': current_spread.get('home_odds'),
+                    'line_movement': line_movement,
+                    'line_direction': line_direction,
                 }
-        
+
+                logger.debug(f"VSIN line parsed: {game_key} | Open: {open_spread.get('away_spread')} -> Current: {current_spread.get('away_spread')} | Movement: {line_movement}")
+
         logger.info(f"Parsed {len(lines)} games from VSIN {sport} line tracker")
-        
+
     except Exception as e:
         logger.error(f"Error parsing VSIN lines: {e}")
-    
+        import traceback
+        logger.error(traceback.format_exc())
+
     return lines
 
 
 def parse_team_names(teams_text: str) -> tuple:
-    """Parse concatenated team names into away and home teams"""
+    """Parse concatenated team names into away and home teams - improved for CBB"""
     teams_text = teams_text.strip()
-    
-    known_teams = [
+
+    # Remove rankings like (1), (25), etc. but preserve the text
+    teams_clean = re.sub(r'\s*\(\d+\)\s*', ' ', teams_text).strip()
+    # Collapse multiple spaces
+    teams_clean = re.sub(r'\s+', ' ', teams_clean)
+
+    # Strategy 1: Split on @ symbol (standard format)
+    if ' @ ' in teams_clean or '@' in teams_clean:
+        parts = re.split(r'\s*@\s*', teams_clean, 1)
+        if len(parts) == 2 and parts[0] and parts[1]:
+            return (parts[0].strip(), parts[1].strip())
+
+    # Common short CBB team abbreviations (3-4 letters) that appear concatenated
+    # These need special handling because they don't have obvious boundaries
+    short_teams = [
+        'SMU', 'VMI', 'LSU', 'TCU', 'UCF', 'USC', 'MIT', 'BYU', 'UAB', 'UVA', 'VCU',
+        'UNC', 'UNLV', 'UTEP', 'UTSA', 'IPFW', 'IUPUI', 'UNI', 'URI', 'UIC',
+        'SFA', 'WKU', 'NIU', 'CMU', 'EMU', 'WMU', 'FIU', 'FAU', 'FGCU', 'ETSU',
+        'MTSU', 'SIUE', 'UMBC', 'UMKC', 'NJIT', 'SIU', 'UNO', 'UNM', 'UCSB', 'CSUN',
+    ]
+
+    # Check if text starts with a short team name
+    for short in sorted(short_teams, key=len, reverse=True):
+        if teams_clean.upper().startswith(short):
+            remaining = teams_clean[len(short):].strip()
+            if remaining and len(remaining) >= 3:
+                return (short, remaining)
+
+    # Check if text contains a short team name after another team
+    for short in sorted(short_teams, key=len, reverse=True):
+        idx = teams_clean.upper().find(short)
+        if idx > 2:  # Short team is second (after first team)
+            away = teams_clean[:idx].strip()
+            home = teams_clean[idx:].strip()
+            if len(away) >= 3 and len(home) >= 3:
+                return (away, home)
+
+    # NBA full team names (longest first for greedy match)
+    nba_teams = [
         'San Antonio Spurs', 'Charlotte Hornets', 'Atlanta Hawks', 'Indiana Pacers',
         'New Orleans Pelicans', 'Philadelphia 76ers', 'Minnesota Timberwolves', 'Memphis Grizzlies',
         'Dallas Mavericks', 'Houston Rockets', 'Chicago Bulls', 'Miami Heat',
@@ -343,49 +432,158 @@ def parse_team_names(teams_text: str) -> tuple:
         'New York Knicks', 'Brooklyn Nets', 'Toronto Raptors', 'Detroit Pistons',
         'Orlando Magic', 'Washington Wizards', 'Sacramento Kings', 'Utah Jazz',
         'Portland Trail Blazers', 'Oklahoma City Thunder',
-        'Texas Tech', 'C Florida', 'Duke', 'Virginia Tech', 'Georgetown', 'Butler',
-        'Cincinnati', 'Houston', 'Pittsburgh', 'Clemson', 'Campbell', 'William', 'Mary',
-        'North Carolina', 'Georgia Tech', 'Virginia', 'Boston College', 'Florida State',
-        'Louisville', 'Syracuse', 'Notre Dame', 'Wake Forest', 'Stanford', 'California',
-        'USC', 'UCLA', 'Arizona', 'Arizona State', 'Oregon', 'Oregon State', 'Washington',
-        'Colorado', 'Utah', 'Kansas', 'Kansas State', 'Baylor', 'TCU', 'Iowa State',
-        'Oklahoma', 'Oklahoma State', 'West Virginia', 'Texas', 'BYU', 'UCF', 'Cincinnati',
     ]
-    
-    for team in sorted(known_teams, key=len, reverse=True):
-        if teams_text.startswith(team):
-            remaining = teams_text[len(team):].strip()
+
+    for team in sorted(nba_teams, key=len, reverse=True):
+        if teams_clean.startswith(team):
+            remaining = teams_clean[len(team):].strip()
             if remaining:
                 return (team, remaining)
-    
-    match = re.match(r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:\s*\(\d+\))?)([A-Z].*)', teams_text)
+
+    # Common multi-word CBB team names (helps with proper splitting)
+    cbb_prefixes = [
+        'North Carolina', 'South Carolina', 'Texas A&M', 'Texas Tech', 'Virginia Tech',
+        'Georgia Tech', 'Boston College', 'Wake Forest', 'Florida State', 'Ohio State',
+        'Penn State', 'Michigan State', 'Iowa State', 'Kansas State', 'Oklahoma State',
+        'Mississippi State', 'Arizona State', 'Oregon State', 'Washington State', 'Colorado State',
+        'San Diego State', 'Fresno State', 'Boise State', 'Utah State', 'New Mexico',
+        'New Mexico State', 'Sam Houston', 'Stephen F Austin', 'Abilene Christian',
+        'Central Florida', 'South Florida', 'North Texas', 'West Virginia', 'East Carolina',
+        'Ball State', 'Kent State', 'Bowling Green', 'Old Dominion', 'James Madison',
+        'George Mason', 'George Washington', 'Saint Louis', 'Saint Marys', "Saint John's",
+        'Holy Cross', 'Boston University', 'Stony Brook', 'Long Beach State',
+        'Cal State', 'San Jose State', 'Sacramento State', 'Portland State',
+    ]
+
+    for prefix in sorted(cbb_prefixes, key=len, reverse=True):
+        if teams_clean.startswith(prefix):
+            remaining = teams_clean[len(prefix):].strip()
+            if remaining and len(remaining) >= 3:
+                return (prefix, remaining)
+
+    # Strategy 2: Look for multi-word team name patterns
+    # CBB teams often have patterns like "North Carolina", "San Diego State", "South Carolina"
+    # Match: CapitalWord (optional more words) followed by another CapitalWord start
+
+    # First try to find two-word or three-word team names
+    multi_word_pattern = r'^((?:[A-Z][a-zA-Z\.]+\s+){1,3}[A-Z][a-zA-Z\.]+)((?:[A-Z][a-zA-Z\.]+.*))'
+    match = re.match(multi_word_pattern, teams_clean)
     if match:
-        return (match.group(1).strip(), match.group(2).strip())
-    
-    mid = len(teams_text) // 2
-    for i in range(mid, len(teams_text)):
-        if teams_text[i].isupper() and i > 0 and teams_text[i-1].islower():
-            return (teams_text[:i].strip(), teams_text[i:].strip())
-    
+        away = match.group(1).strip()
+        home = match.group(2).strip()
+        # Sanity check: both should have at least 3 chars
+        if len(away) >= 3 and len(home) >= 3:
+            return (away, home)
+
+    # Strategy 3: Look for single word teams followed by another team
+    # Match pattern: Word(s)Word(s) where second Word starts with capital
+    single_pattern = r'^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)([A-Z][a-zA-Z].*)'
+    match = re.match(single_pattern, teams_clean)
+    if match:
+        away = match.group(1).strip()
+        home = match.group(2).strip()
+        if len(away) >= 3 and len(home) >= 3:
+            return (away, home)
+
+    # Strategy 4: Find boundary where lowercase to uppercase transition happens
+    for i in range(3, len(teams_clean) - 3):
+        if teams_clean[i].isupper() and teams_clean[i-1].islower():
+            away = teams_clean[:i].strip()
+            home = teams_clean[i:].strip()
+            if len(away) >= 3 and len(home) >= 3:
+                return (away, home)
+
+    # Strategy 5: Split roughly in the middle, find nearest word boundary
+    mid = len(teams_clean) // 2
+    for offset in range(20):
+        for pos in [mid + offset, mid - offset]:
+            if 3 <= pos < len(teams_clean) - 3:
+                if teams_clean[pos] == ' ':
+                    away = teams_clean[:pos].strip()
+                    home = teams_clean[pos:].strip()
+                    if len(away) >= 3 and len(home) >= 3:
+                        return (away, home)
+
+    logger.warning(f"Could not parse team names from: '{teams_text}'")
     return (None, None)
 
 
 def parse_spread_line(cell_text: str) -> dict:
-    """Parse spread line like '-3.5-110+3.5-110' into components"""
+    """
+    Parse spread line into components - handles multiple formats:
+    - '-3.5-110+3.5-110' (concatenated)
+    - '-3.5 -110 / +3.5 -110' (separated)
+    - 'PK -110' or 'EVEN' (pick'em)
+    - '-3' (no odds)
+    - '-3.5' (just spread)
+    """
     result = {'away_spread': None, 'away_odds': None, 'home_spread': None, 'home_odds': None}
-    
-    if not cell_text or cell_text == '--':
+
+    if not cell_text or cell_text == '--' or cell_text.strip() == '':
         return result
-    
-    pattern = r'([+-]?\d+\.?\d*)([-+]\d+)([+-]?\d+\.?\d*)([-+]\d+)'
-    match = re.match(pattern, cell_text.replace(' ', ''))
-    
+
+    text = cell_text.strip().upper()
+
+    # Handle PK (pick'em) - spread is 0
+    if 'PK' in text or text == 'EVEN':
+        result['away_spread'] = 0.0
+        result['home_spread'] = 0.0
+        # Try to find odds
+        odds_match = re.search(r'([-+]\d{3})', text)
+        if odds_match:
+            result['away_odds'] = int(odds_match.group(1))
+            result['home_odds'] = int(odds_match.group(1))
+        else:
+            result['away_odds'] = -110
+            result['home_odds'] = -110
+        return result
+
+    # Strategy 1: Concatenated format like '-3.5-110+3.5-110'
+    pattern_concat = r'([+-]?\d+\.?\d*)([-+]\d{3})([+-]\d+\.?\d*)([-+]\d{3})'
+    match = re.match(pattern_concat, text.replace(' ', ''))
     if match:
         result['away_spread'] = float(match.group(1))
         result['away_odds'] = int(match.group(2))
         result['home_spread'] = float(match.group(3))
         result['home_odds'] = int(match.group(4))
-    
+        return result
+
+    # Strategy 2: Find all spread-like numbers in the text
+    # Spreads are typically -/+ single or double digit with optional .5
+    spread_matches = re.findall(r'([+-]?\d{1,2}(?:\.5)?)', text)
+    odds_matches = re.findall(r'([-+]\d{3})', text)
+
+    if spread_matches:
+        # First spread value is away
+        try:
+            result['away_spread'] = float(spread_matches[0])
+            if len(spread_matches) > 1:
+                result['home_spread'] = float(spread_matches[1])
+            else:
+                # Mirror the spread (if away is -3.5, home is +3.5)
+                result['home_spread'] = -result['away_spread']
+        except ValueError:
+            pass
+
+    if odds_matches:
+        try:
+            result['away_odds'] = int(odds_matches[0])
+            if len(odds_matches) > 1:
+                result['home_odds'] = int(odds_matches[1])
+            else:
+                result['home_odds'] = result['away_odds']
+        except ValueError:
+            pass
+
+    # Strategy 3: Just a single spread number like '-3.5' or '-3'
+    if result['away_spread'] is None:
+        single_spread = re.match(r'^([+-]?\d+(?:\.\d+)?)$', text.replace(' ', ''))
+        if single_spread:
+            result['away_spread'] = float(single_spread.group(1))
+            result['home_spread'] = -result['away_spread']
+            result['away_odds'] = -110
+            result['home_odds'] = -110
+
     return result
 
 
@@ -396,13 +594,18 @@ def get_all_vsin_data(sport: str = 'CBB') -> dict:
     """
     splits_result = get_vsin_splits(sport)
     lines_result = get_vsin_lines(sport)
-    
+
     combined = {}
-    
+
     if lines_result['success']:
         for game_key, data in lines_result['data'].items():
             combined[game_key] = data.copy()
-    
+            # Ensure line_movement and line_direction are always present
+            if 'line_movement' not in combined[game_key]:
+                combined[game_key]['line_movement'] = None
+            if 'line_direction' not in combined[game_key]:
+                combined[game_key]['line_direction'] = 'stable'
+
     if splits_result['success']:
         for game_key, data in splits_result['data'].items():
             if game_key in combined:
@@ -424,8 +627,43 @@ def get_all_vsin_data(sport: str = 'CBB') -> dict:
                     'money_home': data.get('home_handle_pct'),
                     'away_sharp': data.get('away_sharp'),
                     'home_sharp': data.get('home_sharp'),
+                    'line_movement': None,
+                    'line_direction': 'stable',
                 }
-    
+
+    # Try to match splits with lines using fuzzy team matching
+    if splits_result['success'] and lines_result['success']:
+        unmatched_splits = []
+        for split_key, split_data in splits_result['data'].items():
+            if split_key not in combined or combined[split_key].get('tickets_away') is None:
+                unmatched_splits.append((split_key, split_data))
+
+        for split_key, split_data in unmatched_splits:
+            split_away = split_data.get('away_team', '').lower()
+            split_home = split_data.get('home_team', '').lower()
+
+            for line_key in combined:
+                line_data = combined[line_key]
+                line_away = line_data.get('away_team', '').lower()
+                line_home = line_data.get('home_team', '').lower()
+
+                # Fuzzy match: check if team names overlap
+                if ((split_away in line_away or line_away in split_away) and
+                    (split_home in line_home or line_home in split_home)):
+                    if combined[line_key].get('tickets_away') is None:
+                        combined[line_key].update({
+                            'tickets_away': split_data.get('away_bets_pct'),
+                            'tickets_home': split_data.get('home_bets_pct'),
+                            'money_away': split_data.get('away_handle_pct'),
+                            'money_home': split_data.get('home_handle_pct'),
+                            'away_sharp': split_data.get('away_sharp'),
+                            'home_sharp': split_data.get('home_sharp'),
+                        })
+                        logger.debug(f"Fuzzy matched splits: {split_key} -> {line_key}")
+                        break
+
+    logger.info(f"VSIN combined data for {sport}: {len(combined)} games (lines: {lines_result.get('count', 0)}, splits: {splits_result.get('count', 0)})")
+
     return {
         'success': True,
         'data': combined,
@@ -437,19 +675,29 @@ def get_all_vsin_data(sport: str = 'CBB') -> dict:
 
 def test_vsin_connection():
     """Test if VSIN cookies are valid"""
-    result = get_all_vsin_data('CBB')
-    if result['success']:
-        print(f"VSIN: {result['count']} games (lines: {result['lines_count']}, splits: {result['splits_count']})")
-        for k, v in list(result['data'].items())[:3]:
-            print(f"  {k}")
-            print(f"    Open: {v.get('open_away_spread')} | Current: {v.get('current_away_spread')}")
-            print(f"    Tickets: {v.get('tickets_away')}%-{v.get('tickets_home')}% | Money: {v.get('money_away')}%-{v.get('money_home')}%")
-        return True
-    else:
-        print(f"VSIN failed: {result.get('message')}")
-        return False
+    print("=" * 60)
+    print("Testing VSIN Connection")
+    print("=" * 60)
+
+    for sport in ['NBA', 'CBB']:
+        print(f"\n--- Testing {sport} ---")
+        result = get_all_vsin_data(sport)
+        if result['success']:
+            print(f"VSIN {sport}: {result['count']} games (lines: {result['lines_count']}, splits: {result['splits_count']})")
+            for k, v in list(result['data'].items())[:5]:
+                print(f"\n  Game: {k}")
+                print(f"    Away: {v.get('away_team')} | Home: {v.get('home_team')}")
+                open_spread = v.get('open_away_spread')
+                current_spread = v.get('current_away_spread')
+                print(f"    Open: {open_spread} | Current: {current_spread}")
+                print(f"    Line Movement: {v.get('line_movement')} | Direction: {v.get('line_direction')}")
+                print(f"    Tickets: {v.get('tickets_away')}%-{v.get('tickets_home')}% | Money: {v.get('money_away')}%-{v.get('money_home')}%")
+        else:
+            print(f"VSIN {sport} failed: {result.get('message')}")
+
+    return True
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG, format='%(levelname)s - %(message)s')
     test_vsin_connection()

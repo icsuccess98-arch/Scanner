@@ -855,35 +855,65 @@ def strip_accents(text: str) -> str:
         if unicodedata.category(c) != 'Mn'
     )
 
+def get_all_team_aliases(normalized_name: str) -> list:
+    """
+    Get all possible aliases for a normalized team name.
+    Returns list of all keys that map to this normalized name.
+    Useful for reverse lookups when external sources use abbreviations.
+    """
+    aliases = [normalized_name]
+    normalized_lower = normalized_name.lower().strip()
+
+    for alias, norm in CBB_TEAM_NAME_ALIASES.items():
+        if norm.lower().strip() == normalized_lower:
+            aliases.append(alias)
+
+    # Also add common variations
+    # State abbreviation variations
+    if ' State' in normalized_name:
+        base = normalized_name.replace(' State', '')
+        aliases.extend([f'{base} St', f'{base} St.', base])
+
+    # Saint/St variations
+    if normalized_name.startswith('Saint '):
+        st_ver = 'St. ' + normalized_name[6:]
+        aliases.extend([st_ver, st_ver.replace('. ', ' '), st_ver.replace('.', '')])
+    elif normalized_name.startswith('St ') or normalized_name.startswith('St. '):
+        saint_ver = 'Saint ' + normalized_name.split(' ', 1)[1] if ' ' in normalized_name else normalized_name
+        aliases.append(saint_ver)
+
+    return list(set(aliases))
+
+
 def normalize_cbb_team_name(name: str) -> str:
     """Normalize CBB team name for consistent matching."""
     if not name:
         return ''
     # Handle HTML entities
     name = name.replace('&amp;', '&').strip()
-    
+
     # Strip accents/diacritics (San José -> San Jose)
     name_ascii = strip_accents(name)
-    
+
     # Check exact aliases first (with original name)
     if name in CBB_TEAM_NAME_ALIASES:
         return CBB_TEAM_NAME_ALIASES[name]
-    
+
     # Check exact aliases with ASCII version (accents stripped)
     if name_ascii in CBB_TEAM_NAME_ALIASES:
         return CBB_TEAM_NAME_ALIASES[name_ascii]
-    
+
     # Try uppercase version for abbreviations (UNCA, NCST, WIN, etc.)
     name_upper = name_ascii.upper()
     if name_upper in CBB_TEAM_NAME_ALIASES:
         return CBB_TEAM_NAME_ALIASES[name_upper]
-    
+
     # Try case-insensitive match on all aliases
     name_lower = name_ascii.lower()
     for alias, normalized in CBB_TEAM_NAME_ALIASES.items():
         if strip_accents(alias).lower() == name_lower:
             return normalized
-    
+
     return name.strip()
 
 def get_cbb_logo(team_name: str) -> Optional[str]:

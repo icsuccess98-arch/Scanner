@@ -4,7 +4,10 @@
       "Bash(python3:*)",
       "Bash(grep:*)",
       "WebFetch(domain:www.covers.com)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(python:*)",
+      "Bash(curl:*)",
+      "Bash(pgrep:*)"
     ]
   }
 }

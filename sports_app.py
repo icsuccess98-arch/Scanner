@@ -19,7 +19,7 @@ from sqlalchemy import delete
 import requests
 import pytz
 from bs4 import BeautifulSoup
-from enhanced_scraping import get_cbb_logo, CBB_TEAM_LOGOS, CBB_TEAM_NAME_ALIASES, normalize_cbb_team_name, get_covers_matchup_stats, scrape_covers_cbb_slate, scrape_kenpom_team_metrics, get_cbb_slate_with_kenpom
+from enhanced_scraping import get_cbb_logo, CBB_TEAM_LOGOS, CBB_TEAM_NAME_ALIASES, normalize_cbb_team_name, get_all_team_aliases, get_covers_matchup_stats, scrape_covers_cbb_slate, scrape_kenpom_team_metrics, get_cbb_slate_with_kenpom
 from automated_loading_system import (
     setup_automatic_loading, 
     get_transparent_cbb_logo, 
@@ -1551,15 +1551,28 @@ class MatchupIntelligence:
             # Get Four Factors from dedicated API endpoint
             ff_cache = MatchupIntelligence.fetch_kenpom_four_factors()
             team_key = team_name.lower().strip()
-            
+
             # Try exact match first
             ff = ff_cache.get(team_key)
-            
+
             # Try normalized name match
             if not ff:
                 normalized = normalize_cbb_team_name(team_name).lower().strip()
                 ff = ff_cache.get(normalized)
-            
+
+            # Try all known aliases (bi-directional lookup for SJSU, SMC, etc.)
+            if not ff:
+                try:
+                    all_aliases = get_all_team_aliases(normalize_cbb_team_name(team_name))
+                    for alias in all_aliases:
+                        alias_lower = alias.lower().strip()
+                        if alias_lower in ff_cache:
+                            ff = ff_cache[alias_lower]
+                            logger.info(f"KenPom FF matched via alias: {team_name} -> {alias}")
+                            break
+                except Exception:
+                    pass
+
             # Merge Four Factors into result
             if ff:
                 result.update({
@@ -1583,11 +1596,23 @@ class MatchupIntelligence:
                 logger.info(f"KenPom Four Factors merged for {team_name}")
             
             # Get 3PT% data from misc cache (if available)
-            # Try multiple name variations for better matching
+            # Try multiple name variations for better matching (bi-directional alias lookup)
             misc_data = kenpom_misc_cache.get(team_key)
             if not misc_data:
                 normalized = normalize_cbb_team_name(team_name).lower().strip()
                 misc_data = kenpom_misc_cache.get(normalized)
+            if not misc_data:
+                # Try all known aliases for this team (SJSU, SMC, etc.)
+                try:
+                    all_aliases = get_all_team_aliases(normalize_cbb_team_name(team_name))
+                    for alias in all_aliases:
+                        alias_lower = alias.lower().strip()
+                        if alias_lower in kenpom_misc_cache:
+                            misc_data = kenpom_misc_cache[alias_lower]
+                            logger.info(f"KenPom misc matched via alias: {team_name} -> {alias}")
+                            break
+                except Exception:
+                    pass
             if not misc_data:
                 # Try partial match with token-based comparison for better accuracy
                 team_tokens = set(team_key.replace('-', ' ').split())
@@ -2482,6 +2507,24 @@ class MatchupIntelligence:
                 total_open_odds = None
                 total_current_line = None
                 total_current_odds = None
+
+                # Calculate actual line movement
+                line_movement_value = data.get('line_movement')
+                line_direction = data.get('line_direction', 'stable')
+
+                # If not calculated in scraper, calculate here
+                if line_movement_value is None and spread_open_line is not None and spread_current_line is not None:
+                    try:
+                        line_movement_value = float(spread_current_line) - float(spread_open_line)
+                        if line_movement_value < -0.4:
+                            line_direction = 'toward_away'
+                        elif line_movement_value > 0.4:
+                            line_direction = 'toward_home'
+                        else:
+                            line_direction = 'stable'
+                    except (ValueError, TypeError):
+                        line_movement_value = None
+                        line_direction = 'stable'
                 
                 # === TRUE RLM DETECTION ===
                 # RLM = Public bets heavily one way, but line moves OPPOSITE direction
@@ -2582,6 +2625,12 @@ class MatchupIntelligence:
                 if open_favorite:
                     open_favorite = normalize_team_name(open_favorite)
                 
+                # Format line movement for display
+                if line_movement_value is not None:
+                    line_movement_display = f"{line_movement_value:+.1f}" if line_movement_value != 0 else "0"
+                else:
+                    line_movement_display = 'N/A'
+
                 result[game_key] = {
                     'away': {'team': away_team, 'bet_pct': str(away_bet_pct), 'money_pct': str(away_money_pct)},
                     'home': {'team': home_team, 'bet_pct': str(home_bet_pct), 'money_pct': str(home_money_pct)},
@@ -2589,6 +2638,8 @@ class MatchupIntelligence:
                     'open_favorite': open_favorite,
                     'open_spread': spread_open_line or 'N/A',
                     'current_spread': spread_current_line or 'N/A',
+                    'spread_open_line': spread_open_line,  # Numeric value for template
+                    'spread_current_line': spread_current_line,  # Numeric value for template
                     'spread_open_odds': spread_open_odds or '-110',
                     'spread_current_odds': spread_current_odds or '-110',
                     'spread_tickets_pct': away_bet_pct,
@@ -2598,6 +2649,10 @@ class MatchupIntelligence:
                     'tickets_home': home_bet_pct,
                     'money_away': away_money_pct,
                     'money_home': home_money_pct,
+                    'away_bet_pct': away_bet_pct,
+                    'home_bet_pct': home_bet_pct,
+                    'away_money_pct': away_money_pct,
+                    'home_money_pct': home_money_pct,
                     'open_away_spread': spread_open_line,
                     'current_away_spread': spread_current_line,
                     'open_away_odds': spread_open_odds,
@@ -2610,7 +2665,9 @@ class MatchupIntelligence:
                     'total_current_line': total_current_line or 'N/A',
                     'total_open_odds': total_open_odds or '-110',
                     'total_current_odds': total_current_odds or '-110',
-                    'line_movement': 'N/A',
+                    'line_movement': line_movement_display,
+                    'line_movement_value': line_movement_value,  # Numeric value
+                    'line_direction': line_direction,
                     'majority_team': majority_team,
                     'majority_pct': majority_pct,
                     'rlm_potential': rlm_potential,
@@ -9837,35 +9894,51 @@ CBB_TEAM_NAME_MAP = {
 }
 
 def get_torvik_team(team_name: str) -> Optional[dict]:
-    """Get Torvik stats for a team by name (fuzzy match)."""
+    """Get Torvik stats for a team by name (fuzzy match with bi-directional alias support)."""
     if not torvik_cache:
         fetch_kenpom_ratings()
     if not torvik_cache:
         return None
-    
+
     name_lower = team_name.lower().strip()
-    
+
     # Direct cache lookup
     if name_lower in torvik_cache:
         return torvik_cache[name_lower]
-    
+
+    # Try normalized name
+    normalized = normalize_cbb_team_name(team_name).lower().strip()
+    if normalized in torvik_cache:
+        return torvik_cache[normalized]
+
+    # Try all known aliases (SJSU, SMC, etc.) - bi-directional lookup
+    try:
+        all_aliases = get_all_team_aliases(normalize_cbb_team_name(team_name))
+        for alias in all_aliases:
+            alias_lower = alias.lower().strip()
+            if alias_lower in torvik_cache:
+                logger.debug(f"Torvik matched via alias: {team_name} -> {alias}")
+                return torvik_cache[alias_lower]
+    except Exception:
+        pass
+
     # Try comprehensive mapping
     if name_lower in CBB_TEAM_NAME_MAP:
         mapped_name = CBB_TEAM_NAME_MAP[name_lower]
         if mapped_name in torvik_cache:
             return torvik_cache[mapped_name]
-    
+
     # Try with "st." suffix variations
     name_with_st = name_lower.replace(' state', ' st.').replace(' st', ' st.')
     if name_with_st in torvik_cache:
         return torvik_cache[name_with_st]
-    
+
     # Try without periods
     name_no_periods = name_lower.replace('.', '')
     for key in torvik_cache:
         if key.replace('.', '') == name_no_periods:
             return torvik_cache[key]
-    
+
     # Fuzzy substring matching
     for key, data in torvik_cache.items():
         if name_lower in key or key in name_lower:
@@ -9876,7 +9949,7 @@ def get_torvik_team(team_name: str) -> Optional[dict]:
         matching_parts = sum(1 for p in key_parts if p in name_parts and len(p) > 3)
         if matching_parts >= 1 and len(key_parts) <= 3:
             return data
-    
+
     return None
 
 def calculate_torvik_projection(away_team: str, home_team: str) -> Optional[dict]:
@@ -12225,20 +12298,21 @@ def spreads():
                 g.vsin_tickets_home = vsin_match.get('tickets_home') or 50
                 g.vsin_money_away = vsin_match.get('money_away') or 50
                 g.vsin_money_home = vsin_match.get('money_home') or 50
-                g.vsin_open_spread = vsin_match.get('open_away_spread')
-                g.vsin_current_spread = vsin_match.get('current_away_spread')
-                g.vsin_open_odds = vsin_match.get('open_away_odds')
-                g.vsin_current_odds = vsin_match.get('current_away_odds')
+                # Use empty string instead of None for spread values (prevents "None" string in HTML)
+                g.vsin_open_spread = vsin_match.get('open_away_spread') if vsin_match.get('open_away_spread') is not None else ''
+                g.vsin_current_spread = vsin_match.get('current_away_spread') if vsin_match.get('current_away_spread') is not None else ''
+                g.vsin_open_odds = vsin_match.get('open_away_odds') or '-110'
+                g.vsin_current_odds = vsin_match.get('current_away_odds') or '-110'
                 g.vsin_has_data = True
             else:
                 g.vsin_tickets_away = 50
                 g.vsin_tickets_home = 50
                 g.vsin_money_away = 50
                 g.vsin_money_home = 50
-                g.vsin_open_spread = None
-                g.vsin_current_spread = None
-                g.vsin_open_odds = None
-                g.vsin_current_odds = None
+                g.vsin_open_spread = ''
+                g.vsin_current_spread = ''
+                g.vsin_open_odds = '-110'
+                g.vsin_current_odds = '-110'
                 g.vsin_has_data = False
             
             games_by_league[g.league].append(g)
@@ -13021,8 +13095,8 @@ def get_matchup_data(game_id):
                 'current_spread': current_spread if current_spread else 'N/A',
                 'away_spread': current_spread if current_spread else 'N/A',
                 'home_spread': current_spread if current_spread else 'N/A',
-                'spread_open_line': open_spread if open_spread else 'N/A',
-                'spread_current_line': current_spread if current_spread else 'N/A',
+                'spread_open_line': open_spread,
+                'spread_current_line': current_spread,
                 'spread_open_odds': rlm_data.get('spread_open_odds', '-110'),
                 'spread_current_odds': rlm_data.get('spread_current_odds', '-110'),
                 'spread_tickets_pct': away_bet,
@@ -13034,6 +13108,8 @@ def get_matchup_data(game_id):
                 'total_open_odds': rlm_data.get('total_open_odds', '-110'),
                 'total_current_odds': rlm_data.get('total_current_odds', '-110'),
                 'line_movement': rlm_data.get('line_movement', 'N/A'),
+                'line_movement_value': rlm_data.get('line_movement_value'),
+                'line_direction': rlm_data.get('line_direction', 'stable'),
                 'away_bet_pct': away_bet,
                 'home_bet_pct': home_bet,
                 'away_money_pct': away_money,
