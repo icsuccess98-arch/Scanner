@@ -2082,6 +2082,14 @@
                 
                 <table style="width: 100%; border-collapse: separate; border-spacing: 0 4px;">
                     <tr>
+                        <td style="background: rgba(255, 215, 0, 0.12); border-radius: 6px 0 0 6px; padding: 8px 10px; border-left: 3px solid #ffd700; vertical-align: top; white-space: nowrap; width: 110px;">
+                            <span style="font-size: 10px; font-weight: 700; color: #ffd700;">Top 25 Teams</span>
+                        </td>
+                        <td style="background: rgba(255, 215, 0, 0.12); border-radius: 0 6px 6px 0; padding: 8px 10px; vertical-align: top;">
+                            <span style="font-size: 10px; color: #e2e8f0;">{{ cbb_top25_teams|safe if cbb_top25_teams != 'None' else 'None' }}</span>
+                        </td>
+                    </tr>
+                    <tr>
                         <td style="background: rgba(139, 92, 246, 0.08); border-radius: 6px 0 0 6px; padding: 8px 10px; border-left: 3px solid #a78bfa; vertical-align: top; white-space: nowrap; width: 110px;">
                             <span style="font-size: 10px; font-weight: 700; color: #a78bfa;">Cold Teams (L10)</span>
                         </td>
@@ -2095,6 +2103,14 @@
                         </td>
                         <td style="background: rgba(139, 92, 246, 0.08); border-radius: 0 6px 6px 0; padding: 8px 10px; vertical-align: top;">
                             <span style="font-size: 10px; color: #e2e8f0;">{{ cbb_hot_teams|safe if cbb_hot_teams != 'None' else 'None' }}</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="background: rgba(139, 92, 246, 0.08); border-radius: 6px 0 0 6px; padding: 8px 10px; border-left: 3px solid #a78bfa; vertical-align: top; white-space: nowrap; width: 110px;">
+                            <span style="font-size: 10px; font-weight: 700; color: #a78bfa;">Bad Defense</span>
+                        </td>
+                        <td style="background: rgba(139, 92, 246, 0.08); border-radius: 0 6px 6px 0; padding: 8px 10px; vertical-align: top;">
+                            <span style="font-size: 10px; color: #e2e8f0;">{{ cbb_bad_defense|safe if cbb_bad_defense != 'None' else 'None' }}</span>
                         </td>
                     </tr>
                     <tr>

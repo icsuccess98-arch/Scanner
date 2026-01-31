@@ -8385,6 +8385,100 @@ def fetch_nfl_team_stats(team_id):
 torvik_cache = {}
 torvik_cache_date = None
 
+# KenPom API Integration
+kenpom_cache = {}
+kenpom_cache_date = None
+
+def fetch_kenpom_ratings():
+    """Fetch KenPom team ratings via official API. Cached daily."""
+    global kenpom_cache, kenpom_cache_date
+    today = date.today()
+    if kenpom_cache_date == today and kenpom_cache:
+        logger.info(f"Using cached KenPom data ({len(kenpom_cache)} teams)")
+        return kenpom_cache
+    
+    api_key = os.environ.get('CBB_API_KEY')
+    if not api_key:
+        logger.warning("CBB_API_KEY not set, skipping KenPom fetch")
+        return kenpom_cache
+    
+    try:
+        logger.info("Fetching KenPom CBB ratings via API...")
+        headers = {
+            'Authorization': f'Bearer {api_key}',
+            'User-Agent': 'Mozilla/5.0'
+        }
+        
+        # Fetch ratings endpoint
+        ratings_url = "https://kenpom.com/api/v1/ratings"
+        resp = requests.get(ratings_url, headers=headers, timeout=20)
+        
+        if resp.status_code == 200:
+            data = resp.json()
+            new_cache = {}
+            for team in data if isinstance(data, list) else data.get('teams', []):
+                team_name = team.get('team', team.get('name', ''))
+                if team_name:
+                    new_cache[team_name.lower()] = {
+                        'rank': team.get('rank', team.get('rk', 0)),
+                        'team': team_name,
+                        'conf': team.get('conf', ''),
+                        'record': team.get('record', team.get('w_l', '')),
+                        'adj_em': team.get('adj_em', team.get('adjem', 0)),
+                        'adj_o': team.get('adj_o', team.get('adjo', 0)),
+                        'adj_d': team.get('adj_d', team.get('adjd', 0)),
+                        'adj_t': team.get('adj_t', team.get('adjt', 0)),
+                        'luck': team.get('luck', 0),
+                        'sos': team.get('sos', team.get('sos_adj_em', 0)),
+                        'ncsos': team.get('ncsos', 0),
+                    }
+            if new_cache:
+                kenpom_cache = new_cache
+                kenpom_cache_date = today
+                logger.info(f"KenPom data loaded: {len(new_cache)} teams")
+            return kenpom_cache
+        else:
+            logger.warning(f"KenPom API returned {resp.status_code}")
+            # Fall back to Torvik if KenPom fails
+            return kenpom_cache
+    except Exception as e:
+        logger.error(f"KenPom fetch error: {e}")
+        return kenpom_cache
+
+def get_kenpom_team(team_name: str) -> Optional[dict]:
+    """Get KenPom stats for a team by name (fuzzy match)."""
+    if not kenpom_cache:
+        fetch_kenpom_ratings()
+    if not kenpom_cache:
+        return None
+    name_lower = team_name.lower().strip()
+    if name_lower in kenpom_cache:
+        return kenpom_cache[name_lower]
+    for key, data in kenpom_cache.items():
+        if name_lower in key or key in name_lower:
+            return data
+    return None
+
+def is_top_25_cbb(team_name: str) -> bool:
+    """Check if a CBB team is ranked in the top 25."""
+    kp = get_kenpom_team(team_name)
+    if kp and kp.get('rank', 999) <= 25:
+        return True
+    tv = get_torvik_team(team_name)
+    if tv and tv.get('rank', 999) <= 25:
+        return True
+    return False
+
+def get_cbb_team_rank(team_name: str) -> int:
+    """Get CBB team ranking (KenPom or Torvik)."""
+    kp = get_kenpom_team(team_name)
+    if kp:
+        return kp.get('rank', 999)
+    tv = get_torvik_team(team_name)
+    if tv:
+        return tv.get('rank', 999)
+    return 999
+
 def fetch_torvik_ratings():
     """Fetch Bart Torvik team ratings for CBB. Cached daily."""
     global torvik_cache, torvik_cache_date
@@ -10675,10 +10769,29 @@ def spreads():
     remaining = all_teams_in_slate - eliminated_teams
     remaining_display = ', '.join(sorted(remaining)) if remaining else 'All flagged - proceed with caution'
     
-    # ========== CBB DAILY SLATE ANALYSIS ==========
+    # ========== CBB DAILY SLATE ANALYSIS (Same logic as NBA) ==========
     cbb_games = games_by_league.get('CBB', [])
     
-    # CBB Cold Teams (use Covers L10 data)
+    # Fetch KenPom/Torvik ratings for ranking data
+    fetch_kenpom_ratings()
+    fetch_torvik_ratings()
+    
+    # CBB Top 25 Teams in today's slate
+    cbb_top25_list = []
+    cbb_top25_set = set()
+    for g in cbb_games:
+        away_rank = get_cbb_team_rank(g.away_team)
+        home_rank = get_cbb_team_rank(g.home_team)
+        if away_rank <= 25 and g.away_team not in cbb_top25_set:
+            cbb_top25_list.append(f'<span style="white-space:nowrap">#{away_rank} {g.away_team}</span>')
+            cbb_top25_set.add(g.away_team)
+        if home_rank <= 25 and g.home_team not in cbb_top25_set:
+            cbb_top25_list.append(f'<span style="white-space:nowrap">#{home_rank} {g.home_team}</span>')
+            cbb_top25_set.add(g.home_team)
+    cbb_top25_list.sort(key=lambda x: int(x.split('#')[1].split(' ')[0]))
+    cbb_top25_display = ', '.join(cbb_top25_list) if cbb_top25_list else 'None'
+    
+    # CBB Cold Teams (use Covers L10 data - 3 or fewer wins)
     cbb_cold_teams_list = []
     cbb_cold_teams_set = set()
     for g in cbb_games:
@@ -10708,7 +10821,7 @@ def spreads():
                 pass
     cbb_cold_teams_display = ', '.join(sorted(cbb_cold_teams_list, key=lambda x: int(x.split('(')[1].split('-')[0]))) if cbb_cold_teams_list else 'None'
     
-    # CBB Hot Teams (8+ wins in L10)
+    # CBB Hot Teams (8+ wins in L10) - don't fade these
     cbb_hot_teams_list = []
     cbb_hot_teams_set = set()
     for g in cbb_games:
@@ -10738,6 +10851,24 @@ def spreads():
                 pass
     cbb_hot_teams_display = ', '.join(sorted(cbb_hot_teams_list, key=lambda x: -int(x.split('(')[1].split('-')[0]))) if cbb_hot_teams_list else 'None'
     
+    # CBB Bad Defense (bottom 5 defensive efficiency from KenPom/Torvik)
+    cbb_bad_defense_list = []
+    cbb_bad_defense_set = set()
+    for g in cbb_games:
+        away_data = get_kenpom_team(g.away_team) or get_torvik_team(g.away_team) or {}
+        home_data = get_kenpom_team(g.home_team) or get_torvik_team(g.home_team) or {}
+        # Higher adj_d = worse defense
+        away_def = away_data.get('adj_d', 0)
+        home_def = home_data.get('adj_d', 0)
+        if away_def and away_def > 105 and g.away_team not in cbb_bad_defense_set:
+            cbb_bad_defense_list.append(f'<span style="white-space:nowrap">{g.away_team} ({away_def:.1f})</span>')
+            cbb_bad_defense_set.add(g.away_team)
+        if home_def and home_def > 105 and g.home_team not in cbb_bad_defense_set:
+            cbb_bad_defense_list.append(f'<span style="white-space:nowrap">{g.home_team} ({home_def:.1f})</span>')
+            cbb_bad_defense_set.add(g.home_team)
+    cbb_bad_defense_list.sort(key=lambda x: -float(x.split('(')[1].split(')')[0]))
+    cbb_bad_defense_display = ', '.join(cbb_bad_defense_list[:10]) if cbb_bad_defense_list else 'None'
+    
     # CBB Large Spreads (10+ points) 
     cbb_large_spread_teams = set()
     cbb_large_spread_matchups = []
@@ -10753,14 +10884,16 @@ def spreads():
                     cbb_large_spread_teams.add(g.away_team)
     cbb_large_spread_display = ', '.join(cbb_large_spread_matchups) if cbb_large_spread_matchups else 'None'
     
-    # CBB Remaining Teams
+    # CBB Remaining Teams (prioritize Top 25 matchups)
     cbb_all_teams = set()
     for g in cbb_games:
         cbb_all_teams.add(g.away_team)
         cbb_all_teams.add(g.home_team)
-    cbb_eliminated = cbb_cold_teams_set | cbb_large_spread_teams
+    cbb_eliminated = cbb_cold_teams_set | cbb_large_spread_teams | cbb_bad_defense_set
     cbb_remaining = cbb_all_teams - cbb_eliminated
-    cbb_remaining_display = ', '.join(sorted(cbb_remaining)) if cbb_remaining else 'All flagged - proceed with caution'
+    # Sort remaining with Top 25 first
+    cbb_remaining_sorted = sorted(cbb_remaining, key=lambda x: (get_cbb_team_rank(x), x))
+    cbb_remaining_display = ', '.join(cbb_remaining_sorted) if cbb_remaining_sorted else 'All flagged - proceed with caution'
     
     # Reorder games_by_league to prioritize CBB
     ordered_games_by_league = {
@@ -10790,8 +10923,10 @@ def spreads():
                            b2b_teams=b2b_display,
                            home_away_edge=home_away_display,
                            remaining_teams=remaining_display,
+                           cbb_top25_teams=cbb_top25_display,
                            cbb_cold_teams=cbb_cold_teams_display,
                            cbb_hot_teams=cbb_hot_teams_display,
+                           cbb_bad_defense=cbb_bad_defense_display,
                            cbb_large_spreads=cbb_large_spread_display,
                            cbb_remaining_teams=cbb_remaining_display,
                            team_colors=NBA_TEAM_COLORS)
