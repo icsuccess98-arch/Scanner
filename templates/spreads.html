@@ -2522,48 +2522,42 @@
                 {% set sharp_side = 'away' if away_sharp_diff >= home_sharp_diff else 'home' %}
                 {% set sharp_diff = away_sharp_diff if sharp_side == 'away' else home_sharp_diff %}
                 
-                {# RLM FORMULA: Line 📉 DOWN + Money 📈 to team line moved TOWARD = RLM #}
-                {# Example: Gonzaga -10.5 to -9.5, less tickets but MORE money on St Mary's = RLM #}
-                {# Line moved toward St Mary's (underdog) AND money is on St Mary's = RLM #}
+                {# RLM FORMULA: Favorite SWITCHES + Money to NEW favorite = RLM #}
+                {# Example: Team A was -3, now +1 (Team B now favorite). Money on Team B = RLM #}
                 {% if game.vsin_open_spread is not none and game.vsin_current_spread is not none %}
                 {% set open_spread_num = game.vsin_open_spread|float %}
                 {% set current_spread_num = game.vsin_current_spread|float %}
                 
-                {# Determine who is favorite at open (negative spread = away favorite, positive = home favorite) #}
-                {% set away_is_favorite = open_spread_num < 0 %}
-                {% set home_is_favorite = open_spread_num > 0 %}
+                {# Determine who WAS favorite at open vs who IS favorite now #}
+                {# Negative spread = away favorite, Positive spread = home favorite #}
+                {% set away_was_favorite = open_spread_num < 0 %}
+                {% set home_was_favorite = open_spread_num > 0 %}
+                {% set away_is_favorite_now = current_spread_num < 0 %}
+                {% set home_is_favorite_now = current_spread_num > 0 %}
                 
-                {# Calculate spread magnitude change #}
-                {% set open_magnitude = open_spread_num|abs %}
-                {% set current_magnitude = current_spread_num|abs %}
-                {% set magnitude_change = open_magnitude - current_magnitude %}
-                
-                {# Line direction: Did it move toward underdog or toward favorite? #}
-                {# Magnitude DECREASED = line moved toward UNDERDOG (home if away fav, away if home fav) #}
-                {# Magnitude INCREASED = line moved toward FAVORITE #}
-                {% set line_moved_down = magnitude_change > 0.4 %}
-                {% set line_moved_up = magnitude_change < -0.4 %}
-                
-                {# Determine which team line moved TOWARD #}
-                {% set line_toward_home = (away_is_favorite and line_moved_down) or (home_is_favorite and line_moved_up) %}
-                {% set line_toward_away = (home_is_favorite and line_moved_down) or (away_is_favorite and line_moved_up) %}
+                {# REVERSE LINE = Favorite SWITCHED (teams swapped places) #}
+                {% set favorite_switched = (away_was_favorite and home_is_favorite_now) or (home_was_favorite and away_is_favorite_now) %}
                 
                 {# Money side (handle %) - where the sharp money is #}
                 {% set money_on_away = (game.vsin_money_away or 0) > (game.vsin_money_home or 0) %}
                 {% set money_on_home = (game.vsin_money_home or 0) > (game.vsin_money_away or 0) %}
                 
-                {# RLM = Line moved toward a team AND money is ALSO on that same team #}
-                {# This signals: Sharps bet a side, line follows the sharp money #}
+                {# RLM = Favorite switched AND money is on the NEW favorite #}
                 {% set rlm_detected = false %}
-                {% if line_toward_home and money_on_home %}
-                    {# Line moved toward home AND money on home = RLM (sharps on home) #}
-                    {% set rlm_detected = true %}
-                {% elif line_toward_away and money_on_away %}
-                    {# Line moved toward away AND money on away = RLM (sharps on away) #}
-                    {% set rlm_detected = true %}
+                {% if favorite_switched %}
+                    {% if home_is_favorite_now and money_on_home %}
+                        {# Home became new favorite AND money on home = RLM #}
+                        {% set rlm_detected = true %}
+                    {% elif away_is_favorite_now and money_on_away %}
+                        {# Away became new favorite AND money on away = RLM #}
+                        {% set rlm_detected = true %}
+                    {% endif %}
                 {% endif %}
                 
                 {# For display/highlighting purposes #}
+                {% set open_magnitude = open_spread_num|abs %}
+                {% set current_magnitude = current_spread_num|abs %}
+                {% set magnitude_change = open_magnitude - current_magnitude %}
                 {% set line_movement = open_spread_num - current_spread_num %}
                 {% set public_side = 'away' if (game.vsin_tickets_away or 0) > (game.vsin_tickets_home or 0) else 'home' %}
                 {% set money_side = 'away' if money_on_away else 'home' %}
