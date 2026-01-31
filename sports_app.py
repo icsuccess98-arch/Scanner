@@ -12729,6 +12729,34 @@ def spreads():
     cbb_home_teams_list.sort(key=lambda x: x[0])
     cbb_remaining_display = ', '.join([f'#{rank} {team}' for rank, team in cbb_home_teams_list]) if cbb_home_teams_list else 'No qualified teams'
     
+    # Helper function to detect if a game is live
+    def is_game_live(game) -> bool:
+        """Check if game is currently in progress."""
+        if not game.game_time:
+            return False
+        time_str = str(game.game_time).lower()
+        # Check for live indicators
+        live_indicators = ['1st', '2nd', '3rd', '4th', 'ot', 'half', 'halftime', 
+                          '1q', '2q', '3q', '4q', 'period', 'quarter', 'live',
+                          'in progress', 'inprogress', 'playing']
+        for indicator in live_indicators:
+            if indicator in time_str:
+                return True
+        # Check for score format like "75-68" which indicates live
+        if re.search(r'\d+-\d+', time_str):
+            return True
+        return False
+    
+    # Mark games as live and sort: live games first, then by game time
+    for league in games_by_league:
+        for g in games_by_league[league]:
+            g.is_live = is_game_live(g)
+        # Sort: live games first, then by game time
+        games_by_league[league] = sorted(
+            games_by_league[league],
+            key=lambda x: (0 if x.is_live else 1, x.game_time or '')
+        )
+    
     # Reorder games_by_league to prioritize CBB
     ordered_games_by_league = {
         'CBB': games_by_league.get('CBB', []),
@@ -12738,8 +12766,13 @@ def spreads():
         'NHL': games_by_league.get('NHL', [])
     }
     
-    # Reorder all_games to show CBB first
-    cbb_first_games = [g for g in basketball_games if g.league == 'CBB'] + [g for g in basketball_games if g.league != 'CBB']
+    # Reorder all_games to show CBB first, with live games at top of each league
+    cbb_games = [g for g in basketball_games if g.league == 'CBB']
+    other_games = [g for g in basketball_games if g.league != 'CBB']
+    # Sort each group: live first
+    cbb_games = sorted(cbb_games, key=lambda x: (0 if getattr(x, 'is_live', False) else 1, x.game_time or ''))
+    other_games = sorted(other_games, key=lambda x: (0 if getattr(x, 'is_live', False) else 1, x.game_time or ''))
+    cbb_first_games = cbb_games + other_games
     
     return render_template('spreads.html', 
                            games_by_league=ordered_games_by_league,
