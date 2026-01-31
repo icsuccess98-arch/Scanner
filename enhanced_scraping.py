@@ -708,6 +708,20 @@ CBB_TEAM_NAME_ALIASES = {
     'San José State': 'San Jose State',
     'SJSU': 'San Jose State',
     'SJ State': 'San Jose State',
+    # Sacramento State
+    'Sacramento St': 'Sacramento State',
+    'Sacramento St.': 'Sacramento State',
+    'SAC': 'Sacramento State',
+    'Sac St': 'Sacramento State',
+    'Sac State': 'Sacramento State',
+    'CSUS': 'Sacramento State',
+    # New Mexico
+    'UNM': 'New Mexico',
+    'New Mexico Lobos': 'New Mexico',
+    'N Mexico': 'New Mexico',
+    # Montana
+    'MONT': 'Montana',
+    'Montana Grizzlies': 'Montana',
     # More common abbreviations from Covers.com
     'WAKE': 'Wake Forest',
     'PROV': 'Providence',
@@ -1787,7 +1801,10 @@ KENPOM_TEAM_SLUGS = {
     'San José State': 'San.Jose.St.', 'San José St': 'San.Jose.St.',
     'SJSU': 'San.Jose.St.', 'SJ State': 'San.Jose.St.',
     # More team slugs
-    'New Mexico': 'New.Mexico', 'Air Force': 'Air.Force',
+    'New Mexico': 'New.Mexico', 'UNM': 'New.Mexico', 'Air Force': 'Air.Force',
+    'Sacramento State': 'Sacramento.St.', 'Sacramento St': 'Sacramento.St.',
+    'SAC': 'Sacramento.St.', 'Sac State': 'Sacramento.St.',
+    'Montana': 'Montana', 'MONT': 'Montana',
     'Morehead State': 'Morehead.St.', 'Morehead St': 'Morehead.St.',
     'Eastern Kentucky': 'Eastern.Kentucky', 'EKU': 'Eastern.Kentucky',
     'Western Kentucky': 'Western.Kentucky', 'WKU': 'Western.Kentucky',
