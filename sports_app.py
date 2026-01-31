@@ -12076,14 +12076,45 @@ def spreads():
         'NHL': []
     }
     
+    # Helper to check if game is currently live (fetch ESPN live games early)
+    early_live_keys = set()
+    today_str = today.strftime('%Y%m%d') if hasattr(today, 'strftime') else str(today).replace('-', '')
+    try:
+        for sport_path in ['basketball/mens-college-basketball', 'basketball/nba', 'hockey/nhl']:
+            resp = requests.get(f"https://site.api.espn.com/apis/site/v2/sports/{sport_path}/scoreboard?dates={today_str}", timeout=5)
+            if resp.ok:
+                for event in resp.json().get("events", []):
+                    if event.get("status", {}).get("type", {}).get("state") == "in":
+                        comps = event.get("competitions", [{}])[0].get("competitors", [])
+                        if len(comps) >= 2:
+                            away = next((c for c in comps if c.get("homeAway") == "away"), comps[0])
+                            home = next((c for c in comps if c.get("homeAway") == "home"), comps[1])
+                            early_live_keys.add(f"{away['team']['shortDisplayName']}@{home['team']['shortDisplayName']}")
+    except Exception as e:
+        logging.warning(f"Early live check failed: {e}")
+    
+    def is_game_live_early(away: str, home: str) -> bool:
+        """Check if game is currently in progress using early ESPN check"""
+        for lk in early_live_keys:
+            if '@' in lk:
+                la, lh = lk.split('@', 1)
+                # Fuzzy match
+                if (la.lower() in away.lower() or away.lower() in la.lower()) and \
+                   (lh.lower() in home.lower() or home.lower() in lh.lower()):
+                    return True
+        return False
+    
     for g in all_games:
-        # Filter to only show games that Bovada has lines for
-        if g.league == 'CBB' and not is_bovada_game(g.away_team, g.home_team, bovada_cbb_games):
-            continue  # Skip CBB games not on Bovada
-        if g.league == 'NBA' and not is_bovada_game(g.away_team, g.home_team, bovada_nba_games):
-            continue  # Skip NBA games not on Bovada
-        if g.league == 'NHL' and not is_bovada_game(g.away_team, g.home_team, bovada_nhl_games):
-            continue  # Skip NHL games not on Bovada
+        # Keep live games even if Bovada removes them
+        game_is_live = is_game_live_early(g.away_team, g.home_team)
+        
+        # Filter to only show games that Bovada has lines for (but keep live games)
+        if g.league == 'CBB' and not is_bovada_game(g.away_team, g.home_team, bovada_cbb_games) and not game_is_live:
+            continue  # Skip CBB games not on Bovada (unless live)
+        if g.league == 'NBA' and not is_bovada_game(g.away_team, g.home_team, bovada_nba_games) and not game_is_live:
+            continue  # Skip NBA games not on Bovada (unless live)
+        if g.league == 'NHL' and not is_bovada_game(g.away_team, g.home_team, bovada_nhl_games) and not game_is_live:
+            continue  # Skip NHL games not on Bovada (unless live)
         
         if g.league in games_by_league:
             if g.league == 'NBA':
