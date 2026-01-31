@@ -1464,24 +1464,35 @@ class MatchupIntelligence:
     @staticmethod
     def fetch_kenpom_stats(team_name: str) -> dict:
         """
-        Fetch KenPom advanced analytics for CBB teams.
-        PLACEHOLDER: Will be activated when user provides KenPom API key.
+        Fetch KenPom advanced analytics for CBB teams from cached data.
         
-        KenPom provides:
-        - Adjusted Offensive Efficiency (AdjO)
-        - Adjusted Defensive Efficiency (AdjD)
-        - Adjusted Tempo
-        - Luck factor
-        - Strength of Schedule (SOS)
-        - Four Factors: eFG%, TOV%, ORB%, FT Rate (offense & defense)
+        Returns:
+        - rank: KenPom efficiency ranking (1-365)
+        - adj_o: Adjusted Offensive Efficiency
+        - adj_d: Adjusted Defensive Efficiency
+        - adj_em: Adjusted Efficiency Margin
+        - tempo: Adjusted Tempo
+        - sos: Strength of Schedule
+        - sos_rank: SOS ranking
+        - record: Team record (W-L)
+        - conf: Conference
         """
         try:
-            kenpom_key = os.environ.get('KENPOM_API_KEY')
-            if not kenpom_key:
-                return {}
-            
+            tv = get_torvik_team(team_name)
+            if tv:
+                return {
+                    'rank': tv.get('rank', 999),
+                    'team': tv.get('team', team_name),
+                    'adj_o': tv.get('adj_o', 0),
+                    'adj_d': tv.get('adj_d', 0),
+                    'adj_em': tv.get('adj_em', 0),
+                    'tempo': tv.get('tempo', 0),
+                    'sos': tv.get('sos', 0),
+                    'sos_rank': tv.get('sos_rank', 0),
+                    'record': tv.get('record', ''),
+                    'conf': tv.get('conf', '')
+                }
             return {}
-            
         except Exception as e:
             logger.warning(f"Error fetching KenPom stats for {team_name}: {e}")
             return {}
@@ -11395,6 +11406,36 @@ def get_matchup_data(game_id):
             # SOS Rank comes from the power-ratings page scraper
             result['away_season']['SOS'] = find_stat(away_season, 'sos rank') or 'N/A'
             result['home_season']['SOS'] = find_stat(home_season, 'sos rank') or 'N/A'
+            
+            # Add KenPom stats for CBB games (Key Metrics section)
+            if game.league == 'CBB' and (away_ctg or home_ctg):
+                result['kenpom'] = {
+                    'away': {
+                        'rank': away_ctg.get('rank', 999),
+                        'team': away_ctg.get('team', game.away_team),
+                        'adj_o': away_ctg.get('adj_o', 0),
+                        'adj_d': away_ctg.get('adj_d', 0),
+                        'adj_em': away_ctg.get('adj_em', 0),
+                        'tempo': away_ctg.get('tempo', 0),
+                        'sos': away_ctg.get('sos', 0),
+                        'sos_rank': away_ctg.get('sos_rank', 0),
+                        'record': away_ctg.get('record', ''),
+                        'conf': away_ctg.get('conf', '')
+                    },
+                    'home': {
+                        'rank': home_ctg.get('rank', 999),
+                        'team': home_ctg.get('team', game.home_team),
+                        'adj_o': home_ctg.get('adj_o', 0),
+                        'adj_d': home_ctg.get('adj_d', 0),
+                        'adj_em': home_ctg.get('adj_em', 0),
+                        'tempo': home_ctg.get('tempo', 0),
+                        'sos': home_ctg.get('sos', 0),
+                        'sos_rank': home_ctg.get('sos_rank', 0),
+                        'record': home_ctg.get('record', ''),
+                        'conf': home_ctg.get('conf', '')
+                    }
+                }
+                logging.info(f"KenPom data added for {game.away_team} vs {game.home_team}: away_rank={away_ctg.get('rank')}, home_rank={home_ctg.get('rank')}")
             
             # Last 3 Games - use season stats as fallback since L3 may not be available from all pages
             result['away_l3'] = {

@@ -16,3 +16,4 @@ yfinance
 pandas
 playwright
 undetected-chromedriver
+flask
