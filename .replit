@@ -1,4 +1,4 @@
-modules = ["python-3.11", "postgresql-16"]
+modules = ["nodejs-20", "postgresql-16", "python-3.11"]
 
 [nix]
 channel = "stable-25_05"
@@ -36,7 +36,6 @@ outputType = "webview"
 
 [userenv.shared]
 RUN_MODE = "ALL"
-CRYPTO_DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1454128407293071393/kxpMSHKwzCqgcCdt-P3S3pqqJ_oCYaJ8wCujtzYI42c4-4hxpmxI59pPNM5ppoqueXC4"
 
 [[ports]]
 localPort = 3000
