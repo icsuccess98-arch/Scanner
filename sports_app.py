@@ -13516,7 +13516,14 @@ def get_matchup_data(game_id):
                     result['away_season']['Opp FTA/FGA'] = away_ctg.get('def_ft_rate') or result['away_season'].get('Opp FTA/FGA', 0)
                     result['away_season']['Opp FT Rate Rank'] = away_ctg.get('def_ft_rank')
                     result['away_season']['3PT%'] = away_ctg.get('off_3pt') or result['away_season'].get('3PT%', 0)
-                    result['away_season']['Opp 3PT%'] = away_ctg.get('def_3pt') or result['away_season'].get('Opp 3PT%', 0)
+                    # Opp 3PT% = defensive 3PT% (what opponents shoot against you)
+                    # Use explicit None check since 0 is falsy but valid
+                    away_def_3pt = away_ctg.get('def_3pt')
+                    if away_def_3pt is not None and away_def_3pt > 0:
+                        result['away_season']['Opp 3PT%'] = away_def_3pt
+                    elif not result['away_season'].get('Opp 3PT%'):
+                        result['away_season']['Opp 3PT%'] = 0
+                    result['away_season']['Opp 3PT% Rank'] = away_ctg.get('def_3pt_rank') or result['away_season'].get('Opp 3PT% Rank', 0)
                 
                 # Add KenPom efficiency metrics to home_season
                 if home_ctg:
@@ -13546,7 +13553,14 @@ def get_matchup_data(game_id):
                     result['home_season']['Opp FTA/FGA'] = home_ctg.get('def_ft_rate') or result['home_season'].get('Opp FTA/FGA', 0)
                     result['home_season']['Opp FT Rate Rank'] = home_ctg.get('def_ft_rank')
                     result['home_season']['3PT%'] = home_ctg.get('off_3pt') or result['home_season'].get('3PT%', 0)
-                    result['home_season']['Opp 3PT%'] = home_ctg.get('def_3pt') or result['home_season'].get('Opp 3PT%', 0)
+                    # Opp 3PT% = defensive 3PT% (what opponents shoot against you)
+                    # Use explicit None check since 0 is falsy but valid
+                    home_def_3pt = home_ctg.get('def_3pt')
+                    if home_def_3pt is not None and home_def_3pt > 0:
+                        result['home_season']['Opp 3PT%'] = home_def_3pt
+                    elif not result['home_season'].get('Opp 3PT%'):
+                        result['home_season']['Opp 3PT%'] = 0
+                    result['home_season']['Opp 3PT% Rank'] = home_ctg.get('def_3pt_rank') or result['home_season'].get('Opp 3PT% Rank', 0)
                 
                 logging.info(f"KenPom data merged into season stats for {game.away_team} (#{away_ctg.get('rank')}) vs {game.home_team} (#{home_ctg.get('rank')})")
             
