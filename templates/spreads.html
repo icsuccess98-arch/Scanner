@@ -11,6 +11,10 @@
     <link rel="apple-touch-icon" href="/static/icon-512.png">
     <link rel="manifest" href="/static/manifest.json">
     <meta name="theme-color" content="#0a0a12">
+    <!-- Preconnect to external resources for faster loading -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -1773,13 +1777,16 @@
             background: transparent !important;
         }
         
-        .hidden { 
+        .hidden {
             display: none !important;
             visibility: hidden;
+            opacity: 0;
         }
         .league-section {
             opacity: 1;
-            transition: opacity 0.15s ease-out;
+            /* Removed transition to prevent white flash on tab switch */
+            will-change: display;
+            contain: layout style;
         }
         
         
@@ -2963,14 +2970,13 @@
         
         function renderPikkitContent(gameId, tabType, data, awayTeam, homeTeam) {
             const rlm = data.rlm || {};
-            const awayData = rlm.away || {};
-            const homeData = rlm.home || {};
-            const awayBetPct = parseInt(awayData.bet_pct) || 50;
-            const homeBetPct = parseInt(homeData.bet_pct) || 50;
-            const awayMoneyPct = parseInt(awayData.money_pct) || 50;
-            const homeMoneyPct = parseInt(homeData.money_pct) || 50;
-            const openSpread = rlm.open_spread || '-11.5';
-            const currentSpread = rlm.current_spread || '-11.5';
+            // RLM data uses flat field names: away_bet_pct, home_bet_pct, etc.
+            const awayBetPct = parseInt(rlm.away_bet_pct) || 50;
+            const homeBetPct = parseInt(rlm.home_bet_pct) || 50;
+            const awayMoneyPct = parseInt(rlm.away_money_pct) || 50;
+            const homeMoneyPct = parseInt(rlm.home_money_pct) || 50;
+            const openSpread = rlm.spread_open_line || rlm.open_spread || 'N/A';
+            const currentSpread = rlm.spread_current_line || rlm.current_spread || 'N/A';
             
             // Get team colors
             const awayColor = getTeamColor(awayTeam, 'primary');
@@ -3687,9 +3693,9 @@
                         const num = parseFloat(val);
                         return isNaN(num) ? null : num;
                     };
-                    // Try WagerTalk first, then database spread
-                    const openSpread = parseSpread(data.rlm.open_spread) || parseSpread(data.spread);
-                    const currentSpread = parseSpread(data.rlm.current_spread) || parseSpread(data.rlm.away_spread) || parseSpread(data.spread);
+                    // Try VSIN fields first (spread_open_line, spread_current_line), then fallback to legacy names
+                    const openSpread = parseSpread(data.rlm.spread_open_line) || parseSpread(data.rlm.open_spread) || parseSpread(data.spread);
+                    const currentSpread = parseSpread(data.rlm.spread_current_line) || parseSpread(data.rlm.current_spread) || parseSpread(data.rlm.away_spread) || parseSpread(data.spread);
                     const hasSpreadData = openSpread !== null || currentSpread !== null;
                     // For favorite, use whichever we have
                     const spreadForFav = currentSpread !== null ? currentSpread : openSpread;

@@ -3,7 +3,8 @@
     "allow": [
       "Bash(python3:*)",
       "Bash(grep:*)",
-      "WebFetch(domain:www.covers.com)"
+      "WebFetch(domain:www.covers.com)",
+      "Bash(ls:*)"
     ]
   }
 }

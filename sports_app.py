@@ -19,7 +19,7 @@ from sqlalchemy import delete
 import requests
 import pytz
 from bs4 import BeautifulSoup
-from enhanced_scraping import get_cbb_logo, CBB_TEAM_LOGOS, get_covers_matchup_stats, scrape_covers_cbb_slate, scrape_kenpom_team_metrics, get_cbb_slate_with_kenpom
+from enhanced_scraping import get_cbb_logo, CBB_TEAM_LOGOS, CBB_TEAM_NAME_ALIASES, normalize_cbb_team_name, get_covers_matchup_stats, scrape_covers_cbb_slate, scrape_kenpom_team_metrics, get_cbb_slate_with_kenpom
 from automated_loading_system import (
     setup_automatic_loading, 
     get_transparent_cbb_logo, 
@@ -1583,12 +1583,22 @@ class MatchupIntelligence:
                 logger.info(f"KenPom Four Factors merged for {team_name}")
             
             # Get 3PT% data from misc cache (if available)
+            # Try multiple name variations for better matching
             misc_data = kenpom_misc_cache.get(team_key)
             if not misc_data:
+                normalized = normalize_cbb_team_name(team_name).lower().strip()
+                misc_data = kenpom_misc_cache.get(normalized)
+            if not misc_data:
+                # Try partial match with token-based comparison for better accuracy
+                team_tokens = set(team_key.replace('-', ' ').split())
                 for key, data in kenpom_misc_cache.items():
-                    if team_key in key or key in team_key:
-                        misc_data = data
-                        break
+                    cache_tokens = set(key.replace('-', ' ').split())
+                    # Match if significant overlap (at least 50% of tokens match)
+                    if team_tokens and cache_tokens:
+                        overlap = len(team_tokens & cache_tokens)
+                        if overlap >= min(len(team_tokens), len(cache_tokens)) * 0.5:
+                            misc_data = data
+                            break
             
             if misc_data:
                 result.update({
@@ -8701,7 +8711,7 @@ def fetch_kenpom_four_factors() -> dict:
 def fetch_kenpom_point_distribution() -> dict:
     """
     Fetch KenPom Point Distribution data.
-    Returns: % of points from 3PT, 2PT, FT
+    Returns: % of points from 3PT, 2PT, FT (how points are scored)
     """
     global kenpom_point_distribution_cache, kenpom_cache_date
     today = date.today()
@@ -8713,21 +8723,26 @@ def fetch_kenpom_point_distribution() -> dict:
     if not data:
         return kenpom_point_distribution_cache
 
+    # Log sample team data to see actual field names
+    if data and len(data) > 0:
+        sample = data[0]
+        logger.info(f"KenPom pointdist fields: {list(sample.keys())}")
+
     cache = {}
     for team in data:
         try:
             team_name = team.get('TeamName', '').lower()
             if team_name:
                 cache[team_name] = {
-                    # Offensive distribution
-                    'o_3pt_pct': team.get('OffFG3Pct', 0),    # % from 3PT
-                    'o_2pt_pct': team.get('OffFG2Pct', 0),    # % from 2PT
-                    'o_ft_pct_dist': team.get('OffFTPct', 0), # % from FT
-                    'o_3pt_pct_rank': team.get('RankOffFG3Pct', 0),
-                    # Defensive distribution (what opponents do)
-                    'd_3pt_pct': team.get('DefFG3Pct', 0),
-                    'd_2pt_pct': team.get('DefFG2Pct', 0),
-                    'd_ft_pct_dist': team.get('DefFTPct', 0),
+                    # Offensive point distribution - % of points FROM 3PT shots
+                    'o_3pt_pct': team.get('OffFG3Pct') or team.get('OFG3Pct') or team.get('Off3P') or team.get('FG3') or 0,
+                    'o_2pt_pct': team.get('OffFG2Pct') or team.get('OFG2Pct') or team.get('Off2P') or team.get('FG2') or 0,
+                    'o_ft_pct_dist': team.get('OffFTPct') or team.get('OFTPct') or team.get('OffFT') or team.get('FT') or 0,
+                    'o_3pt_pct_rank': team.get('RankOffFG3Pct') or team.get('RankOFG3Pct') or 0,
+                    # Defensive point distribution (what opponents do against this team)
+                    'd_3pt_pct': team.get('DefFG3Pct') or team.get('DFG3Pct') or team.get('Def3P') or 0,
+                    'd_2pt_pct': team.get('DefFG2Pct') or team.get('DFG2Pct') or team.get('Def2P') or 0,
+                    'd_ft_pct_dist': team.get('DefFTPct') or team.get('DFTPct') or team.get('DefFT') or 0,
                 }
         except Exception:
             continue
@@ -8795,47 +8810,54 @@ def fetch_kenpom_misc() -> dict:
     if not data:
         logger.warning("KenPom misc-stats endpoint failed")
         return kenpom_misc_cache
-    
+
     logger.info(f"KenPom Misc Stats loaded: {len(data)} teams")
+
+    # Log sample team data to see actual field names
+    if data and len(data) > 0:
+        sample = data[0]
+        logger.info(f"KenPom misc-stats fields: {list(sample.keys())}")
 
     cache = {}
     for team in data:
         try:
             team_name = team.get('TeamName', '').lower()
             if team_name:
+                # KenPom uses 3P% (not 3PT%) - try multiple field name patterns
+                # Common KenPom API field patterns: FG3Pct, 3P_O, Off3PPct, ThreePtPct
                 cache[team_name] = {
-                    # Offensive misc stats (field names from KenPom API docs)
-                    'o_3pt_pct': team.get('FG3Pct', 0),        # 3PT shooting %
-                    'o_3pt_rank': team.get('RankFG3Pct', 0),
-                    'o_2pt_pct': team.get('FG2Pct', 0),        # 2PT shooting %
-                    'o_2pt_rank': team.get('RankFG2Pct', 0),
-                    'o_ft_pct': team.get('FTPct', 0),          # FT shooting %
-                    'o_ft_rank': team.get('RankFTPct', 0),
-                    'o_blk_pct': team.get('BlockPct', 0),      # Block % against
-                    'o_blk_rank': team.get('RankBlockPct', 0),
-                    'o_stl_rate': team.get('StlRate', 0),      # Steal rate against
-                    'o_stl_rank': team.get('RankStlRate', 0),
-                    'o_ast_rate': team.get('ARate', 0),        # Assist rate
-                    'o_ast_rank': team.get('RankARate', 0),
-                    'o_nst_rate': team.get('NSTRate', 0),      # Non-steal TO rate
-                    'o_nst_rank': team.get('RankNSTRate', 0),
-                    'o_3pt_rate': team.get('FG3ARate', 0),     # 3PT attempt rate
-                    'o_3pt_rate_rank': team.get('RankFG3ARate', 0),
-                    # Defensive misc stats
-                    'd_3pt_pct': team.get('DFG3Pct', 0),       # Opponent 3PT%
-                    'd_3pt_rank': team.get('RankDFG3Pct', 0),
-                    'd_2pt_pct': team.get('DFG2Pct', 0),       # Opponent 2PT%
-                    'd_2pt_rank': team.get('RankDFG2Pct', 0),
-                    'd_ft_pct': team.get('DFTPct', 0),         # Opponent FT%
-                    'd_ft_rank': team.get('RankDFTPct', 0),
-                    'd_blk_pct': team.get('DBlockPct', 0),     # Block %
-                    'd_blk_rank': team.get('RankDBlockPct', 0),
-                    'd_stl_rate': team.get('DStlRate', 0),     # Steal rate
-                    'd_stl_rank': team.get('RankDStlRate', 0),
-                    'd_nst_rate': team.get('DNSTRate', 0),     # Opp non-steal TO rate
-                    'd_nst_rank': team.get('RankDNSTRate', 0),
-                    'd_3pt_rate': team.get('DFG3ARate', 0),    # Opponent 3PT attempt rate
-                    'd_3pt_rate_rank': team.get('RankDFG3ARate', 0),
+                    # Offensive misc stats - try multiple field names
+                    'o_3pt_pct': team.get('FG3Pct') or team.get('3P_O') or team.get('Off3PPct') or team.get('ThreePtPct') or 0,
+                    'o_3pt_rank': team.get('RankFG3Pct') or team.get('Rank3P_O') or team.get('RankOff3PPct') or 0,
+                    'o_2pt_pct': team.get('FG2Pct') or team.get('2P_O') or 0,
+                    'o_2pt_rank': team.get('RankFG2Pct') or team.get('Rank2P_O') or 0,
+                    'o_ft_pct': team.get('FTPct') or team.get('FT_O') or 0,
+                    'o_ft_rank': team.get('RankFTPct') or team.get('RankFT_O') or 0,
+                    'o_blk_pct': team.get('BlockPct') or team.get('Blk') or 0,
+                    'o_blk_rank': team.get('RankBlockPct') or team.get('RankBlk') or 0,
+                    'o_stl_rate': team.get('StlRate') or team.get('Stl') or 0,
+                    'o_stl_rank': team.get('RankStlRate') or team.get('RankStl') or 0,
+                    'o_ast_rate': team.get('ARate') or team.get('Ast') or 0,
+                    'o_ast_rank': team.get('RankARate') or team.get('RankAst') or 0,
+                    'o_nst_rate': team.get('NSTRate') or team.get('NST') or 0,
+                    'o_nst_rank': team.get('RankNSTRate') or team.get('RankNST') or 0,
+                    'o_3pt_rate': team.get('FG3ARate') or team.get('3PA_O') or 0,
+                    'o_3pt_rate_rank': team.get('RankFG3ARate') or team.get('Rank3PA_O') or 0,
+                    # Defensive misc stats - opponent's shooting % against this team
+                    'd_3pt_pct': team.get('DFG3Pct') or team.get('3P_D') or team.get('Def3PPct') or team.get('Opp3PPct') or 0,
+                    'd_3pt_rank': team.get('RankDFG3Pct') or team.get('Rank3P_D') or team.get('RankDef3PPct') or 0,
+                    'd_2pt_pct': team.get('DFG2Pct') or team.get('2P_D') or 0,
+                    'd_2pt_rank': team.get('RankDFG2Pct') or team.get('Rank2P_D') or 0,
+                    'd_ft_pct': team.get('DFTPct') or team.get('FT_D') or 0,
+                    'd_ft_rank': team.get('RankDFTPct') or team.get('RankFT_D') or 0,
+                    'd_blk_pct': team.get('DBlockPct') or team.get('DBlk') or 0,
+                    'd_blk_rank': team.get('RankDBlockPct') or team.get('RankDBlk') or 0,
+                    'd_stl_rate': team.get('DStlRate') or team.get('DStl') or 0,
+                    'd_stl_rank': team.get('RankDStlRate') or team.get('RankDStl') or 0,
+                    'd_nst_rate': team.get('DNSTRate') or team.get('DNST') or 0,
+                    'd_nst_rank': team.get('RankDNSTRate') or team.get('RankDNST') or 0,
+                    'd_3pt_rate': team.get('DFG3ARate') or team.get('3PA_D') or 0,
+                    'd_3pt_rate_rank': team.get('RankDFG3ARate') or team.get('Rank3PA_D') or 0,
                 }
         except Exception:
             continue
@@ -12089,6 +12111,18 @@ def spreads():
                         # Exact match after normalization
                         if team_normalized == key_normalized:
                             return stats_dict[key]
+                    
+                    # Reverse alias lookup - check if any Covers key normalizes to our target
+                    # E.g., if stats_dict has "SJSU" and we want "San Jose State"
+                    for covers_key in stats_dict:
+                        covers_normalized = normalize_cbb_team_name(covers_key)
+                        if covers_normalized == normalized or covers_normalized == ascii_normalized:
+                            return stats_dict[covers_key]
+                        # Also check if covers key uppercase matches an alias
+                        covers_upper = covers_key.upper()
+                        if covers_upper in CBB_TEAM_NAME_ALIASES:
+                            if CBB_TEAM_NAME_ALIASES[covers_upper] == normalized or CBB_TEAM_NAME_ALIASES[covers_upper] == ascii_normalized:
+                                return stats_dict[covers_key]
                     
                     return {}
                 

@@ -76,71 +76,124 @@ def get_vsin_splits(sport: str = 'CBB') -> dict:
 
 
 def parse_vsin_splits(html: str, sport: str) -> dict:
-    """Parse betting splits from VSIN HTML"""
+    """Parse betting splits from VSIN HTML - improved parsing logic"""
     splits = {}
-    
+
     try:
         soup = BeautifulSoup(html, 'html.parser')
-        
+
+        # Find all tables with betting data
         tables = soup.find_all('table')
         for table in tables:
-            rows = table.find_all('tr')[2:]
-            
+            rows = table.find_all('tr')
+
             for row in rows:
                 cells = row.find_all('td')
-                if len(cells) < 10:
+                if len(cells) < 4:
                     continue
-                
-                i = 0
-                while i < len(cells) - 9:
-                    teams_cell = cells[i].get_text(strip=True)
-                    
-                    if 'History' not in teams_cell:
-                        i += 1
-                        continue
-                    
-                    teams_text = re.sub(r'History.*$', '', teams_cell).strip()
-                    
-                    team_match = re.match(r'(.+?)(\s*\(\d+\)\s*)?([A-Z][a-z][a-z]+.*)', teams_text)
-                    if not team_match:
-                        i += 10
-                        continue
-                    
-                    away_team = (team_match.group(1) + (team_match.group(2) or '')).strip()
-                    home_team = team_match.group(3).strip()
-                    
-                    spread_handle = cells[i+2].get_text(strip=True)
-                    spread_bets = cells[i+3].get_text(strip=True)
-                    
-                    handle_pcts = re.findall(r'(\d+)%', spread_handle)
-                    bets_pcts = re.findall(r'(\d+)%', spread_bets)
-                    
-                    if len(handle_pcts) >= 2 and len(bets_pcts) >= 2:
-                        away_handle = int(handle_pcts[0])
-                        home_handle = int(handle_pcts[1])
-                        away_bets = int(bets_pcts[0])
-                        home_bets = int(bets_pcts[1])
-                        
-                        game_key = f"{away_team} @ {home_team}"
-                        
-                        splits[game_key] = {
-                            'away_team': away_team,
-                            'home_team': home_team,
-                            'away_handle_pct': away_handle,
-                            'home_handle_pct': home_handle,
-                            'away_bets_pct': away_bets,
-                            'home_bets_pct': home_bets,
-                            'away_sharp': get_sharp_indicator(away_bets, away_handle),
-                            'home_sharp': get_sharp_indicator(home_bets, home_handle),
-                        }
-                    
-                    i += 10
-        
+
+                # Look through all cells for team names and percentages
+                row_text = ' '.join([c.get_text(strip=True) for c in cells])
+
+                # Skip header rows
+                if 'Handle' in row_text and 'Bets' in row_text:
+                    continue
+
+                # Find cells with team names (look for "History" link indicator)
+                teams_cell = None
+                spread_handle_cell = None
+                spread_bets_cell = None
+
+                for idx, cell in enumerate(cells):
+                    cell_text = cell.get_text(strip=True)
+                    if 'History' in cell_text or ('@' in cell_text and len(cell_text) > 5):
+                        teams_cell = cell_text
+                        # Look for handle and bets in following cells
+                        if idx + 2 < len(cells):
+                            spread_handle_cell = cells[idx + 1].get_text(strip=True)
+                            spread_bets_cell = cells[idx + 2].get_text(strip=True)
+                        break
+
+                if not teams_cell:
+                    continue
+
+                # Clean team names - remove History and other markers
+                teams_text = re.sub(r'History.*$', '', teams_cell).strip()
+                teams_text = re.sub(r'\s*@\s*', ' @ ', teams_text)  # Normalize @ symbol
+
+                # Try multiple parsing strategies for team names
+                away_team = None
+                home_team = None
+
+                # Strategy 1: Split on @ symbol
+                if ' @ ' in teams_text:
+                    parts = teams_text.split(' @ ')
+                    if len(parts) == 2:
+                        away_team = parts[0].strip()
+                        home_team = parts[1].strip()
+
+                # Strategy 2: Regex for concatenated team names with ranking numbers
+                if not away_team or not home_team:
+                    team_match = re.match(r'(.+?)(\s*\(\d+\)\s*)?([A-Z][a-zA-Z].*)', teams_text)
+                    if team_match:
+                        away_team = (team_match.group(1) + (team_match.group(2) or '')).strip()
+                        home_team = team_match.group(3).strip()
+
+                # Strategy 3: Look for uppercase word boundaries
+                if not away_team or not home_team:
+                    # Find where first word ends and second team begins
+                    match = re.match(r'([A-Za-z\s\.]+?)([A-Z][a-z].*)', teams_text)
+                    if match:
+                        away_team = match.group(1).strip()
+                        home_team = match.group(2).strip()
+
+                if not away_team or not home_team:
+                    continue
+
+                # Parse percentages from handle and bets cells
+                handle_pcts = []
+                bets_pcts = []
+
+                if spread_handle_cell:
+                    handle_pcts = re.findall(r'(\d+)%', spread_handle_cell)
+                if spread_bets_cell:
+                    bets_pcts = re.findall(r'(\d+)%', spread_bets_cell)
+
+                # Also check if percentages are in the teams cell itself (some formats)
+                if not handle_pcts or not bets_pcts:
+                    all_pcts = re.findall(r'(\d+)%', row_text)
+                    if len(all_pcts) >= 4:
+                        # First pair = handle, second pair = bets
+                        handle_pcts = all_pcts[0:2]
+                        bets_pcts = all_pcts[2:4]
+
+                if len(handle_pcts) >= 2 and len(bets_pcts) >= 2:
+                    away_handle = int(handle_pcts[0])
+                    home_handle = int(handle_pcts[1])
+                    away_bets = int(bets_pcts[0])
+                    home_bets = int(bets_pcts[1])
+
+                    game_key = f"{away_team} @ {home_team}"
+
+                    splits[game_key] = {
+                        'away_team': away_team,
+                        'home_team': home_team,
+                        'away_handle_pct': away_handle,
+                        'home_handle_pct': home_handle,
+                        'away_bets_pct': away_bets,
+                        'home_bets_pct': home_bets,
+                        'away_sharp': get_sharp_indicator(away_bets, away_handle),
+                        'home_sharp': get_sharp_indicator(home_bets, home_handle),
+                    }
+                    logger.debug(f"Parsed VSIN splits: {game_key} - Handle: {away_handle}/{home_handle}, Bets: {away_bets}/{home_bets}")
+
         logger.info(f"Parsed {len(splits)} games from VSIN {sport} splits")
-        
+
     except Exception as e:
         logger.error(f"Error parsing VSIN HTML: {e}")
-    
+        import traceback
+        logger.error(traceback.format_exc())
+
     return splits
 
 
