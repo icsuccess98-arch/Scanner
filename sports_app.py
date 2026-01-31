@@ -1555,12 +1555,10 @@ class MatchupIntelligence:
             # Try exact match first
             ff = ff_cache.get(team_key)
             
-            # Try fuzzy match if no exact match
+            # Try normalized name match
             if not ff:
-                for key, data in ff_cache.items():
-                    if team_key in key or key in team_key:
-                        ff = data
-                        break
+                normalized = normalize_cbb_team_name(team_name).lower().strip()
+                ff = ff_cache.get(normalized)
             
             # Merge Four Factors into result
             if ff:
@@ -11686,18 +11684,19 @@ def get_cbb_standings():
     return standings
 
 def get_cbb_team_record(team_name: str, standings: dict) -> str:
-    """Get CBB team record with fuzzy matching. Falls back to KenPom data."""
+    """Get CBB team record. Direct lookup only."""
     # Exact match first
     if team_name in standings:
         return standings[team_name].get('record', '--')
     # Lowercase match
     if team_name.lower() in standings:
         return standings[team_name.lower()].get('record', '--')
-    # Fuzzy match - check if team name is part of any key
-    team_lower = team_name.lower()
-    for key, data in standings.items():
-        if team_lower in key.lower() or key.lower() in team_lower:
-            return data.get('record', '--')
+    # Normalized name match
+    normalized = normalize_cbb_team_name(team_name)
+    if normalized in standings:
+        return standings[normalized].get('record', '--')
+    if normalized.lower() in standings:
+        return standings[normalized.lower()].get('record', '--')
     # Fallback to KenPom data for records
     kenpom_data = get_torvik_team(team_name)
     if kenpom_data and kenpom_data.get('record'):
