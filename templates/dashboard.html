@@ -1670,6 +1670,13 @@
                             <div class="pikkit-team-fallback" style="display:none; width:44px; height:44px; background:rgba(139,92,246,0.2); border-radius:50%; align-items:center; justify-content:center; font-size:13px; font-weight:600; color:#8B5CF6;">{{ game.away_team[:3] }}</div>
                             <div class="pikkit-team-name">{{ game.away_team }}</div>
                             <div class="pikkit-team-record">{{ game.away_record or '--' }}</div>
+                            {% if game.away_ats and game.away_ats != '--' %}
+                            <div class="pikkit-team-trends" style="font-size: 9px; color: #9ca3af; display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-top: 2px;">
+                                <span style="background: rgba(139,92,246,0.15); padding: 1px 4px; border-radius: 3px;">{{ game.away_ats }} ATS</span>
+                                {% if game.away_l10 and game.away_l10 != '--' %}<span style="background: rgba(16,185,129,0.15); padding: 1px 4px; border-radius: 3px;">{{ game.away_l10 }} L10</span>{% endif %}
+                                {% if game.away_road_record and game.away_road_record != '--' %}<span style="background: rgba(245,158,11,0.15); padding: 1px 4px; border-radius: 3px;">{{ game.away_road_record }} Road</span>{% endif %}
+                            </div>
+                            {% endif %}
                             {% if game.away_standing %}<div class="pikkit-team-standing">{{ game.away_standing }}</div>{% endif %}
                         </div>
                         <div class="pikkit-center" id="pikkit-center-{{ game.id }}">
@@ -1700,6 +1707,13 @@
                             <div class="pikkit-team-fallback" style="display:none; width:44px; height:44px; background:rgba(139,92,246,0.2); border-radius:50%; align-items:center; justify-content:center; font-size:13px; font-weight:600; color:#8B5CF6;">{{ game.home_team[:3] }}</div>
                             <div class="pikkit-team-name">{{ game.home_team }}</div>
                             <div class="pikkit-team-record">{{ game.home_record or '--' }}</div>
+                            {% if game.home_ats and game.home_ats != '--' %}
+                            <div class="pikkit-team-trends" style="font-size: 9px; color: #9ca3af; display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-top: 2px;">
+                                <span style="background: rgba(139,92,246,0.15); padding: 1px 4px; border-radius: 3px;">{{ game.home_ats }} ATS</span>
+                                {% if game.home_l10 and game.home_l10 != '--' %}<span style="background: rgba(16,185,129,0.15); padding: 1px 4px; border-radius: 3px;">{{ game.home_l10 }} L10</span>{% endif %}
+                                {% if game.home_home_record and game.home_home_record != '--' %}<span style="background: rgba(245,158,11,0.15); padding: 1px 4px; border-radius: 3px;">{{ game.home_home_record }} Home</span>{% endif %}
+                            </div>
+                            {% endif %}
                             {% if game.home_standing %}<div class="pikkit-team-standing">{{ game.home_standing }}</div>{% endif %}
                         </div>
                     </div>
@@ -2400,6 +2414,13 @@
                             <div class="pikkit-team-fallback" style="display:none; width:44px; height:44px; background:rgba(139,92,246,0.2); border-radius:50%; align-items:center; justify-content:center; font-size:13px; font-weight:600; color:#8B5CF6;">{{ game.away_team[:3] }}</div>
                             <div class="pikkit-team-name">{{ game.away_team }}</div>
                             <div class="pikkit-team-record">{{ game.away_record or '--' }}</div>
+                            {% if game.away_ats and game.away_ats != '--' %}
+                            <div class="pikkit-team-trends" style="font-size: 9px; color: #9ca3af; display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-top: 2px;">
+                                <span style="background: rgba(139,92,246,0.15); padding: 1px 4px; border-radius: 3px;">{{ game.away_ats }} ATS</span>
+                                {% if game.away_l10 and game.away_l10 != '--' %}<span style="background: rgba(16,185,129,0.15); padding: 1px 4px; border-radius: 3px;">{{ game.away_l10 }} L10</span>{% endif %}
+                                {% if game.away_road_record and game.away_road_record != '--' %}<span style="background: rgba(245,158,11,0.15); padding: 1px 4px; border-radius: 3px;">{{ game.away_road_record }} Road</span>{% endif %}
+                            </div>
+                            {% endif %}
                             {% if game.away_standing %}<div class="pikkit-team-standing">{{ game.away_standing }}</div>{% endif %}
                         </div>
                         <div class="pikkit-center" id="pikkit-center-{{ game.id }}">
@@ -2430,6 +2451,13 @@
                             <div class="pikkit-team-fallback" style="display:none; width:44px; height:44px; background:rgba(139,92,246,0.2); border-radius:50%; align-items:center; justify-content:center; font-size:13px; font-weight:600; color:#8B5CF6;">{{ game.home_team[:3] }}</div>
                             <div class="pikkit-team-name">{{ game.home_team }}</div>
                             <div class="pikkit-team-record">{{ game.home_record or '--' }}</div>
+                            {% if game.home_ats and game.home_ats != '--' %}
+                            <div class="pikkit-team-trends" style="font-size: 9px; color: #9ca3af; display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-top: 2px;">
+                                <span style="background: rgba(139,92,246,0.15); padding: 1px 4px; border-radius: 3px;">{{ game.home_ats }} ATS</span>
+                                {% if game.home_l10 and game.home_l10 != '--' %}<span style="background: rgba(16,185,129,0.15); padding: 1px 4px; border-radius: 3px;">{{ game.home_l10 }} L10</span>{% endif %}
+                                {% if game.home_home_record and game.home_home_record != '--' %}<span style="background: rgba(245,158,11,0.15); padding: 1px 4px; border-radius: 3px;">{{ game.home_home_record }} Home</span>{% endif %}
+                            </div>
+                            {% endif %}
                             {% if game.home_standing %}<div class="pikkit-team-standing">{{ game.home_standing }}</div>{% endif %}
                         </div>
                     </div>

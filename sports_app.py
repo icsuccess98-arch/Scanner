@@ -5613,6 +5613,12 @@ def normalize_team_name(name: str) -> str:
             break
     return n
 
+
+def normalize_cbb_team_name(name: str) -> str:
+    """Normalize CBB team name for matching with Covers data."""
+    return normalize_team_name(name)
+
+
 MASCOTS = {
     'spartans', 'panthers', 'yellow jackets', 'yellowjackets', 'buccaneers', 'cougars', 'tigers',
     'bulldogs', 'wildcats', 'bears', 'lions', 'eagles', 'hawks', 'cardinals', 'owls', 'rockets',
@@ -11494,8 +11500,32 @@ def spreads():
                 g.away_standing = ''
                 g.home_standing = ''
                 # CBB Covers-style stats with database persistence
+                # Try direct lookup first, then normalized name, then fuzzy match
                 away_covers = covers_cbb_stats.get(g.away_team, {})
+                if not away_covers:
+                    # Try normalized name
+                    normalized_away = normalize_cbb_team_name(g.away_team)
+                    away_covers = covers_cbb_stats.get(normalized_away, {})
+                if not away_covers:
+                    # Try lowercase matching
+                    away_lower = g.away_team.lower()
+                    for key in covers_cbb_stats:
+                        if key.lower() == away_lower or away_lower in key.lower() or key.lower() in away_lower:
+                            away_covers = covers_cbb_stats[key]
+                            break
+
                 home_covers = covers_cbb_stats.get(g.home_team, {})
+                if not home_covers:
+                    # Try normalized name
+                    normalized_home = normalize_cbb_team_name(g.home_team)
+                    home_covers = covers_cbb_stats.get(normalized_home, {})
+                if not home_covers:
+                    # Try lowercase matching
+                    home_lower = g.home_team.lower()
+                    for key in covers_cbb_stats:
+                        if key.lower() == home_lower or home_lower in key.lower() or key.lower() in home_lower:
+                            home_covers = covers_cbb_stats[key]
+                            break
                 
                 # If Covers has data AND we haven't captured pre-game stats yet, save to DB
                 if away_covers and home_covers and not g.pregame_stats_captured:

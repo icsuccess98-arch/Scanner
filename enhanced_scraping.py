@@ -365,62 +365,332 @@ CBB_TEAM_LOGOS = {
 }
 
 CBB_TEAM_NAME_ALIASES = {
+    # HTML entities
     'Texas A&amp;M': 'Texas A&M',
     'Texas A&M': 'Texas A&M',
+    'Texas A&M Aggies': 'Texas A&M',
+    # St. John's variations
     "St. John's": 'St. Johns',
     "Saint John's": 'St. Johns',
     'St Johns': 'St. Johns',
+    "St. John's Red Storm": 'St. Johns',
+    'SJU': 'St. Johns',
+    # UConn
     'Connecticut': 'UConn',
+    'Connecticut Huskies': 'UConn',
+    'CONN': 'UConn',
+    # Saint Mary's
     "Saint Mary's": 'Saint Marys',
     'Saint Marys (CA)': 'Saint Marys',
     'SMC': 'Saint Marys',
+    "St. Mary's": 'Saint Marys',
+    "St Mary's": 'Saint Marys',
+    # Ole Miss
     'Mississippi': 'Ole Miss',
+    'Mississippi Rebels': 'Ole Miss',
+    'MISS': 'Ole Miss',
+    # NC State
     'North Carolina State': 'NC State',
     'N.C. State': 'NC State',
+    'NC St.': 'NC State',
+    'NCST': 'NC State',
+    'N Carolina St': 'NC State',
+    # Pittsburgh
     'Pitt': 'Pittsburgh',
+    'Pitt Panthers': 'Pittsburgh',
+    # San Diego State
     'SDSU': 'San Diego State',
     'San Diego St.': 'San Diego State',
+    'San Diego St': 'San Diego State',
+    'S Diego St': 'San Diego State',
+    # USC/UCLA
     'USC Trojans': 'USC',
+    'So. California': 'USC',
+    'Southern Cal': 'USC',
     'UCLA Bruins': 'UCLA',
+    # Big Ten State Schools
     'Michigan St.': 'Michigan State',
+    'Michigan St': 'Michigan State',
+    'Mich. St.': 'Michigan State',
+    'Mich St': 'Michigan State',
+    'MSU': 'Michigan State',
     'Ohio St.': 'Ohio State',
+    'Ohio St': 'Ohio State',
+    'OSU': 'Ohio State',
     'Penn St.': 'Penn State',
+    'Penn St': 'Penn State',
+    'PSU': 'Penn State',
+    'Iowa St.': 'Iowa State',
+    'Iowa St': 'Iowa State',
+    'ISU': 'Iowa State',
+    'Kansas St.': 'Kansas State',
+    'Kansas St': 'Kansas State',
+    'K-State': 'Kansas State',
+    'KSU': 'Kansas State',
+    'Oklahoma St.': 'Oklahoma State',
+    'Oklahoma St': 'Oklahoma State',
+    'Okla. St.': 'Oklahoma State',
+    'Okla St': 'Oklahoma State',
+    'Ok State': 'Oklahoma State',
+    # ACC Schools
     'Fla. State': 'Florida State',
     'Florida St.': 'Florida State',
+    'Florida St': 'Florida State',
+    'Fla St': 'Florida State',
+    'FSU': 'Florida State',
     'Georgia Tech': 'Georgia Tech',
+    'Ga. Tech': 'Georgia Tech',
+    'Ga Tech': 'Georgia Tech',
+    'GT': 'Georgia Tech',
     'VA Tech': 'Virginia Tech',
+    'Va. Tech': 'Virginia Tech',
+    'Va Tech': 'Virginia Tech',
+    'VT': 'Virginia Tech',
     'Boston Col.': 'Boston College',
+    'Boston Col': 'Boston College',
+    'BC': 'Boston College',
     'Wake': 'Wake Forest',
+    'Wake Forest Demon Deacons': 'Wake Forest',
+    # Loyola Chicago
     'Loyola-Chicago': 'Loyola Chicago',
     'Loyola (CHI)': 'Loyola Chicago',
+    'Loyola-Chi': 'Loyola Chicago',
+    'Loyola Chi': 'Loyola Chicago',
+    'LUC': 'Loyola Chicago',
+    # Louisville
     'Louisville Cards': 'Louisville',
+    'Louisville Cardinals': 'Louisville',
+    'UofL': 'Louisville',
+    # San Francisco
     'San Fran': 'San Francisco',
     'USF': 'San Francisco',
+    'S Francisco': 'San Francisco',
+    # Detroit
     'Detroit': 'Detroit Mercy',
+    'Detroit Titans': 'Detroit Mercy',
+    'DET': 'Detroit Mercy',
+    # Louisiana Monroe
     'UL Monroe': 'Louisiana Monroe',
     'UL-Monroe': 'Louisiana Monroe',
     'ULM': 'Louisiana Monroe',
     'La. Monroe': 'Louisiana Monroe',
     'La.-Monroe': 'Louisiana Monroe',
+    'La Monroe': 'Louisiana Monroe',
+    # Georgia Southern
     'Ga. Southern': 'Georgia Southern',
     'GA Southern': 'Georgia Southern',
     'GASO': 'Georgia Southern',
+    'Ga Southern': 'Georgia Southern',
+    'Georgia So.': 'Georgia Southern',
+    # Winthrop
     'Winthrop Eagles': 'Winthrop',
     'WIN': 'Winthrop',
+    # Le Moyne
     'Le Moyne': 'Le Moyne',
     'LeMoyne': 'Le Moyne',
+    # Sam Houston
     'Sam Houston': 'Sam Houston',
     'Sam Houston St.': 'Sam Houston',
     'Sam Houston State': 'Sam Houston',
+    'SHSU': 'Sam Houston',
+    'Sam Hous St': 'Sam Houston',
+    # Louisiana Tech
     'La. Tech': 'Louisiana Tech',
     'Louisiana Tech': 'Louisiana Tech',
     'LA Tech': 'Louisiana Tech',
+    'La Tech': 'Louisiana Tech',
+    'LaTech': 'Louisiana Tech',
+    # TCU/BYU
     'TCU Horned Frogs': 'TCU',
     'BYU Cougars': 'BYU',
+    'Brigham Young': 'BYU',
+    # Northern Kentucky
     'N. Kentucky': 'Northern Kentucky',
     'N Kentucky': 'Northern Kentucky',
     'Northern Ky.': 'Northern Kentucky',
     'NKY': 'Northern Kentucky',
+    'NKU': 'Northern Kentucky',
+    # Appalachian State
+    'App State': 'Appalachian State',
+    'App St': 'Appalachian State',
+    'App. State': 'Appalachian State',
+    'Appalachian St.': 'Appalachian State',
+    'APP': 'Appalachian State',
+    # Middle Tennessee
+    'MTSU': 'Middle Tennessee',
+    'Middle Tenn.': 'Middle Tennessee',
+    'Middle Tenn': 'Middle Tennessee',
+    'Mid. Tennessee': 'Middle Tennessee',
+    'M Tennessee': 'Middle Tennessee',
+    # Western Kentucky
+    'WKU': 'Western Kentucky',
+    'W. Kentucky': 'Western Kentucky',
+    'W Kentucky': 'Western Kentucky',
+    'West Kentucky': 'Western Kentucky',
+    # Eastern Kentucky
+    'EKU': 'Eastern Kentucky',
+    'E. Kentucky': 'Eastern Kentucky',
+    'E Kentucky': 'Eastern Kentucky',
+    'East Kentucky': 'Eastern Kentucky',
+    # Southern Illinois
+    'SIU': 'Southern Illinois',
+    'S. Illinois': 'Southern Illinois',
+    'S Illinois': 'Southern Illinois',
+    'So. Illinois': 'Southern Illinois',
+    # Northern Illinois
+    'NIU': 'Northern Illinois',
+    'N. Illinois': 'Northern Illinois',
+    'N Illinois': 'Northern Illinois',
+    'No. Illinois': 'Northern Illinois',
+    # Central Michigan
+    'CMU': 'Central Michigan',
+    'C. Michigan': 'Central Michigan',
+    'C Michigan': 'Central Michigan',
+    'Cent. Michigan': 'Central Michigan',
+    # Eastern Michigan
+    'EMU': 'Eastern Michigan',
+    'E. Michigan': 'Eastern Michigan',
+    'E Michigan': 'Eastern Michigan',
+    'East Michigan': 'Eastern Michigan',
+    # Western Michigan
+    'WMU': 'Western Michigan',
+    'W. Michigan': 'Western Michigan',
+    'W Michigan': 'Western Michigan',
+    'West Michigan': 'Western Michigan',
+    # Bowling Green
+    'BGSU': 'Bowling Green',
+    'BG': 'Bowling Green',
+    'Bowl. Green': 'Bowling Green',
+    # Ball State
+    'Ball St.': 'Ball State',
+    'Ball St': 'Ball State',
+    # Kent State
+    'Kent St.': 'Kent State',
+    'Kent St': 'Kent State',
+    # Fresno State
+    'Fresno St.': 'Fresno State',
+    'Fresno St': 'Fresno State',
+    # Boise State
+    'Boise St.': 'Boise State',
+    'Boise St': 'Boise State',
+    # Colorado State
+    'Colorado St.': 'Colorado State',
+    'Colorado St': 'Colorado State',
+    'Colo. St.': 'Colorado State',
+    'Colo St': 'Colorado State',
+    'CSU': 'Colorado State',
+    # Utah State
+    'Utah St.': 'Utah State',
+    'Utah St': 'Utah State',
+    # New Mexico State
+    'New Mexico St.': 'New Mexico State',
+    'New Mexico St': 'New Mexico State',
+    'NM State': 'New Mexico State',
+    'NMSU': 'New Mexico State',
+    # Arizona State
+    'Arizona St.': 'Arizona State',
+    'Arizona St': 'Arizona State',
+    'Ariz. St.': 'Arizona State',
+    'Ariz St': 'Arizona State',
+    'ASU': 'Arizona State',
+    # Oregon State
+    'Oregon St.': 'Oregon State',
+    'Oregon St': 'Oregon State',
+    # Washington State
+    'Washington St.': 'Washington State',
+    'Washington St': 'Washington State',
+    'Wash. St.': 'Washington State',
+    'Wash St': 'Washington State',
+    'WSU': 'Washington State',
+    # UNC schools
+    'UNC': 'North Carolina',
+    'N. Carolina': 'North Carolina',
+    'N Carolina': 'North Carolina',
+    'No. Carolina': 'North Carolina',
+    'UNC Wilmington': 'UNC Wilmington',
+    'UNCW': 'UNC Wilmington',
+    'NC Wilmington': 'UNC Wilmington',
+    'UNC Greensboro': 'UNC Greensboro',
+    'UNCG': 'UNC Greensboro',
+    'NC Greensboro': 'UNC Greensboro',
+    'UNC Asheville': 'UNC Asheville',
+    'UNCA': 'UNC Asheville',
+    # South Carolina
+    'S. Carolina': 'South Carolina',
+    'S Carolina': 'South Carolina',
+    'So. Carolina': 'South Carolina',
+    # Arkansas State
+    'Arkansas St.': 'Arkansas State',
+    'Arkansas St': 'Arkansas State',
+    'Ark. St.': 'Arkansas State',
+    'Ark St': 'Arkansas State',
+    # Georgia State
+    'Georgia St.': 'Georgia State',
+    'Georgia St': 'Georgia State',
+    'Ga. St.': 'Georgia State',
+    'Ga. State': 'Georgia State',
+    'Ga St': 'Georgia State',
+    'GSU': 'Georgia State',
+    # Memphis
+    'Memphis Tigers': 'Memphis',
+    'MEM': 'Memphis',
+    # UAB
+    'UAB Blazers': 'UAB',
+    'Alabama-Birmingham': 'UAB',
+    # UTEP
+    'Texas-El Paso': 'UTEP',
+    'UT El Paso': 'UTEP',
+    # UTSA
+    'Texas-San Antonio': 'UTSA',
+    'UT San Antonio': 'UTSA',
+    # FAU/FIU
+    'Fla. Atlantic': 'Florida Atlantic',
+    'Fla Atlantic': 'Florida Atlantic',
+    'FL Atlantic': 'Florida Atlantic',
+    'FAU': 'Florida Atlantic',
+    'Fla. International': 'FIU',
+    'Fla International': 'FIU',
+    'FL International': 'FIU',
+    'Florida Intl': 'FIU',
+    # VCU
+    'Virginia Commonwealth': 'VCU',
+    'Va. Commonwealth': 'VCU',
+    'Va Commonwealth': 'VCU',
+    # George Mason
+    'Geo. Mason': 'George Mason',
+    'Geo Mason': 'George Mason',
+    'GMU': 'George Mason',
+    # George Washington
+    'Geo. Washington': 'George Washington',
+    'Geo Washington': 'George Washington',
+    'GW': 'George Washington',
+    'GWU': 'George Washington',
+    # Grand Canyon
+    'Gr. Canyon': 'Grand Canyon',
+    'GCU': 'Grand Canyon',
+    # South Florida
+    'S. Florida': 'South Florida',
+    'S Florida': 'South Florida',
+    'So. Florida': 'South Florida',
+    # Central Florida
+    'UCF': 'Central Florida',
+    'C. Florida': 'Central Florida',
+    'Cent. Florida': 'Central Florida',
+    # Other common abbreviations
+    'LSU Tigers': 'LSU',
+    'UK': 'Kentucky',
+    'KU': 'Kansas',
+    'IU': 'Indiana',
+    'Marquette Golden Eagles': 'Marquette',
+    'MARQ': 'Marquette',
+    'Creighton Bluejays': 'Creighton',
+    'CREI': 'Creighton',
+    'Villanova Wildcats': 'Villanova',
+    'NOVA': 'Villanova',
+    'Xavier Musketeers': 'Xavier',
+    'XAV': 'Xavier',
+    'Butler Bulldogs': 'Butler',
+    'BUT': 'Butler',
 }
 
 def normalize_cbb_team_name(name: str) -> str:
