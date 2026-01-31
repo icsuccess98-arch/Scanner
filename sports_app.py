@@ -7597,10 +7597,9 @@ def dashboard():
         elif g.league == 'CBB':
             g.away_logo = get_transparent_cbb_logo(g.away_team) or get_cbb_logo(g.away_team) or 'https://a.espncdn.com/i/teamlogos/leagues/500-dark/nba.png'
             g.home_logo = get_transparent_cbb_logo(g.home_team) or get_cbb_logo(g.home_team) or 'https://a.espncdn.com/i/teamlogos/leagues/500-dark/nba.png'
-            away_stand = cbb_standings.get(g.away_team, {})
-            home_stand = cbb_standings.get(g.home_team, {})
-            g.away_record = away_stand.get('record', '--')
-            g.home_record = home_stand.get('record', '--')
+            # Use fuzzy matching for CBB team records
+            g.away_record = get_cbb_team_record(g.away_team, cbb_standings)
+            g.home_record = get_cbb_team_record(g.home_team, cbb_standings)
             g.away_standing = ''
             g.home_standing = ''
         elif g.league == 'NHL':
@@ -8477,66 +8476,75 @@ def get_cbb_team_rank(team_name: str) -> int:
         return tv.get('rank', 999)
     return 999
 
-def fetch_torvik_ratings():
-    """Fetch Bart Torvik team ratings for CBB. Cached daily."""
+def fetch_kenpom_ratings():
+    """Fetch KenPom team ratings for CBB via official API. Cached daily."""
     global torvik_cache, torvik_cache_date
     today = date.today()
     if torvik_cache_date == today and torvik_cache:
-        logger.info(f"Using cached Torvik data ({len(torvik_cache)} teams)")
+        logger.info(f"Using cached KenPom data ({len(torvik_cache)} teams)")
         return torvik_cache
+    
+    api_key = os.environ.get('CBB_API_KEY', '')
+    if not api_key:
+        logger.warning("CBB_API_KEY not set, skipping KenPom fetch")
+        return torvik_cache
+    
     try:
-        logger.info("Fetching Bart Torvik CBB ratings...")
-        url = "https://barttorvik.com/trank.php?year=2026&sort=&top=0&conlimit=All"
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-        resp = requests.get(url, headers=headers, timeout=15)
+        logger.info("Fetching KenPom CBB ratings via API...")
+        url = "https://kenpom.com/api.php?endpoint=ratings&y=2026"
+        headers = {
+            'Authorization': f'Bearer {api_key}',
+            'User-Agent': 'Mozilla/5.0 (compatible; SportsApp/1.0)'
+        }
+        resp = requests.get(url, headers=headers, timeout=30)
+        
+        if resp.status_code == 401:
+            logger.warning("KenPom API unauthorized - check API key")
+            return torvik_cache
         if resp.status_code != 200:
-            logger.warning(f"Torvik fetch failed: {resp.status_code}")
+            logger.warning(f"KenPom API fetch failed: {resp.status_code}")
             return torvik_cache
-        soup = BeautifulSoup(resp.text, 'html.parser')
-        table = soup.find('table', {'id': 'ratings-table'})
-        if not table:
-            tables = soup.find_all('table')
-            table = tables[0] if tables else None
-        if not table:
-            logger.warning("Could not find Torvik ratings table")
+        
+        data = resp.json()
+        if not data:
+            logger.warning("KenPom API returned empty data")
             return torvik_cache
-        rows = table.find_all('tr')[1:]
+        
         new_cache = {}
-        for row in rows:
-            cells = row.find_all('td')
-            if len(cells) >= 8:
-                try:
-                    rank = cells[0].get_text(strip=True)
-                    team_cell = cells[1]
-                    team_link = team_cell.find('a')
-                    team_name = team_link.get_text(strip=True) if team_link else team_cell.get_text(strip=True)
-                    team_name = team_name.replace('\n', ' ').strip()
-                    conf = cells[2].get_text(strip=True) if len(cells) > 2 else ""
-                    record = cells[3].get_text(strip=True) if len(cells) > 3 else ""
-                    adj_o_text = cells[4].get_text(strip=True) if len(cells) > 4 else ""
-                    adj_d_text = cells[5].get_text(strip=True) if len(cells) > 5 else ""
-                    barthag_text = cells[6].get_text(strip=True) if len(cells) > 6 else ""
-                    tempo_text = cells[7].get_text(strip=True) if len(cells) > 7 else ""
-                    adj_o = float(adj_o_text) if adj_o_text else None
-                    adj_d = float(adj_d_text) if adj_d_text else None
-                    barthag = float(barthag_text) if barthag_text else None
-                    tempo = float(tempo_text) if tempo_text else None
-                    if team_name and adj_o and adj_d:
-                        new_cache[team_name.lower()] = {
-                            'rank': int(rank) if rank.isdigit() else 0,
-                            'team': team_name,
-                            'conf': conf,
-                            'record': record,
-                            'adj_o': adj_o,
-                            'adj_d': adj_d,
-                            'barthag': barthag,
-                            'tempo': tempo
-                        }
-                except (ValueError, IndexError) as e:
-                    continue
+        for team in data:
+            try:
+                team_name = team.get('TeamName', '')
+                rank = team.get('RankAdjEM', 0)
+                adj_o = team.get('AdjOE', 0)
+                adj_d = team.get('AdjDE', 0)
+                adj_em = team.get('AdjEM', 0)
+                tempo = team.get('AdjTempo', 0)
+                conf = team.get('ConfShort', '')
+                wins = team.get('Wins', 0)
+                losses = team.get('Losses', 0)
+                sos = team.get('SOS', 0)
+                sos_rank = team.get('RankSOS', 0)
+                
+                if team_name and adj_o and adj_d:
+                    new_cache[team_name.lower()] = {
+                        'rank': rank,
+                        'team': team_name,
+                        'conf': conf,
+                        'record': f"{wins}-{losses}",
+                        'adj_o': adj_o,
+                        'adj_d': adj_d,
+                        'adj_em': adj_em,
+                        'tempo': tempo,
+                        'sos': sos,
+                        'sos_rank': sos_rank
+                    }
+            except (ValueError, KeyError) as e:
+                continue
+        
         if new_cache:
             torvik_cache = new_cache
             torvik_cache_date = today
+            logger.info(f"KenPom API loaded {len(new_cache)} teams")
             logger.info(f"Torvik data loaded: {len(new_cache)} teams")
         return torvik_cache
     except Exception as e:
@@ -8546,7 +8554,7 @@ def fetch_torvik_ratings():
 def get_torvik_team(team_name: str) -> Optional[dict]:
     """Get Torvik stats for a team by name (fuzzy match)."""
     if not torvik_cache:
-        fetch_torvik_ratings()
+        fetch_kenpom_ratings()
     if not torvik_cache:
         return None
     name_lower = team_name.lower().strip()
@@ -8784,7 +8792,7 @@ def fetch_games():
             gd["away_ppg"], gd["away_opp"] = stats.get(gd.get("away_id"), (None, None))
             gd["home_ppg"], gd["home_opp"] = stats.get(gd.get("home_id"), (None, None))
     
-    fetch_torvik_ratings()
+    fetch_kenpom_ratings()
     
     # TRANSACTIONAL SAFETY: Only delete old games after we confirmed new data was fetched
     if all_games_data:
@@ -10288,19 +10296,37 @@ def get_cbb_standings():
                     display_name = team_info.get('displayName', '')
                     nickname = team_info.get('nickname', '')
                     abbrev = team_info.get('abbreviation', '')
-                    if short_name and short_name not in standings:
-                        standings[short_name] = team_data
-                    if display_name and display_name not in standings:
-                        standings[display_name] = team_data
-                    if nickname and nickname not in standings:
-                        standings[nickname] = team_data
-                    if abbrev and abbrev not in standings:
-                        standings[abbrev] = team_data
+                    location = team_info.get('location', '')
+                    # Add all possible name variations
+                    for name in [short_name, display_name, nickname, abbrev, location]:
+                        if name and name not in standings:
+                            standings[name] = team_data
+                            # Also add lowercase version for fuzzy matching
+                            standings[name.lower()] = team_data
         _cbb_standings_cache = {'data': standings, 'timestamp': time.time()}
         logger.info(f"Fetched CBB standings for {len(standings)} teams from scoreboard")
     except Exception as e:
         logger.warning(f"Error fetching CBB standings: {e}")
     return standings
+
+def get_cbb_team_record(team_name: str, standings: dict) -> str:
+    """Get CBB team record with fuzzy matching. Falls back to KenPom data."""
+    # Exact match first
+    if team_name in standings:
+        return standings[team_name].get('record', '--')
+    # Lowercase match
+    if team_name.lower() in standings:
+        return standings[team_name.lower()].get('record', '--')
+    # Fuzzy match - check if team name is part of any key
+    team_lower = team_name.lower()
+    for key, data in standings.items():
+        if team_lower in key.lower() or key.lower() in team_lower:
+            return data.get('record', '--')
+    # Fallback to KenPom data for records
+    kenpom_data = get_torvik_team(team_name)
+    if kenpom_data and kenpom_data.get('record'):
+        return kenpom_data.get('record', '--')
+    return '--'
 
 _nhl_standings_cache = {'data': {}, 'timestamp': 0}
 
@@ -10444,10 +10470,9 @@ def spreads():
             elif g.league == 'CBB':
                 g.away_logo = get_transparent_cbb_logo(g.away_team) or get_cbb_logo(g.away_team) or 'https://a.espncdn.com/i/teamlogos/leagues/500-dark/nba.png'
                 g.home_logo = get_transparent_cbb_logo(g.home_team) or get_cbb_logo(g.home_team) or 'https://a.espncdn.com/i/teamlogos/leagues/500-dark/nba.png'
-                away_stand = cbb_standings.get(g.away_team, {})
-                home_stand = cbb_standings.get(g.home_team, {})
-                g.away_record = away_stand.get('record', '--')
-                g.home_record = home_stand.get('record', '--')
+                # Use fuzzy matching for CBB team records
+                g.away_record = get_cbb_team_record(g.away_team, cbb_standings)
+                g.home_record = get_cbb_team_record(g.home_team, cbb_standings)
                 g.away_standing = ''
                 g.home_standing = ''
                 # CBB Covers-style stats with database persistence
@@ -10852,8 +10877,8 @@ def spreads():
     cbb_bad_defense_list = []
     cbb_bad_defense_set = set()
     for g in cbb_games:
-        away_data = get_kenpom_team(g.away_team) or get_torvik_team(g.away_team) or {}
-        home_data = get_kenpom_team(g.home_team) or get_torvik_team(g.home_team) or {}
+        away_data = get_torvik_team(g.away_team) or {}
+        home_data = get_torvik_team(g.home_team) or {}
         # Higher adj_d = worse defense
         away_def = away_data.get('adj_d', 0)
         home_def = home_data.get('adj_d', 0)
