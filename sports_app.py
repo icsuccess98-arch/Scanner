@@ -1094,6 +1094,28 @@ class MatchupIntelligence:
                     return int(match.group(1))
                 return None
             
+            # Metric name mapping for consistent keys
+            def normalize_stat_name(stat):
+                """Map stat names to our standardized keys"""
+                stat_lower = stat.lower().strip()
+                mappings = {
+                    'points/game': 'PPP', 'ppg': 'PPP', 'points per game': 'PPP',
+                    'opp points/game': 'Opp PPP', 'opponent ppg': 'Opp PPP',
+                    'offensive reb %': 'ORB%', 'off reb%': 'ORB%', 'orb%': 'ORB%', 'offensive rebound %': 'ORB%',
+                    'defensive reb %': 'DRB%', 'def reb%': 'DRB%', 'drb%': 'DRB%', 'defensive rebound %': 'DRB%',
+                    'turnover %': 'TOV%', 'tov%': 'TOV%', 'to%': 'TOV%',
+                    'opponent to%': 'Opp TOV%', 'forced to%': 'Opp TOV%', 'opp tov%': 'Opp TOV%',
+                    'effective fg%': 'eFG%', 'efg%': 'eFG%', 'effective fg %': 'eFG%',
+                    'opp effective fg%': 'Opp eFG%', 'opp efg%': 'Opp eFG%',
+                    '3-pt%': '3PT%', '3pt%': '3PT%', '3-point%': '3PT%', 'three point %': '3PT%',
+                    'opp 3-pt%': 'Opp 3PT%', 'opp 3pt%': 'Opp 3PT%',
+                    'fta/fga': 'FTA/FGA', 'ft rate': 'FTA/FGA', 'free throw rate': 'FTA/FGA',
+                    'opp fta/fga': 'Opp FTA/FGA', 'opp ft rate': 'Opp FTA/FGA',
+                    'off efficiency': 'O Eff', 'offensive efficiency': 'O Eff',
+                    'def efficiency': 'D Eff', 'defensive efficiency': 'D Eff',
+                }
+                return mappings.get(stat_lower, stat)
+            
             # 1. STATS PAGE - Format: StatName | Value(rank) | Value(rank) | OppStatName
             try:
                 resp = requests.get(f"{base_url}/stats", headers=headers, timeout=15)
@@ -1117,10 +1139,17 @@ class MatchupIntelligence:
                             cells = row.find_all(['td', 'th'])
                             if len(cells) < 4:
                                 continue
-                            stat1 = cells[0].get_text(strip=True).lower()
-                            val1 = parse_value(cells[1].get_text(strip=True))
-                            val2 = parse_value(cells[2].get_text(strip=True))
-                            stat2 = cells[3].get_text(strip=True).lower()
+                            stat1_raw = cells[0].get_text(strip=True)
+                            cell1_text = cells[1].get_text(strip=True)
+                            cell2_text = cells[2].get_text(strip=True)
+                            stat2_raw = cells[3].get_text(strip=True)
+                            
+                            stat1 = normalize_stat_name(stat1_raw)
+                            stat2 = normalize_stat_name(stat2_raw)
+                            val1 = parse_value(cell1_text)
+                            val2 = parse_value(cell2_text)
+                            rank1 = extract_rank(cell1_text)
+                            rank2 = extract_rank(cell2_text)
                             
                             if 'subscribe' in stat1.lower() or not stat1:
                                 continue
@@ -1128,18 +1157,30 @@ class MatchupIntelligence:
                             if is_away_table and not is_home_table:
                                 if val1 is not None:
                                     result['away_season'][stat1] = val1
+                                    if rank1:
+                                        result['away_season'][f'{stat1} Rank'] = rank1
                                 if val2 is not None:
                                     result['home_season'][stat2] = val2
+                                    if rank2:
+                                        result['home_season'][f'{stat2} Rank'] = rank2
                             elif is_home_table and not is_away_table:
                                 if val1 is not None:
                                     result['home_season'][stat1] = val1
+                                    if rank1:
+                                        result['home_season'][f'{stat1} Rank'] = rank1
                                 if val2 is not None:
                                     result['away_season'][stat2] = val2
+                                    if rank2:
+                                        result['away_season'][f'{stat2} Rank'] = rank2
                             else:
                                 if val1 is not None:
                                     result['away_season'][stat1] = val1
+                                    if rank1:
+                                        result['away_season'][f'{stat1} Rank'] = rank1
                                 if val2 is not None:
                                     result['home_season'][stat2] = val2
+                                    if rank2:
+                                        result['home_season'][f'{stat2} Rank'] = rank2
                     
                     logger.info(f"Stats page: away={len(result['away_season'])}, home={len(result['home_season'])}")
             except Exception as e:
@@ -1161,16 +1202,25 @@ class MatchupIntelligence:
                             cells = row.find_all(['td', 'th'])
                             if len(cells) < 4:
                                 continue
-                            stat_name = cells[0].get_text(strip=True).lower()
-                            away_val = parse_value(cells[1].get_text(strip=True))
-                            home_val = parse_value(cells[3].get_text(strip=True))
+                            stat_name_raw = cells[0].get_text(strip=True)
+                            stat_name = normalize_stat_name(stat_name_raw)
+                            away_text = cells[1].get_text(strip=True)
+                            home_text = cells[3].get_text(strip=True)
+                            away_val = parse_value(away_text)
+                            home_val = parse_value(home_text)
+                            away_rank = extract_rank(away_text)
+                            home_rank = extract_rank(home_text)
                             
-                            if 'subscribe' in stat_name or not stat_name:
+                            if 'subscribe' in stat_name.lower() or not stat_name:
                                 continue
                             if away_val is not None:
                                 result['away_season'][stat_name] = away_val
+                                if away_rank:
+                                    result['away_season'][f'{stat_name} Rank'] = away_rank
                             if home_val is not None:
                                 result['home_season'][stat_name] = home_val
+                                if home_rank:
+                                    result['home_season'][f'{stat_name} Rank'] = home_rank
                     
                     eff_keys = [k for k in result['away_season'].keys() if 'eff' in k.lower()]
                     logger.info(f"Efficiency page added stats. Efficiency keys found: {eff_keys}")
@@ -10847,6 +10897,7 @@ def get_matchup_data(game_id):
             }
             
             # Convert to display format - Season Stats using exact TeamRankings stat names
+            # Use TeamRankings ranks as primary source, CTG as fallback
             result['away_season'] = {
                 'PPG': find_stat(away_season, 'points/game'),
                 'Opp PPG': find_stat(away_season, 'opp points/game'),
@@ -10875,23 +10926,24 @@ def get_matchup_data(game_id):
                 'Pts in Paint': find_stat(away_season, 'pts in paint/gm'),
                 'Fastbreak Pts': find_stat(away_season, 'fastbreak pts/gm'),
                 'FTA/FGA': away_ctg.get('off_ft_rate') or find_stat(away_season, 'fta/fga'),
-                'FT Rate Rank': away_ctg.get('off_ft_rank'),
                 '3PM/Game': find_stat(away_season, '3pm/game'),
                 'Opp TOV': find_stat(away_season, 'opp turnovers/game'),
                 'Opp TOV%': find_stat(away_season, 'opp turnovers/play'),
                 'Opp 3PM/Game': find_stat(away_season, 'opp 3pm/game'),
                 'Opp FTA/FGA': away_ctg.get('def_ft_rate') or find_stat(away_season, 'opp fta/fga'),
-                'Opp FT Rate Rank': away_ctg.get('def_ft_rank'),
-                'PPP': away_ctg.get('off_ppp'),
-                'PPP Rank': away_ctg.get('off_ppp_rank'),
-                'Opp PPP': away_ctg.get('def_ppp'),
-                'Opp PPP Rank': away_ctg.get('def_ppp_rank'),
-                'eFG% Rank': away_ctg.get('off_efg_rank'),
-                'Opp eFG% Rank': away_ctg.get('def_efg_rank'),
-                'TOV% Rank': away_ctg.get('off_tov_rank'),
-                'F-TOV% Rank': away_ctg.get('def_tov_rank'),
-                'ORB% Rank': away_ctg.get('off_orb_rank'),
-                'DRB% Rank': away_ctg.get('def_orb_rank')
+                # RANKS: Use TeamRankings first, CTG as fallback
+                'PPP': find_stat(away_season, 'PPP') or away_ctg.get('off_ppp'),
+                'PPP Rank': find_stat(away_season, 'PPP Rank') or away_ctg.get('off_ppp_rank'),
+                'Opp PPP': find_stat(away_season, 'Opp PPP') or away_ctg.get('def_ppp'),
+                'Opp PPP Rank': find_stat(away_season, 'Opp PPP Rank') or away_ctg.get('def_ppp_rank'),
+                'eFG% Rank': find_stat(away_season, 'eFG% Rank') or away_ctg.get('off_efg_rank'),
+                'Opp eFG% Rank': find_stat(away_season, 'Opp eFG% Rank') or away_ctg.get('def_efg_rank'),
+                'TOV% Rank': find_stat(away_season, 'TOV% Rank') or away_ctg.get('off_tov_rank'),
+                'F-TOV% Rank': find_stat(away_season, 'F-TOV% Rank') or away_ctg.get('def_tov_rank'),
+                'ORB% Rank': find_stat(away_season, 'ORB% Rank') or away_ctg.get('off_orb_rank'),
+                'DRB% Rank': find_stat(away_season, 'DRB% Rank') or away_ctg.get('def_orb_rank'),
+                'FT Rate Rank': find_stat(away_season, 'FT Rate Rank') or away_ctg.get('off_ft_rank'),
+                'Opp FT Rate Rank': find_stat(away_season, 'Opp FT Rate Rank') or away_ctg.get('def_ft_rank')
             }
             result['home_season'] = {
                 'PPG': find_stat(home_season, 'points/game'),
@@ -10921,23 +10973,24 @@ def get_matchup_data(game_id):
                 'Pts in Paint': find_stat(home_season, 'pts in paint/gm'),
                 'Fastbreak Pts': find_stat(home_season, 'fastbreak pts/gm'),
                 'FTA/FGA': home_ctg.get('off_ft_rate') or find_stat(home_season, 'fta/fga'),
-                'FT Rate Rank': home_ctg.get('off_ft_rank'),
                 '3PM/Game': find_stat(home_season, '3pm/game'),
                 'Opp TOV': find_stat(home_season, 'opp turnovers/game'),
                 'Opp TOV%': find_stat(home_season, 'opp turnovers/play'),
                 'Opp 3PM/Game': find_stat(home_season, 'opp 3pm/game'),
                 'Opp FTA/FGA': home_ctg.get('def_ft_rate') or find_stat(home_season, 'opp fta/fga'),
-                'Opp FT Rate Rank': home_ctg.get('def_ft_rank'),
-                'PPP': home_ctg.get('off_ppp'),
-                'PPP Rank': home_ctg.get('off_ppp_rank'),
-                'Opp PPP': home_ctg.get('def_ppp'),
-                'Opp PPP Rank': home_ctg.get('def_ppp_rank'),
-                'eFG% Rank': home_ctg.get('off_efg_rank'),
-                'Opp eFG% Rank': home_ctg.get('def_efg_rank'),
-                'TOV% Rank': home_ctg.get('off_tov_rank'),
-                'F-TOV% Rank': home_ctg.get('def_tov_rank'),
-                'ORB% Rank': home_ctg.get('off_orb_rank'),
-                'DRB% Rank': home_ctg.get('def_orb_rank')
+                # RANKS: Use TeamRankings first, CTG as fallback
+                'PPP': find_stat(home_season, 'PPP') or home_ctg.get('off_ppp'),
+                'PPP Rank': find_stat(home_season, 'PPP Rank') or home_ctg.get('off_ppp_rank'),
+                'Opp PPP': find_stat(home_season, 'Opp PPP') or home_ctg.get('def_ppp'),
+                'Opp PPP Rank': find_stat(home_season, 'Opp PPP Rank') or home_ctg.get('def_ppp_rank'),
+                'eFG% Rank': find_stat(home_season, 'eFG% Rank') or home_ctg.get('off_efg_rank'),
+                'Opp eFG% Rank': find_stat(home_season, 'Opp eFG% Rank') or home_ctg.get('def_efg_rank'),
+                'TOV% Rank': find_stat(home_season, 'TOV% Rank') or home_ctg.get('off_tov_rank'),
+                'F-TOV% Rank': find_stat(home_season, 'F-TOV% Rank') or home_ctg.get('def_tov_rank'),
+                'ORB% Rank': find_stat(home_season, 'ORB% Rank') or home_ctg.get('off_orb_rank'),
+                'DRB% Rank': find_stat(home_season, 'DRB% Rank') or home_ctg.get('def_orb_rank'),
+                'FT Rate Rank': find_stat(home_season, 'FT Rate Rank') or home_ctg.get('off_ft_rank'),
+                'Opp FT Rate Rank': find_stat(home_season, 'Opp FT Rate Rank') or home_ctg.get('def_ft_rank')
             }
             
             # SOS Rank comes from the power-ratings page scraper
