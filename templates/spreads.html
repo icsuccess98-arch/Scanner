@@ -3491,19 +3491,13 @@
                 const homeClass = noEdge ? 'stat-neutral' : (homeWins ? 'stat-winner-home' : 'stat-neutral');
                 const winner = awayWins ? awayTeam : homeTeam;
                 
-                // Edge display with ranking badge when applicable
+                // Edge display - clean text only, no rank badges
                 let edgeText, edgeClass;
                 if (noEdge) {
                     edgeText = '<span class="edge-even">Even</span>';
                     edgeClass = '';
                 } else {
-                    // Show winner with their rank badge
-                    const winnerRank = awayWins ? awayRankNum : homeRankNum;
-                    if (winnerRank && winnerRank < 999) {
-                        edgeText = `<span class="rank-badge rank-good">#${winnerRank}</span> ${winner}`;
-                    } else {
-                        edgeText = winner;
-                    }
+                    edgeText = winner;
                     edgeClass = awayWins ? 'edge-away' : 'edge-home';
                     if (isSignificant) {
                         edgeClass += ' edge-strong';

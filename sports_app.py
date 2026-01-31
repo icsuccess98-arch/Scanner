@@ -9463,34 +9463,358 @@ def fetch_kenpom_ratings():
         logger.error(f"Torvik fetch error: {e}")
         return torvik_cache
 
+CBB_TEAM_NAME_MAP = {
+    # Comprehensive mapping: Covers.com/ESPN name -> KenPom name
+    # States with abbreviations
+    'ball state': 'ball st.', 'ball st': 'ball st.', 'bsu': 'ball st.',
+    'ohio state': 'ohio st.', 'ohio st': 'ohio st.', 'osu': 'ohio st.',
+    'michigan state': 'michigan st.', 'michigan st': 'michigan st.', 'msu': 'michigan st.',
+    'florida state': 'florida st.', 'florida st': 'florida st.', 'fsu': 'florida st.',
+    'penn state': 'penn st.', 'penn st': 'penn st.', 'psu': 'penn st.',
+    'iowa state': 'iowa st.', 'iowa st': 'iowa st.', 'isu': 'iowa st.',
+    'kansas state': 'kansas st.', 'kansas st': 'kansas st.', 'ksu': 'kansas st.', 'k-state': 'kansas st.',
+    'oklahoma state': 'oklahoma st.', 'oklahoma st': 'oklahoma st.', 'okst': 'oklahoma st.', 'ok state': 'oklahoma st.',
+    'oregon state': 'oregon st.', 'oregon st': 'oregon st.', 'osu': 'oregon st.',
+    'washington state': 'washington st.', 'washington st': 'washington st.', 'wsu': 'washington st.', 'wazzu': 'washington st.',
+    'mississippi state': 'mississippi st.', 'mississippi st': 'mississippi st.', 'miss state': 'mississippi st.', 'miss st': 'mississippi st.',
+    'arizona state': 'arizona st.', 'arizona st': 'arizona st.', 'asu': 'arizona st.',
+    'fresno state': 'fresno st.', 'fresno st': 'fresno st.',
+    'boise state': 'boise st.', 'boise st': 'boise st.',
+    'san diego state': 'san diego st.', 'san diego st': 'san diego st.', 'sdsu': 'san diego st.',
+    'colorado state': 'colorado st.', 'colorado st': 'colorado st.', 'csu': 'colorado st.',
+    'utah state': 'utah st.', 'utah st': 'utah st.', 'usu': 'utah st.',
+    'georgia state': 'georgia st.', 'georgia st': 'georgia st.', 'gsu': 'georgia st.',
+    'kennesaw state': 'kennesaw st.', 'kennesaw st': 'kennesaw st.',
+    'jacksonville state': 'jacksonville st.', 'jacksonville st': 'jacksonville st.', 'jax state': 'jacksonville st.', 'jax st': 'jacksonville st.',
+    'sam houston state': 'sam houston st.', 'sam houston st': 'sam houston st.', 'sam houston': 'sam houston st.', 'shsu': 'sam houston st.',
+    'appalachian state': 'appalachian st.', 'appalachian st': 'appalachian st.', 'app state': 'appalachian st.', 'app st': 'appalachian st.',
+    'tarleton state': 'tarleton st.', 'tarleton st': 'tarleton st.', 'tarleton': 'tarleton st.',
+    'weber state': 'weber st.', 'weber st': 'weber st.',
+    'idaho state': 'idaho st.', 'idaho st': 'idaho st.',
+    'montana state': 'montana st.', 'montana st': 'montana st.',
+    'portland state': 'portland st.', 'portland st': 'portland st.',
+    'sacramento state': 'sacramento st.', 'sacramento st': 'sacramento st.', 'sac state': 'sacramento st.', 'sac st': 'sacramento st.',
+    'norfolk state': 'norfolk st.', 'norfolk st': 'norfolk st.', 'nsu': 'norfolk st.',
+    'coppin state': 'coppin st.', 'coppin st': 'coppin st.',
+    'morgan state': 'morgan st.', 'morgan st': 'morgan st.',
+    'delaware state': 'delaware st.', 'delaware st': 'delaware st.', 'dsu': 'delaware st.',
+    'south carolina state': 'south carolina st.', 'south carolina st': 'south carolina st.', 'sc state': 'south carolina st.',
+    'north carolina state': 'n.c. state', 'nc state': 'n.c. state', 'n.c. state': 'n.c. state',
+    'alcorn state': 'alcorn st.', 'alcorn st': 'alcorn st.',
+    'alabama state': 'alabama st.', 'alabama st': 'alabama st.', 'bama state': 'alabama st.',
+    'grambling state': 'grambling', 'grambling st': 'grambling',
+    'jackson state': 'jackson st.', 'jackson st': 'jackson st.',
+    'prairie view': 'prairie view a&m', 'prairie view am': 'prairie view a&m',
+    'texas southern': 'texas southern',
+    'arkansas state': 'arkansas st.', 'arkansas st': 'arkansas st.',
+    'missouri state': 'missouri st.', 'missouri st': 'missouri st.',
+    'indiana state': 'indiana st.', 'indiana st': 'indiana st.',
+    'illinois state': 'illinois st.', 'illinois st': 'illinois st.',
+    'wichita state': 'wichita st.', 'wichita st': 'wichita st.',
+    'wright state': 'wright st.', 'wright st': 'wright st.',
+    'cleveland state': 'cleveland st.', 'cleveland st': 'cleveland st.',
+    'youngstown state': 'youngstown st.', 'youngstown st': 'youngstown st.',
+    'murray state': 'murray st.', 'murray st': 'murray st.',
+    'morehead state': 'morehead st.', 'morehead st': 'morehead st.',
+    'kent state': 'kent st.', 'kent st': 'kent st.',
+    'bowling green': 'bowling green',
+    # Saint/St. variations
+    "st. john's": "st. john's", 'st johns': "st. john's", "st john's": "st. john's", 'saint johns': "st. john's",
+    "st. mary's": "st. mary's", 'st marys': "st. mary's", "saint mary's": "st. mary's", 'saint marys': "st. mary's",
+    "st. joseph's": "st. joseph's", 'st josephs': "st. joseph's", "saint joseph's": "st. joseph's",
+    'st. bonaventure': 'st. bonaventure', 'st bonaventure': 'st. bonaventure', 'saint bonaventure': 'st. bonaventure',
+    'st. peters': "st. peter's", "st. peter's": "st. peter's", 'saint peters': "st. peter's",
+    'saint louis': 'saint louis', 'st louis': 'saint louis', 'slu': 'saint louis',
+    # Common acronyms
+    'uconn': 'connecticut', 'connecticut': 'connecticut',
+    'usc': 'usc', 'southern california': 'usc',
+    'unc': 'north carolina', 'north carolina': 'north carolina',
+    'ucla': 'ucla', 'california los angeles': 'ucla',
+    'lsu': 'lsu', 'louisiana state': 'lsu',
+    'vcu': 'vcu', 'virginia commonwealth': 'vcu',
+    'ucf': 'ucf', 'central florida': 'ucf',
+    'usf': 'south florida', 'south florida': 'south florida',
+    'fiu': 'fiu', 'florida international': 'fiu',
+    'fau': 'fau', 'florida atlantic': 'fau',
+    'unlv': 'unlv', 'nevada las vegas': 'unlv',
+    'utep': 'utep', 'texas el paso': 'utep',
+    'utsa': 'utsa', 'texas san antonio': 'utsa',
+    'smu': 'smu', 'southern methodist': 'smu',
+    'tcu': 'tcu', 'texas christian': 'tcu',
+    'byu': 'byu', 'brigham young': 'byu',
+    'mtsu': 'middle tennessee', 'middle tennessee': 'middle tennessee', 'middle tenn': 'middle tennessee',
+    'etsu': 'east tennessee st.', 'east tennessee': 'east tennessee st.', 'east tennessee state': 'east tennessee st.',
+    # Regional directionals
+    'western kentucky': 'western kentucky', 'wku': 'western kentucky', 'western ky': 'western kentucky',
+    'eastern kentucky': 'eastern kentucky', 'eku': 'eastern kentucky', 'eastern ky': 'eastern kentucky', 'e kentucky': 'eastern kentucky',
+    'northern kentucky': 'northern kentucky', 'nku': 'northern kentucky', 'n kentucky': 'northern kentucky',
+    'northern illinois': 'northern illinois', 'niu': 'northern illinois', 'n illinois': 'northern illinois',
+    'southern illinois': 'southern illinois', 'siu': 'southern illinois', 's illinois': 'southern illinois',
+    'eastern illinois': 'eastern illinois', 'eiu': 'eastern illinois', 'e illinois': 'eastern illinois',
+    'western illinois': 'western illinois', 'wiu': 'western illinois', 'w illinois': 'western illinois',
+    'northern iowa': 'northern iowa', 'uni': 'northern iowa', 'n iowa': 'northern iowa',
+    'eastern michigan': 'eastern michigan', 'emu': 'eastern michigan', 'e michigan': 'eastern michigan',
+    'western michigan': 'western michigan', 'wmu': 'western michigan', 'w michigan': 'western michigan',
+    'central michigan': 'central michigan', 'cmu': 'central michigan', 'c michigan': 'central michigan',
+    'northern colorado': 'northern colorado', 'n colorado': 'northern colorado',
+    'southern utah': 'southern utah', 's utah': 'southern utah',
+    'northern arizona': 'northern arizona', 'nau': 'northern arizona', 'n arizona': 'northern arizona',
+    'eastern washington': 'eastern washington', 'ewu': 'eastern washington', 'e washington': 'eastern washington',
+    'central arkansas': 'central arkansas', 'uca': 'central arkansas', 'c arkansas': 'central arkansas',
+    # George Washington variations
+    'george washington': 'george washington', 'g washington': 'george washington', 'gw': 'george washington', 'gwu': 'george washington',
+    # Pittsburgh
+    'pittsburgh': 'pittsburgh', 'pitt': 'pittsburgh',
+    # Ole Miss
+    'ole miss': 'mississippi', 'mississippi': 'mississippi',
+    # Connecticut variations
+    'connecticut': 'connecticut', 'uconn': 'connecticut',
+    # Texas A&M variations
+    'texas am': 'texas a&m', 'texas a&m': 'texas a&m', 'tamu': 'texas a&m',
+    # UC schools
+    'uc davis': 'uc davis', 'ucd': 'uc davis', 'california davis': 'uc davis',
+    'uc irvine': 'uc irvine', 'uci': 'uc irvine', 'california irvine': 'uc irvine',
+    'uc riverside': 'uc riverside', 'ucr': 'uc riverside', 'california riverside': 'uc riverside',
+    'uc san diego': 'uc san diego', 'ucsd': 'uc san diego', 'california san diego': 'uc san diego',
+    'uc santa barbara': 'uc santa barbara', 'ucsb': 'uc santa barbara', 'santa barbara': 'uc santa barbara',
+    'cal poly': 'cal poly', 'cal poly slo': 'cal poly',
+    'cal state fullerton': 'cal st. fullerton', 'fullerton': 'cal st. fullerton', 'csuf': 'cal st. fullerton',
+    'cal state northridge': 'cal st. northridge', 'northridge': 'cal st. northridge', 'csu northridge': 'cal st. northridge', 'csun': 'cal st. northridge',
+    'cal state bakersfield': 'cal st. bakersfield', 'bakersfield': 'cal st. bakersfield', 'csub': 'cal st. bakersfield',
+    'long beach state': 'long beach st.', 'long beach st': 'long beach st.', 'lbsu': 'long beach st.',
+    # UMass variations
+    'umass': 'massachusetts', 'massachusetts': 'massachusetts', 'mass': 'massachusetts',
+    'umass lowell': 'umass lowell', 'massachusetts lowell': 'umass lowell',
+    # Loyola schools
+    'loyola chicago': 'loyola chicago', 'loyola chi': 'loyola chicago', 'loyola il': 'loyola chicago',
+    'loyola marymount': 'loyola marymount', 'lmu': 'loyola marymount', 'loyola la': 'loyola marymount',
+    'loyola md': 'loyola maryland', 'loyola maryland': 'loyola maryland',
+    # Miami variations
+    'miami fl': 'miami fl', 'miami florida': 'miami fl', 'miami hurricanes': 'miami fl',
+    'miami oh': 'miami oh', 'miami ohio': 'miami oh', 'miami redhawks': 'miami oh',
+    # Other common variations
+    'unc greensboro': 'unc greensboro', 'uncg': 'unc greensboro', 'greensboro': 'unc greensboro',
+    'unc asheville': 'unc asheville', 'unca': 'unc asheville', 'asheville': 'unc asheville',
+    'unc wilmington': 'unc wilmington', 'uncw': 'unc wilmington', 'wilmington': 'unc wilmington',
+    'unc charlotte': 'charlotte', 'uncc': 'charlotte', 'charlotte': 'charlotte',
+    'georgia southern': 'georgia southern', 'ga southern': 'georgia southern', 'gaso': 'georgia southern',
+    'georgia tech': 'georgia tech', 'ga tech': 'georgia tech', 'gt': 'georgia tech',
+    'texas tech': 'texas tech', 'ttu': 'texas tech', 'tech': 'texas tech',
+    'virginia tech': 'virginia tech', 'vt': 'virginia tech', 'va tech': 'virginia tech',
+    'tennessee tech': 'tennessee tech', 'ttu': 'tennessee tech', 'tn tech': 'tennessee tech',
+    'louisiana tech': 'louisiana tech', 'la tech': 'louisiana tech',
+    # New Mexico variations
+    'new mexico': 'new mexico', 'unm': 'new mexico',
+    'new mexico state': 'new mexico st.', 'new mexico st': 'new mexico st.', 'nmsu': 'new mexico st.',
+    # Texas State variations
+    'texas state': 'texas st.', 'texas st': 'texas st.', 'txst': 'texas st.',
+    # Other schools
+    'grand canyon': 'grand canyon', 'gcu': 'grand canyon',
+    'gonzaga': 'gonzaga', 'zags': 'gonzaga',
+    'villanova': 'villanova', 'nova': 'villanova',
+    'creighton': 'creighton', 'bluejays': 'creighton',
+    'marquette': 'marquette',
+    'seton hall': 'seton hall', 'hall': 'seton hall',
+    'xavier': 'xavier',
+    'butler': 'butler',
+    'providence': 'providence', 'friars': 'providence',
+    'depaul': 'depaul',
+    'georgetown': 'georgetown', 'hoyas': 'georgetown',
+    # Southern schools
+    'southern': 'southern', 'southern jaguars': 'southern',
+    'southern miss': 'southern miss', 'southern mississippi': 'southern miss', 'usm': 'southern miss',
+    'south alabama': 'south alabama', 'usa': 'south alabama',
+    'south florida': 'south florida', 'usf': 'south florida',
+    # Ivy League
+    'harvard': 'harvard', 'yale': 'yale', 'princeton': 'princeton', 'columbia': 'columbia',
+    'cornell': 'cornell', 'brown': 'brown', 'dartmouth': 'dartmouth', 'penn': 'penn', 'pennsylvania': 'penn',
+    # HBCU and smaller schools
+    'howard': 'howard', 'hampton': 'hampton', 'delaware': 'delaware',
+    'bethune': 'bethune cookman', 'bethune cookman': 'bethune cookman', 'bccu': 'bethune cookman', 'b cookman': 'bethune cookman',
+    'north carolina at': 'n.c. a&t', 'nc at': 'n.c. a&t', 'nc a&t': 'n.c. a&t', 'n.c. a&t': 'n.c. a&t',
+    'florida am': 'florida a&m', 'florida a&m': 'florida a&m', 'famu': 'florida a&m',
+    # Additional variations
+    'siu edwardsville': 'siu edwardsville', 'siue': 'siu edwardsville',
+    'southeast missouri': 'southeast missouri st.', 'se missouri': 'southeast missouri st.', 'semo': 'southeast missouri st.',
+    'ut arlington': 'ut arlington', 'uta': 'ut arlington', 'texas arlington': 'ut arlington',
+    'ut rio grande': 'ut rio grande valley', 'utrgv': 'ut rio grande valley', 'rio grande valley': 'ut rio grande valley',
+    'texas am cc': 'texas a&m corpus chris', 'texas a&m corpus christi': 'texas a&m corpus chris', 'tamucc': 'texas a&m corpus chris',
+    'lamar': 'lamar', 'mcneese': 'mcneese', 'nicholls': 'nicholls', 'nicholls state': 'nicholls',
+    'houston christian': 'houston christian', 'hcu': 'houston christian',
+    'incarnate word': 'incarnate word', 'uiw': 'incarnate word',
+    'abilene christian': 'abilene christian', 'acu': 'abilene christian', 'abilene chrstn': 'abilene christian',
+    'little rock': 'little rock', 'ualr': 'little rock',
+    'ar pine bluff': 'arkansas pine bluff', 'arkansas pine bluff': 'arkansas pine bluff', 'uapb': 'arkansas pine bluff',
+    'central connecticut': 'central connecticut', 'c connecticut': 'central connecticut', 'ccsu': 'central connecticut',
+    'fairleigh dickinson': 'fairleigh dickinson', 'fdu': 'fairleigh dickinson',
+    'long island': 'long island', 'liu': 'long island',
+    'detroit mercy': 'detroit mercy', 'detroit': 'detroit mercy', 'udm': 'detroit mercy',
+    'chicago state': 'chicago st.', 'chicago st': 'chicago st.', 'csu': 'chicago st.',
+    'southern indiana': 'southern indiana', 'so indiana': 'southern indiana', 'usi': 'southern indiana',
+    'bellarmine': 'bellarmine', 'queens': 'queens',
+    'lindenwood': 'lindenwood', 'mercyhurst': 'mercyhurst',
+    "hawaii": "hawai'i", "hawai'i": "hawai'i", 'hawaii': "hawai'i",
+    'texas am': 'e. texas a&m', 'e texas am': 'e. texas a&m', 'east texas am': 'e. texas a&m', 'e texas a&m': 'e. texas a&m',
+    'miss valley st': 'mississippi valley st.', 'mississippi valley': 'mississippi valley st.', 'mvsu': 'mississippi valley st.',
+    # Southern Utah
+    'southern utah': 'southern utah', 's utah': 'southern utah',
+    'utah valley': 'utah valley', 'uvu': 'utah valley',
+    'utah tech': 'utah tech', 'dixie state': 'utah tech',
+    # Big schools
+    'duke': 'duke', 'kentucky': 'kentucky', 'uk': 'kentucky',
+    'kansas': 'kansas', 'ku': 'kansas',
+    'indiana': 'indiana', 'iu': 'indiana',
+    'north carolina': 'north carolina', 'unc': 'north carolina', 'carolina': 'north carolina',
+    'michigan': 'michigan', 'wolverines': 'michigan',
+    'purdue': 'purdue', 'boilermakers': 'purdue',
+    'wisconsin': 'wisconsin', 'badgers': 'wisconsin',
+    'illinois': 'illinois', 'illini': 'illinois',
+    'auburn': 'auburn', 'tigers': 'auburn',
+    'tennessee': 'tennessee', 'vols': 'tennessee',
+    'alabama': 'alabama', 'bama': 'alabama',
+    'florida': 'florida', 'gators': 'florida',
+    'houston': 'houston', 'coogs': 'houston',
+    'cincinnati': 'cincinnati', 'cincy': 'cincinnati', 'uc': 'cincinnati',
+    # MAC schools
+    'toledo': 'toledo', 'rockets': 'toledo',
+    'ohio': 'ohio', 'ohio bobcats': 'ohio',
+    'akron': 'akron', 'zips': 'akron',
+    'buffalo': 'buffalo', 'ub': 'buffalo',
+    # A10 schools
+    'dayton': 'dayton', 'flyers': 'dayton',
+    'davidson': 'davidson', 'wildcats': 'davidson',
+    'richmond': 'richmond', 'spiders': 'richmond',
+    'fordham': 'fordham', 'rams': 'fordham',
+    'george mason': 'george mason', 'gmu': 'george mason',
+    'la salle': 'la salle', 'lasalle': 'la salle',
+    'rhode island': 'rhode island', 'uri': 'rhode island',
+    'duquesne': 'duquesne', 'dukes': 'duquesne',
+    'st louis': 'saint louis', 'saint louis': 'saint louis', 'billikens': 'saint louis',
+    # Patriot League
+    'colgate': 'colgate', 'raiders': 'colgate',
+    'lehigh': 'lehigh', 'mountain hawks': 'lehigh',
+    'bucknell': 'bucknell', 'bison': 'bucknell',
+    'army': 'army', 'black knights': 'army',
+    'navy': 'navy', 'midshipmen': 'navy',
+    'boston u': 'boston university', 'boston university': 'boston university', 'bu': 'boston university',
+    'american': 'american', 'eagles': 'american',
+    'holy cross': 'holy cross', 'crusaders': 'holy cross',
+    'lafayette': 'lafayette', 'leopards': 'lafayette',
+    # WCC schools
+    'san diego': 'san diego', 'toreros': 'san diego',
+    'pepperdine': 'pepperdine', 'waves': 'pepperdine',
+    'san francisco': 'san francisco', 'usf': 'san francisco', 'dons': 'san francisco',
+    'pacific': 'pacific', 'tigers': 'pacific',
+    'santa clara': 'santa clara', 'broncos': 'santa clara',
+    'portland': 'portland', 'pilots': 'portland',
+    # MWC schools
+    'nevada': 'nevada', 'wolfpack': 'nevada',
+    'wyoming': 'wyoming', 'cowboys': 'wyoming',
+    'air force': 'air force', 'falcons': 'air force',
+    # Conference USA
+    'uab': 'uab', 'blazers': 'uab',
+    'north texas': 'north texas', 'unt': 'north texas', 'mean green': 'north texas',
+    'florida atlantic': 'fau', 'fau': 'fau', 'owls': 'fau',
+    'old dominion': 'old dominion', 'odu': 'old dominion', 'monarchs': 'old dominion',
+    'marshall': 'marshall', 'thundering herd': 'marshall',
+    'james madison': 'james madison', 'jmu': 'james madison', 'dukes': 'james madison',
+    # Big East
+    'uconn': 'connecticut', 'huskies': 'connecticut',
+    # Big 12
+    'baylor': 'baylor', 'bears': 'baylor',
+    'west virginia': 'west virginia', 'wvu': 'west virginia', 'mountaineers': 'west virginia',
+    'oklahoma': 'oklahoma', 'sooners': 'oklahoma', 'ou': 'oklahoma',
+    'texas': 'texas', 'longhorns': 'texas', 'ut': 'texas',
+    'cincinnati': 'cincinnati', 'bearcats': 'cincinnati',
+    'ucf': 'ucf', 'knights': 'ucf',
+    'colorado': 'colorado', 'buffaloes': 'colorado', 'cu': 'colorado',
+    'utah': 'utah', 'utes': 'utah',
+    'arizona': 'arizona', 'wildcats': 'arizona', 'zona': 'arizona',
+    # ACC
+    'clemson': 'clemson', 'tigers': 'clemson',
+    'louisville': 'louisville', 'cards': 'louisville', 'uofl': 'louisville',
+    'wake forest': 'wake forest', 'demon deacons': 'wake forest',
+    'boston college': 'boston college', 'bc': 'boston college', 'eagles': 'boston college',
+    'syracuse': 'syracuse', 'orange': 'syracuse', 'cuse': 'syracuse',
+    'notre dame': 'notre dame', 'irish': 'notre dame', 'nd': 'notre dame',
+    'stanford': 'stanford', 'cardinal': 'stanford',
+    'california': 'california', 'cal': 'california', 'bears': 'california',
+    # SEC
+    'arkansas': 'arkansas', 'razorbacks': 'arkansas', 'hogs': 'arkansas',
+    'georgia': 'georgia', 'uga': 'georgia', 'bulldogs': 'georgia',
+    'south carolina': 'south carolina', 'gamecocks': 'south carolina', 'usc': 'south carolina',
+    'missouri': 'missouri', 'mizzou': 'missouri', 'tigers': 'missouri',
+    'vanderbilt': 'vanderbilt', 'vandy': 'vanderbilt', 'commodores': 'vanderbilt',
+    'texas am': 'texas a&m', 'aggies': 'texas a&m',
+    'lsu': 'lsu', 'tigers': 'lsu',
+    'ole miss': 'mississippi', 'rebels': 'mississippi',
+    # Big Ten
+    'maryland': 'maryland', 'terps': 'maryland', 'umd': 'maryland',
+    'rutgers': 'rutgers', 'scarlet knights': 'rutgers',
+    'northwestern': 'northwestern', 'wildcats': 'northwestern', 'nu': 'northwestern',
+    'minnesota': 'minnesota', 'gophers': 'minnesota',
+    'nebraska': 'nebraska', 'huskers': 'nebraska',
+    'iowa': 'iowa', 'hawkeyes': 'iowa',
+    'oregon': 'oregon', 'ducks': 'oregon', 'uo': 'oregon',
+    'washington': 'washington', 'huskies': 'washington', 'uw': 'washington',
+    # Sun Belt
+    'troy': 'troy', 'trojans': 'troy',
+    'south alabama': 'south alabama', 'jaguars': 'south alabama',
+    'coastal carolina': 'coastal carolina', 'chanticleers': 'coastal carolina', 'ccu': 'coastal carolina',
+    'texas state': 'texas st.', 'bobcats': 'texas st.',
+    'louisiana': 'louisiana', 'ragin cajuns': 'louisiana', 'ul': 'louisiana',
+    # Other
+    'belmont': 'belmont', 'bruins': 'belmont',
+    'valparaiso': 'valparaiso', 'valpo': 'valparaiso', 'crusaders': 'valparaiso',
+    'evansville': 'evansville', 'purple aces': 'evansville',
+    'radford': 'radford', 'highlanders': 'radford',
+    'presbyterian': 'presbyterian', 'blue hose': 'presbyterian',
+    'winthrop': 'winthrop', 'eagles': 'winthrop',
+    'citadel': 'the citadel', 'the citadel': 'the citadel',
+    'maine': 'maine', 'black bears': 'maine',
+}
+
 def get_torvik_team(team_name: str) -> Optional[dict]:
     """Get Torvik stats for a team by name (fuzzy match)."""
     if not torvik_cache:
         fetch_kenpom_ratings()
     if not torvik_cache:
         return None
+    
     name_lower = team_name.lower().strip()
+    
+    # Direct cache lookup
     if name_lower in torvik_cache:
         return torvik_cache[name_lower]
+    
+    # Try comprehensive mapping
+    if name_lower in CBB_TEAM_NAME_MAP:
+        mapped_name = CBB_TEAM_NAME_MAP[name_lower]
+        if mapped_name in torvik_cache:
+            return torvik_cache[mapped_name]
+    
+    # Try with "st." suffix variations
+    name_with_st = name_lower.replace(' state', ' st.').replace(' st', ' st.')
+    if name_with_st in torvik_cache:
+        return torvik_cache[name_with_st]
+    
+    # Try without periods
+    name_no_periods = name_lower.replace('.', '')
+    for key in torvik_cache:
+        if key.replace('.', '') == name_no_periods:
+            return torvik_cache[key]
+    
+    # Fuzzy substring matching
     for key, data in torvik_cache.items():
         if name_lower in key or key in name_lower:
             return data
+        # Check if key contains significant matching words
         key_parts = key.split()
         name_parts = name_lower.split()
-        if any(p in name_parts for p in key_parts if len(p) > 3):
+        matching_parts = sum(1 for p in key_parts if p in name_parts and len(p) > 3)
+        if matching_parts >= 1 and len(key_parts) <= 3:
             return data
-    common_aliases = {
-        'uconn': 'connecticut', 'usc': 'southern california', 'unc': 'north carolina',
-        'ucla': 'ucla', 'lsu': 'lsu', 'osu': 'ohio st.', 'msu': 'michigan st.',
-        'uk': 'kentucky', 'ku': 'kansas', 'iu': 'indiana', 'duke': 'duke',
-        'gonzaga': 'gonzaga', 'auburn': 'auburn', 'houston': 'houston', 'purdue': 'purdue',
-        'tennessee': 'tennessee', 'alabama': 'alabama', 'arizona': 'arizona', 'iowa st.': 'iowa st.',
-        'st. johns': "st. john's", 'st johns': "st. john's"
-    }
-    if name_lower in common_aliases:
-        alias = common_aliases[name_lower]
-        if alias in torvik_cache:
-            return torvik_cache[alias]
+    
     return None
 
 def calculate_torvik_projection(away_team: str, home_team: str) -> Optional[dict]:
