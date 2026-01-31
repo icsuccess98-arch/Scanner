@@ -8789,7 +8789,8 @@ def fetch_kenpom_point_distribution() -> dict:
                     'o_ft_pct_dist': team.get('OffFTPct') or team.get('OFTPct') or team.get('OffFT') or team.get('FT') or 0,
                     'o_3pt_pct_rank': team.get('RankOffFG3Pct') or team.get('RankOFG3Pct') or 0,
                     # Defensive point distribution (what opponents do against this team)
-                    'd_3pt_pct': team.get('DefFG3Pct') or team.get('DFG3Pct') or team.get('Def3P') or 0,
+                    # Per KenPom API docs: DefFg3 = Percentage of points allowed from 3-point FGs
+                    'd_3pt_pct': team.get('DefFg3') or team.get('DefFG3Pct') or team.get('DFG3Pct') or team.get('Def3P') or 0,
                     'd_2pt_pct': team.get('DefFG2Pct') or team.get('DFG2Pct') or team.get('Def2P') or 0,
                     'd_ft_pct_dist': team.get('DefFTPct') or team.get('DFTPct') or team.get('DefFT') or 0,
                 }
@@ -8893,8 +8894,9 @@ def fetch_kenpom_misc() -> dict:
                     'o_3pt_rate': team.get('FG3ARate') or team.get('3PA_O') or 0,
                     'o_3pt_rate_rank': team.get('RankFG3ARate') or team.get('Rank3PA_O') or 0,
                     # Defensive misc stats - opponent's shooting % against this team
-                    'd_3pt_pct': team.get('DFG3Pct') or team.get('3P_D') or team.get('Def3PPct') or team.get('Opp3PPct') or 0,
-                    'd_3pt_rank': team.get('RankDFG3Pct') or team.get('Rank3P_D') or team.get('RankDef3PPct') or 0,
+                    # Per KenPom API docs: OppFG3Pct = Opponent 3-point field goal percentage (defense)
+                    'd_3pt_pct': team.get('OppFG3Pct') or team.get('DFG3Pct') or team.get('3P_D') or team.get('Def3PPct') or 0,
+                    'd_3pt_rank': team.get('RankOppFG3Pct') or team.get('RankDFG3Pct') or team.get('Rank3P_D') or 0,
                     'd_2pt_pct': team.get('DFG2Pct') or team.get('2P_D') or 0,
                     'd_2pt_rank': team.get('RankDFG2Pct') or team.get('Rank2P_D') or 0,
                     'd_ft_pct': team.get('DFTPct') or team.get('FT_D') or 0,
