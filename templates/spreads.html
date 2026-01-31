@@ -3941,18 +3941,33 @@
                         underdogName = 'N/A';
                     }
                     
-                    // LINE MOVEMENT DIRECTION - CRITICAL LOGIC:
-                    // Spread DECREASED (6.5 → 2.5, lineMove = -4): favorite giving fewer points = line moved toward UNDERDOG
-                    // Spread INCREASED (6.5 → 8.5, lineMove = +2): favorite giving more points = line moved toward FAVORITE
-                    const lineMovedToward = lineMove < 0 ? underdogName : openFav;
+                    // LINE MOVEMENT DIRECTION - Use backend-calculated value
+                    // Backend calculates line_moved_toward based on spread changes
+                    const lineMovedToward = data.rlm.line_moved_toward || (lineMove < 0 ? underdogName : openFav);
                     
-                    // Display format: Spread is now stored as positive value, show with favorite team
-                    // Handle null/undefined open spreads - use current if open is missing, show "N/A" if both missing
+                    // Get current favorite from backend
+                    const currentFavFromBackend = data.rlm.current_favorite || currentFav;
+                    
+                    // Display format: Show team name with spread value
+                    // Spread is from away team's perspective: negative = away favorite, positive = home favorite
                     const openSpreadVal = openSpread !== null && !isNaN(openSpread) ? openSpread : null;
                     const currentSpreadVal = currentSpread !== null && !isNaN(currentSpread) ? currentSpread : null;
-                    const openSpreadDisplay = openSpreadVal === null ? (currentSpreadVal !== null && openFav !== 'N/A' ? `${openFav} (N/A)` : '—') : (openFav !== 'N/A' ? `${openFav} -${openSpreadVal}` : 'Pick');
-                    const currentSpreadDisplay = currentSpreadVal === null ? '—' : (currentFav !== 'N/A' ? `${currentFav} -${currentSpreadVal}` : 'Pick');
-                    const favFlipped = hasSpreadData && openFav !== currentFav && openFav !== 'Pick' && currentFav !== 'Pick';
+                    
+                    // Format spread display: show "Team -X" for favorite
+                    const formatSpreadDisplay = (spreadVal, favorite) => {
+                        if (spreadVal === null || spreadVal === undefined || isNaN(spreadVal)) return '—';
+                        const absSpread = Math.abs(spreadVal);
+                        if (absSpread === 0) return 'Pick';
+                        if (favorite && favorite !== 'N/A' && favorite !== 'Pick') {
+                            return `${favorite} -${absSpread}`;
+                        }
+                        // Fallback: show with +/- sign
+                        return spreadVal > 0 ? `+${spreadVal}` : `${spreadVal}`;
+                    };
+                    
+                    const openSpreadDisplay = formatSpreadDisplay(openSpreadVal, openFav);
+                    const currentSpreadDisplay = formatSpreadDisplay(currentSpreadVal, currentFavFromBackend);
+                    const favFlipped = hasSpreadData && openFav !== currentFavFromBackend && openFav !== 'Pick' && currentFavFromBackend !== 'Pick';
                     
                     // Game Total line movement
                     const openTotal = parseSpread(data.rlm.total_open_line);

@@ -1751,6 +1751,7 @@ class MatchupIntelligence:
     def fetch_covers_h2h(away_team: str, home_team: str, league: str = 'NBA') -> dict:
         """
         Fetch H2H L10 W/L and ATS records from Covers.com matchup page.
+        Supports NBA and CBB leagues.
         Returns: {h2h_record: "6-4", h2h_leader: "Pacers", h2h_ats: "4-6-0", ats_leader: "Bulls"}
         """
         import requests
@@ -1771,46 +1772,37 @@ class MatchupIntelligence:
         try:
             headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
             
-            # Team name to URL slug mapping
-            team_slugs = {
-                'bulls': 'chicago-bulls', 'pacers': 'indiana-pacers', 'celtics': 'boston-celtics',
-                'lakers': 'los-angeles-lakers', 'heat': 'miami-heat', 'bucks': 'milwaukee-bucks',
-                'nets': 'brooklyn-nets', '76ers': 'philadelphia-76ers', 'knicks': 'new-york-knicks',
-                'hawks': 'atlanta-hawks', 'hornets': 'charlotte-hornets', 'cavaliers': 'cleveland-cavaliers',
-                'pistons': 'detroit-pistons', 'magic': 'orlando-magic', 'wizards': 'washington-wizards',
-                'raptors': 'toronto-raptors', 'nuggets': 'denver-nuggets', 'clippers': 'los-angeles-clippers',
-                'suns': 'phoenix-suns', 'warriors': 'golden-state-warriors', 'grizzlies': 'memphis-grizzlies',
-                'mavericks': 'dallas-mavericks', 'rockets': 'houston-rockets', 'pelicans': 'new-orleans-pelicans',
-                'spurs': 'san-antonio-spurs', 'thunder': 'oklahoma-city-thunder', 'timberwolves': 'minnesota-timberwolves',
-                'trail blazers': 'portland-trail-blazers', 'blazers': 'portland-trail-blazers',
-                'jazz': 'utah-jazz', 'kings': 'sacramento-kings'
-            }
+            # Determine URL path based on league
+            if league == 'CBB':
+                matchups_url = "https://www.covers.com/sport/basketball/ncaab/matchups"
+                sport_path = "sport/basketball/ncaab/matchup"
+            else:  # NBA
+                matchups_url = "https://www.covers.com/sports/nba/matchups"
+                sport_path = "sport/basketball/nba/matchup"
             
-            # Team abbreviations for matching
-            team_abbrevs = {
-                'bulls': 'chi', 'pacers': 'ind', 'celtics': 'bos', 'lakers': 'lal', 'heat': 'mia',
-                'bucks': 'mil', 'nets': 'bkn', '76ers': 'phi', 'knicks': 'nyk', 'hawks': 'atl',
-                'hornets': 'cha', 'cavaliers': 'cle', 'pistons': 'det', 'magic': 'orl', 'wizards': 'was',
-                'raptors': 'tor', 'nuggets': 'den', 'clippers': 'lac', 'suns': 'phx', 'warriors': 'gsw',
-                'grizzlies': 'mem', 'mavericks': 'dal', 'rockets': 'hou', 'pelicans': 'nop',
-                'spurs': 'sas', 'thunder': 'okc', 'timberwolves': 'min', 'trail blazers': 'por',
-                'blazers': 'por', 'jazz': 'uta', 'kings': 'sac'
-            }
+            away_lower = away_team.lower().strip()
+            home_lower = home_team.lower().strip()
             
-            away_lower = away_team.lower()
-            home_lower = home_team.lower()
-            away_slug = team_slugs.get(away_lower, away_lower.replace(' ', '-'))
-            home_slug = team_slugs.get(home_lower, home_lower.replace(' ', '-'))
-            away_abbrev = team_abbrevs.get(away_lower, away_lower[:3])
-            home_abbrev = team_abbrevs.get(home_lower, home_lower[:3])
-            
-            # Fetch the matchups page and look for link with both teams
-            matchups_url = f"https://www.covers.com/sports/nba/matchups"  # Main listing page
+            # Create search tokens for fuzzy matching
+            away_tokens = set(away_lower.replace('-', ' ').replace('.', '').split())
+            home_tokens = set(home_lower.replace('-', ' ').replace('.', '').split())
             resp = requests.get(matchups_url, headers=headers, timeout=15)
             
             matchup_id = None
             if resp.status_code == 200:
                 soup = BeautifulSoup(resp.text, 'html.parser')
+                
+                # Helper to check if text contains team (fuzzy match)
+                def text_matches_team(text: str, team_name: str, tokens: set) -> bool:
+                    text_lower = text.lower()
+                    if team_name in text_lower:
+                        return True
+                    text_tokens = set(text_lower.replace('-', ' ').replace('.', '').split())
+                    # Check if any significant token matches
+                    for token in tokens:
+                        if len(token) > 2 and token in text_tokens:
+                            return True
+                    return False
                 
                 # Find all matchup links and look for our game
                 all_links = soup.find_all('a', href=re.compile(r'/matchup/\d+'))
@@ -1821,8 +1813,8 @@ class MatchupIntelligence:
                     parent_text = link.parent.get_text().lower() if link.parent else ''
                     full_text = f"{link_text} {parent_text}"
                     
-                    if (away_lower in full_text or away_abbrev in full_text) and \
-                       (home_lower in full_text or home_abbrev in full_text):
+                    if text_matches_team(full_text, away_lower, away_tokens) and \
+                       text_matches_team(full_text, home_lower, home_tokens):
                         match = re.search(r'/matchup/(\d+)', href)
                         if match:
                             matchup_id = match.group(1)
@@ -1833,14 +1825,14 @@ class MatchupIntelligence:
                     all_ids = list(set(re.findall(r'/matchup/(\d+)', str(soup))))[:5]
                     for mid in all_ids:
                         try:
-                            check_url = f"https://www.covers.com/sport/basketball/nba/matchup/{mid}"
+                            check_url = f"https://www.covers.com/{sport_path}/{mid}"
                             check_resp = requests.get(check_url, headers=headers, timeout=8)
                             if check_resp.status_code == 200:
                                 title = BeautifulSoup(check_resp.text, 'html.parser').find('title')
                                 if title:
                                     title_text = title.get_text().lower()
-                                    if (away_lower in title_text or away_abbrev in title_text) and \
-                                       (home_lower in title_text or home_abbrev in title_text):
+                                    if text_matches_team(title_text, away_lower, away_tokens) and \
+                                       text_matches_team(title_text, home_lower, home_tokens):
                                         matchup_id = mid
                                         break
                         except:
@@ -1848,7 +1840,7 @@ class MatchupIntelligence:
             
             # If we found a matchup ID, fetch the matchup page
             if matchup_id:
-                matchup_url = f"https://www.covers.com/sport/basketball/nba/matchup/{matchup_id}"
+                matchup_url = f"https://www.covers.com/{sport_path}/{matchup_id}"
                 resp = requests.get(matchup_url, headers=headers, timeout=15)
                 
                 if resp.status_code == 200:
@@ -13294,8 +13286,53 @@ def get_matchup_data(game_id):
             totals_rlm_detected = False  # RLM is for SPREADS only
             totals_rlm_sharp_side = None
             
-            # Get favorite info from RLM data
+            # Calculate favorite from open spread (negative = away favorite)
+            # Priority: Use rlm_data if available, else calculate from spread
             open_favorite = rlm_data.get('open_favorite', '')
+            if not open_favorite and open_spread is not None:
+                try:
+                    open_spread_val = float(open_spread)
+                    if open_spread_val < 0:
+                        open_favorite = game.away_team  # Negative spread = away is favorite
+                    elif open_spread_val > 0:
+                        open_favorite = game.home_team  # Positive spread = home is favorite
+                    else:
+                        open_favorite = 'Pick'  # Even spread
+                except (ValueError, TypeError):
+                    open_favorite = ''
+            
+            # Also calculate current favorite
+            current_favorite = ''
+            if current_spread is not None:
+                try:
+                    current_spread_val = float(current_spread)
+                    if current_spread_val < 0:
+                        current_favorite = game.away_team
+                    elif current_spread_val > 0:
+                        current_favorite = game.home_team
+                    else:
+                        current_favorite = 'Pick'
+                except (ValueError, TypeError):
+                    current_favorite = ''
+            
+            # Calculate line movement direction (who the line moved toward)
+            line_moved_toward = ''
+            if open_spread is not None and current_spread is not None:
+                try:
+                    open_val = float(open_spread)
+                    current_val = float(current_spread)
+                    movement = current_val - open_val
+                    if abs(movement) >= 0.5:
+                        # Line decreased (e.g., -6 to -4): moved toward underdog (away spread less negative = home favored less)
+                        # Line increased (e.g., -4 to -6): moved toward favorite
+                        if movement > 0:
+                            # Spread went from more negative to less negative = moved toward away team (underdog if away was favorite)
+                            line_moved_toward = game.away_team if open_val < 0 else game.home_team
+                        else:
+                            # Spread went more negative = moved toward home team
+                            line_moved_toward = game.home_team if open_val < 0 else game.away_team
+                except (ValueError, TypeError):
+                    line_moved_toward = ''
             
             # Majority team
             majority_pct = max(away_bet, home_bet)
@@ -13341,9 +13378,11 @@ def get_matchup_data(game_id):
                 'totals_rlm_sharp_side': totals_rlm_sharp_side,
                 'sharp_detected': spread_sharp_detected,
                 'sharp_side': spread_sharp_side,
-                # Favorite tracking from WagerTalk
-                'favorite_is_away': rlm_data.get('favorite_is_away'),
-                'open_favorite': rlm_data.get('open_favorite')
+                # Favorite tracking - calculated from spread data
+                'favorite_is_away': open_spread is not None and float(open_spread) < 0 if open_spread else None,
+                'open_favorite': open_favorite,
+                'current_favorite': current_favorite,
+                'line_moved_toward': line_moved_toward
             }
             
             # Convert to display format - Season Stats using exact TeamRankings stat names
