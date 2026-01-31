@@ -1906,7 +1906,58 @@
                             {% endif %}
                         </div>
                         <div class="analytics-section shooting-profile-section">
-                            <div class="analytics-title" style="color: #10B981;">SHOOTING PROFILE</div>
+                            <div class="analytics-title" style="color: #10B981;">SHOOTING PROFILE {% if game.league == 'CBB' %}<span style="font-size: 0.6rem; color: var(--text-muted);">(KenPom)</span>{% endif %}</div>
+                            {% if game.league == 'CBB' and game.cbb_breakdown and game.cbb_breakdown.has_data %}
+                            {# CBB: Use KenPom Four Factors data #}
+                            {% set shooting = game.cbb_breakdown.shooting_profile %}
+                            <div class="stats-table" style="width: 100%; font-size: 0.75rem; margin-top: 0.5rem;">
+                                <div class="stats-header" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.5rem; background: rgba(16, 185, 129, 0.1); border-radius: 6px; margin-bottom: 0.5rem;">
+                                    <div style="color: var(--text-muted); font-weight: 600;">Metric</div>
+                                    <div style="text-align: center; color: var(--text-muted);">{{ game.away_team }}</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.65rem;">Rank</div>
+                                    <div style="text-align: center; color: var(--text-muted);">{{ game.home_team }}</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.65rem;">Rank</div>
+                                </div>
+                                <div class="stats-row" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.4rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                    <div style="color: var(--text-muted);">eFG%</div>
+                                    <div style="text-align: center; color: {% if shooting.efg_pct.away_season >= 50 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{{ "%.1f"|format(shooting.efg_pct.away_season) }}%</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.7rem;">#{{ shooting.efg_pct.away_rank }}</div>
+                                    <div style="text-align: center; color: {% if shooting.efg_pct.home_season >= 50 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{{ "%.1f"|format(shooting.efg_pct.home_season) }}%</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.7rem;">#{{ shooting.efg_pct.home_rank }}</div>
+                                </div>
+                                <div class="stats-row" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.4rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                    <div style="color: var(--text-muted);">3PT%</div>
+                                    <div style="text-align: center; color: {% if shooting['3pt_pct'].away_season >= 34 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{{ "%.1f"|format(shooting['3pt_pct'].away_season) }}%</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.7rem;">#{{ shooting['3pt_pct'].away_rank }}</div>
+                                    <div style="text-align: center; color: {% if shooting['3pt_pct'].home_season >= 34 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{{ "%.1f"|format(shooting['3pt_pct'].home_season) }}%</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.7rem;">#{{ shooting['3pt_pct'].home_rank }}</div>
+                                </div>
+                                <div class="stats-row" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.4rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                    <div style="color: var(--text-muted);">2PT%</div>
+                                    <div style="text-align: center; color: {% if shooting['2pt_pct'].away_season >= 50 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{{ "%.1f"|format(shooting['2pt_pct'].away_season) }}%</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.7rem;">#{{ shooting['2pt_pct'].away_rank }}</div>
+                                    <div style="text-align: center; color: {% if shooting['2pt_pct'].home_season >= 50 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{{ "%.1f"|format(shooting['2pt_pct'].home_season) }}%</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.7rem;">#{{ shooting['2pt_pct'].home_rank }}</div>
+                                </div>
+                                <div class="stats-row" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.4rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                    <div style="color: var(--text-muted);">FT%</div>
+                                    <div style="text-align: center; color: {% if shooting.ft_pct.away_season >= 72 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{{ "%.1f"|format(shooting.ft_pct.away_season) }}%</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.7rem;">#{{ shooting.ft_pct.away_rank }}</div>
+                                    <div style="text-align: center; color: {% if shooting.ft_pct.home_season >= 72 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{{ "%.1f"|format(shooting.ft_pct.home_season) }}%</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.7rem;">#{{ shooting.ft_pct.home_rank }}</div>
+                                </div>
+                            </div>
+                            {% if shooting.efg_pct.away_season and shooting.efg_pct.home_season %}
+                            <div class="mismatch-note" style="margin-top: 0.5rem;">
+                                {% if shooting.efg_pct.away_season > shooting.efg_pct.home_season %}
+                                {{ game.away_team }} has shooting edge ({{ "%.1f"|format(shooting.efg_pct.away_season) }}% eFG, #{{ shooting.efg_pct.away_rank }})
+                                {% else %}
+                                {{ game.home_team }} has shooting edge ({{ "%.1f"|format(shooting.efg_pct.home_season) }}% eFG, #{{ shooting.efg_pct.home_rank }})
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            {% else %}
+                            {# NBA: Use L5 stats #}
                             {% set away_l5 = game.matchup_l5.away if game.matchup_l5 else {} %}
                             {% set home_l5 = game.matchup_l5.home if game.matchup_l5 else {} %}
                             <div class="stats-table" style="width: 100%; font-size: 0.75rem; margin-top: 0.5rem;">
@@ -1955,9 +2006,56 @@
                                 {% endif %}
                             </div>
                             {% endif %}
+                            {% endif %}
                         </div>
                         <div class="analytics-section ball-control-section">
-                            <div class="analytics-title" style="color: #F59E0B;">BALL CONTROL</div>
+                            <div class="analytics-title" style="color: #F59E0B;">BALL CONTROL {% if game.league == 'CBB' %}<span style="font-size: 0.6rem; color: var(--text-muted);">(KenPom)</span>{% endif %}</div>
+                            {% if game.league == 'CBB' and game.cbb_breakdown and game.cbb_breakdown.has_data %}
+                            {# CBB: Use KenPom Four Factors data #}
+                            {% set ball_ctrl = game.cbb_breakdown.ball_control %}
+                            <div class="stats-table" style="width: 100%; font-size: 0.75rem; margin-top: 0.5rem;">
+                                <div class="stats-header" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.5rem; background: rgba(245, 158, 11, 0.1); border-radius: 6px; margin-bottom: 0.5rem;">
+                                    <div style="color: var(--text-muted); font-weight: 600;">Metric</div>
+                                    <div style="text-align: center; color: var(--text-muted);">{{ game.away_team }}</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.65rem;">Rank</div>
+                                    <div style="text-align: center; color: var(--text-muted);">{{ game.home_team }}</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.65rem;">Rank</div>
+                                </div>
+                                <div class="stats-row" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.4rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                    <div style="color: var(--text-muted);">TOV%</div>
+                                    <div style="text-align: center; color: {% if ball_ctrl.tov_pct.away_season < 18.5 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{{ "%.1f"|format(ball_ctrl.tov_pct.away_season) }}%</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.7rem;">#{{ ball_ctrl.tov_pct.away_rank }}</div>
+                                    <div style="text-align: center; color: {% if ball_ctrl.tov_pct.home_season < 18.5 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{{ "%.1f"|format(ball_ctrl.tov_pct.home_season) }}%</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.7rem;">#{{ ball_ctrl.tov_pct.home_rank }}</div>
+                                </div>
+                                <div class="stats-row" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.4rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                    <div style="color: var(--text-muted);">Forced TO%</div>
+                                    <div style="text-align: center; color: {% if ball_ctrl.forced_tov_pct.away_season > 18.5 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{{ "%.1f"|format(ball_ctrl.forced_tov_pct.away_season) }}%</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.7rem;">#{{ ball_ctrl.forced_tov_pct.away_rank }}</div>
+                                    <div style="text-align: center; color: {% if ball_ctrl.forced_tov_pct.home_season > 18.5 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{{ "%.1f"|format(ball_ctrl.forced_tov_pct.home_season) }}%</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.7rem;">#{{ ball_ctrl.forced_tov_pct.home_rank }}</div>
+                                </div>
+                                <div class="stats-row" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.4rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                    <div style="color: var(--text-muted);">STL%</div>
+                                    <div style="text-align: center; color: {% if ball_ctrl.stl_pct.away_season > 9 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{{ "%.1f"|format(ball_ctrl.stl_pct.away_season) }}%</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.7rem;">#{{ ball_ctrl.stl_pct.away_rank }}</div>
+                                    <div style="text-align: center; color: {% if ball_ctrl.stl_pct.home_season > 9 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{{ "%.1f"|format(ball_ctrl.stl_pct.home_season) }}%</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.7rem;">#{{ ball_ctrl.stl_pct.home_rank }}</div>
+                                </div>
+                            </div>
+                            {% if ball_ctrl.tov_pct.away_season and ball_ctrl.tov_pct.home_season %}
+                            <div class="mismatch-note" style="margin-top: 0.5rem;">
+                                {% if ball_ctrl.tov_pct.away_season < ball_ctrl.tov_pct.home_season %}
+                                {{ game.away_team }} protects ball better ({{ "%.1f"|format(ball_ctrl.tov_pct.away_season) }}% TOV, #{{ ball_ctrl.tov_pct.away_rank }})
+                                {% else %}
+                                {{ game.home_team }} protects ball better ({{ "%.1f"|format(ball_ctrl.tov_pct.home_season) }}% TOV, #{{ ball_ctrl.tov_pct.home_rank }})
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            {% else %}
+                            {# NBA: Use L5 stats #}
+                            {% set away_l5 = game.matchup_l5.away if game.matchup_l5 else {} %}
+                            {% set home_l5 = game.matchup_l5.home if game.matchup_l5 else {} %}
                             <div class="stats-table" style="width: 100%; font-size: 0.75rem; margin-top: 0.5rem;">
                                 <div class="stats-header" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.5rem; background: rgba(245, 158, 11, 0.1); border-radius: 6px; margin-bottom: 0.5rem;">
                                     <div style="color: var(--text-muted); font-weight: 600;">Metric</div>
@@ -1990,9 +2088,56 @@
                                 {% endif %}
                             </div>
                             {% endif %}
+                            {% endif %}
                         </div>
                         <div class="analytics-section rebounding-section">
-                            <div class="analytics-title" style="color: #EC4899;">REBOUNDING</div>
+                            <div class="analytics-title" style="color: #EC4899;">REBOUNDING {% if game.league == 'CBB' %}<span style="font-size: 0.6rem; color: var(--text-muted);">(KenPom)</span>{% endif %}</div>
+                            {% if game.league == 'CBB' and game.cbb_breakdown and game.cbb_breakdown.has_data %}
+                            {# CBB: Use KenPom Four Factors data #}
+                            {% set rebounding = game.cbb_breakdown.rebounding %}
+                            <div class="stats-table" style="width: 100%; font-size: 0.75rem; margin-top: 0.5rem;">
+                                <div class="stats-header" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.5rem; background: rgba(236, 72, 153, 0.1); border-radius: 6px; margin-bottom: 0.5rem;">
+                                    <div style="color: var(--text-muted); font-weight: 600;">Metric</div>
+                                    <div style="text-align: center; color: var(--text-muted);">{{ game.away_team }}</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.65rem;">Rank</div>
+                                    <div style="text-align: center; color: var(--text-muted);">{{ game.home_team }}</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.65rem;">Rank</div>
+                                </div>
+                                <div class="stats-row" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.4rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                    <div style="color: var(--text-muted);">ORB%</div>
+                                    <div style="text-align: center; color: {% if rebounding.orb_pct.away_season >= 30 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{{ "%.1f"|format(rebounding.orb_pct.away_season) }}%</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.7rem;">#{{ rebounding.orb_pct.away_rank }}</div>
+                                    <div style="text-align: center; color: {% if rebounding.orb_pct.home_season >= 30 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{{ "%.1f"|format(rebounding.orb_pct.home_season) }}%</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.7rem;">#{{ rebounding.orb_pct.home_rank }}</div>
+                                </div>
+                                <div class="stats-row" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.4rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                    <div style="color: var(--text-muted);">DRB%</div>
+                                    <div style="text-align: center; color: {% if rebounding.drb_pct.away_season >= 72 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{{ "%.1f"|format(rebounding.drb_pct.away_season) }}%</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.7rem;">#{{ rebounding.drb_pct.away_rank }}</div>
+                                    <div style="text-align: center; color: {% if rebounding.drb_pct.home_season >= 72 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{{ "%.1f"|format(rebounding.drb_pct.home_season) }}%</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.7rem;">#{{ rebounding.drb_pct.home_rank }}</div>
+                                </div>
+                                <div class="stats-row" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.4rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                    <div style="color: var(--text-muted);">BLK%</div>
+                                    <div style="text-align: center; color: {% if rebounding.blk_pct.away_season >= 10 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{{ "%.1f"|format(rebounding.blk_pct.away_season) }}%</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.7rem;">#{{ rebounding.blk_pct.away_rank }}</div>
+                                    <div style="text-align: center; color: {% if rebounding.blk_pct.home_season >= 10 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{{ "%.1f"|format(rebounding.blk_pct.home_season) }}%</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.7rem;">#{{ rebounding.blk_pct.home_rank }}</div>
+                                </div>
+                            </div>
+                            {% if rebounding.orb_pct.away_season and rebounding.orb_pct.home_season %}
+                            <div class="mismatch-note" style="margin-top: 0.5rem;">
+                                {% if rebounding.orb_pct.away_season > rebounding.orb_pct.home_season %}
+                                {{ game.away_team }} crashing boards ({{ "%.1f"|format(rebounding.orb_pct.away_season) }}% ORB, #{{ rebounding.orb_pct.away_rank }})
+                                {% else %}
+                                {{ game.home_team }} crashing boards ({{ "%.1f"|format(rebounding.orb_pct.home_season) }}% ORB, #{{ rebounding.orb_pct.home_rank }})
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            {% else %}
+                            {# NBA: Use L5 stats #}
+                            {% set away_l5 = game.matchup_l5.away if game.matchup_l5 else {} %}
+                            {% set home_l5 = game.matchup_l5.home if game.matchup_l5 else {} %}
                             <div class="stats-table" style="width: 100%; font-size: 0.75rem; margin-top: 0.5rem;">
                                 <div class="stats-header" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.5rem; background: rgba(236, 72, 153, 0.1); border-radius: 6px; margin-bottom: 0.5rem;">
                                     <div style="color: var(--text-muted); font-weight: 600;">Metric</div>
@@ -2025,9 +2170,66 @@
                                 {% endif %}
                             </div>
                             {% endif %}
+                            {% endif %}
                         </div>
                         <div class="analytics-section pace-ft-section">
-                            <div class="analytics-title" style="color: #3B82F6;">PACE & FREE THROWS</div>
+                            <div class="analytics-title" style="color: #3B82F6;">PACE & FREE THROWS {% if game.league == 'CBB' %}<span style="font-size: 0.6rem; color: var(--text-muted);">(KenPom)</span>{% endif %}</div>
+                            {% if game.league == 'CBB' and game.cbb_breakdown and game.cbb_breakdown.has_data %}
+                            {# CBB: Use KenPom Four Factors data #}
+                            {% set pace_ft = game.cbb_breakdown.pace_ft %}
+                            <div class="stats-table" style="width: 100%; font-size: 0.75rem; margin-top: 0.5rem;">
+                                <div class="stats-header" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.5rem; background: rgba(59, 130, 246, 0.1); border-radius: 6px; margin-bottom: 0.5rem;">
+                                    <div style="color: var(--text-muted); font-weight: 600;">Metric</div>
+                                    <div style="text-align: center; color: var(--text-muted);">{{ game.away_team }}</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.65rem;">Rank</div>
+                                    <div style="text-align: center; color: var(--text-muted);">{{ game.home_team }}</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.65rem;">Rank</div>
+                                </div>
+                                <div class="stats-row" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.4rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                    <div style="color: var(--text-muted);">FT Rate</div>
+                                    <div style="text-align: center; color: {% if pace_ft.ft_rate.away_season >= 32 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{{ "%.1f"|format(pace_ft.ft_rate.away_season) }}%</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.7rem;">#{{ pace_ft.ft_rate.away_rank }}</div>
+                                    <div style="text-align: center; color: {% if pace_ft.ft_rate.home_season >= 32 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{{ "%.1f"|format(pace_ft.ft_rate.home_season) }}%</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.7rem;">#{{ pace_ft.ft_rate.home_rank }}</div>
+                                </div>
+                                <div class="stats-row" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.4rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                    <div style="color: var(--text-muted);">Opp FT Rate</div>
+                                    <div style="text-align: center; color: {% if pace_ft.opp_ft_rate.away_season <= 30 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{{ "%.1f"|format(pace_ft.opp_ft_rate.away_season) }}%</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.7rem;">-</div>
+                                    <div style="text-align: center; color: {% if pace_ft.opp_ft_rate.home_season <= 30 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{{ "%.1f"|format(pace_ft.opp_ft_rate.home_season) }}%</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.7rem;">-</div>
+                                </div>
+                            </div>
+                            {% if pace_ft.ft_rate.away_season and pace_ft.ft_rate.home_season %}
+                            <div class="mismatch-note" style="margin-top: 0.5rem;">
+                                {% if pace_ft.ft_rate.away_season > pace_ft.ft_rate.home_season %}
+                                {{ game.away_team }} attacking paint ({{ "%.1f"|format(pace_ft.ft_rate.away_season) }}% FTR, #{{ pace_ft.ft_rate.away_rank }})
+                                {% else %}
+                                {{ game.home_team }} attacking paint ({{ "%.1f"|format(pace_ft.ft_rate.home_season) }}% FTR, #{{ pace_ft.ft_rate.home_rank }})
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            <div class="tempo-display" style="margin-top: 1rem;">
+                                <div class="tempo-team">
+                                    <div class="tempo-label">{{ game.away_team }}</div>
+                                    <div class="tempo-value">{{ "%.1f"|format(pace_ft.pace.away) }}</div>
+                                    <div class="tempo-label">TEMPO</div>
+                                </div>
+                                <div class="tempo-expected">
+                                    <div class="tempo-expected-label">EXPECTED</div>
+                                    <div class="tempo-expected-value">{{ "%.0f"|format(pace_ft.pace.expected) }}</div>
+                                    <div class="tempo-label">POSS</div>
+                                </div>
+                                <div class="tempo-team">
+                                    <div class="tempo-label">{{ game.home_team }}</div>
+                                    <div class="tempo-value">{{ "%.1f"|format(pace_ft.pace.home) }}</div>
+                                    <div class="tempo-label">TEMPO</div>
+                                </div>
+                            </div>
+                            {% else %}
+                            {# NBA: Use L5 stats #}
+                            {% set away_l5 = game.matchup_l5.away if game.matchup_l5 else {} %}
+                            {% set home_l5 = game.matchup_l5.home if game.matchup_l5 else {} %}
                             <div class="stats-table" style="width: 100%; font-size: 0.75rem; margin-top: 0.5rem;">
                                 <div class="stats-header" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.5rem; background: rgba(59, 130, 246, 0.1); border-radius: 6px; margin-bottom: 0.5rem;">
                                     <div style="color: var(--text-muted); font-weight: 600;">Metric</div>
@@ -2077,9 +2279,34 @@
                                     <div class="tempo-label">TEMPO</div>
                                 </div>
                             </div>
+                            {% endif %}
                         </div>
                         <div class="analytics-section" style="background: rgba(99, 102, 241, 0.1); border-radius: 8px; padding: 1rem;">
-                            <div class="analytics-title" style="color: #6366F1;">STRENGTH OF SCHEDULE</div>
+                            <div class="analytics-title" style="color: #6366F1;">STRENGTH OF SCHEDULE {% if game.league == 'CBB' %}<span style="font-size: 0.6rem; color: var(--text-muted);">(KenPom)</span>{% endif %}</div>
+                            {% if game.league == 'CBB' and game.cbb_breakdown and game.cbb_breakdown.has_data %}
+                            {# CBB: Use actual KenPom SOS data #}
+                            {% set sos = game.cbb_breakdown.sos %}
+                            <div class="ranking-comparison" style="margin-top: 0.5rem;">
+                                <div class="team-rank">
+                                    <span class="rank-number {% if sos.away.sos_rank <= 100 %}good{% elif sos.away.sos_rank <= 200 %}avg{% else %}bad{% endif %}">#{{ sos.away.sos_rank }}</span>
+                                    <span class="team-name-small">{{ game.away_team }}</span>
+                                    <span class="rank-percentile">SOS {{ "%.2f"|format(sos.away.sos) }}</span>
+                                </div>
+                                <span class="vs-divider">vs</span>
+                                <div class="team-rank">
+                                    <span class="rank-number {% if sos.home.sos_rank <= 100 %}good{% elif sos.home.sos_rank <= 200 %}avg{% else %}bad{% endif %}">#{{ sos.home.sos_rank }}</span>
+                                    <span class="team-name-small">{{ game.home_team }}</span>
+                                    <span class="rank-percentile">SOS {{ "%.2f"|format(sos.home.sos) }}</span>
+                                </div>
+                            </div>
+                            <div class="mismatch-note" style="margin-top: 0.5rem;">
+                                {% if sos.away.conf_rank and sos.home.conf_rank %}
+                                Conf: {{ game.kenpom_away_conf or 'N/A' }} (#{{ sos.away.conf_rank }}) vs {{ game.kenpom_home_conf or 'N/A' }} (#{{ sos.home.conf_rank }})
+                                {% else %}
+                                Schedule difficulty factored into rankings - tougher schedules inflate stats
+                                {% endif %}
+                            </div>
+                            {% else %}
                             <div class="ranking-comparison" style="margin-top: 0.5rem;">
                                 <div class="team-rank">
                                     <span class="rank-number {% if (game.torvik_away_rank or 180) <= 100 %}good{% elif (game.torvik_away_rank or 180) <= 200 %}avg{% else %}bad{% endif %}">#{{ ((game.torvik_away_rank or 180) * 0.8)|int or 45 }}</span>
@@ -2094,14 +2321,61 @@
                                 </div>
                             </div>
                             <div class="mismatch-note" style="margin-top: 0.5rem;">Schedule difficulty factored into rankings - tougher schedules inflate stats</div>
+                            {% endif %}
                         </div>
+                        {% if game.league == 'CBB' and game.cbb_breakdown and game.cbb_breakdown.has_data and game.cbb_breakdown.size %}
+                        {# CBB: Size/Experience section from KenPom Height data #}
+                        {% set size = game.cbb_breakdown.size %}
+                        <div class="analytics-section" style="background: rgba(168, 85, 247, 0.1); border-radius: 8px; padding: 1rem;">
+                            <div class="analytics-title" style="color: #A855F7;">SIZE & EXPERIENCE <span style="font-size: 0.6rem; color: var(--text-muted);">(KenPom)</span></div>
+                            <div class="stats-table" style="width: 100%; font-size: 0.75rem; margin-top: 0.5rem;">
+                                <div class="stats-header" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.5rem; background: rgba(168, 85, 247, 0.1); border-radius: 6px; margin-bottom: 0.5rem;">
+                                    <div style="color: var(--text-muted); font-weight: 600;">Metric</div>
+                                    <div style="text-align: center; color: var(--text-muted);">{{ game.away_team }}</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.65rem;">Rank</div>
+                                    <div style="text-align: center; color: var(--text-muted);">{{ game.home_team }}</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.65rem;">Rank</div>
+                                </div>
+                                {% if size.avg_height.away %}
+                                <div class="stats-row" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.4rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                    <div style="color: var(--text-muted);">Avg Height</div>
+                                    <div style="text-align: center; color: #A855F7; font-weight: 600;">{{ "%.1f"|format(size.avg_height.away) }}"</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.7rem;">#{{ size.avg_height.away_rank }}</div>
+                                    <div style="text-align: center; color: #A855F7; font-weight: 600;">{{ "%.1f"|format(size.avg_height.home) }}"</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.7rem;">#{{ size.avg_height.home_rank }}</div>
+                                </div>
+                                {% endif %}
+                                {% if size.experience.away %}
+                                <div class="stats-row" style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr 1fr; gap: 0.25rem; padding: 0.4rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                    <div style="color: var(--text-muted);">Experience</div>
+                                    <div style="text-align: center; color: {% if size.experience.away >= 2.0 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{{ "%.2f"|format(size.experience.away) }} yrs</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.7rem;">#{{ size.experience.away_rank }}</div>
+                                    <div style="text-align: center; color: {% if size.experience.home >= 2.0 %}#10B981{% else %}#F59E0B{% endif %}; font-weight: 600;">{{ "%.2f"|format(size.experience.home) }} yrs</div>
+                                    <div style="text-align: center; color: #8B5CF6; font-size: 0.7rem;">#{{ size.experience.home_rank }}</div>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% if size.avg_height.away and size.avg_height.home %}
+                            <div class="mismatch-note" style="margin-top: 0.5rem;">
+                                {% set height_diff = size.avg_height.away - size.avg_height.home %}
+                                {% if height_diff|abs >= 1.0 %}
+                                {{ game.away_team if height_diff > 0 else game.home_team }} has size advantage ({{ "%.1f"|format(height_diff|abs) }}" taller on avg)
+                                {% else %}
+                                Similar size matchup
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
                         <div class="analytics-section analyst-insight-section" style="background: rgba(139, 92, 246, 0.1); border-left: 3px solid var(--accent);">
                             <div style="display: flex; align-items: center; gap: 0.5rem;">
                                 <span style="width: 8px; height: 8px; background: var(--text-muted); border-radius: 50%;"></span>
                                 <span style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase;">ANALYST INSIGHT</span>
                             </div>
                             <div style="font-size: 0.85rem; color: var(--text); margin-top: 0.5rem;">
-                                {% if (game.torvik_away_rank or 180) < (game.torvik_home_rank or 180) - 50 %}
+                                {% if game.league == 'CBB' and game.cbb_breakdown and game.cbb_breakdown.analyst_insight %}
+                                {{ game.cbb_breakdown.analyst_insight }}
+                                {% elif (game.torvik_away_rank or 180) < (game.torvik_home_rank or 180) - 50 %}
                                 {{ game.away_team }} has a clear advantage with better overall efficiency.
                                 {% elif (game.torvik_home_rank or 180) < (game.torvik_away_rank or 180) - 50 %}
                                 {{ game.home_team }} has a clear advantage with better overall efficiency.

@@ -5846,7 +5846,7 @@ class Game(db.Model):
     is_back_to_back_home = db.Column(db.Boolean, default=False)
     travel_distance = db.Column(db.Float)
     situational_adjustment = db.Column(db.Float, default=0.0)
-    # Bart Torvik CBB stats
+    # KenPom CBB stats (from all endpoints)
     torvik_tempo = db.Column(db.Float)
     torvik_away_adj_o = db.Column(db.Float)
     torvik_away_adj_d = db.Column(db.Float)
@@ -5854,6 +5854,40 @@ class Game(db.Model):
     torvik_home_adj_d = db.Column(db.Float)
     torvik_away_rank = db.Column(db.Integer)
     torvik_home_rank = db.Column(db.Integer)
+    # Additional KenPom Four Factors
+    kenpom_away_efg = db.Column(db.Float)       # Away offensive eFG%
+    kenpom_home_efg = db.Column(db.Float)       # Home offensive eFG%
+    kenpom_away_to = db.Column(db.Float)        # Away TO%
+    kenpom_home_to = db.Column(db.Float)        # Home TO%
+    kenpom_away_or = db.Column(db.Float)        # Away offensive rebound %
+    kenpom_home_or = db.Column(db.Float)        # Home offensive rebound %
+    kenpom_away_ft_rate = db.Column(db.Float)   # Away FT Rate
+    kenpom_home_ft_rate = db.Column(db.Float)   # Home FT Rate
+    # KenPom Shooting
+    kenpom_away_3pt = db.Column(db.Float)       # Away 3PT%
+    kenpom_home_3pt = db.Column(db.Float)       # Home 3PT%
+    kenpom_away_2pt = db.Column(db.Float)       # Away 2PT%
+    kenpom_home_2pt = db.Column(db.Float)       # Home 2PT%
+    kenpom_away_ft_pct = db.Column(db.Float)    # Away FT%
+    kenpom_home_ft_pct = db.Column(db.Float)    # Home FT%
+    # KenPom Defense
+    kenpom_away_d_efg = db.Column(db.Float)     # Away defensive eFG% allowed
+    kenpom_home_d_efg = db.Column(db.Float)     # Home defensive eFG% allowed
+    kenpom_away_d_to = db.Column(db.Float)      # Away forced TO%
+    kenpom_home_d_to = db.Column(db.Float)      # Home forced TO%
+    # KenPom Size/Experience
+    kenpom_away_height = db.Column(db.Float)    # Away avg height
+    kenpom_home_height = db.Column(db.Float)    # Home avg height
+    kenpom_away_exp = db.Column(db.Float)       # Away experience
+    kenpom_home_exp = db.Column(db.Float)       # Home experience
+    # KenPom SOS
+    kenpom_away_sos = db.Column(db.Float)       # Away SOS
+    kenpom_home_sos = db.Column(db.Float)       # Home SOS
+    kenpom_away_sos_rank = db.Column(db.Integer)
+    kenpom_home_sos_rank = db.Column(db.Integer)
+    # KenPom Conference
+    kenpom_away_conf = db.Column(db.String(20))
+    kenpom_home_conf = db.Column(db.String(20))
     
     # Betting action data (WagerTalk) - for "Closed" line display
     opening_spread = db.Column(db.Float)  # First spread seen
@@ -7948,8 +7982,8 @@ def dashboard():
     # Sort by edge before taking top 5
     qualified.sort(key=lambda x: x.alt_edge or x.edge or 0, reverse=True)
     
-    # FETCH L5 STATS for NBA games (advanced analytics)
-    # Pre-cache L5 data to avoid API calls during template render
+    # FETCH L5 STATS for NBA games and KenPom breakdown for CBB games
+    # Pre-cache data to avoid API calls during template render
     for g in qualified:
         if g.league == 'NBA':
             try:
@@ -7963,6 +7997,16 @@ def dashboard():
             except Exception as e:
                 logger.warning(f"Error fetching L5 stats for {g.away_team} vs {g.home_team}: {e}")
                 g.matchup_l5 = {'away': {}, 'home': {}, 'has_data': False}
+        elif g.league == 'CBB':
+            try:
+                # Compute comprehensive CBB matchup breakdown using all KenPom endpoints
+                cbb_breakdown = compute_cbb_matchup_breakdown(g.away_team, g.home_team)
+                g.matchup_l5 = cbb_breakdown if cbb_breakdown.get('has_data') else {'has_data': False}
+                g.cbb_breakdown = cbb_breakdown
+            except Exception as e:
+                logger.warning(f"Error computing CBB breakdown for {g.away_team} vs {g.home_team}: {e}")
+                g.matchup_l5 = {'has_data': False}
+                g.cbb_breakdown = {'has_data': False}
         else:
             g.matchup_l5 = {'away': {}, 'home': {}, 'has_data': False}
     
@@ -8484,8 +8528,817 @@ def fetch_nfl_team_stats(team_id):
     except Exception:
         return None, None
 
+# KenPom API caches - unified storage for all endpoints
 torvik_cache = {}
 torvik_cache_date = None
+
+# Additional KenPom endpoint caches
+kenpom_four_factors_cache = {}
+kenpom_point_distribution_cache = {}
+kenpom_height_cache = {}
+kenpom_misc_cache = {}
+kenpom_conference_ratings_cache = {}
+kenpom_conferences_cache = {}
+kenpom_fanmatch_cache = {}
+kenpom_teams_cache = {}
+kenpom_cache_date = None
+
+# D1 CBB Averages for comparison (2024-25 season baselines)
+CBB_D1_AVERAGES = {
+    'eFG_pct': 50.0,          # Effective FG%
+    'TO_pct': 18.5,           # Turnover %
+    'OR_pct': 28.0,           # Offensive Rebound %
+    'FT_rate': 32.0,          # FT Rate (FTA/FGA)
+    'FT_pct': 72.0,           # Free Throw %
+    '3PT_pct': 34.0,          # 3-Point %
+    '2PT_pct': 50.0,          # 2-Point %
+    'tempo': 67.5,            # Possessions per 40 min
+    'adj_o': 109.0,           # Adj Offensive Efficiency
+    'adj_d': 109.0,           # Adj Defensive Efficiency
+    'ppg': 72.0,              # Points per game
+    'avg_height': 77.0,       # Average height in inches
+    'experience': 2.0,        # Average years experience
+    'bench_minutes': 30.0,    # Bench minutes percentage
+}
+
+
+def fetch_kenpom_api(endpoint: str, year: int = 2026) -> Optional[list]:
+    """Generic KenPom API fetcher for any endpoint."""
+    api_key = os.environ.get('CBB_API_KEY', '')
+    if not api_key:
+        logger.warning(f"CBB_API_KEY not set, skipping KenPom {endpoint} fetch")
+        return None
+
+    try:
+        url = f"https://kenpom.com/api.php?endpoint={endpoint}&y={year}"
+        headers = {
+            'Authorization': f'Bearer {api_key}',
+            'User-Agent': 'Mozilla/5.0 (compatible; SportsApp/1.0)'
+        }
+        resp = requests.get(url, headers=headers, timeout=30)
+
+        if resp.status_code == 401:
+            logger.warning(f"KenPom API unauthorized for {endpoint}")
+            return None
+        if resp.status_code != 200:
+            logger.warning(f"KenPom API {endpoint} failed: {resp.status_code}")
+            return None
+
+        return resp.json()
+    except Exception as e:
+        logger.error(f"KenPom {endpoint} fetch error: {e}")
+        return None
+
+
+def fetch_kenpom_four_factors() -> dict:
+    """
+    Fetch KenPom Four Factors data for all teams.
+    Returns: eFG%, TOV%, ORB%, FT Rate for both offense and defense
+    """
+    global kenpom_four_factors_cache, kenpom_cache_date
+    today = date.today()
+
+    if kenpom_cache_date == today and kenpom_four_factors_cache:
+        return kenpom_four_factors_cache
+
+    data = fetch_kenpom_api('fourfactors')
+    if not data:
+        return kenpom_four_factors_cache
+
+    cache = {}
+    for team in data:
+        try:
+            team_name = team.get('TeamName', '').lower()
+            if team_name:
+                cache[team_name] = {
+                    # Offensive Four Factors
+                    'o_efg': team.get('eFGPct', 0),           # Offensive eFG%
+                    'o_efg_rank': team.get('RankeFGPct', 0),
+                    'o_to': team.get('TOPct', 0),             # Offensive TO%
+                    'o_to_rank': team.get('RankTOPct', 0),
+                    'o_or': team.get('ORPct', 0),             # Offensive Rebound %
+                    'o_or_rank': team.get('RankORPct', 0),
+                    'o_ft_rate': team.get('FTRate', 0),       # FT Rate (FTA/FGA)
+                    'o_ft_rate_rank': team.get('RankFTRate', 0),
+                    # Defensive Four Factors
+                    'd_efg': team.get('DeFGPct', 0),          # Defensive eFG% allowed
+                    'd_efg_rank': team.get('RankDeFGPct', 0),
+                    'd_to': team.get('DTOPct', 0),            # Forced TO%
+                    'd_to_rank': team.get('RankDTOPct', 0),
+                    'd_or': team.get('DORPct', 0),            # DRB% (100 - opponent ORB%)
+                    'd_or_rank': team.get('RankDORPct', 0),
+                    'd_ft_rate': team.get('DFTRate', 0),      # Opponent FT Rate
+                    'd_ft_rate_rank': team.get('RankDFTRate', 0),
+                }
+        except Exception:
+            continue
+
+    if cache:
+        kenpom_four_factors_cache = cache
+        logger.info(f"KenPom Four Factors loaded: {len(cache)} teams")
+    return kenpom_four_factors_cache
+
+
+def fetch_kenpom_point_distribution() -> dict:
+    """
+    Fetch KenPom Point Distribution data.
+    Returns: % of points from 3PT, 2PT, FT
+    """
+    global kenpom_point_distribution_cache, kenpom_cache_date
+    today = date.today()
+
+    if kenpom_cache_date == today and kenpom_point_distribution_cache:
+        return kenpom_point_distribution_cache
+
+    data = fetch_kenpom_api('pointdist')
+    if not data:
+        return kenpom_point_distribution_cache
+
+    cache = {}
+    for team in data:
+        try:
+            team_name = team.get('TeamName', '').lower()
+            if team_name:
+                cache[team_name] = {
+                    # Offensive distribution
+                    'o_3pt_pct': team.get('OffFG3Pct', 0),    # % from 3PT
+                    'o_2pt_pct': team.get('OffFG2Pct', 0),    # % from 2PT
+                    'o_ft_pct_dist': team.get('OffFTPct', 0), # % from FT
+                    'o_3pt_pct_rank': team.get('RankOffFG3Pct', 0),
+                    # Defensive distribution (what opponents do)
+                    'd_3pt_pct': team.get('DefFG3Pct', 0),
+                    'd_2pt_pct': team.get('DefFG2Pct', 0),
+                    'd_ft_pct_dist': team.get('DefFTPct', 0),
+                }
+        except Exception:
+            continue
+
+    if cache:
+        kenpom_point_distribution_cache = cache
+        logger.info(f"KenPom Point Distribution loaded: {len(cache)} teams")
+    return kenpom_point_distribution_cache
+
+
+def fetch_kenpom_height() -> dict:
+    """
+    Fetch KenPom Height/Size data for teams.
+    Returns: average height, experience, bench minutes
+    """
+    global kenpom_height_cache, kenpom_cache_date
+    today = date.today()
+
+    if kenpom_cache_date == today and kenpom_height_cache:
+        return kenpom_height_cache
+
+    data = fetch_kenpom_api('height')
+    if not data:
+        return kenpom_height_cache
+
+    cache = {}
+    for team in data:
+        try:
+            team_name = team.get('TeamName', '').lower()
+            if team_name:
+                cache[team_name] = {
+                    'avg_height': team.get('AvgHgt', 0),
+                    'avg_height_rank': team.get('RankAvgHgt', 0),
+                    'eff_height': team.get('EffHgt', 0),       # Effective height
+                    'eff_height_rank': team.get('RankEffHgt', 0),
+                    'experience': team.get('Exp', 0),           # Average experience
+                    'experience_rank': team.get('RankExp', 0),
+                    'bench_mins': team.get('Bench', 0),         # Bench minutes %
+                    'bench_rank': team.get('RankBench', 0),
+                    'continuity': team.get('Continuity', 0),    # % returning minutes
+                    'continuity_rank': team.get('RankContinuity', 0),
+                }
+        except Exception:
+            continue
+
+    if cache:
+        kenpom_height_cache = cache
+        logger.info(f"KenPom Height loaded: {len(cache)} teams")
+    return kenpom_height_cache
+
+
+def fetch_kenpom_misc() -> dict:
+    """
+    Fetch KenPom Miscellaneous Stats.
+    Returns: 3PT%, 2PT%, FT%, block%, steal%, assist rate, etc.
+    """
+    global kenpom_misc_cache, kenpom_cache_date
+    today = date.today()
+
+    if kenpom_cache_date == today and kenpom_misc_cache:
+        return kenpom_misc_cache
+
+    data = fetch_kenpom_api('misc')
+    if not data:
+        return kenpom_misc_cache
+
+    cache = {}
+    for team in data:
+        try:
+            team_name = team.get('TeamName', '').lower()
+            if team_name:
+                cache[team_name] = {
+                    # Offensive misc stats
+                    'o_3pt_pct': team.get('Off3Pct', 0),       # 3PT shooting %
+                    'o_3pt_rank': team.get('RankOff3Pct', 0),
+                    'o_2pt_pct': team.get('Off2Pct', 0),       # 2PT shooting %
+                    'o_2pt_rank': team.get('RankOff2Pct', 0),
+                    'o_ft_pct': team.get('OffFTPct', 0),       # FT shooting %
+                    'o_ft_rank': team.get('RankOffFTPct', 0),
+                    'o_blk_pct': team.get('OffBlkPct', 0),     # Block % against
+                    'o_stl_pct': team.get('OffStlPct', 0),     # Steal % against
+                    'o_ast_rate': team.get('AstRate', 0),      # Assist rate
+                    'o_ast_rank': team.get('RankAstRate', 0),
+                    'o_3pt_rate': team.get('Off3PRate', 0),    # 3PT attempt rate
+                    'o_3pt_rate_rank': team.get('RankOff3PRate', 0),
+                    # Defensive misc stats
+                    'd_3pt_pct': team.get('Def3Pct', 0),       # Opponent 3PT%
+                    'd_3pt_rank': team.get('RankDef3Pct', 0),
+                    'd_2pt_pct': team.get('Def2Pct', 0),       # Opponent 2PT%
+                    'd_2pt_rank': team.get('RankDef2Pct', 0),
+                    'd_ft_pct': team.get('DefFTPct', 0),       # Opponent FT%
+                    'd_blk_pct': team.get('BlkPct', 0),        # Block %
+                    'd_blk_rank': team.get('RankBlkPct', 0),
+                    'd_stl_pct': team.get('StlPct', 0),        # Steal %
+                    'd_stl_rank': team.get('RankStlPct', 0),
+                    'd_3pt_rate': team.get('Def3PRate', 0),    # Opponent 3PT attempt rate
+                    'd_3pt_rate_rank': team.get('RankDef3PRate', 0),
+                    # Other
+                    'non_stl_to': team.get('NonStlTO', 0),     # Non-steal TO%
+                    'adj_tempo': team.get('AdjTempo', 0),       # Adjusted tempo
+                }
+        except Exception:
+            continue
+
+    if cache:
+        kenpom_misc_cache = cache
+        logger.info(f"KenPom Misc Stats loaded: {len(cache)} teams")
+    return kenpom_misc_cache
+
+
+def fetch_kenpom_conference_ratings() -> dict:
+    """
+    Fetch KenPom Conference Ratings.
+    Returns: conference efficiency, SOS, etc.
+    """
+    global kenpom_conference_ratings_cache, kenpom_cache_date
+    today = date.today()
+
+    if kenpom_cache_date == today and kenpom_conference_ratings_cache:
+        return kenpom_conference_ratings_cache
+
+    data = fetch_kenpom_api('confratings')
+    if not data:
+        return kenpom_conference_ratings_cache
+
+    cache = {}
+    for conf in data:
+        try:
+            conf_name = conf.get('ConfName', '').lower()
+            conf_abbrev = conf.get('Conf', '').lower()
+            if conf_name:
+                conf_data = {
+                    'name': conf.get('ConfName', ''),
+                    'abbrev': conf.get('Conf', ''),
+                    'adj_em': conf.get('AdjEM', 0),
+                    'rank': conf.get('RankAdjEM', 0),
+                    'adj_o': conf.get('AdjO', 0),
+                    'adj_d': conf.get('AdjD', 0),
+                    'adj_tempo': conf.get('AdjTempo', 0),
+                    'sos': conf.get('SOS', 0),
+                    'num_teams': conf.get('NumTeams', 0),
+                }
+                cache[conf_name] = conf_data
+                cache[conf_abbrev] = conf_data
+        except Exception:
+            continue
+
+    if cache:
+        kenpom_conference_ratings_cache = cache
+        logger.info(f"KenPom Conference Ratings loaded: {len(cache)} conferences")
+    return kenpom_conference_ratings_cache
+
+
+def fetch_kenpom_fanmatch() -> dict:
+    """
+    Fetch KenPom Fanmatch data - fan interest/engagement metrics.
+    """
+    global kenpom_fanmatch_cache, kenpom_cache_date
+    today = date.today()
+
+    if kenpom_cache_date == today and kenpom_fanmatch_cache:
+        return kenpom_fanmatch_cache
+
+    data = fetch_kenpom_api('fanmatch')
+    if not data:
+        return kenpom_fanmatch_cache
+
+    cache = {}
+    for team in data:
+        try:
+            team_name = team.get('TeamName', '').lower()
+            if team_name:
+                cache[team_name] = {
+                    'fanmatch': team.get('Fanmatch', 0),
+                    'fanmatch_rank': team.get('RankFanmatch', 0),
+                }
+        except Exception:
+            continue
+
+    if cache:
+        kenpom_fanmatch_cache = cache
+        logger.info(f"KenPom Fanmatch loaded: {len(cache)} teams")
+    return kenpom_fanmatch_cache
+
+
+def fetch_kenpom_teams() -> dict:
+    """
+    Fetch KenPom Teams data - team metadata.
+    """
+    global kenpom_teams_cache, kenpom_cache_date
+    today = date.today()
+
+    if kenpom_cache_date == today and kenpom_teams_cache:
+        return kenpom_teams_cache
+
+    data = fetch_kenpom_api('teams')
+    if not data:
+        return kenpom_teams_cache
+
+    cache = {}
+    for team in data:
+        try:
+            team_name = team.get('TeamName', '').lower()
+            if team_name:
+                cache[team_name] = {
+                    'team_id': team.get('TeamId', ''),
+                    'team_name': team.get('TeamName', ''),
+                    'conf': team.get('Conf', ''),
+                    'seed': team.get('Seed', 0),
+                }
+        except Exception:
+            continue
+
+    if cache:
+        kenpom_teams_cache = cache
+        logger.info(f"KenPom Teams loaded: {len(cache)} teams")
+    return kenpom_teams_cache
+
+
+def fetch_kenpom_conferences() -> dict:
+    """
+    Fetch KenPom Conferences data - conference metadata.
+    """
+    global kenpom_conferences_cache, kenpom_cache_date
+    today = date.today()
+
+    if kenpom_cache_date == today and kenpom_conferences_cache:
+        return kenpom_conferences_cache
+
+    data = fetch_kenpom_api('conferences')
+    if not data:
+        return kenpom_conferences_cache
+
+    cache = {}
+    for conf in data:
+        try:
+            conf_abbrev = conf.get('Conf', '').lower()
+            if conf_abbrev:
+                cache[conf_abbrev] = {
+                    'conf_name': conf.get('ConfName', ''),
+                    'conf_abbrev': conf.get('Conf', ''),
+                }
+        except Exception:
+            continue
+
+    if cache:
+        kenpom_conferences_cache = cache
+        logger.info(f"KenPom Conferences loaded: {len(cache)} conferences")
+    return kenpom_conferences_cache
+
+
+def fetch_all_kenpom_data():
+    """
+    Fetch ALL KenPom API endpoints in parallel and merge data.
+    This is the master function that populates all caches.
+    """
+    global kenpom_cache_date
+    today = date.today()
+
+    if kenpom_cache_date == today:
+        logger.info("KenPom data already loaded today, using cache")
+        return True
+
+    logger.info("Fetching all KenPom API endpoints...")
+
+    # Fetch all endpoints (the individual functions handle their own caching)
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    endpoints_to_fetch = [
+        ('ratings', fetch_kenpom_ratings),
+        ('fourfactors', fetch_kenpom_four_factors),
+        ('pointdist', fetch_kenpom_point_distribution),
+        ('height', fetch_kenpom_height),
+        ('misc', fetch_kenpom_misc),
+        ('confratings', fetch_kenpom_conference_ratings),
+        ('fanmatch', fetch_kenpom_fanmatch),
+        ('teams', fetch_kenpom_teams),
+        ('conferences', fetch_kenpom_conferences),
+    ]
+
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        futures = {executor.submit(fn): name for name, fn in endpoints_to_fetch}
+        for future in as_completed(futures):
+            endpoint_name = futures[future]
+            try:
+                future.result()
+                logger.info(f"KenPom {endpoint_name} completed")
+            except Exception as e:
+                logger.error(f"KenPom {endpoint_name} failed: {e}")
+
+    kenpom_cache_date = today
+    logger.info("All KenPom data fetch complete")
+    return True
+
+
+def get_kenpom_team_full(team_name: str) -> Optional[dict]:
+    """
+    Get complete KenPom data for a team from all endpoints.
+    Returns unified data structure matching NBA model breakdown format.
+    """
+    # Ensure all data is loaded
+    if not torvik_cache:
+        fetch_all_kenpom_data()
+
+    name_lower = team_name.lower().strip()
+
+    # Get base ratings data (using existing fuzzy matching)
+    base_data = get_torvik_team(team_name)
+    if not base_data:
+        return None
+
+    # Merge in Four Factors
+    ff_data = kenpom_four_factors_cache.get(name_lower, {})
+
+    # Merge in Point Distribution
+    pd_data = kenpom_point_distribution_cache.get(name_lower, {})
+
+    # Merge in Height
+    ht_data = kenpom_height_cache.get(name_lower, {})
+
+    # Merge in Misc
+    misc_data = kenpom_misc_cache.get(name_lower, {})
+
+    # Merge in Fanmatch
+    fm_data = kenpom_fanmatch_cache.get(name_lower, {})
+
+    # Merge in Team info
+    team_info = kenpom_teams_cache.get(name_lower, {})
+
+    # Get conference data
+    conf_abbrev = base_data.get('conf', '').lower()
+    conf_data = kenpom_conference_ratings_cache.get(conf_abbrev, {})
+
+    # Build unified data structure matching NBA model format
+    return {
+        # Base ratings (from ratings endpoint)
+        'team': base_data.get('team', team_name),
+        'rank': base_data.get('rank', 999),
+        'conf': base_data.get('conf', ''),
+        'record': base_data.get('record', ''),
+        'adj_o': base_data.get('adj_o', 0),
+        'adj_d': base_data.get('adj_d', 0),
+        'adj_em': base_data.get('adj_em', 0),
+        'tempo': base_data.get('tempo', 67.5),
+        'sos': base_data.get('sos', 0),
+        'sos_rank': base_data.get('sos_rank', 0),
+
+        # Four Factors - Offensive
+        'o_efg': ff_data.get('o_efg', 0),
+        'o_efg_rank': ff_data.get('o_efg_rank', 0),
+        'o_to': ff_data.get('o_to', 0),
+        'o_to_rank': ff_data.get('o_to_rank', 0),
+        'o_or': ff_data.get('o_or', 0),
+        'o_or_rank': ff_data.get('o_or_rank', 0),
+        'o_ft_rate': ff_data.get('o_ft_rate', 0),
+        'o_ft_rate_rank': ff_data.get('o_ft_rate_rank', 0),
+
+        # Four Factors - Defensive
+        'd_efg': ff_data.get('d_efg', 0),
+        'd_efg_rank': ff_data.get('d_efg_rank', 0),
+        'd_to': ff_data.get('d_to', 0),
+        'd_to_rank': ff_data.get('d_to_rank', 0),
+        'd_or': ff_data.get('d_or', 0),
+        'd_or_rank': ff_data.get('d_or_rank', 0),
+        'd_ft_rate': ff_data.get('d_ft_rate', 0),
+        'd_ft_rate_rank': ff_data.get('d_ft_rate_rank', 0),
+
+        # Shooting (from misc endpoint)
+        'o_3pt_pct': misc_data.get('o_3pt_pct', 0),
+        'o_3pt_rank': misc_data.get('o_3pt_rank', 0),
+        'o_2pt_pct': misc_data.get('o_2pt_pct', 0),
+        'o_2pt_rank': misc_data.get('o_2pt_rank', 0),
+        'o_ft_pct': misc_data.get('o_ft_pct', 0),
+        'o_ft_rank': misc_data.get('o_ft_rank', 0),
+        'd_3pt_pct': misc_data.get('d_3pt_pct', 0),
+        'd_3pt_rank': misc_data.get('d_3pt_rank', 0),
+        'd_2pt_pct': misc_data.get('d_2pt_pct', 0),
+        'd_2pt_rank': misc_data.get('d_2pt_rank', 0),
+
+        # Ball movement/control
+        'o_ast_rate': misc_data.get('o_ast_rate', 0),
+        'o_ast_rank': misc_data.get('o_ast_rank', 0),
+        'o_3pt_rate': misc_data.get('o_3pt_rate', 0),  # 3PT attempt rate
+        'd_stl_pct': misc_data.get('d_stl_pct', 0),
+        'd_stl_rank': misc_data.get('d_stl_rank', 0),
+        'd_blk_pct': misc_data.get('d_blk_pct', 0),
+        'd_blk_rank': misc_data.get('d_blk_rank', 0),
+
+        # Point distribution
+        'pts_from_3': pd_data.get('o_3pt_pct', 0),
+        'pts_from_2': pd_data.get('o_2pt_pct', 0),
+        'pts_from_ft': pd_data.get('o_ft_pct_dist', 0),
+
+        # Height/Size
+        'avg_height': ht_data.get('avg_height', 0),
+        'avg_height_rank': ht_data.get('avg_height_rank', 0),
+        'eff_height': ht_data.get('eff_height', 0),
+        'experience': ht_data.get('experience', 0),
+        'experience_rank': ht_data.get('experience_rank', 0),
+        'bench_mins': ht_data.get('bench_mins', 0),
+        'continuity': ht_data.get('continuity', 0),
+
+        # Conference strength
+        'conf_rank': conf_data.get('rank', 0),
+        'conf_adj_em': conf_data.get('adj_em', 0),
+        'conf_sos': conf_data.get('sos', 0),
+
+        # Fanmatch
+        'fanmatch': fm_data.get('fanmatch', 0),
+    }
+
+
+def compute_cbb_matchup_breakdown(away_team: str, home_team: str) -> dict:
+    """
+    Compute comprehensive CBB matchup breakdown using KenPom data.
+    Returns structured data matching NBA model breakdown format.
+    """
+    away_data = get_kenpom_team_full(away_team)
+    home_data = get_kenpom_team_full(home_team)
+
+    result = {
+        'has_data': False,
+        'away_team': away_team,
+        'home_team': home_team
+    }
+
+    if not away_data or not home_data:
+        return result
+
+    result['has_data'] = True
+    num_teams = 365  # Total D1 teams for percentile calc
+
+    # Power Rating (Overall ranking)
+    result['power_rating'] = {
+        'away': {
+            'rank': away_data['rank'],
+            'percentile': round((num_teams - away_data['rank'] + 1) / num_teams * 100),
+            'adj_em': round(away_data['adj_em'], 1),
+        },
+        'home': {
+            'rank': home_data['rank'],
+            'percentile': round((num_teams - home_data['rank'] + 1) / num_teams * 100),
+            'adj_em': round(home_data['adj_em'], 1),
+        },
+        'diff': home_data['rank'] - away_data['rank'],
+        'edge': 'away' if away_data['rank'] < home_data['rank'] else ('home' if home_data['rank'] < away_data['rank'] else 'even')
+    }
+
+    # Offensive Efficiency
+    result['offensive_efficiency'] = {
+        'away': {
+            'value': round(away_data['adj_o'], 1),
+            'rank': away_data.get('rank', 0),  # Would need separate rank
+            'percentile': round((num_teams - away_data.get('rank', 1) + 1) / num_teams * 100)
+        },
+        'home': {
+            'value': round(home_data['adj_o'], 1),
+            'rank': home_data.get('rank', 0),
+            'percentile': round((num_teams - home_data.get('rank', 1) + 1) / num_teams * 100)
+        },
+        'diff': round(away_data['adj_o'] - home_data['adj_o'], 1),
+        'edge': 'away' if away_data['adj_o'] > home_data['adj_o'] else ('home' if home_data['adj_o'] > away_data['adj_o'] else 'even')
+    }
+
+    # Defensive Efficiency (lower is better)
+    result['defensive_efficiency'] = {
+        'away': {
+            'value': round(away_data['adj_d'], 1),
+            'rank': away_data.get('rank', 0),
+            'percentile': round((num_teams - away_data.get('rank', 1) + 1) / num_teams * 100)
+        },
+        'home': {
+            'value': round(home_data['adj_d'], 1),
+            'rank': home_data.get('rank', 0),
+            'percentile': round((num_teams - home_data.get('rank', 1) + 1) / num_teams * 100)
+        },
+        'diff': round(home_data['adj_d'] - away_data['adj_d'], 1),
+        'edge': 'away' if away_data['adj_d'] < home_data['adj_d'] else ('home' if home_data['adj_d'] < away_data['adj_d'] else 'even')
+    }
+
+    # Four Factors - Shooting Profile
+    result['shooting_profile'] = {
+        'efg_pct': {
+            'away_season': round(away_data.get('o_efg', 0), 1),
+            'home_season': round(home_data.get('o_efg', 0), 1),
+            'away_rank': away_data.get('o_efg_rank', 0),
+            'home_rank': home_data.get('o_efg_rank', 0),
+            'd1_avg': CBB_D1_AVERAGES['eFG_pct']
+        },
+        '3pt_pct': {
+            'away_season': round(away_data.get('o_3pt_pct', 0), 1),
+            'home_season': round(home_data.get('o_3pt_pct', 0), 1),
+            'away_rank': away_data.get('o_3pt_rank', 0),
+            'home_rank': home_data.get('o_3pt_rank', 0),
+            'd1_avg': CBB_D1_AVERAGES['3PT_pct']
+        },
+        '2pt_pct': {
+            'away_season': round(away_data.get('o_2pt_pct', 0), 1),
+            'home_season': round(home_data.get('o_2pt_pct', 0), 1),
+            'away_rank': away_data.get('o_2pt_rank', 0),
+            'home_rank': home_data.get('o_2pt_rank', 0),
+            'd1_avg': CBB_D1_AVERAGES['2PT_pct']
+        },
+        'ft_pct': {
+            'away_season': round(away_data.get('o_ft_pct', 0), 1),
+            'home_season': round(home_data.get('o_ft_pct', 0), 1),
+            'away_rank': away_data.get('o_ft_rank', 0),
+            'home_rank': home_data.get('o_ft_rank', 0),
+            'd1_avg': CBB_D1_AVERAGES['FT_pct']
+        },
+        'd_efg': {
+            'away_season': round(away_data.get('d_efg', 0), 1),
+            'home_season': round(home_data.get('d_efg', 0), 1),
+        },
+        'd_3pt': {
+            'away_season': round(away_data.get('d_3pt_pct', 0), 1),
+            'home_season': round(home_data.get('d_3pt_pct', 0), 1),
+        }
+    }
+
+    # Ball Control / Turnovers
+    result['ball_control'] = {
+        'tov_pct': {
+            'away_season': round(away_data.get('o_to', 0), 1),
+            'home_season': round(home_data.get('o_to', 0), 1),
+            'away_rank': away_data.get('o_to_rank', 0),
+            'home_rank': home_data.get('o_to_rank', 0),
+            'd1_avg': CBB_D1_AVERAGES['TO_pct'],
+            'away_protects': away_data.get('o_to', 20) < CBB_D1_AVERAGES['TO_pct'],
+            'home_protects': home_data.get('o_to', 20) < CBB_D1_AVERAGES['TO_pct']
+        },
+        'forced_tov_pct': {
+            'away_season': round(away_data.get('d_to', 0), 1),
+            'home_season': round(home_data.get('d_to', 0), 1),
+            'away_rank': away_data.get('d_to_rank', 0),
+            'home_rank': home_data.get('d_to_rank', 0),
+        },
+        'stl_pct': {
+            'away_season': round(away_data.get('d_stl_pct', 0), 1),
+            'home_season': round(home_data.get('d_stl_pct', 0), 1),
+            'away_rank': away_data.get('d_stl_rank', 0),
+            'home_rank': home_data.get('d_stl_rank', 0),
+        },
+        'ast_rate': {
+            'away_season': round(away_data.get('o_ast_rate', 0), 1),
+            'home_season': round(home_data.get('o_ast_rate', 0), 1),
+        }
+    }
+
+    # Rebounding
+    result['rebounding'] = {
+        'orb_pct': {
+            'away_season': round(away_data.get('o_or', 0), 1),
+            'home_season': round(home_data.get('o_or', 0), 1),
+            'away_rank': away_data.get('o_or_rank', 0),
+            'home_rank': home_data.get('o_or_rank', 0),
+            'd1_avg': CBB_D1_AVERAGES['OR_pct'],
+            'away_crashes': away_data.get('o_or', 0) > CBB_D1_AVERAGES['OR_pct'] + 2,
+            'home_crashes': home_data.get('o_or', 0) > CBB_D1_AVERAGES['OR_pct'] + 2
+        },
+        'drb_pct': {
+            'away_season': round(away_data.get('d_or', 0), 1),  # DRB% = 100 - opponent ORB%
+            'home_season': round(home_data.get('d_or', 0), 1),
+            'away_rank': away_data.get('d_or_rank', 0),
+            'home_rank': home_data.get('d_or_rank', 0),
+        },
+        'blk_pct': {
+            'away_season': round(away_data.get('d_blk_pct', 0), 1),
+            'home_season': round(home_data.get('d_blk_pct', 0), 1),
+            'away_rank': away_data.get('d_blk_rank', 0),
+            'home_rank': home_data.get('d_blk_rank', 0),
+        }
+    }
+
+    # Pace & Free Throws
+    result['pace_ft'] = {
+        'ft_rate': {
+            'away_season': round(away_data.get('o_ft_rate', 0), 1),
+            'home_season': round(home_data.get('o_ft_rate', 0), 1),
+            'away_rank': away_data.get('o_ft_rate_rank', 0),
+            'home_rank': home_data.get('o_ft_rate_rank', 0),
+            'd1_avg': CBB_D1_AVERAGES['FT_rate'],
+            'away_attacks': away_data.get('o_ft_rate', 0) > CBB_D1_AVERAGES['FT_rate'] + 5,
+            'home_attacks': home_data.get('o_ft_rate', 0) > CBB_D1_AVERAGES['FT_rate'] + 5
+        },
+        'opp_ft_rate': {
+            'away_season': round(away_data.get('d_ft_rate', 0), 1),
+            'home_season': round(home_data.get('d_ft_rate', 0), 1),
+        },
+        'pace': {
+            'away': round(away_data.get('tempo', 67.5), 1),
+            'home': round(home_data.get('tempo', 67.5), 1),
+            'expected': round((away_data.get('tempo', 67.5) + home_data.get('tempo', 67.5)) / 2, 1),
+            'd1_avg': CBB_D1_AVERAGES['tempo']
+        }
+    }
+
+    # Size/Height matchup
+    result['size'] = {
+        'avg_height': {
+            'away': round(away_data.get('avg_height', 0), 1),
+            'home': round(home_data.get('avg_height', 0), 1),
+            'away_rank': away_data.get('avg_height_rank', 0),
+            'home_rank': home_data.get('avg_height_rank', 0),
+        },
+        'eff_height': {
+            'away': round(away_data.get('eff_height', 0), 1),
+            'home': round(home_data.get('eff_height', 0), 1),
+        },
+        'experience': {
+            'away': round(away_data.get('experience', 0), 2),
+            'home': round(home_data.get('experience', 0), 2),
+            'away_rank': away_data.get('experience_rank', 0),
+            'home_rank': home_data.get('experience_rank', 0),
+        }
+    }
+
+    # Strength of Schedule
+    result['sos'] = {
+        'away': {
+            'sos': round(away_data.get('sos', 0), 2),
+            'sos_rank': away_data.get('sos_rank', 0),
+            'conf_rank': away_data.get('conf_rank', 0),
+            'conf_adj_em': round(away_data.get('conf_adj_em', 0), 1),
+        },
+        'home': {
+            'sos': round(home_data.get('sos', 0), 2),
+            'sos_rank': home_data.get('sos_rank', 0),
+            'conf_rank': home_data.get('conf_rank', 0),
+            'conf_adj_em': round(home_data.get('conf_adj_em', 0), 1),
+        }
+    }
+
+    # Point Distribution
+    result['point_dist'] = {
+        'away': {
+            'from_3': round(away_data.get('pts_from_3', 0), 1),
+            'from_2': round(away_data.get('pts_from_2', 0), 1),
+            'from_ft': round(away_data.get('pts_from_ft', 0), 1),
+        },
+        'home': {
+            'from_3': round(home_data.get('pts_from_3', 0), 1),
+            'from_2': round(home_data.get('pts_from_2', 0), 1),
+            'from_ft': round(home_data.get('pts_from_ft', 0), 1),
+        }
+    }
+
+    # Generate analyst insight
+    power_diff = abs(result['power_rating']['diff'])
+    if power_diff <= 25:
+        result['analyst_insight'] = "Evenly matched teams - expect a competitive game."
+    elif result['power_rating']['edge'] == 'away':
+        off_matchup = away_data['adj_o'] - home_data['adj_d']
+        if off_matchup > 5:
+            result['analyst_insight'] = f"{away_team} offense ({away_data['adj_o']:.1f}) vs {home_team} defense ({home_data['adj_d']:.1f}) favors scoring."
+        else:
+            result['analyst_insight'] = f"{away_team} has the edge with better overall efficiency (#{away_data['rank']} vs #{home_data['rank']})."
+    else:
+        off_matchup = home_data['adj_o'] - away_data['adj_d']
+        if off_matchup > 5:
+            result['analyst_insight'] = f"{home_team} offense ({home_data['adj_o']:.1f}) vs {away_team} defense ({away_data['adj_d']:.1f}) favors scoring."
+        else:
+            result['analyst_insight'] = f"{home_team} has the edge with better overall efficiency (#{home_data['rank']} vs #{away_data['rank']})."
+
+    # Store raw data for template access
+    result['away_kenpom'] = away_data
+    result['home_kenpom'] = home_data
+
+    return result
+
 
 def is_top_25_cbb(team_name: str) -> bool:
     """Check if a CBB team is ranked in KenPom Top 25."""
@@ -8614,19 +9467,32 @@ def get_torvik_team(team_name: str) -> Optional[dict]:
     return None
 
 def calculate_torvik_projection(away_team: str, home_team: str) -> Optional[dict]:
-    """Calculate projected total using Torvik adjusted efficiency + tempo."""
-    away_stats = get_torvik_team(away_team)
-    home_stats = get_torvik_team(home_team)
+    """
+    Calculate projected game stats using comprehensive KenPom data from all endpoints.
+    Returns all metrics needed for CBB model breakdown matching NBA format.
+    """
+    # Get full KenPom data from all endpoints
+    away_stats = get_kenpom_team_full(away_team)
+    home_stats = get_kenpom_team_full(home_team)
+
     if not away_stats or not home_stats:
-        return None
+        # Fallback to basic data
+        away_basic = get_torvik_team(away_team)
+        home_basic = get_torvik_team(home_team)
+        if not away_basic or not home_basic:
+            return None
+        away_stats = away_basic
+        home_stats = home_basic
+
+    # Core efficiency metrics
     away_adj_o = away_stats.get('adj_o', 0)
     away_adj_d = away_stats.get('adj_d', 0)
     home_adj_o = home_stats.get('adj_o', 0)
     home_adj_d = home_stats.get('adj_d', 0)
-    away_tempo = away_stats.get('tempo', 67)
-    home_tempo = home_stats.get('tempo', 67)
-    d1_avg_tempo = 67.5
-    d1_avg_eff = 109.6
+    away_tempo = away_stats.get('tempo', 67.5)
+    home_tempo = home_stats.get('tempo', 67.5)
+
+    # Calculate projections
     game_tempo = (away_tempo + home_tempo) / 2
     possessions = game_tempo
     away_off_eff = (away_adj_o + home_adj_d) / 2
@@ -8634,17 +9500,79 @@ def calculate_torvik_projection(away_team: str, home_team: str) -> Optional[dict
     away_points = (away_off_eff / 100) * possessions
     home_points = (home_off_eff / 100) * possessions
     projected_total = away_points + home_points
+
     return {
+        # Projections
         'projected_total': round(projected_total, 1),
         'away_points': round(away_points, 1),
         'home_points': round(home_points, 1),
         'game_tempo': round(game_tempo, 1),
+
+        # Core efficiency
         'away_adj_o': away_adj_o,
         'away_adj_d': away_adj_d,
         'home_adj_o': home_adj_o,
         'home_adj_d': home_adj_d,
+        'away_adj_em': away_stats.get('adj_em', 0),
+        'home_adj_em': home_stats.get('adj_em', 0),
         'away_rank': away_stats.get('rank', 0),
-        'home_rank': home_stats.get('rank', 0)
+        'home_rank': home_stats.get('rank', 0),
+
+        # Four Factors - Offensive
+        'away_efg': away_stats.get('o_efg', 0),
+        'home_efg': home_stats.get('o_efg', 0),
+        'away_to': away_stats.get('o_to', 0),
+        'home_to': home_stats.get('o_to', 0),
+        'away_or': away_stats.get('o_or', 0),
+        'home_or': home_stats.get('o_or', 0),
+        'away_ft_rate': away_stats.get('o_ft_rate', 0),
+        'home_ft_rate': home_stats.get('o_ft_rate', 0),
+
+        # Four Factors - Defensive
+        'away_d_efg': away_stats.get('d_efg', 0),
+        'home_d_efg': home_stats.get('d_efg', 0),
+        'away_d_to': away_stats.get('d_to', 0),
+        'home_d_to': home_stats.get('d_to', 0),
+
+        # Shooting
+        'away_3pt': away_stats.get('o_3pt_pct', 0),
+        'home_3pt': home_stats.get('o_3pt_pct', 0),
+        'away_2pt': away_stats.get('o_2pt_pct', 0),
+        'home_2pt': home_stats.get('o_2pt_pct', 0),
+        'away_ft_pct': away_stats.get('o_ft_pct', 0),
+        'home_ft_pct': home_stats.get('o_ft_pct', 0),
+
+        # Defense shooting allowed
+        'away_d_3pt': away_stats.get('d_3pt_pct', 0),
+        'home_d_3pt': home_stats.get('d_3pt_pct', 0),
+
+        # Size/Experience
+        'away_height': away_stats.get('avg_height', 0),
+        'home_height': home_stats.get('avg_height', 0),
+        'away_exp': away_stats.get('experience', 0),
+        'home_exp': home_stats.get('experience', 0),
+
+        # SOS
+        'away_sos': away_stats.get('sos', 0),
+        'home_sos': home_stats.get('sos', 0),
+        'away_sos_rank': away_stats.get('sos_rank', 0),
+        'home_sos_rank': home_stats.get('sos_rank', 0),
+
+        # Conference
+        'away_conf': away_stats.get('conf', ''),
+        'home_conf': home_stats.get('conf', ''),
+
+        # Ball movement
+        'away_ast_rate': away_stats.get('o_ast_rate', 0),
+        'home_ast_rate': home_stats.get('o_ast_rate', 0),
+        'away_stl_pct': away_stats.get('d_stl_pct', 0),
+        'home_stl_pct': home_stats.get('d_stl_pct', 0),
+        'away_blk_pct': away_stats.get('d_blk_pct', 0),
+        'home_blk_pct': home_stats.get('d_blk_pct', 0),
+
+        # Tempo
+        'away_tempo': away_tempo,
+        'home_tempo': home_tempo,
     }
 
 def fetch_team_stats_batch(team_ids, fetch_func):
@@ -8823,8 +9751,9 @@ def fetch_games():
             stats = all_stats.get(league, {})
             gd["away_ppg"], gd["away_opp"] = stats.get(gd.get("away_id"), (None, None))
             gd["home_ppg"], gd["home_opp"] = stats.get(gd.get("home_id"), (None, None))
-    
-    fetch_kenpom_ratings()
+
+    # Fetch all KenPom endpoints (ratings, four factors, height, misc, etc.)
+    fetch_all_kenpom_data()
     
     # TRANSACTIONAL SAFETY: Only delete old games after we confirmed new data was fetched
     if all_games_data:
@@ -9023,11 +9952,13 @@ def fetch_odds_internal() -> dict:
                                         )
                                         
                                         if league == "CBB":
+                                            # Fetch comprehensive KenPom data from all endpoints
                                             torvik_proj = calculate_torvik_projection(game.away_team, game.home_team)
                                             if torvik_proj:
                                                 proj_total = torvik_proj['projected_total']
                                                 exp_away = torvik_proj['away_points']
                                                 exp_home = torvik_proj['home_points']
+                                                # Core efficiency
                                                 game.torvik_tempo = torvik_proj.get('game_tempo')
                                                 game.torvik_away_adj_o = torvik_proj.get('away_adj_o')
                                                 game.torvik_away_adj_d = torvik_proj.get('away_adj_d')
@@ -9035,7 +9966,41 @@ def fetch_odds_internal() -> dict:
                                                 game.torvik_home_adj_d = torvik_proj.get('home_adj_d')
                                                 game.torvik_away_rank = torvik_proj.get('away_rank')
                                                 game.torvik_home_rank = torvik_proj.get('home_rank')
-                                                logger.debug(f"CBB {game.away_team}@{game.home_team}: Torvik proj={proj_total}")
+                                                # Four Factors
+                                                game.kenpom_away_efg = torvik_proj.get('away_efg')
+                                                game.kenpom_home_efg = torvik_proj.get('home_efg')
+                                                game.kenpom_away_to = torvik_proj.get('away_to')
+                                                game.kenpom_home_to = torvik_proj.get('home_to')
+                                                game.kenpom_away_or = torvik_proj.get('away_or')
+                                                game.kenpom_home_or = torvik_proj.get('home_or')
+                                                game.kenpom_away_ft_rate = torvik_proj.get('away_ft_rate')
+                                                game.kenpom_home_ft_rate = torvik_proj.get('home_ft_rate')
+                                                # Shooting
+                                                game.kenpom_away_3pt = torvik_proj.get('away_3pt')
+                                                game.kenpom_home_3pt = torvik_proj.get('home_3pt')
+                                                game.kenpom_away_2pt = torvik_proj.get('away_2pt')
+                                                game.kenpom_home_2pt = torvik_proj.get('home_2pt')
+                                                game.kenpom_away_ft_pct = torvik_proj.get('away_ft_pct')
+                                                game.kenpom_home_ft_pct = torvik_proj.get('home_ft_pct')
+                                                # Defense
+                                                game.kenpom_away_d_efg = torvik_proj.get('away_d_efg')
+                                                game.kenpom_home_d_efg = torvik_proj.get('home_d_efg')
+                                                game.kenpom_away_d_to = torvik_proj.get('away_d_to')
+                                                game.kenpom_home_d_to = torvik_proj.get('home_d_to')
+                                                # Size/Experience
+                                                game.kenpom_away_height = torvik_proj.get('away_height')
+                                                game.kenpom_home_height = torvik_proj.get('home_height')
+                                                game.kenpom_away_exp = torvik_proj.get('away_exp')
+                                                game.kenpom_home_exp = torvik_proj.get('home_exp')
+                                                # SOS
+                                                game.kenpom_away_sos = torvik_proj.get('away_sos')
+                                                game.kenpom_home_sos = torvik_proj.get('home_sos')
+                                                game.kenpom_away_sos_rank = torvik_proj.get('away_sos_rank')
+                                                game.kenpom_home_sos_rank = torvik_proj.get('home_sos_rank')
+                                                # Conference
+                                                game.kenpom_away_conf = torvik_proj.get('away_conf')
+                                                game.kenpom_home_conf = torvik_proj.get('home_conf')
+                                                logger.debug(f"CBB {game.away_team}@{game.home_team}: KenPom proj={proj_total}")
                                         
                                         game.expected_away = exp_away
                                         game.expected_home = exp_home
@@ -10633,10 +11598,21 @@ def spreads():
         else:
             g.spread_display = "N/A"
         
-        # Initialize empty - data fetched via AJAX when user clicks Model Breakdown
+        # Initialize matchup data - CBB gets KenPom breakdown, NBA gets L5 data
         g.matchup_l5 = {}
         g.away_advanced = {}
         g.home_advanced = {}
+        g.cbb_breakdown = {}
+
+        # Pre-compute CBB breakdown using comprehensive KenPom data
+        if g.league == 'CBB':
+            try:
+                cbb_breakdown = compute_cbb_matchup_breakdown(g.away_team, g.home_team)
+                if cbb_breakdown.get('has_data'):
+                    g.cbb_breakdown = cbb_breakdown
+                    g.matchup_l5 = cbb_breakdown
+            except Exception as e:
+                logger.debug(f"CBB breakdown error for {g.away_team} vs {g.home_team}: {e}")
         
         # Apply elimination filters for NBA games
         if g.league == 'NBA' and g.spread_line is not None:
@@ -10826,9 +11802,9 @@ def spreads():
     
     # ========== CBB DAILY SLATE ANALYSIS (Uses KenPom rankings for ALL teams) ==========
     cbb_games = games_by_league.get('CBB', [])
-    
-    # Fetch KenPom rankings for all teams (1-365)
-    fetch_kenpom_ratings()
+
+    # Fetch all KenPom data from all endpoints (ratings, four factors, height, misc, etc.)
+    fetch_all_kenpom_data()
     
     # Build KenPom ranks dictionary for ALL teams playing today
     cbb_kenpom_ranks = {}
