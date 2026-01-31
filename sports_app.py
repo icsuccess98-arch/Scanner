@@ -10243,19 +10243,23 @@ def spreads():
                 away_covers = covers_nba_stats.get(g.away_team, {})
                 home_covers = covers_nba_stats.get(g.home_team, {})
                 
-                # Use Covers data for all stats if available
-                g.away_overall = away_covers.get('record', g.away_record)
-                g.home_overall = home_covers.get('record', g.home_record)
-                g.away_road_record = away_covers.get('road_record', '--')
-                g.home_home_record = home_covers.get('home_record', '--')
-                g.away_ats = away_covers.get('ats', '--')
-                g.home_ats = home_covers.get('ats', '--')
-                g.away_ats_road = away_covers.get('ats_road', '--')
-                g.home_ats_home = home_covers.get('ats_home', '--')
-                g.away_l10 = away_covers.get('l10', '--')
-                g.home_l10 = home_covers.get('l10', '--')
-                g.away_l10_ats = away_covers.get('l10_ats', '--')
-                g.home_l10_ats = home_covers.get('l10_ats', '--')
+                # Fallback to nba_team_stats for ESPN data when Covers matchup not available
+                away_espn = nba_team_stats.get(g.away_team, {})
+                home_espn = nba_team_stats.get(g.home_team, {})
+                
+                # Use Covers data first, ESPN as fallback
+                g.away_overall = away_covers.get('record') or away_espn.get('overall_record', g.away_record)
+                g.home_overall = home_covers.get('record') or home_espn.get('overall_record', g.home_record)
+                g.away_road_record = away_covers.get('road_record') or away_espn.get('road_record', '--')
+                g.home_home_record = home_covers.get('home_record') or home_espn.get('home_record', '--')
+                g.away_ats = away_covers.get('ats') or away_espn.get('ats_record', '--')
+                g.home_ats = home_covers.get('ats') or home_espn.get('ats_record', '--')
+                g.away_ats_road = away_covers.get('ats_road') or away_espn.get('ats_road', '--')
+                g.home_ats_home = home_covers.get('ats_home') or home_espn.get('ats_home', '--')
+                g.away_l10 = away_covers.get('l10') or away_espn.get('last_10', '--')
+                g.home_l10 = home_covers.get('l10') or home_espn.get('last_10', '--')
+                g.away_l10_ats = away_covers.get('l10_ats') or away_espn.get('last_10_ats', '--')
+                g.home_l10_ats = home_covers.get('l10_ats') or home_espn.get('last_10_ats', '--')
             elif g.league == 'CBB':
                 g.away_logo = get_transparent_cbb_logo(g.away_team) or get_cbb_logo(g.away_team) or 'https://a.espncdn.com/i/teamlogos/leagues/500-dark/nba.png'
                 g.home_logo = get_transparent_cbb_logo(g.home_team) or get_cbb_logo(g.home_team) or 'https://a.espncdn.com/i/teamlogos/leagues/500-dark/nba.png'
