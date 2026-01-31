@@ -3397,30 +3397,59 @@
                 
                 const aw = parseFloat(awayVal) || 0;
                 const hm = parseFloat(homeVal) || 0;
-                const awayWins = higherIsBetter ? aw > hm : aw < hm;
-                const homeWins = higherIsBetter ? hm > aw : hm < aw;
+                // Parse ranks (lower rank number = better)
+                const awayRankNum = parseInt(awayRank) || 999;
+                const homeRankNum = parseInt(homeRank) || 999;
+                
+                // Determine winner by VALUE first
+                const awayWinsByValue = higherIsBetter ? aw > hm : aw < hm;
+                const homeWinsByValue = higherIsBetter ? hm > aw : hm < aw;
+                
+                // Determine winner by RANKING (lower rank = better)
+                const awayWinsByRank = awayRankNum < homeRankNum;
+                const homeWinsByRank = homeRankNum < awayRankNum;
                 
                 const threshold = format === 'eff' ? 0.01 : 0.3;
                 const diff = Math.abs(aw - hm);
-                const noEdge = diff < threshold;
+                const noEdge = diff < threshold && awayRankNum === homeRankNum;
+                
+                // COMBINED EDGE: Both value AND rank must agree for a clean winner
+                // If values are close but ranks differ, use ranking as tiebreaker
+                let awayWins, homeWins;
+                if (diff < threshold) {
+                    // Values are close - use ranking as tiebreaker
+                    awayWins = awayWinsByRank;
+                    homeWins = homeWinsByRank;
+                } else {
+                    // Values differ - use both value AND rank (both must agree for strong edge)
+                    awayWins = awayWinsByValue;
+                    homeWins = homeWinsByValue;
+                }
                 
                 // Significant edge detection (>15% difference)
                 const avgVal = (aw + hm) / 2;
                 const pctDiff = avgVal > 0 ? (diff / avgVal) * 100 : 0;
                 const isSignificant = pctDiff > 15;
                 
-                // Stat values get team colors when winning
-                const awayClass = awayWins ? 'stat-winner-away' : 'stat-neutral';
-                const homeClass = homeWins ? 'stat-winner-home' : 'stat-neutral';
+                // EVEN EDGE = both sides get NEUTRAL colors (no team colors)
+                // Only show team colors when there's a clear winner
+                const awayClass = noEdge ? 'stat-neutral' : (awayWins ? 'stat-winner-away' : 'stat-neutral');
+                const homeClass = noEdge ? 'stat-neutral' : (homeWins ? 'stat-winner-home' : 'stat-neutral');
                 const winner = awayWins ? awayTeam : homeTeam;
                 
-                // Edge display - just team name, no badges
+                // Edge display with ranking badge when applicable
                 let edgeText, edgeClass;
                 if (noEdge) {
                     edgeText = '<span class="edge-even">Even</span>';
                     edgeClass = '';
                 } else {
-                    edgeText = winner;
+                    // Show winner with their rank badge
+                    const winnerRank = awayWins ? awayRankNum : homeRankNum;
+                    if (winnerRank && winnerRank < 999) {
+                        edgeText = `<span class="rank-badge rank-good">#${winnerRank}</span> ${winner}`;
+                    } else {
+                        edgeText = winner;
+                    }
                     edgeClass = awayWins ? 'edge-away' : 'edge-home';
                     if (isSignificant) {
                         edgeClass += ' edge-strong';
@@ -3461,6 +3490,7 @@
             }
             
             // Calculate edge counts from 15 key metrics
+            // Uses BOTH value AND ranking to determine edge winner
             let awayEdgeCount = 0;
             let homeEdgeCount = 0;
             
@@ -3477,11 +3507,25 @@
             edgeMetrics.forEach(([m, higher]) => {
                 const aw = parseFloat(awaySeason[m]) || 0;
                 const hm = parseFloat(homeSeason[m]) || 0;
+                // Get rankings for this metric (lower rank = better)
+                const awRank = parseInt(awaySeason[m + ' Rank']) || 999;
+                const hmRank = parseInt(homeSeason[m + ' Rank']) || 999;
+                
                 // Use smaller threshold for efficiency values (around 1.x)
                 const threshold = (m === 'O Eff' || m === 'D Eff') ? 0.01 : 0.3;
-                if (Math.abs(aw - hm) < threshold) return;
-                if (higher ? aw > hm : aw < hm) awayEdgeCount++;
-                else if (higher ? hm > aw : hm < aw) homeEdgeCount++;
+                const valueDiff = Math.abs(aw - hm);
+                
+                // If values are close, use ranking as tiebreaker
+                if (valueDiff < threshold) {
+                    // Values are even - use ranking to break tie
+                    if (awRank < hmRank) awayEdgeCount++;
+                    else if (hmRank < awRank) homeEdgeCount++;
+                    // If both ranks equal, no edge for this metric
+                } else {
+                    // Values differ - normal edge calculation
+                    if (higher ? aw > hm : aw < hm) awayEdgeCount++;
+                    else if (higher ? hm > aw : hm < aw) homeEdgeCount++;
+                }
             });
             
             // Determine overall edge
