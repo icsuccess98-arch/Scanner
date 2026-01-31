@@ -10274,23 +10274,52 @@ def get_bovada_games(league: str = 'CBB') -> set:
 
 
 def is_bovada_game(away_team: str, home_team: str, bovada_games: set) -> bool:
-    """Check if a game is available on Bovada using fuzzy matching."""
+    """Check if a game is available on Bovada using fuzzy matching with proper normalization."""
     if not bovada_games:
         return True  # If no Bovada data, show all games
     
-    away_lower = away_team.lower()
-    home_lower = home_team.lower()
+    # Normalize team names for matching
+    def normalize_for_match(name: str) -> str:
+        """Normalize team name for matching."""
+        n = name.lower().strip()
+        # Remove common suffixes and state abbreviations
+        for suffix in [' state', ' st', ' st.', ' university', ' univ', ' college']:
+            if n.endswith(suffix):
+                n = n[:-len(suffix)].strip()
+        # Handle common abbreviations
+        replacements = {
+            'north carolina': 'nc', 'south carolina': 'sc',
+            'central florida': 'ucf', 'c florida': 'ucf',
+            'louisiana state': 'lsu', 'florida state': 'fsu',
+            'texas a&m': 'texas am', 'brigham young': 'byu',
+            'san jose': 'san jose', 'san josé': 'san jose',
+        }
+        for old, new in replacements.items():
+            if old in n:
+                n = n.replace(old, new)
+        return n
     
-    # Exact match
-    if (away_lower, home_lower) in bovada_games:
+    away_norm = normalize_for_match(away_team)
+    home_norm = normalize_for_match(home_team)
+    
+    # Exact match after normalization
+    if (away_norm, home_norm) in bovada_games:
         return True
     
-    # Fuzzy match - check if team names are contained in each other
+    # Check if normalized names match Bovada games
     for (bov_away, bov_home) in bovada_games:
-        away_match = (away_lower in bov_away or bov_away in away_lower or 
-                      any(w in bov_away for w in away_lower.split() if len(w) > 3))
-        home_match = (home_lower in bov_home or bov_home in home_lower or
-                      any(w in bov_home for w in home_lower.split() if len(w) > 3))
+        bov_away_norm = normalize_for_match(bov_away)
+        bov_home_norm = normalize_for_match(bov_home)
+        
+        # Check for token overlap (at least one significant word matches)
+        away_tokens = set(w for w in away_norm.split() if len(w) > 2)
+        home_tokens = set(w for w in home_norm.split() if len(w) > 2)
+        bov_away_tokens = set(w for w in bov_away_norm.split() if len(w) > 2)
+        bov_home_tokens = set(w for w in bov_home_norm.split() if len(w) > 2)
+        
+        away_match = bool(away_tokens & bov_away_tokens) or away_norm in bov_away_norm or bov_away_norm in away_norm
+        home_match = bool(home_tokens & bov_home_tokens) or home_norm in bov_home_norm or bov_home_norm in home_norm
+        
         if away_match and home_match:
             return True
     
