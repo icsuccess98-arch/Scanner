@@ -591,14 +591,15 @@ def get_covers_matchup_stats(league: str = 'NBA') -> Dict:
         abbr_to_name = nba_abbr_to_name
     
     try:
+        today_str = datetime.now().strftime('%Y-%m-%d')
         if league == 'NBA':
-            url = 'https://www.covers.com/sports/nba/matchups'
+            url = f'https://www.covers.com/sports/nba/matchups?selectedDate={today_str}'
         elif league == 'CBB':
-            url = 'https://www.covers.com/sports/ncaab/matchups'
+            url = f'https://www.covers.com/sports/ncaab/matchups?selectedDate={today_str}'
         elif league == 'NHL':
-            url = 'https://www.covers.com/sports/nhl/matchups'
+            url = f'https://www.covers.com/sports/nhl/matchups?selectedDate={today_str}'
         else:
-            url = 'https://www.covers.com/sports/nba/matchups'
+            url = f'https://www.covers.com/sports/nba/matchups?selectedDate={today_str}'
         
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -612,8 +613,8 @@ def get_covers_matchup_stats(league: str = 'NBA') -> Dict:
         
         soup = BeautifulSoup(response.content, 'html.parser')
         
-        # Find all game boxes (class starts with "gamebox pregamebox")
-        gameboxes = soup.find_all(class_=re.compile(r'^gamebox\s+pregamebox'))
+        # Find all game boxes - pregamebox for upcoming, include both types
+        gameboxes = soup.find_all(class_='pregamebox')
         logger.info(f"Found {len(gameboxes)} games on Covers.com {league}")
         
         for gamebox in gameboxes:
