@@ -5595,6 +5595,30 @@ TEAM_ALIASES = {
     's dakota': 'south dakota', 'n dakota': 'north dakota',
     'lmu': 'loyola marymount', 'oregon st': 'oregon state',
     'kennesaw st': 'kennesaw state', 'missouri st': 'missouri state',
+    'nc a&t': 'north carolina a&t', 'nc at': 'north carolina a&t', 'ncat': 'north carolina a&t',
+    'purdue fw': 'purdue fort wayne', 'purdue-fw': 'purdue fort wayne', 'pfw': 'purdue fort wayne',
+    'william & mary': 'william mary', 'w&m': 'william mary', 'william and mary': 'william mary',
+    'c connecticut': 'central connecticut', 'cconn': 'central connecticut', 'ccsu': 'central connecticut',
+    'san jose st': 'san jose state', 'sjsu': 'san jose state',
+    'sacramento st': 'sacramento state', 'sac state': 'sacramento state', 'sac st': 'sacramento state',
+    'fresno st': 'fresno state', 'boise st': 'boise state', 'utah st': 'utah state',
+    'san diego st': 'san diego state', 'sdsu': 'san diego state',
+    'montana st': 'montana state', 'weber st': 'weber state', 'idaho st': 'idaho state',
+    'portland st': 'portland state', 'n arizona': 'northern arizona', 'nau': 'northern arizona',
+    'e washington': 'eastern washington', 'ewu': 'eastern washington',
+    'n colorado': 'northern colorado', 'unc colorado': 'northern colorado',
+    'cal poly': 'california poly', 'long beach st': 'long beach state', 'lbsu': 'long beach state',
+    'uc davis': 'california davis', 'uc irvine': 'california irvine', 'uc riverside': 'california riverside',
+    'uc santa barbara': 'california santa barbara', 'ucsb': 'california santa barbara',
+    'cal st fullerton': 'california state fullerton', 'csuf': 'california state fullerton',
+    'cal st northridge': 'california state northridge', 'csun': 'california state northridge',
+    'st marys': 'saint marys', 'st marys ca': 'saint marys', "saint mary's": 'saint marys',
+    'st johns': 'saint johns', "st john's": 'saint johns', "saint john's": 'saint johns',
+    'st bonaventure': 'saint bonaventure', "st joseph's": 'saint josephs', "saint joseph's": 'saint josephs',
+    'st louis': 'saint louis', 'slu': 'saint louis',
+    'queens': 'queens', 'bellarmine': 'bellarmine',
+    'liu': 'long island', 'li': 'long island',
+    'campbell': 'campbell', 'robert morris': 'robert morris', 'rmu': 'robert morris',
 }
 
 def normalize_team_name(name: str) -> str:
@@ -11827,33 +11851,9 @@ def spreads():
                 g.home_record = get_cbb_team_record(g.home_team, cbb_standings)
                 g.away_standing = ''
                 g.home_standing = ''
-                # CBB Covers-style stats with database persistence
-                # Try direct lookup first, then normalized name, then fuzzy match
-                away_covers = covers_cbb_stats.get(g.away_team, {})
-                if not away_covers:
-                    # Try normalized name
-                    normalized_away = normalize_cbb_team_name(g.away_team)
-                    away_covers = covers_cbb_stats.get(normalized_away, {})
-                if not away_covers:
-                    # Try lowercase matching
-                    away_lower = g.away_team.lower()
-                    for key in covers_cbb_stats:
-                        if key.lower() == away_lower or away_lower in key.lower() or key.lower() in away_lower:
-                            away_covers = covers_cbb_stats[key]
-                            break
-
-                home_covers = covers_cbb_stats.get(g.home_team, {})
-                if not home_covers:
-                    # Try normalized name
-                    normalized_home = normalize_cbb_team_name(g.home_team)
-                    home_covers = covers_cbb_stats.get(normalized_home, {})
-                if not home_covers:
-                    # Try lowercase matching
-                    home_lower = g.home_team.lower()
-                    for key in covers_cbb_stats:
-                        if key.lower() == home_lower or home_lower in key.lower() or key.lower() in home_lower:
-                            home_covers = covers_cbb_stats[key]
-                            break
+                # CBB Covers-style stats - simple direct lookup only
+                away_covers = covers_cbb_stats.get(g.away_team, {}) or covers_cbb_stats.get(normalize_cbb_team_name(g.away_team), {})
+                home_covers = covers_cbb_stats.get(g.home_team, {}) or covers_cbb_stats.get(normalize_cbb_team_name(g.home_team), {})
                 
                 # If Covers has data AND we haven't captured pre-game stats yet, save to DB
                 if away_covers and home_covers and not g.pregame_stats_captured:
@@ -12293,16 +12293,10 @@ def spreads():
     cbb_bad_defense_list.sort(key=lambda x: int(x.split('#')[1].split(' ')[0]))  # Sort by KenPom rank
     cbb_bad_defense_display = ', '.join(cbb_bad_defense_list[:10]) if cbb_bad_defense_list else 'None'
     
-    # CBB Large Spreads (10+ points) - ONLY Top 25 teams (using WagerTalk open line or DB spread)
+    # CBB Large Spreads (10+ points) - ONLY Top 25 teams (using database spread only)
     cbb_large_spread_teams = set()
     cbb_large_spread_matchups = []
-    
-    # Get WagerTalk data for open lines
-    try:
-        from wagertalk_scraper import get_wagertalk_odds
-        wt_cbb_data = get_wagertalk_odds('CBB')
-    except:
-        wt_cbb_data = {}
+    wt_cbb_data = {}  # Skip WagerTalk call for page speed
     
     for g in cbb_games:
         # Only process games with Top 25 teams
