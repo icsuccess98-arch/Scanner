@@ -1,0 +1,375 @@
+kenpom API Documentation
+Base URL: https://kenpom.com
+Response Format: JSON
+Authentication: Bearer token required in Authorization header
+
+Authorization: Bearer YOUR_API_KEY_HERE
+Ratings
+Retrieve team ratings, strength of schedule, tempo, and possession length data.
+
+Parameters
+Parameter	Type	Required	Description
+y	integer	Conditional*	Year/Season (e.g., 2025) - ending year of the season
+team_id	integer	Conditional*	Team ID - see teams endpoint for valid values
+c	string	No	Conference short name - see conferences endpoint for valid values
+* At least one of y or team_id is required. If using c, y must also be provided.
+
+Example Requests
+GET /api.php?endpoint=ratings&y=2025
+GET /api.php?endpoint=ratings&team_id=73&y=2025
+GET /api.php?endpoint=ratings&c=B12&y=2025
+GET /api.php?endpoint=ratings&team_id=73
+Response Fields
+Field	Type	Description
+DataThrough	string	Date or description of games included in data
+Season	integer	Season year
+TeamName	string	Team name
+Seed	integer	Tournament seed (if applicable)
+ConfShort	string	Conference abbreviation
+Coach	string	Head coach name
+Wins	integer	Number of wins
+Losses	integer	Number of losses
+AdjEM	float	Adjusted Efficiency Margin
+RankAdjEM	integer	Adjusted Efficiency Margin rank
+Pythag	float	Pythagorean expectation
+RankPythag	integer	Pythagorean expectation rank
+AdjOE	float	Adjusted Offensive Efficiency
+RankAdjOE	integer	Adjusted Offensive Efficiency rank
+OE	float	Offensive Efficiency
+RankOE	integer	Offensive Efficiency rank
+AdjDE	float	Adjusted Defensive Efficiency
+RankAdjDE	integer	Adjusted Defensive Efficiency rank
+DE	float	Defensive Efficiency
+RankDE	integer	Defensive Efficiency rank
+Tempo	float	Tempo (possessions per 40 minutes)
+RankTempo	integer	Tempo rank
+AdjTempo	float	Adjusted Tempo
+RankAdjTempo	integer	Adjusted Tempo rank
+Luck	float	Luck rating
+RankLuck	integer	Luck rank
+SOS	float	Strength of Schedule
+RankSOS	integer	Strength of Schedule rank
+SOSO	float	Strength of Schedule (Offense)
+RankSOSO	integer	Strength of Schedule (Offense) rank
+SOSD	float	Strength of Schedule (Defense)
+RankSOSD	integer	Strength of Schedule (Defense) rank
+NCSOS	float	Non-Conference Strength of Schedule
+RankNCSOS	integer	Non-Conference Strength of Schedule rank
+Event	string	Tournament event/round
+APL_Off	float	Average Possession Length (Offense)
+RankAPL_Off	integer	Average Possession Length (Offense) rank
+APL_Def	float	Average Possession Length (Defense)
+RankAPL_Def	integer	Average Possession Length (Defense) rank
+ConfAPL_Off	float	Conference Average Possession Length (Offense)
+RankConfAPL_Off	integer	Conference Average Possession Length (Offense) rank
+ConfAPL_Def	float	Conference Average Possession Length (Defense)
+RankConfAPL_Def	integer	Conference Average Possession Length (Defense) rank
+Ratings Archive
+Retrieve historical team ratings data from specific dates, allowing you to see team ratings at any point during the season or before the season starts.
+
+Parameters
+Parameter	Type	Required	Description
+d	string	Conditional*	Date in YYYY-MM-DD format to retrieve archived ratings for
+y	integer	Conditional*	Ending year of season when using preseason parameter (e.g., 2025 = 2024-25 season)
+preseason	boolean	No	If true, retrieves preseason ratings for the specified year
+team_id	integer	No	Team ID - see teams endpoint for valid values
+c	string	No	Conference short name - see conferences endpoint for valid values
+* Either d is required, or both preseason=true and y are required.
+
+Example Requests
+GET /api.php?endpoint=archive&d=2025-02-15
+GET /api.php?endpoint=archive&preseason=true&y=2025
+GET /api.php?endpoint=archive&d=2025-03-01&team_id=45
+Response Fields
+Field	Type	Description
+ArchiveDate	string	Date of the archived ratings
+Season	integer	Ending year of the season
+Preseason	string	Whether this is preseason data ("true" or "false")
+TeamName	string	Team name
+Seed	integer	NCAA tournament seed (if applicable)
+Event	string	Tournament event description
+ConfShort	string	Conference short name
+AdjEM	float	Adjusted efficiency margin on archive date
+RankAdjEM	integer	Adjusted efficiency margin rank on archive date
+AdjOE	float	Adjusted offensive efficiency on archive date
+RankAdjOE	integer	Adjusted offensive efficiency rank on archive date
+AdjDE	float	Adjusted defensive efficiency on archive date
+RankAdjDE	integer	Adjusted defensive efficiency rank on archive date
+AdjTempo	float	Adjusted tempo on archive date
+RankAdjTempo	integer	Adjusted tempo rank on archive date
+AdjEMFinal	float	Final adjusted efficiency margin
+RankAdjEMFinal	integer	Final adjusted efficiency margin rank
+AdjOEFinal	float	Final adjusted offensive efficiency
+RankAdjOEFinal	integer	Final adjusted offensive efficiency rank
+AdjDEFinal	float	Final adjusted defensive efficiency
+RankAdjDEFinal	integer	Final adjusted defensive efficiency rank
+AdjTempoFinal	float	Final adjusted tempo
+RankAdjTempoFinal	integer	Final adjusted tempo rank
+RankChg	integer	Change in efficiency margin rank from archive date to final
+AdjEMChg	float	Change in efficiency margin from archive date to final
+AdjTChg	float	Change in tempo from archive date to final
+Four Factors
+Retrieve the Four Factors statistics for both offense and defense, along with team ratings and tempo for convenience.
+
+Parameters
+Parameter	Type	Required	Description
+y	integer	Conditional*	Ending year of season (e.g., 2025 = 2024-25 season)
+team_id	integer	Conditional*	Team ID - see teams endpoint for valid values
+c	string	No	Conference short name - see conferences endpoint for valid values
+conf_only	boolean	No	If true, returns conference-only statistics instead of all games
+* At least one of y or team_id is required. If using c, y must also be provided.
+
+Example Requests
+GET /api.php?endpoint=four-factors&y=2025
+GET /api.php?endpoint=four-factors&team_id=42
+GET /api.php?endpoint=four-factors&y=2025&c=A10
+GET /api.php?endpoint=four-factors&y=2025&conf_only=true
+Response Fields
+Field	Type	Description
+DataThrough	string	Date through which data is current
+ConfOnly	string	Whether this is conference-only data ("true" or "false")
+TeamName	string	Team name
+Season	integer	Ending year of the season
+eFG_Pct	float	Effective field goal percentage (offense)
+RankeFG_Pct	integer	Effective field goal percentage rank (offense)
+TO_Pct	float	Turnover percentage (offense)
+RankTO_Pct	integer	Turnover percentage rank (offense)
+OR_Pct	float	Offensive rebounding percentage
+RankOR_Pct	integer	Offensive rebounding percentage rank
+FT_Rate	float	Free throw rate (offense)
+RankFT_Rate	integer	Free throw rate rank (offense)
+DeFG_Pct	float	Effective field goal percentage allowed (defense)
+RankDeFG_Pct	integer	Effective field goal percentage allowed rank (defense)
+DTO_Pct	float	Turnover percentage forced (defense)
+RankDTO_Pct	integer	Turnover percentage forced rank (defense)
+DOR_Pct	float	Defensive rebounding percentage
+RankDOR_Pct	integer	Defensive rebounding percentage rank
+DFT_Rate	float	Free throw rate allowed (defense)
+RankDFT_Rate	integer	Free throw rate allowed rank (defense)
+OE	float	Offensive efficiency
+RankOE	integer	Offensive efficiency rank
+DE	float	Defensive efficiency
+RankDE	integer	Defensive efficiency rank
+Tempo	float	Tempo (possessions per 40 minutes)
+RankTempo	integer	Tempo rank
+AdjOE	float	Adjusted offensive efficiency
+RankAdjOE	integer	Adjusted offensive efficiency rank
+AdjDE	float	Adjusted defensive efficiency
+RankAdjDE	integer	Adjusted defensive efficiency rank
+AdjTempo	float	Adjusted tempo
+RankAdjTempo	integer	Adjusted tempo rank
+Point Distribution
+Retrieve the percentage of points scored from free throws, two-point field goals, and three-point field goals for both offense and defense.
+
+Parameters
+Parameter	Type	Required	Description
+y	integer	Conditional*	Ending year of season (e.g., 2025 = 2024-25 season)
+team_id	integer	Conditional*	Team ID - see teams endpoint for valid values
+c	string	No	Conference short name - see conferences endpoint for valid values
+conf_only	boolean	No	If true, returns conference-only statistics instead of all games
+* At least one of y or team_id is required. If using c, y must also be provided.
+
+Example Requests
+GET /api.php?endpoint=pointdist&y=2025
+GET /api.php?endpoint=pointdist&team_id=23
+GET /api.php?endpoint=pointdist&y=2025&c=B10
+GET /api.php?endpoint=pointdist&y=2025&conf_only=true
+Response Fields
+Field	Type	Description
+DataThrough	string	Date through which data is current
+ConfOnly	string	Whether this is conference-only data ("true" or "false")
+Season	integer	Ending year of the season
+TeamName	string	Team name
+ConfShort	string	Conference short name
+OffFt	float	Percentage of points from free throws (offense)
+RankOffFt	integer	Free throw points percentage rank (offense)
+OffFg2	float	Percentage of points from 2-point field goals (offense)
+RankOffFg2	integer	2-point field goal points percentage rank (offense)
+OffFg3	float	Percentage of points from 3-point field goals (offense)
+RankOffFg3	integer	3-point field goal points percentage rank (offense)
+DefFt	float	Percentage of points allowed from free throws (defense)
+RankDefFt	integer	Free throw points allowed percentage rank (defense)
+DefFg2	float	Percentage of points allowed from 2-point field goals (defense)
+RankDefFg2	integer	2-point field goal points allowed percentage rank (defense)
+DefFg3	float	Percentage of points allowed from 3-point field goals (defense)
+RankDefFg3	integer	3-point field goal points allowed percentage rank (defense)
+Height
+Retrieve team height statistics including average height, effective height, position-specific heights. Also included is team experience, bench strength, and continuity.
+
+Parameters
+Parameter	Type	Required	Description
+y	integer	Conditional*	Ending year of season (e.g., 2025 = 2024-25 season)
+team_id	integer	Conditional*	Team ID - see teams endpoint for valid values
+c	string	No	Conference short name - see conferences endpoint for valid values
+* At least one of y or team_id is required. If using c, y must also be provided.
+
+Example Requests
+GET /api.php?endpoint=height&y=2025
+GET /api.php?endpoint=height&team_id=47
+GET /api.php?endpoint=height&y=2025&c=WCC
+Response Fields
+Field	Type	Description
+DataThrough	string	Date through which data is current
+Season	integer	Ending year of the season
+TeamName	string	Team name
+ConfShort	string	Conference short name
+AvgHgt	float	Average team height in inches
+AvgHgtRank	integer	Average height rank
+HgtEff	float	Effective height
+HgtEffRank	integer	Effective height rank
+Hgt5	float	Center position height
+Hgt5Rank	integer	Center height rank
+Hgt4	float	Power forward position height
+Hgt4Rank	integer	Power forward height rank
+Hgt3	float	Small forward position height
+Hgt3Rank	integer	Small forward height rank
+Hgt2	float	Shooting guard position height
+Hgt2Rank	integer	Shooting guard height rank
+Hgt1	float	Point guard position height
+Hgt1Rank	integer	Point guard height rank
+Exp	float	Experience rating
+ExpRank	integer	Experience rank
+Bench	float	Bench strength rating
+BenchRank	integer	Bench strength rank
+Continuity	float	Team continuity rating
+RankContinuity	integer	Continuity rank
+Miscellaneous Stats
+Retrieve miscellaneous statistics including shooting percentages, block percentages, steal rates, assist rates, and other advanced metrics for both offense and defense.
+
+Parameters
+Parameter	Type	Required	Description
+y	integer	Conditional*	Ending year of season (e.g., 2025 = 2024-25 season)
+team_id	integer	Conditional*	Team ID - see teams endpoint for valid values
+c	string	No	Conference short name - see conferences endpoint for valid values
+conf_only	boolean	No	If true, returns conference-only statistics instead of all games
+* At least one of y or team_id is required. If using c, y must also be provided.
+
+Example Requests
+GET /api.php?endpoint=misc-stats&y=2025
+GET /api.php?endpoint=misc-stats&team_id=12
+GET /api.php?endpoint=misc-stats&y=2025&c=ACC
+GET /api.php?endpoint=misc-stats&y=2025&conf_only=true
+Response Fields
+Field	Type	Description
+DataThrough	string	Date through which data is current
+ConfOnly	string	Whether this is conference-only data ("true" or "false")
+Season	integer	Ending year of the season
+TeamName	string	Team name
+ConfShort	string	Conference short name
+FG3Pct	float	3-point field goal percentage (offense)
+RankFG3Pct	integer	3-point field goal percentage rank (offense)
+FG2Pct	float	2-point field goal percentage (offense)
+RankFG2Pct	integer	2-point field goal percentage rank (offense)
+FTPct	float	Free throw percentage (offense)
+RankFTPct	integer	Free throw percentage rank (offense)
+BlockPct	float	Block percentage (offense)
+RankBlockPct	integer	Block percentage rank (offense)
+StlRate	float	Steal rate (offense)
+RankStlRate	integer	Steal rate rank (offense)
+NSTRate	float	Non-steal turnover rate (offense)
+RankNSTRate	integer	Non-steal turnover rate rank (offense)
+ARate	float	Assist rate (offense)
+RankARate	integer	Assist rate rank (offense)
+F3GRate	float	3-point attempt rate (offense)
+RankF3GRate	integer	3-point attempt rate rank (offense)
+AdjOE	float	Adjusted offensive efficiency
+RankAdjOE	integer	Adjusted offensive efficiency rank
+Avg2PADist	float	Average 2-point attempt distance (offense)
+RankAvg2PADist	integer	Average 2-point attempt distance rank (offense)
+OppFG3Pct	float	Opponent 3-point field goal percentage (defense)
+RankOppFG3Pct	integer	Opponent 3-point field goal percentage rank (defense)
+OppFG2Pct	float	Opponent 2-point field goal percentage (defense)
+RankOppFG2Pct	integer	Opponent 2-point field goal percentage rank (defense)
+OppFTPct	float	Opponent free throw percentage (defense)
+RankOppFTPct	integer	Opponent free throw percentage rank (defense)
+OppBlockPct	float	Opponent block percentage (defense)
+RankOppBlockPct	integer	Opponent block percentage rank (defense)
+OppStlRate	float	Opponent steal rate (defense)
+RankOppStlRate	integer	Opponent steal rate rank (defense)
+OppNSTRate	float	Opponent non-steal turnover rate (defense)
+RankOppNSTRate	integer	Opponent non-steal turnover rate rank (defense)
+OppARate	float	Opponent assist rate (defense)
+RankOppARate	integer	Opponent assist rate rank (defense)
+OppF3GRate	float	Opponent 3-point attempt rate (defense)
+RankOppF3GRate	integer	Opponent 3-point attempt rate rank (defense)
+AdjDE	float	Adjusted defensive efficiency
+RankAdjDE	integer	Adjusted defensive efficiency rank
+OppAvg2PADist	float	Average 2-point attempt distance (defense)
+RankOppAvg2PADist	integer	Average 2-point attempt distance rank (defense)
+Fanmatch
+Retrieve game predictions for a past date, including team rankings, predicted scores, win probabilities, tempo predictions, and thrill scores. Only days up to and including the current date are available.
+
+Parameters
+Parameter	Type	Required	Description
+d	string	Yes	Date in YYYY-MM-DD format (e.g., 2024-11-24)
+Example Requests
+GET /api.php?endpoint=fanmatch&d=2024-11-24
+Response Fields
+Field	Type	Description
+Season	integer	Ending year of the season
+GameID	integer	Unique game identifier
+DateOfGame	string	Date of the game in YYYY-MM-DD format
+Visitor	string	Visiting team name
+Home	string	Home team name
+HomeRank	integer	Home team's kenpom ranking on the day of the game
+VisitorRank	integer	Visiting team's kenpom ranking on the day of the game
+HomePred	float	Predicted home team score
+VisitorPred	float	Predicted visiting team score
+HomeWP	float	Home team win probability
+PredTempo	float	Predicted tempo
+ThrillScore	float	Game thrill score
+Conference Ratings
+Retrieve conference ratings for a given season. The rating represents the NetRtg (net rating) of a team expected to go .500 in conference play.
+
+Parameters
+Parameter	Type	Required	Description
+y	integer	No*	Ending year of season (e.g., 2025 = 2024-25 season)
+c	string	No*	Conference short name - see conferences endpoint for valid values
+*At least one parameter (y or c) is required
+
+Example Requests
+GET /api.php?endpoint=conf-ratings&y=2025
+GET /api.php?endpoint=conf-ratings&c=BE
+GET /api.php?endpoint=conf-ratings&y=2025&c=BE
+Response Fields
+Field	Type	Description
+Season	integer	Ending year of the season
+ConfShort	string	Conference short name abbreviation
+ConfID	integer	Unique conference identifier
+ConfLong	string	Full conference name
+Rank	integer	Conference ranking within the season
+Rating	float	NetRtg of a team expected to go .500 in conference play
+Teams
+Retrieve the list of teams for a given season including team names, conference affiliations, and coaching information.
+
+Parameters
+Parameter	Type	Required	Description
+y	integer	Yes	Ending year of season (e.g., 2025 = 2024-25 season)
+c	string	No	Conference short name - see conferences endpoint for valid values
+Example Requests
+GET /api.php?endpoint=teams&y=2025
+GET /api.php?endpoint=teams&y=2025&c=BE
+Response Fields
+Field	Type	Description
+Season	integer	Ending year of the season
+TeamName	string	Team name
+TeamID	integer	Unique team identifier
+ConfShort	string	Conference short name
+Coach	string	Head coach name
+Arena	string	Home arena name
+ArenaCity	string	City where the arena is located
+ArenaState	string	State where the arena is located
+Conferences
+Retrieve the list of conferences for a given season including both short and long conference names.
+
+Parameters
+Parameter	Type	Required	Description
+y	integer	Yes	Ending year of season (e.g., 2025 = 2024-25 season)
+Example Requests
+GET /api.php?endpoint=conferences&y=2025
+Response Fields
+Field	Type	Description
+Season	integer	Ending year of the season
+ConfID	integer	Unique conference identifier
+ConfShort	string	Conference short name
+ConfLong	string	Conference full name

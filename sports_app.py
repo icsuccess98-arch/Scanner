@@ -8754,12 +8754,14 @@ def fetch_kenpom_misc() -> dict:
     if kenpom_cache_date == today and kenpom_misc_cache:
         return kenpom_misc_cache
 
-    # Try 'teamstats' endpoint first (KenPom website uses teamstats.php for misc stats)
-    data = fetch_kenpom_api('teamstats')
+    # Try different endpoint names for Miscellaneous Stats
+    for endpoint in ['miscstats', 'miscellaneous', 'misc-stats', 'teamstats', 'misc']:
+        data = fetch_kenpom_api(endpoint)
+        if data:
+            logger.info(f"KenPom Misc loaded via endpoint: {endpoint}")
+            break
     if not data:
-        # Fallback to 'misc' endpoint
-        data = fetch_kenpom_api('misc')
-    if not data:
+        logger.warning("KenPom Misc Stats endpoint not found - tried all variations")
         return kenpom_misc_cache
 
     cache = {}
