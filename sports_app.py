@@ -1461,38 +1461,138 @@ class MatchupIntelligence:
             MatchupIntelligence._ctg_cache[cache_key] = {'data': {}, 'timestamp': time.time()}
             return {}
     
+    # Cache for KenPom team page stats
+    _kenpom_team_cache = {}
+    
     @staticmethod
     def fetch_kenpom_stats(team_name: str) -> dict:
         """
-        Fetch KenPom advanced analytics for CBB teams from cached data.
+        Fetch KenPom advanced analytics for CBB teams from team page.
+        URL format: https://kenpom.com/team.php?team=TeamName
         
-        Returns:
-        - rank: KenPom efficiency ranking (1-365)
-        - adj_o: Adjusted Offensive Efficiency
-        - adj_d: Adjusted Defensive Efficiency
-        - adj_em: Adjusted Efficiency Margin
-        - tempo: Adjusted Tempo
-        - sos: Strength of Schedule
-        - sos_rank: SOS ranking
-        - record: Team record (W-L)
-        - conf: Conference
+        Returns comprehensive stats including Four Factors, efficiency metrics, etc.
         """
         try:
+            # Check cache first (cache for 1 hour)
+            cache_key = team_name.lower().strip()
+            if cache_key in MatchupIntelligence._kenpom_team_cache:
+                cached = MatchupIntelligence._kenpom_team_cache[cache_key]
+                if time.time() - cached.get('timestamp', 0) < 3600:  # 1 hour cache
+                    return cached.get('data', {})
+            
+            # Get basic stats from ratings API cache
             tv = get_torvik_team(team_name)
-            if tv:
-                return {
-                    'rank': tv.get('rank', 999),
-                    'team': tv.get('team', team_name),
-                    'adj_o': tv.get('adj_o', 0),
-                    'adj_d': tv.get('adj_d', 0),
-                    'adj_em': tv.get('adj_em', 0),
-                    'tempo': tv.get('tempo', 0),
-                    'sos': tv.get('sos', 0),
-                    'sos_rank': tv.get('sos_rank', 0),
-                    'record': tv.get('record', ''),
-                    'conf': tv.get('conf', '')
-                }
-            return {}
+            if not tv:
+                return {}
+            
+            result = {
+                'rank': tv.get('rank', 999),
+                'team': tv.get('team', team_name),
+                'adj_o': tv.get('adj_o', 0),
+                'adj_d': tv.get('adj_d', 0),
+                'adj_em': tv.get('adj_em', 0),
+                'tempo': tv.get('tempo', 0),
+                'sos': tv.get('sos', 0),
+                'sos_rank': tv.get('sos_rank', 0),
+                'record': tv.get('record', ''),
+                'conf': tv.get('conf', '')
+            }
+            
+            # Try to scrape team page for detailed Four Factors
+            api_key = os.environ.get('CBB_API_KEY', '')
+            if api_key:
+                try:
+                    # Format team name for URL (replace spaces with %20 or use proper encoding)
+                    from urllib.parse import quote
+                    team_slug = quote(tv.get('team', team_name))
+                    url = f"https://kenpom.com/team.php?team={team_slug}"
+                    
+                    headers = {
+                        'Authorization': f'Bearer {api_key}',
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                    }
+                    
+                    resp = requests.get(url, headers=headers, timeout=15)
+                    if resp.status_code == 200:
+                        from bs4 import BeautifulSoup
+                        soup = BeautifulSoup(resp.text, 'html.parser')
+                        
+                        # Parse Four Factors table
+                        tables = soup.find_all('table')
+                        for table in tables:
+                            rows = table.find_all('tr')
+                            for row in rows:
+                                cells = row.find_all('td')
+                                if len(cells) >= 3:
+                                    metric = cells[0].get_text(strip=True).lower()
+                                    off_val = cells[1].get_text(strip=True)
+                                    def_val = cells[2].get_text(strip=True)
+                                    
+                                    # Extract numeric values (remove rank)
+                                    def parse_val(v):
+                                        try:
+                                            # Value format: "58.6 9" (value + rank)
+                                            parts = v.split()
+                                            return float(parts[0]) if parts else 0
+                                        except:
+                                            return 0
+                                    
+                                    def parse_rank(v):
+                                        try:
+                                            parts = v.split()
+                                            return int(parts[1]) if len(parts) > 1 else 999
+                                        except:
+                                            return 999
+                                    
+                                    # Four Factors
+                                    if 'effective fg' in metric or 'efg' in metric:
+                                        result['off_efg'] = parse_val(off_val)
+                                        result['off_efg_rank'] = parse_rank(off_val)
+                                        result['def_efg'] = parse_val(def_val)
+                                        result['def_efg_rank'] = parse_rank(def_val)
+                                    elif 'turnover' in metric and '%' in metric:
+                                        result['off_tov'] = parse_val(off_val)
+                                        result['off_tov_rank'] = parse_rank(off_val)
+                                        result['def_tov'] = parse_val(def_val)
+                                        result['def_tov_rank'] = parse_rank(def_val)
+                                    elif 'off. reb' in metric or 'orb' in metric:
+                                        result['off_orb'] = parse_val(off_val)
+                                        result['off_orb_rank'] = parse_rank(off_val)
+                                        result['def_orb'] = parse_val(def_val)
+                                        result['def_orb_rank'] = parse_rank(def_val)
+                                    elif 'fta/fga' in metric or 'ft rate' in metric:
+                                        result['off_ft_rate'] = parse_val(off_val)
+                                        result['off_ft_rank'] = parse_rank(off_val)
+                                        result['def_ft_rate'] = parse_val(def_val)
+                                        result['def_ft_rank'] = parse_rank(def_val)
+                                    # Miscellaneous
+                                    elif '3p%' in metric:
+                                        result['off_3pt'] = parse_val(off_val)
+                                        result['def_3pt'] = parse_val(def_val)
+                                    elif '2p%' in metric:
+                                        result['off_2pt'] = parse_val(off_val)
+                                        result['def_2pt'] = parse_val(def_val)
+                                    elif 'ft%' in metric:
+                                        result['off_ft'] = parse_val(off_val)
+                                        result['def_ft'] = parse_val(def_val)
+                                    elif 'block' in metric:
+                                        result['off_blk'] = parse_val(off_val)
+                                        result['def_blk'] = parse_val(def_val)
+                                    elif 'steal' in metric:
+                                        result['off_stl'] = parse_val(off_val)
+                                        result['def_stl'] = parse_val(def_val)
+                        
+                        logger.info(f"KenPom team page scraped for {team_name}: {len(result)} metrics")
+                except Exception as e:
+                    logger.warning(f"KenPom team page scrape error for {team_name}: {e}")
+            
+            # Cache the result
+            MatchupIntelligence._kenpom_team_cache[cache_key] = {
+                'data': result,
+                'timestamp': time.time()
+            }
+            
+            return result
         except Exception as e:
             logger.warning(f"Error fetching KenPom stats for {team_name}: {e}")
             return {}
@@ -11407,35 +11507,69 @@ def get_matchup_data(game_id):
             result['away_season']['SOS'] = find_stat(away_season, 'sos rank') or 'N/A'
             result['home_season']['SOS'] = find_stat(home_season, 'sos rank') or 'N/A'
             
-            # Add KenPom stats for CBB games (Key Metrics section)
+            # For CBB games, populate season stats with KenPom data
             if game.league == 'CBB' and (away_ctg or home_ctg):
-                result['kenpom'] = {
-                    'away': {
-                        'rank': away_ctg.get('rank', 999),
-                        'team': away_ctg.get('team', game.away_team),
-                        'adj_o': away_ctg.get('adj_o', 0),
-                        'adj_d': away_ctg.get('adj_d', 0),
-                        'adj_em': away_ctg.get('adj_em', 0),
-                        'tempo': away_ctg.get('tempo', 0),
-                        'sos': away_ctg.get('sos', 0),
-                        'sos_rank': away_ctg.get('sos_rank', 0),
-                        'record': away_ctg.get('record', ''),
-                        'conf': away_ctg.get('conf', '')
-                    },
-                    'home': {
-                        'rank': home_ctg.get('rank', 999),
-                        'team': home_ctg.get('team', game.home_team),
-                        'adj_o': home_ctg.get('adj_o', 0),
-                        'adj_d': home_ctg.get('adj_d', 0),
-                        'adj_em': home_ctg.get('adj_em', 0),
-                        'tempo': home_ctg.get('tempo', 0),
-                        'sos': home_ctg.get('sos', 0),
-                        'sos_rank': home_ctg.get('sos_rank', 0),
-                        'record': home_ctg.get('record', ''),
-                        'conf': home_ctg.get('conf', '')
-                    }
-                }
-                logging.info(f"KenPom data added for {game.away_team} vs {game.home_team}: away_rank={away_ctg.get('rank')}, home_rank={home_ctg.get('rank')}")
+                # Add KenPom efficiency metrics to away_season
+                if away_ctg:
+                    result['away_season']['KenPom Rank'] = away_ctg.get('rank', 999)
+                    result['away_season']['Adj O'] = away_ctg.get('adj_o', 0)
+                    result['away_season']['Adj D'] = away_ctg.get('adj_d', 0)
+                    result['away_season']['Adj EM'] = away_ctg.get('adj_em', 0)
+                    result['away_season']['Tempo'] = away_ctg.get('tempo', 0)
+                    result['away_season']['SOS'] = away_ctg.get('sos_rank', 'N/A')
+                    result['away_season']['Record'] = away_ctg.get('record', '')
+                    result['away_season']['Conference'] = away_ctg.get('conf', '')
+                    # Four Factors from team page (if scraped)
+                    result['away_season']['eFG%'] = away_ctg.get('off_efg') or result['away_season'].get('eFG%', 0)
+                    result['away_season']['eFG% Rank'] = away_ctg.get('off_efg_rank')
+                    result['away_season']['Opp eFG%'] = away_ctg.get('def_efg') or result['away_season'].get('Opp eFG%', 0)
+                    result['away_season']['Opp eFG% Rank'] = away_ctg.get('def_efg_rank')
+                    result['away_season']['TOV%'] = away_ctg.get('off_tov') or result['away_season'].get('TOV%', 0)
+                    result['away_season']['TOV% Rank'] = away_ctg.get('off_tov_rank')
+                    result['away_season']['Opp TOV%'] = away_ctg.get('def_tov') or result['away_season'].get('Opp TOV%', 0)
+                    result['away_season']['F-TOV% Rank'] = away_ctg.get('def_tov_rank')
+                    result['away_season']['ORB%'] = away_ctg.get('off_orb') or result['away_season'].get('ORB%', 0)
+                    result['away_season']['ORB% Rank'] = away_ctg.get('off_orb_rank')
+                    result['away_season']['DRB%'] = away_ctg.get('def_orb') or result['away_season'].get('DRB%', 0)
+                    result['away_season']['DRB% Rank'] = away_ctg.get('def_orb_rank')
+                    result['away_season']['FTA/FGA'] = away_ctg.get('off_ft_rate') or result['away_season'].get('FTA/FGA', 0)
+                    result['away_season']['FT Rate Rank'] = away_ctg.get('off_ft_rank')
+                    result['away_season']['Opp FTA/FGA'] = away_ctg.get('def_ft_rate') or result['away_season'].get('Opp FTA/FGA', 0)
+                    result['away_season']['Opp FT Rate Rank'] = away_ctg.get('def_ft_rank')
+                    result['away_season']['3PT%'] = away_ctg.get('off_3pt') or result['away_season'].get('3PT%', 0)
+                    result['away_season']['Opp 3PT%'] = away_ctg.get('def_3pt') or result['away_season'].get('Opp 3PT%', 0)
+                
+                # Add KenPom efficiency metrics to home_season
+                if home_ctg:
+                    result['home_season']['KenPom Rank'] = home_ctg.get('rank', 999)
+                    result['home_season']['Adj O'] = home_ctg.get('adj_o', 0)
+                    result['home_season']['Adj D'] = home_ctg.get('adj_d', 0)
+                    result['home_season']['Adj EM'] = home_ctg.get('adj_em', 0)
+                    result['home_season']['Tempo'] = home_ctg.get('tempo', 0)
+                    result['home_season']['SOS'] = home_ctg.get('sos_rank', 'N/A')
+                    result['home_season']['Record'] = home_ctg.get('record', '')
+                    result['home_season']['Conference'] = home_ctg.get('conf', '')
+                    # Four Factors from team page (if scraped)
+                    result['home_season']['eFG%'] = home_ctg.get('off_efg') or result['home_season'].get('eFG%', 0)
+                    result['home_season']['eFG% Rank'] = home_ctg.get('off_efg_rank')
+                    result['home_season']['Opp eFG%'] = home_ctg.get('def_efg') or result['home_season'].get('Opp eFG%', 0)
+                    result['home_season']['Opp eFG% Rank'] = home_ctg.get('def_efg_rank')
+                    result['home_season']['TOV%'] = home_ctg.get('off_tov') or result['home_season'].get('TOV%', 0)
+                    result['home_season']['TOV% Rank'] = home_ctg.get('off_tov_rank')
+                    result['home_season']['Opp TOV%'] = home_ctg.get('def_tov') or result['home_season'].get('Opp TOV%', 0)
+                    result['home_season']['F-TOV% Rank'] = home_ctg.get('def_tov_rank')
+                    result['home_season']['ORB%'] = home_ctg.get('off_orb') or result['home_season'].get('ORB%', 0)
+                    result['home_season']['ORB% Rank'] = home_ctg.get('off_orb_rank')
+                    result['home_season']['DRB%'] = home_ctg.get('def_orb') or result['home_season'].get('DRB%', 0)
+                    result['home_season']['DRB% Rank'] = home_ctg.get('def_orb_rank')
+                    result['home_season']['FTA/FGA'] = home_ctg.get('off_ft_rate') or result['home_season'].get('FTA/FGA', 0)
+                    result['home_season']['FT Rate Rank'] = home_ctg.get('off_ft_rank')
+                    result['home_season']['Opp FTA/FGA'] = home_ctg.get('def_ft_rate') or result['home_season'].get('Opp FTA/FGA', 0)
+                    result['home_season']['Opp FT Rate Rank'] = home_ctg.get('def_ft_rank')
+                    result['home_season']['3PT%'] = home_ctg.get('off_3pt') or result['home_season'].get('3PT%', 0)
+                    result['home_season']['Opp 3PT%'] = home_ctg.get('def_3pt') or result['home_season'].get('Opp 3PT%', 0)
+                
+                logging.info(f"KenPom data merged into season stats for {game.away_team} (#{away_ctg.get('rank')}) vs {game.home_team} (#{home_ctg.get('rank')})")
             
             # Last 3 Games - use season stats as fallback since L3 may not be available from all pages
             result['away_l3'] = {

@@ -3600,16 +3600,24 @@
                             </tr>
                         </thead>
                         <tbody>
-                            ${statRow('PPP', awaySeason['PPP'], homeSeason['PPP'], 'num', true, awaySeason['PPP Rank'], homeSeason['PPP Rank'])}
-                            ${statRow('Opp PPP', awaySeason['Opp PPP'], homeSeason['Opp PPP'], 'num', false, awaySeason['Opp PPP Rank'], homeSeason['Opp PPP Rank'])}
-                            ${statRow('ORB%', awaySeason['ORB%'], homeSeason['ORB%'], 'pct', true, awaySeason['ORB% Rank'], homeSeason['ORB% Rank'])}
-                            ${statRow('DRB%', awaySeason['DRB%'], homeSeason['DRB%'], 'pct', true, awaySeason['DRB% Rank'], homeSeason['DRB% Rank'])}
-                            ${statRow('TOV%', awaySeason['TOV%'], homeSeason['TOV%'], 'pct', false, awaySeason['TOV% Rank'], homeSeason['TOV% Rank'])}
-                            ${statRow('Forced TO%', awaySeason['Opp TOV%'], homeSeason['Opp TOV%'], 'pct', true, awaySeason['F-TOV% Rank'], homeSeason['F-TOV% Rank'])}
-                            ${statRow('Off Eff', awaySeason['O Eff'], homeSeason['O Eff'], 'eff', true)}
-                            ${statRow('Def Eff', awaySeason['D Eff'], homeSeason['D Eff'], 'eff', false)}
+                            ${data.league === 'CBB' ? `
+                                ${statRow('KenPom Rank', awaySeason['KenPom Rank'], homeSeason['KenPom Rank'], 'num', false)}
+                                ${statRow('Adj Offense', awaySeason['Adj O'], homeSeason['Adj O'], 'num', true)}
+                                ${statRow('Adj Defense', awaySeason['Adj D'], homeSeason['Adj D'], 'num', false)}
+                                ${statRow('Adj Margin', awaySeason['Adj EM'], homeSeason['Adj EM'], 'num', true)}
+                                ${statRow('Tempo', awaySeason['Tempo'], homeSeason['Tempo'], 'num', true)}
+                            ` : `
+                                ${statRow('PPP', awaySeason['PPP'], homeSeason['PPP'], 'num', true, awaySeason['PPP Rank'], homeSeason['PPP Rank'])}
+                                ${statRow('Opp PPP', awaySeason['Opp PPP'], homeSeason['Opp PPP'], 'num', false, awaySeason['Opp PPP Rank'], homeSeason['Opp PPP Rank'])}
+                                ${statRow('Off Eff', awaySeason['O Eff'], homeSeason['O Eff'], 'eff', true)}
+                                ${statRow('Def Eff', awaySeason['D Eff'], homeSeason['D Eff'], 'eff', false)}
+                            `}
                             ${statRow('eFG%', awaySeason['eFG%'], homeSeason['eFG%'], 'pct', true, awaySeason['eFG% Rank'], homeSeason['eFG% Rank'])}
                             ${statRow('Opp eFG%', awaySeason['Opp eFG%'], homeSeason['Opp eFG%'], 'pct', false, awaySeason['Opp eFG% Rank'], homeSeason['Opp eFG% Rank'])}
+                            ${statRow('TOV%', awaySeason['TOV%'], homeSeason['TOV%'], 'pct', false, awaySeason['TOV% Rank'], homeSeason['TOV% Rank'])}
+                            ${statRow('Forced TO%', awaySeason['Opp TOV%'], homeSeason['Opp TOV%'], 'pct', true, awaySeason['F-TOV% Rank'], homeSeason['F-TOV% Rank'])}
+                            ${statRow('ORB%', awaySeason['ORB%'], homeSeason['ORB%'], 'pct', true, awaySeason['ORB% Rank'], homeSeason['ORB% Rank'])}
+                            ${statRow('DRB%', awaySeason['DRB%'], homeSeason['DRB%'], 'pct', true, awaySeason['DRB% Rank'], homeSeason['DRB% Rank'])}
                             ${statRow('3PT%', awaySeason['3PT%'], homeSeason['3PT%'], 'pct', true)}
                             ${statRow('Opp 3PT%', awaySeason['Opp 3PT%'], homeSeason['Opp 3PT%'], 'pct', false)}
                             ${statRow('FT Rate', awaySeason['FTA/FGA'], homeSeason['FTA/FGA'], 'num', true, awaySeason['FT Rate Rank'], homeSeason['FT Rate Rank'])}
@@ -3636,86 +3644,6 @@
                         </tfoot>
                     </table>
                 </div>
-                
-                ${data.league === 'CBB' && data.kenpom ? (() => {
-                    const kp = data.kenpom;
-                    const awayKP = kp.away || {};
-                    const homeKP = kp.home || {};
-                    
-                    // Helper for KenPom stat rows with color coding
-                    function kpStatRow(metric, awayVal, homeVal, format = 'num', higherIsBetter = true, awayRank = null, homeRank = null) {
-                        const aw = parseFloat(awayVal) || 0;
-                        const hm = parseFloat(homeVal) || 0;
-                        const awRank = parseInt(awayRank) || 999;
-                        const hmRank = parseInt(homeRank) || 999;
-                        
-                        // Determine winner
-                        const awayWins = higherIsBetter ? aw > hm : aw < hm;
-                        const homeWins = higherIsBetter ? hm > aw : hm < aw;
-                        const diff = Math.abs(aw - hm);
-                        const noEdge = diff < 0.5;
-                        
-                        // Format values
-                        const awayDisplay = format === 'rank' ? `#${aw.toFixed(0)}` : aw.toFixed(1);
-                        const homeDisplay = format === 'rank' ? `#${hm.toFixed(0)}` : hm.toFixed(1);
-                        
-                        // Edge styling
-                        const awayClass = noEdge ? 'stat-neutral' : (awayWins ? 'stat-winner-away' : 'stat-neutral');
-                        const homeClass = noEdge ? 'stat-neutral' : (homeWins ? 'stat-winner-home' : 'stat-neutral');
-                        const edgeClass = noEdge ? '' : (awayWins ? 'edge-away' : 'edge-home');
-                        const edgeText = noEdge ? '<span class="edge-even">Even</span>' : (awayWins ? awayTeam : homeTeam);
-                        
-                        // Rank badges
-                        const awayRankBadge = awRank && awRank < 999 ? `<span class="rank-badge ${awRank <= 25 ? 'rank-elite' : (awRank <= 100 ? 'rank-good' : (awRank <= 200 ? 'rank-avg' : 'rank-poor'))}">#${awRank}</span>` : '';
-                        const homeRankBadge = hmRank && hmRank < 999 ? `<span class="rank-badge ${hmRank <= 25 ? 'rank-elite' : (hmRank <= 100 ? 'rank-good' : (hmRank <= 200 ? 'rank-avg' : 'rank-poor'))}">#${hmRank}</span>` : '';
-                        
-                        return `<tr>
-                            <td class="metric-name">${metric}</td>
-                            <td class="${awayClass}">${awayRankBadge}<span class="stat-value">${awayDisplay}</span></td>
-                            <td class="${homeClass}">${homeRankBadge}<span class="stat-value">${homeDisplay}</span></td>
-                            <td class="${edgeClass}">${edgeText}</td>
-                        </tr>`;
-                    }
-                    
-                    return `
-                    <div class="analytics-table-section" style="margin-top: 12px;">
-                        <div class="table-header" style="background: linear-gradient(135deg, #059669, #10B981);">
-                            <i class="bi bi-bar-chart-line-fill"></i> KENPOM RATINGS
-                        </div>
-                        <table class="stats-table">
-                            <thead>
-                                <tr>
-                                    <th>Metric</th>
-                                    <th class="team-col">${awayTeam}</th>
-                                    <th class="team-col">${homeTeam}</th>
-                                    <th>Edge</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${kpStatRow('KenPom Rank', awayKP.rank, homeKP.rank, 'rank', false)}
-                                ${kpStatRow('Adj. Offense', awayKP.adj_o, homeKP.adj_o, 'num', true)}
-                                ${kpStatRow('Adj. Defense', awayKP.adj_d, homeKP.adj_d, 'num', false)}
-                                ${kpStatRow('Adj. Margin', awayKP.adj_em, homeKP.adj_em, 'num', true)}
-                                ${kpStatRow('Adj. Tempo', awayKP.tempo, homeKP.tempo, 'num', true)}
-                                ${kpStatRow('SOS', awayKP.sos, homeKP.sos, 'num', true)}
-                            </tbody>
-                            <tfoot>
-                                <tr style="background: rgba(16, 185, 129, 0.1); border-top: 1px solid rgba(16, 185, 129, 0.3);">
-                                    <td class="metric-name" style="font-weight: 600;">Record</td>
-                                    <td style="text-align: center; font-weight: 600; color: #10B981;">${awayKP.record || 'N/A'}</td>
-                                    <td style="text-align: center; font-weight: 600; color: #10B981;">${homeKP.record || 'N/A'}</td>
-                                    <td></td>
-                                </tr>
-                                <tr style="background: rgba(16, 185, 129, 0.05);">
-                                    <td class="metric-name" style="font-weight: 600;">Conference</td>
-                                    <td style="text-align: center; color: #9ca3af;">${awayKP.conf || 'N/A'}</td>
-                                    <td style="text-align: center; color: #9ca3af;">${homeKP.conf || 'N/A'}</td>
-                                    <td></td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>`;
-                })() : ''}
                 
                 <!-- BETTING ACTION - COMPACT -->
                 ${data.rlm ? (() => {
