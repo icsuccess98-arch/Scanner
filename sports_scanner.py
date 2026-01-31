@@ -312,7 +312,7 @@ def fetch_espn_games_with_odds(sport, league_key):
                         dt_et = dt.astimezone(et)
                         game_time = dt_et.strftime("%-I:%M %p ET")
                         game_date = dt_et.strftime("%Y%m%d")
-                    except:
+                    except (ValueError, TypeError, AttributeError):
                         pass
                 
                 if game_date != today:
@@ -363,7 +363,7 @@ def fetch_espn_games_with_odds(sport, league_key):
                                 leader_resp = requests.get(leader_ref, timeout=10)
                                 leader_data = leader_resp.json()
                                 spread_team = leader_data.get("displayName", "")
-                            except:
+                            except (requests.RequestException, ValueError, KeyError):
                                 pass
                     if over_under and spread:
                         break
@@ -392,7 +392,7 @@ def fetch_espn_games_with_odds(sport, league_key):
                                         else:
                                             away_score = pts
                             total_score = home_score + away_score
-                        except:
+                        except (requests.RequestException, ValueError, KeyError, TypeError):
                             pass
                     
                     if home_team and away_team:
@@ -940,7 +940,7 @@ def parse_time_for_sort(time_str):
             elif "AM" in time_str and hour == 12:
                 hour = 0
             return hour * 60 + minute
-    except:
+    except (ValueError, IndexError, TypeError, AttributeError):
         pass
     return 9999
 

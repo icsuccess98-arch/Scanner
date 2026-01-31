@@ -5,24 +5,43 @@ WagerTalk is used ONLY for closing lines and betting percentages
 import os
 import requests
 import logging
+import threading
 from datetime import datetime, timedelta
 from functools import lru_cache
+from urllib.parse import urlparse
 import time
 
 # Cache for live odds (30 second TTL)
 _live_odds_cache = {}
-_cache_timestamp = 0
+_cache_timestamps = {}  # Per-key timestamps for proper cache invalidation
 CACHE_TTL = 30  # 30 seconds
+
+# Rate limiter for The Odds API (2 requests per second max)
+_rate_lock = threading.Lock()
+_last_request_time = 0
+RATE_LIMIT_INTERVAL = 0.5  # 500ms between requests
+
+def _rate_limited_get(url, **kwargs):
+    """Make a rate-limited GET request."""
+    global _last_request_time
+    with _rate_lock:
+        now = time.time()
+        elapsed = now - _last_request_time
+        if elapsed < RATE_LIMIT_INTERVAL:
+            time.sleep(RATE_LIMIT_INTERVAL - elapsed)
+        _last_request_time = time.time()
+    return requests.get(url, **kwargs)
 
 def get_live_odds(league='NBA'):
     """Fetch current lines from The Odds API."""
-    global _live_odds_cache, _cache_timestamp
-    
+    global _live_odds_cache, _cache_timestamps
+
     # Check cache freshness
     current_time = time.time()
     cache_key = f"{league}_{datetime.now().strftime('%Y%m%d')}"
-    
-    if cache_key in _live_odds_cache and (current_time - _cache_timestamp) < CACHE_TTL:
+
+    # Use per-key timestamp for proper cache invalidation
+    if cache_key in _live_odds_cache and (current_time - _cache_timestamps.get(cache_key, 0)) < CACHE_TTL:
         logging.debug(f"Using cached live odds for {league}")
         return _live_odds_cache[cache_key]
     
@@ -52,8 +71,8 @@ def get_live_odds(league='NBA'):
             'bookmakers': 'draftkings,fanduel,betmgm,caesars'
         }
         
-        response = requests.get(url, params=params, timeout=10)
-        
+        response = _rate_limited_get(url, params=params, timeout=10)
+
         if response.status_code != 200:
             logging.warning(f"Odds API error: {response.status_code}")
             return _live_odds_cache.get(cache_key, {})
@@ -99,9 +118,9 @@ def get_live_odds(league='NBA'):
             
             result[matchup_key] = game_odds
         
-        # Update cache
+        # Update cache with per-key timestamp
         _live_odds_cache[cache_key] = result
-        _cache_timestamp = current_time
+        _cache_timestamps[cache_key] = current_time
         
         logging.info(f"Live odds fetched for {league}: {len(result)} games")
         return result

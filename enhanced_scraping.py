@@ -26,9 +26,39 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 import logging
 from functools import lru_cache
+from cachetools import TTLCache
 import json
 
 logger = logging.getLogger(__name__)
+
+# ============================================================
+# Data Validation Functions
+# ============================================================
+def validate_percentage(value, field_name: str = 'percentage'):
+    """Validate percentage is in valid range (0-100). Returns None if invalid."""
+    if value is None:
+        return None
+    try:
+        val = float(value)
+        if 0 <= val <= 100:
+            return val
+        logger.debug(f"Invalid {field_name}: {val} (outside 0-100 range)")
+        return None
+    except (ValueError, TypeError):
+        return None
+
+def validate_odds_value(value, min_val: float, max_val: float, field_name: str = 'value'):
+    """Validate odds-related value is in acceptable range."""
+    if value is None:
+        return None
+    try:
+        val = float(value)
+        if min_val <= val <= max_val:
+            return val
+        logger.debug(f"Invalid {field_name}: {val} (outside {min_val}-{max_val} range)")
+        return None
+    except (ValueError, TypeError):
+        return None
 
 
 # ============================================================
@@ -276,16 +306,13 @@ class CoversScraper:
             'Sec-Fetch-User': '?1',
             'Cache-Control': 'max-age=0',
         })
-        self._cache = {}
-        self._cache_time = {}
-    
+        # Use TTLCache for bounded memory usage (max 100 entries, 5 min TTL)
+        self._cache = TTLCache(maxsize=100, ttl=self.CACHE_TTL)
+
     def _is_cache_valid(self, key: str) -> bool:
-        """Check if cached data is still fresh."""
-        if key not in self._cache:
-            return False
-        age = time.time() - self._cache_time.get(key, 0)
-        return age < self.CACHE_TTL
-    
+        """Check if cached data is still fresh (TTLCache handles expiry)."""
+        return key in self._cache
+
     def get_todays_matchups(self, league: str = 'NBA') -> List[Dict]:
         """
         Get all matchups for today.
@@ -336,7 +363,7 @@ class CoversScraper:
             
             # Cache results
             self._cache[cache_key] = matchups
-            self._cache_time[cache_key] = time.time()
+            # TTLCache handles timestamps automatically
             
             logger.info(f"Fetched {len(matchups)} matchups from Covers.com for {league}")
             return matchups
@@ -428,7 +455,7 @@ class CoversScraper:
             
             # Cache results
             self._cache[cache_key] = details
-            self._cache_time[cache_key] = time.time()
+            # TTLCache handles timestamps automatically
             
             return details
             
@@ -500,7 +527,7 @@ class CoversScraper:
             
             # Cache results
             self._cache[cache_key] = trends
-            self._cache_time[cache_key] = time.time()
+            # TTLCache handles timestamps automatically
             
             logger.debug(f"Fetched trends for {team_name}: {trends}")
             return trends
@@ -525,7 +552,7 @@ def get_covers_matchup_stats(league: str = 'NBA') -> Dict:
     # NBA Team abbreviation to nickname mapping
     nba_abbr_to_name = {
         'LAL': 'Lakers', 'BOS': 'Celtics', 'NYK': 'Knicks', 'NY': 'Knicks',
-        'PHI': 'Sixers', 'MIA': 'Heat', 'CHI': 'Bulls', 'DET': 'Pistons',
+        'PHI': '76ers', 'MIA': 'Heat', 'CHI': 'Bulls', 'DET': 'Pistons',
         'CLE': 'Cavaliers', 'TOR': 'Raptors', 'ORL': 'Magic', 'SAC': 'Kings',
         'WAS': 'Wizards', 'DEN': 'Nuggets', 'NO': 'Pelicans', 'NOP': 'Pelicans',
         'MEM': 'Grizzlies', 'GS': 'Warriors', 'GSW': 'Warriors', 
@@ -777,16 +804,13 @@ class ScoresAndOddsScraper:
             'Accept': 'text/html,application/xhtml+xml',
             'Referer': 'https://www.scoresandodds.com/',
         })
-        self._cache = {}
-        self._cache_time = {}
-    
+        # Use TTLCache for bounded memory usage (max 100 entries, 5 min TTL)
+        self._cache = TTLCache(maxsize=100, ttl=self.CACHE_TTL)
+
     def _is_cache_valid(self, key: str) -> bool:
-        """Check if cached data is still fresh."""
-        if key not in self._cache:
-            return False
-        age = time.time() - self._cache_time.get(key, 0)
-        return age < self.CACHE_TTL
-    
+        """Check if cached data is still fresh (TTLCache handles expiry)."""
+        return key in self._cache
+
     def get_line_movements(self, league: str = 'NBA') -> List[Dict]:
         """
         Get line movements for all games.
@@ -835,7 +859,7 @@ class ScoresAndOddsScraper:
             
             # Cache results
             self._cache[cache_key] = games
-            self._cache_time[cache_key] = time.time()
+            # TTLCache handles timestamps automatically
             
             logger.info(f"Fetched {len(games)} games from ScoresAndOdds for {league}")
             return games
@@ -955,7 +979,7 @@ class ScoresAndOddsScraper:
             
             # Cache results
             self._cache[cache_key] = games
-            self._cache_time[cache_key] = time.time()
+            # TTLCache handles timestamps automatically
             
             logger.info(f"Fetched {len(games)} closing lines from ScoresAndOdds for {league} on {date}")
             return games

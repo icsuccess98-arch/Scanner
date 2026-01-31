@@ -6,17 +6,78 @@ from datetime import datetime, date, timedelta
 from typing import Tuple, Optional, List
 from dataclasses import dataclass
 from functools import wraps
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FuturesTimeoutError
 from enum import Enum
+
+# Default timeout for ThreadPoolExecutor future.result() calls (seconds)
+EXECUTOR_TIMEOUT = 30
 import threading
 from math import radians, sin, cos, sqrt, atan2
 from flask import Flask, render_template, request, jsonify, redirect, url_for, make_response
 from flask_sqlalchemy import SQLAlchemy
 from flask_compress import Compress
-from cachetools import TTLCache
+from cachetools import TTLCache, LRUCache as _BaseLRUCache
 from sqlalchemy.orm import DeclarativeBase, validates
+
+
+class ThreadSafeLRUCache:
+    """Thread-safe wrapper around cachetools LRUCache."""
+
+    def __init__(self, maxsize):
+        self._cache = _BaseLRUCache(maxsize=maxsize)
+        self._lock = threading.RLock()
+
+    def get(self, key, default=None):
+        with self._lock:
+            return self._cache.get(key, default)
+
+    def __getitem__(self, key):
+        with self._lock:
+            return self._cache[key]
+
+    def __setitem__(self, key, value):
+        with self._lock:
+            self._cache[key] = value
+
+    def __contains__(self, key):
+        with self._lock:
+            return key in self._cache
+
+    def __delitem__(self, key):
+        with self._lock:
+            del self._cache[key]
+
+    def pop(self, key, *args):
+        with self._lock:
+            return self._cache.pop(key, *args)
+
+    def clear(self):
+        with self._lock:
+            self._cache.clear()
+
+    def items(self):
+        with self._lock:
+            return list(self._cache.items())
+
+    def keys(self):
+        with self._lock:
+            return list(self._cache.keys())
+
+    def values(self):
+        with self._lock:
+            return list(self._cache.values())
+
+    def __len__(self):
+        with self._lock:
+            return len(self._cache)
+
+
+# Alias for backward compatibility
+LRUCache = ThreadSafeLRUCache
 from sqlalchemy import delete
 import requests
+import re
+import json
 import pytz
 from bs4 import BeautifulSoup
 from enhanced_scraping import get_cbb_logo, CBB_TEAM_LOGOS, get_covers_matchup_stats
@@ -27,6 +88,12 @@ from automated_loading_system import (
     TeamRankingsScraper,
     EliminationFilterSystem
 )
+
+# ============================================================
+# SEASON CONSTANTS - Update these at start of each season
+# ============================================================
+CURRENT_NBA_SEASON = '2025-26'  # Format: YYYY-YY for nba_api
+CURRENT_NHL_SEASON_ID = '20252026'  # Format: YYYYYYYY for NHL API
 
 # NBA team logo URLs from ESPN CDN (module-level for shared access)
 NBA_TEAM_COLORS = {
@@ -165,8 +232,131 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# ============================================================
+# API RATE LIMITER - Prevents API bans and respects rate limits
+# ============================================================
+class RateLimiter:
+    """Thread-safe rate limiter using token bucket algorithm."""
+
+    def __init__(self):
+        self._locks = {}
+        self._lock = threading.Lock()
+        self._last_request = {}
+        # Requests per second by domain
+        self._limits = {
+            'api.the-odds-api.com': 0.02,  # ~500/month = 0.02/sec
+            'site.api.espn.com': 5.0,       # 5 req/sec
+            'www.covers.com': 1.0,          # 1 req/sec
+            'api-web.nhle.com': 3.0,        # 3 req/sec
+            'www.wagertalk.com': 0.5,       # 0.5 req/sec (Playwright heavy)
+            'barttorvik.com': 1.0,          # 1 req/sec
+        }
+
+    def _get_lock(self, domain: str) -> threading.Lock:
+        """Get or create a lock for a domain."""
+        with self._lock:
+            if domain not in self._locks:
+                self._locks[domain] = threading.Lock()
+            return self._locks[domain]
+
+    def acquire(self, url: str) -> None:
+        """Wait if needed to respect rate limit for URL's domain."""
+        from urllib.parse import urlparse
+        domain = urlparse(url).netloc
+
+        limit = self._limits.get(domain, 2.0)  # Default 2 req/sec
+        min_interval = 1.0 / limit
+
+        lock = self._get_lock(domain)
+        with lock:
+            now = time.time()
+            last = self._last_request.get(domain, 0)
+            elapsed = now - last
+
+            if elapsed < min_interval:
+                wait_time = min_interval - elapsed
+                logger.debug(f"Rate limiting {domain}: waiting {wait_time:.2f}s")
+                time.sleep(wait_time)
+
+            self._last_request[domain] = time.time()
+
+# Global rate limiter instance
+rate_limiter = RateLimiter()
+
+def rate_limited_request(url: str, method: str = 'GET', **kwargs) -> requests.Response:
+    """Make a rate-limited HTTP request."""
+    rate_limiter.acquire(url)
+    if method.upper() == 'GET':
+        return requests.get(url, **kwargs)
+    elif method.upper() == 'POST':
+        return requests.post(url, **kwargs)
+    else:
+        return requests.request(method, url, **kwargs)
+
 APP_VERSION = "2.0.0-PEAK-PERFORMANCE"
 logger.info(f"Sports Betting App Starting - Version {APP_VERSION}")
+
+# ============================================================
+# Input Validation Constants and Helpers
+# ============================================================
+VALID_LEAGUES = {'NBA', 'CBB', 'NFL', 'CFB', 'NHL'}
+MAX_LINE_VALUE = 500.0  # Max total/spread line value
+MIN_LINE_VALUE = -100.0  # Min spread value
+MAX_PPG_VALUE = 200.0  # Max points per game
+MAX_TEAM_NAME_LENGTH = 100
+
+
+def validate_float_param(value, min_val=None, max_val=None, allow_none=True):
+    """Validate a float parameter. Returns (value, error_message)."""
+    if value is None or value == '':
+        if allow_none:
+            return None, None
+        return None, "Value is required"
+    try:
+        float_val = float(value)
+        if min_val is not None and float_val < min_val:
+            return None, f"Value must be >= {min_val}"
+        if max_val is not None and float_val > max_val:
+            return None, f"Value must be <= {max_val}"
+        return float_val, None
+    except (ValueError, TypeError):
+        return None, "Invalid number format"
+
+
+def validate_string_param(value, max_length=None, allowed_values=None, allow_empty=False):
+    """Validate a string parameter. Returns (value, error_message)."""
+    if value is None:
+        if allow_empty:
+            return '', None
+        return None, "Value is required"
+    value = str(value).strip()
+    if not value and not allow_empty:
+        return None, "Value cannot be empty"
+    if max_length and len(value) > max_length:
+        return None, f"Value exceeds max length of {max_length}"
+    if allowed_values and value not in allowed_values:
+        return None, f"Value must be one of: {', '.join(allowed_values)}"
+    return value, None
+
+
+def safe_divide(numerator, denominator, default=0.0):
+    """Safely divide two numbers, returning default if denominator is zero or None."""
+    if denominator is None or denominator == 0:
+        return default
+    try:
+        return numerator / denominator
+    except (TypeError, ZeroDivisionError):
+        return default
+
+
+def safe_average(values, default=0.0):
+    """Safely compute average of a list, returning default if list is empty."""
+    if not values:
+        return default
+    try:
+        return sum(values) / len(values)
+    except (TypeError, ZeroDivisionError):
+        return default
 
 class Base(DeclarativeBase):
     pass
@@ -195,6 +385,42 @@ compress = Compress()
 compress.init_app(app)
 logger.info("Response compression enabled")
 
+# ============================================================
+# Request Correlation IDs for distributed tracing
+# ============================================================
+import uuid
+from flask import g
+
+@app.before_request
+def add_request_id():
+    """Generate unique request ID for tracing across logs."""
+    request_id = request.headers.get('X-Request-ID') or str(uuid.uuid4())[:8]
+    g.request_id = request_id
+
+@app.after_request
+def add_request_id_header(response):
+    """Add request ID to response headers for client tracing."""
+    if hasattr(g, 'request_id'):
+        response.headers['X-Request-ID'] = g.request_id
+    return response
+
+def get_request_id():
+    """Get current request ID or 'no-request' for background tasks."""
+    try:
+        return getattr(g, 'request_id', 'no-request')
+    except RuntimeError:  # Outside request context
+        return 'background'
+
+def sanitize_url_for_logging(url: str) -> str:
+    """Remove API keys and sensitive params from URL before logging."""
+    sensitive_params = ['apiKey', 'api_key', 'appid', 'key', 'token', 'secret', 'password']
+    sanitized = url
+    for param in sensitive_params:
+        # Match param=value patterns and replace value with ***
+        pattern = rf'({param}=)[^&\s]+'
+        sanitized = re.sub(pattern, r'\1***', sanitized, flags=re.IGNORECASE)
+    return sanitized
+
 # Fast health check endpoint for production deployments
 @app.route('/health', methods=['GET', 'HEAD'])
 def health_check():
@@ -217,7 +443,12 @@ HISTORICAL_CACHE_TTL = 21600
 _dashboard_cache = {"data": None, "timestamp": 0, "lock": threading.Lock()}
 _team_stats_cache = TTLCache(maxsize=200, ttl=TEAM_STATS_CACHE_TTL)
 _historical_cache = TTLCache(maxsize=500, ttl=HISTORICAL_CACHE_TTL)
+
+# Performance metrics with thread safety and bounded size
 _performance_metrics = {}
+_performance_metrics_lock = threading.Lock()
+PERFORMANCE_METRICS_MAX_OPERATIONS = 50  # Max tracked operation types
+PERFORMANCE_METRICS_MAX_ENTRIES = 100  # Max entries per operation
 
 def get_cached_dashboard():
     """Get cached dashboard data if still fresh."""
@@ -239,15 +470,24 @@ def clear_dashboard_cache():
     logger.info("Dashboard cache cleared")
 
 def track_performance(operation: str, duration: float):
-    """Track operation performance for monitoring."""
-    if operation not in _performance_metrics:
-        _performance_metrics[operation] = []
-    _performance_metrics[operation].append({
-        'duration': duration,
-        'timestamp': time.time()
-    })
-    if len(_performance_metrics[operation]) > 100:
-        _performance_metrics[operation] = _performance_metrics[operation][-100:]
+    """Track operation performance for monitoring. Thread-safe with bounded size."""
+    with _performance_metrics_lock:
+        # Enforce max operations limit
+        if operation not in _performance_metrics:
+            if len(_performance_metrics) >= PERFORMANCE_METRICS_MAX_OPERATIONS:
+                # Remove oldest operation (by oldest entry timestamp)
+                oldest_op = min(_performance_metrics.keys(),
+                               key=lambda k: _performance_metrics[k][0]['timestamp'] if _performance_metrics[k] else float('inf'))
+                del _performance_metrics[oldest_op]
+            _performance_metrics[operation] = []
+
+        _performance_metrics[operation].append({
+            'duration': duration,
+            'timestamp': time.time()
+        })
+        # Keep only last N entries per operation
+        if len(_performance_metrics[operation]) > PERFORMANCE_METRICS_MAX_ENTRIES:
+            _performance_metrics[operation] = _performance_metrics[operation][-PERFORMANCE_METRICS_MAX_ENTRIES:]
 
 CITY_COORDS = {
     'Atlanta': (33.7490, -84.3880), 'Boston': (42.3601, -71.0589),
@@ -677,7 +917,7 @@ class MatchupIntelligence:
             # Fetch advanced stats
             stats = teamdashboardbygeneralsplits.TeamDashboardByGeneralSplits(
                 team_id=team_id,
-                season='2024-25',
+                season=CURRENT_NBA_SEASON,
                 season_type_all_star='Regular Season'
             )
             
@@ -738,7 +978,7 @@ class MatchupIntelligence:
             
             # Get league-wide stats for rankings
             team_stats = leaguedashteamstats.LeagueDashTeamStats(
-                season='2024-25',
+                season=CURRENT_NBA_SEASON,
                 season_type_all_star='Regular Season',
                 per_mode_detailed='PerGame'
             )
@@ -787,8 +1027,8 @@ class MatchupIntelligence:
             logger.warning(f"Error fetching team rankings: {e}")
             return {}
     
-    # L5 stats cache - stores team L5 data with TTL
-    _l5_cache = {}
+    # L5 stats cache - stores team L5 data with TTL (bounded to prevent memory leak)
+    _l5_cache = LRUCache(maxsize=200)
     _l5_cache_ttl = 1800  # 30 minute TTL
     
     @staticmethod
@@ -825,7 +1065,7 @@ class MatchupIntelligence:
             # Fetch game log
             game_log = teamgamelog.TeamGameLog(
                 team_id=team_id,
-                season='2024-25',
+                season=CURRENT_NBA_SEASON,
                 season_type_all_star='Regular Season'
             )
             
@@ -877,9 +1117,9 @@ class MatchupIntelligence:
             logger.warning(f"Error fetching L5 stats for {team_name}: {e}")
             return {}
     
-    # Cache for Last 5 games (in-memory, expires after 10 mins)
-    _last5_cache = {}
-    _last5_cache_time = {}
+    # Cache for Last 5 games (in-memory, expires after 10 mins, bounded)
+    _last5_cache = LRUCache(maxsize=200)
+    _last5_cache_time = LRUCache(maxsize=200)
     
     @staticmethod
     def get_team_last5_games(team_name: str, league: str = 'NBA') -> list:
@@ -994,7 +1234,7 @@ class MatchupIntelligence:
                     try:
                         dt = datetime.fromisoformat(game_date.replace('Z', '+00:00'))
                         formatted_date = dt.strftime('%b %d')
-                    except:
+                    except (ValueError, TypeError):
                         formatted_date = game_date[:6] if game_date else 'N/A'
                     
                     results.append({
@@ -1084,7 +1324,7 @@ class MatchupIntelligence:
                 if match:
                     try:
                         return float(match.group(1))
-                    except:
+                    except (ValueError, TypeError):
                         pass
                 return None
             
@@ -1343,8 +1583,8 @@ class MatchupIntelligence:
         'raptors': 28, 'toronto': 28, 'jazz': 29, 'utah': 29, 'wizards': 30, 'washington': 30
     }
     
-    # CTG cache: team_name -> {data: dict, timestamp: float}
-    _ctg_cache = {}
+    # CTG cache: team_name -> {data: dict, timestamp: float} (bounded)
+    _ctg_cache = LRUCache(maxsize=100)
     
     @staticmethod
     def fetch_ctg_four_factors(team_name: str) -> dict:
@@ -1383,11 +1623,11 @@ class MatchupIntelligence:
                 'Connection': 'keep-alive',
             }
             
-            # Retry logic with exponential backoff
+            # Retry logic with exponential backoff and rate limiting
             max_retries = 3
             for attempt in range(max_retries):
                 try:
-                    resp = requests.get(url, headers=headers, timeout=20)
+                    resp = rate_limited_request(url, headers=headers, timeout=20)
                     if resp.status_code == 200:
                         break
                     elif resp.status_code == 429:  # Rate limited
@@ -1518,7 +1758,7 @@ class MatchupIntelligence:
             # Fetch schedule strength (SOS)
             sos_url = f"https://www.teamrankings.com/nba/team/{team_slug}"
             try:
-                resp = requests.get(sos_url, headers=headers, timeout=10)
+                resp = rate_limited_request(sos_url, headers=headers, timeout=10)
                 if resp.status_code == 200:
                     soup = BeautifulSoup(resp.text, 'html.parser')
                     # Look for SOS in team profile
@@ -1530,9 +1770,9 @@ class MatchupIntelligence:
                                 val = cells[1].get_text(strip=True)
                                 try:
                                     result['sos'] = float(val)
-                                except:
+                                except (ValueError, TypeError):
                                     result['sos_rank'] = val
-            except:
+            except Exception:
                 pass
             
             return result
@@ -1556,8 +1796,8 @@ class MatchupIntelligence:
             
             url = f"https://www.covers.com/sport/{league_path}/teams/{team_slug}"
             headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-            
-            resp = requests.get(url, headers=headers, timeout=10)
+
+            resp = rate_limited_request(url, headers=headers, timeout=10)
             if resp.status_code != 200:
                 return {}
             
@@ -1653,7 +1893,7 @@ class MatchupIntelligence:
             
             # Fetch the matchups page and look for link with both teams
             matchups_url = f"https://www.covers.com/sports/nba/matchups"  # Main listing page
-            resp = requests.get(matchups_url, headers=headers, timeout=15)
+            resp = rate_limited_request(matchups_url, headers=headers, timeout=15)
             
             matchup_id = None
             if resp.status_code == 200:
@@ -1681,7 +1921,7 @@ class MatchupIntelligence:
                     for mid in all_ids:
                         try:
                             check_url = f"https://www.covers.com/sport/basketball/nba/matchup/{mid}"
-                            check_resp = requests.get(check_url, headers=headers, timeout=8)
+                            check_resp = rate_limited_request(check_url, headers=headers, timeout=8)
                             if check_resp.status_code == 200:
                                 title = BeautifulSoup(check_resp.text, 'html.parser').find('title')
                                 if title:
@@ -1690,13 +1930,13 @@ class MatchupIntelligence:
                                        (home_lower in title_text or home_abbrev in title_text):
                                         matchup_id = mid
                                         break
-                        except:
+                        except Exception:
                             continue
             
             # If we found a matchup ID, fetch the matchup page
             if matchup_id:
                 matchup_url = f"https://www.covers.com/sport/basketball/nba/matchup/{matchup_id}"
-                resp = requests.get(matchup_url, headers=headers, timeout=15)
+                resp = rate_limited_request(matchup_url, headers=headers, timeout=15)
                 
                 if resp.status_code == 200:
                     soup = BeautifulSoup(resp.text, 'html.parser')
@@ -1769,10 +2009,10 @@ class MatchupIntelligence:
             logger.warning(f"Error fetching Covers H2H for {away_team} vs {home_team}: {e}")
             return result
     
-    # Cache for Covers Last 10 data - short cache for fast refresh
-    _covers_last10_cache = {}
-    _covers_last10_cache_time = {}
-    _matchup_id_cache = {}
+    # Cache for Covers Last 10 data - short cache for fast refresh (bounded)
+    _covers_last10_cache = LRUCache(maxsize=200)
+    _covers_last10_cache_time = LRUCache(maxsize=200)
+    _matchup_id_cache = LRUCache(maxsize=200)
     
     @staticmethod
     def get_covers_matchup_id(away_team: str, home_team: str, league: str = 'NBA') -> str:
@@ -1844,21 +2084,21 @@ class MatchupIntelligence:
                     logger.info(f"Playwright found {len(all_ids)} matchup IDs on Covers")
             except Exception as pw_err:
                 logger.warning(f"Playwright error fetching Covers matchups: {pw_err}")
-                resp = requests.get(matchups_url, headers=headers, timeout=10)
+                resp = rate_limited_request(matchups_url, headers=headers, timeout=10)
                 if resp.status_code == 200:
                     all_ids = list(set(re.findall(r'/matchup/(\d+)', resp.text)))
             
             for mid in all_ids[:20]:
                 try:
                     check_url = f"https://www.covers.com/{sport_path}/matchup/{mid}"
-                    check_resp = requests.get(check_url, headers=headers, timeout=5)
+                    check_resp = rate_limited_request(check_url, headers=headers, timeout=5)
                     if check_resp.status_code == 200:
                         title = BeautifulSoup(check_resp.text, 'html.parser').find('title')
                         if title and matches_team(title.get_text(), away_team) and matches_team(title.get_text(), home_team):
                             MatchupIntelligence._matchup_id_cache[cache_key] = mid
                             logger.info(f"Found Covers matchup ID {mid} for {away_team} vs {home_team}")
                             return mid
-                except:
+                except Exception:
                     continue
             
             # If not found, search sequential IDs ahead (today's games may not be in listing)
@@ -1868,14 +2108,14 @@ class MatchupIntelligence:
                     mid = str(max_id + offset)
                     try:
                         check_url = f"https://www.covers.com/{sport_path}/matchup/{mid}"
-                        check_resp = requests.get(check_url, headers=headers, timeout=5)
+                        check_resp = rate_limited_request(check_url, headers=headers, timeout=5)
                         if check_resp.status_code == 200:
                             title = BeautifulSoup(check_resp.text, 'html.parser').find('title')
                             if title and matches_team(title.get_text(), away_team) and matches_team(title.get_text(), home_team):
                                 MatchupIntelligence._matchup_id_cache[cache_key] = mid
                                 logger.info(f"Found Covers matchup ID {mid} (sequential search) for {away_team} vs {home_team}")
                                 return mid
-                    except:
+                    except Exception:
                         continue
             
             logger.warning(f"No Covers matchup found for {away_team} vs {home_team} in {league}")
@@ -1956,14 +2196,14 @@ class MatchupIntelligence:
             
             headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
             matchup_url = f"https://www.covers.com/{sport_path}/matchup/{matchup_id}"
-            resp = requests.get(matchup_url, headers=headers, timeout=10)
-            
+            resp = rate_limited_request(matchup_url, headers=headers, timeout=10)
+
             if resp.status_code != 200:
                 return result
-            
+
             soup = BeautifulSoup(resp.text, 'html.parser')
             text = soup.get_text(' ', strip=True)
-            
+
             wl_match = re.search(r'Win\s*/?\s*Loss\s*(\d+)\s*-\s*(\d+)', text, re.IGNORECASE)
             if wl_match:
                 w, l = int(wl_match.group(1)), int(wl_match.group(2))
@@ -2019,7 +2259,7 @@ class MatchupIntelligence:
                                     'ats': ats_text,
                                     'ou': ou_text
                                 })
-                        except:
+                        except Exception:
                             continue
             
             MatchupIntelligence._covers_last10_cache[cache_key] = result
@@ -2074,14 +2314,14 @@ class MatchupIntelligence:
             
             headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
             matchup_url = f"https://www.covers.com/{sport_path}/matchup/{matchup_id}"
-            resp = requests.get(matchup_url, headers=headers, timeout=5)
-            
+            resp = rate_limited_request(matchup_url, headers=headers, timeout=5)
+
             if resp.status_code != 200:
                 return result
-            
+
             soup = BeautifulSoup(resp.text, 'html.parser')
             text = soup.get_text(' ', strip=True)
-            
+
             if 'LIVE' in text.upper() or 'IN PROGRESS' in text.upper():
                 result['is_live'] = True
                 result['status'] = 'LIVE'
@@ -2161,14 +2401,14 @@ class MatchupIntelligence:
             
             headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
             matchup_url = f"https://www.covers.com/{sport_path}/matchup/{matchup_id}"
-            resp = requests.get(matchup_url, headers=headers, timeout=5)
-            
+            resp = rate_limited_request(matchup_url, headers=headers, timeout=5)
+
             if resp.status_code != 200:
                 return result
-            
+
             soup = BeautifulSoup(resp.text, 'html.parser')
             text = soup.get_text(' ', strip=True)
-            
+
             bet_pct_match = re.search(r'(?:Tickets?|Bets?)\s*(?:%|Percent)?\s*(\d+)\s*%?\s*(?:Over|O)', text, re.IGNORECASE)
             if bet_pct_match:
                 result['bet_pct_over'] = int(bet_pct_match.group(1))
@@ -2185,7 +2425,7 @@ class MatchupIntelligence:
                 result['current_total'] = total_matches[-1]
                 try:
                     result['line_movement'] = float(total_matches[-1]) - float(total_matches[0])
-                except:
+                except (ValueError, TypeError):
                     pass
             elif len(total_matches) == 1:
                 result['current_total'] = total_matches[0]
@@ -2244,9 +2484,9 @@ class MatchupIntelligence:
         
         return result
     
-    # Cache for RLM data with game-time aware refresh
-    _rlm_cache = {}
-    _rlm_cache_time = {}
+    # Cache for RLM data with game-time aware refresh (bounded)
+    _rlm_cache = LRUCache(maxsize=50)
+    _rlm_cache_time = LRUCache(maxsize=50)
     
     @staticmethod
     def fetch_rlm_data(league: str = 'NBA', game_time: str = None) -> dict:
@@ -2303,7 +2543,7 @@ class MatchupIntelligence:
                 'Los Angeles Lakers': 'Lakers', 'Los Angeles Clippers': 'Clippers',
                 'Memphis': 'Grizzlies', 'Miami': 'Heat', 'Minnesota': 'Timberwolves',
                 'New Orleans': 'Pelicans', 'New York': 'Knicks', 'Oklahoma City': 'Thunder',
-                'Orlando': 'Magic', 'Philadelphia': 'Sixers', 'Phoenix': 'Suns',
+                'Orlando': 'Magic', 'Philadelphia': '76ers', 'Phoenix': 'Suns',
                 'Portland': 'Trail Blazers', 'Sacramento': 'Kings', 'San Antonio': 'Spurs',
                 'Toronto': 'Raptors', 'Utah': 'Jazz', 'Atlanta': 'Hawks'
             }
@@ -2817,39 +3057,8 @@ def format_spread_pick(game, use_alt=True, include_odds=False) -> str:
     return pick_str
 
 
-class TTLCache:
-    """Time-based cache with max size to prevent memory leaks."""
-    def __init__(self, maxsize=1000, ttl=3600):
-        from collections import OrderedDict
-        self.cache = OrderedDict()
-        self.maxsize = maxsize
-        self.ttl = ttl
-    
-    def get(self, key):
-        if key in self.cache:
-            value, timestamp = self.cache[key]
-            if time.time() - timestamp < self.ttl:
-                return value
-            del self.cache[key]
-        return None
-    
-    def set(self, key, value):
-        if len(self.cache) >= self.maxsize:
-            self.cache.popitem(last=False)
-        self.cache[key] = (value, time.time())
-    
-    def __contains__(self, key):
-        return self.get(key) is not None
-    
-    def __getitem__(self, key):
-        return self.get(key)
-    
-    def __setitem__(self, key, value):
-        self.set(key, value)
-    
-    def clear(self):
-        self.cache.clear()
-
+# NOTE: Using cachetools.TTLCache imported at top of file (line 16)
+# Removed custom TTLCache class - use cachetools.TTLCache instead
 line_movement_cache = TTLCache(maxsize=500, ttl=43200)
 opening_lines_store = TTLCache(maxsize=500, ttl=86400)
 espn_schedule_cache = TTLCache(maxsize=500, ttl=43200)
@@ -2949,7 +3158,7 @@ def get_weather_for_game(home_team: str, league: str) -> dict:
             'disqualify_total': abs(impact) >= 5.0
         }
         
-        weather_cache.set(cache_key, result)
+        weather_cache[cache_key] = result
         if impact != 0:
             logger.info(f"Weather impact for {home_team}: {impact:.1f} pts ({', '.join(weather_warning)})")
         return result
@@ -2958,53 +3167,12 @@ def get_weather_for_game(home_team: str, league: str) -> dict:
         logger.error(f"Weather API error for {home_team}: {e}")
         return {'indoor': False, 'impact': 0, 'error': str(e)}
 
-import threading
-
-class RateLimiter:
-    """Token bucket rate limiter with exponential backoff on failures."""
-    def __init__(self, requests_per_second=10, max_retries=3):
-        self.rate = requests_per_second
-        self.max_retries = max_retries
-        self.tokens = float(requests_per_second)
-        self.last_update = time.time()
-        self.lock = threading.Lock()
-        self.failure_count = 0
-    
-    def acquire(self):
-        with self.lock:
-            now = time.time()
-            elapsed = now - self.last_update
-            
-            if self.failure_count > 0:
-                backoff = min(2 ** self.failure_count, 60)
-                time.sleep(backoff)
-                self.failure_count = max(0, self.failure_count - 1)
-            
-            self.tokens = min(self.rate, self.tokens + elapsed * self.rate)
-            self.last_update = now
-            
-            if self.tokens >= 1:
-                self.tokens -= 1
-                return True
-            
-            sleep_time = (1 - self.tokens) / self.rate
-            time.sleep(sleep_time)
-            self.tokens = 0
-            return True
-    
-    def record_failure(self):
-        with self.lock:
-            self.failure_count += 1
-            logger.warning(f"API failure recorded, backoff count: {self.failure_count}")
-    
-    def record_success(self):
-        with self.lock:
-            self.failure_count = max(0, self.failure_count - 1)
-
-espn_limiter = RateLimiter(requests_per_second=5)
-odds_api_limiter = RateLimiter(requests_per_second=2)
-espn_rate_limiter = espn_limiter
-odds_api_rate_limiter = odds_api_limiter
+# NOTE: RateLimiter class and rate_limited_request() are defined near top of file (line 171)
+# These aliases exist for backward compatibility with existing code
+espn_limiter = rate_limiter  # Use global rate_limiter instance
+odds_api_limiter = rate_limiter
+espn_rate_limiter = rate_limiter
+odds_api_rate_limiter = rate_limiter
 
 def api_retry(max_attempts=3, base_delay=0.3, backoff_multiplier=2):
     """
@@ -3243,10 +3411,10 @@ class DataFetchError(Exception):
         self.retry_count = retry_count
         super().__init__(message)
 
-def fetch_with_rate_limit(url, limiter, timeout=15):
-    """Make HTTP request with rate limiting."""
-    limiter.acquire()
-    return requests.get(url, timeout=timeout)
+def fetch_with_rate_limit(url, limiter=None, timeout=15):
+    """Make HTTP request with rate limiting. Uses global rate_limited_request."""
+    # limiter param kept for backward compatibility but ignored - we use global rate limiter
+    return rate_limited_request(url, timeout=timeout)
 
 class ESPNClient:
     """Unified ESPN API client with consistent error handling."""
@@ -3323,8 +3491,7 @@ class ESPNClient:
 
 espn_client = ESPNClient()
 
-import re
-
+# NOTE: re and json imported at module level (line 20-21)
 VALID_LEAGUES = {'NBA', 'CBB', 'NFL', 'CFB', 'NHL'}
 TEAM_NAME_PATTERN = re.compile(r'^[A-Za-z0-9\s\-\'\.&]+$')
 MAX_TEAM_NAME_LENGTH = 100
@@ -3610,7 +3777,9 @@ def fetch_odds_api_safe(url: str, params: dict, timeout: int = 30) -> dict:
     
     for attempt in range(max_retries):
         try:
-            odds_api_limiter.acquire()
+            # Use rate_limited_request for consistent rate limiting
+            full_url = f"{url}?{'&'.join(f'{k}={v}' for k,v in params.items())}" if params else url
+            rate_limiter.acquire(full_url)
             resp = requests.get(url, params=params, timeout=timeout)
             
             if resp.status_code == 429:
@@ -4209,8 +4378,8 @@ class HistoricalBettingLinesService:
         threshold = config['over_threshold'] if direction == 'O' else (1 - config['under_threshold'])
         qualified = (hit_rate / 100) >= threshold
         
-        avg_line = sum(g.get('closing_line', 0) for g in games) / len(games)
-        avg_actual = sum(g.get('actual_total', 0) for g in games) / len(games)
+        avg_line = safe_average([g.get('closing_line', 0) for g in games])
+        avg_actual = safe_average([g.get('actual_total', 0) for g in games])
         avg_vs_line = avg_actual - avg_line
         
         return {
@@ -4265,11 +4434,11 @@ class HistoricalBettingLinesService:
         
         covers = sum(1 for g in non_push_games if g.get('covered_spread'))
         losses = len(non_push_games) - covers
-        ats_rate = covers / len(non_push_games)
+        ats_rate = safe_divide(covers, len(non_push_games), 0)
         qualified = ats_rate >= config['ats_threshold']
-        
-        avg_spread = sum(g.get('closing_spread', 0) for g in games) / len(games)
-        avg_margin = sum(g.get('actual_margin', 0) for g in games) / len(games)
+
+        avg_spread = safe_average([g.get('closing_spread', 0) for g in games])
+        avg_margin = safe_average([g.get('actual_margin', 0) for g in games])
         
         return {
             'ats_rate': round(ats_rate * 100, 1),
@@ -4823,9 +4992,10 @@ class SharpEdgeCalculator:
         under_prob = implied_prob(under_odds)
         total_prob = over_prob + under_prob
         vig = (total_prob - 1) * 100
-        
-        over_fair = over_prob / total_prob
-        under_fair = under_prob / total_prob
+
+        # Safe division - use 0.5 as default (50/50) if total_prob is somehow 0
+        over_fair = safe_divide(over_prob, total_prob, 0.5)
+        under_fair = safe_divide(under_prob, total_prob, 0.5)
         
         shade = 'BALANCED'
         if over_fair > under_fair + 0.03:
@@ -5423,12 +5593,12 @@ def calculate_recent_form_ppg(games: list) -> dict:
     """
     if len(games) < 3:
         return {"ppg": 0, "opp_ppg": 0, "games_used": 0}
-    
+
     recent = games[-5:] if len(games) >= 5 else games
-    
-    ppg = sum(g["team_score"] for g in recent) / len(recent)
-    opp_ppg = sum(g["opp_score"] for g in recent) / len(recent)
-    
+
+    ppg = safe_average([g["team_score"] for g in recent])
+    opp_ppg = safe_average([g["opp_score"] for g in recent])
+
     return {"ppg": ppg, "opp_ppg": opp_ppg, "games_used": len(recent)}
 
 def calculate_blended_stats(season_ppg: float, season_opp: float, 
@@ -6424,7 +6594,7 @@ def check_totals_pick_result(pick: Pick) -> int:
     try:
         if pick.league == "NHL":
             url = f"https://api-web.nhle.com/v1/score/{pick.date.strftime('%Y-%m-%d')}"
-            resp = requests.get(url, timeout=15)
+            resp = rate_limited_request(url, timeout=15)
             for game in resp.json().get("games", []):
                 if game.get("gameState") != "OFF":
                     continue
@@ -6438,7 +6608,7 @@ def check_totals_pick_result(pick: Pick) -> int:
                     break
         elif pick.league in sport_urls:
             url = sport_urls[pick.league]
-            resp = requests.get(url, timeout=30)
+            resp = rate_limited_request(url, timeout=30)
             for event in resp.json().get("events", []):
                 status = event.get("status", {}).get("type", {}).get("name", "")
                 if status != "STATUS_FINAL":
@@ -6481,21 +6651,58 @@ def check_totals_pick_result(pick: Pick) -> int:
     
     return 1
 
+class APIError(Exception):
+    """Base exception for API errors with categorization."""
+    def __init__(self, message: str, error_type: str = 'unknown', url: str = '', status_code: int = 0):
+        super().__init__(message)
+        self.error_type = error_type  # timeout, rate_limit, parse_error, server_error, network
+        self.url = url
+        self.status_code = status_code
+
 def retry_request(max_retries: int = 3, backoff_factor: float = 1.0):
-    """Decorator for retrying failed HTTP requests with exponential backoff."""
+    """Decorator for retrying failed HTTP requests with exponential backoff and detailed error logging."""
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
+            import traceback
             last_exception: Optional[Exception] = None
+            func_name = func.__name__
             for attempt in range(max_retries):
                 try:
                     return func(*args, **kwargs)
-                except (requests.RequestException, requests.Timeout) as e:
-                    last_exception = e
+                except requests.Timeout as e:
+                    last_exception = APIError(str(e), error_type='timeout', url=str(e.request.url if hasattr(e, 'request') and e.request else ''))
                     wait_time = backoff_factor * (2 ** attempt)
-                    logger.warning(f"Request failed (attempt {attempt + 1}/{max_retries}): {e}. Retrying in {wait_time}s...")
+                    logger.warning(f"[{func_name}] Timeout (attempt {attempt + 1}/{max_retries}): {e}. Retrying in {wait_time:.1f}s")
                     time.sleep(wait_time)
-            logger.error(f"All {max_retries} attempts failed: {last_exception}")
+                except requests.HTTPError as e:
+                    status = e.response.status_code if e.response is not None else 0
+                    if status == 429:  # Rate limited
+                        last_exception = APIError(str(e), error_type='rate_limit', status_code=status)
+                        wait_time = backoff_factor * (2 ** (attempt + 1))  # Longer wait for rate limits
+                        logger.warning(f"[{func_name}] Rate limited (attempt {attempt + 1}/{max_retries}). Waiting {wait_time:.1f}s")
+                        time.sleep(wait_time)
+                    elif status >= 500:  # Server error
+                        last_exception = APIError(str(e), error_type='server_error', status_code=status)
+                        wait_time = backoff_factor * (2 ** attempt)
+                        logger.warning(f"[{func_name}] Server error {status} (attempt {attempt + 1}/{max_retries}). Retrying in {wait_time:.1f}s")
+                        time.sleep(wait_time)
+                    else:  # Client error - don't retry
+                        logger.error(f"[{func_name}] Client error {status}: {e}")
+                        raise APIError(str(e), error_type='client_error', status_code=status)
+                except requests.RequestException as e:
+                    last_exception = APIError(str(e), error_type='network')
+                    wait_time = backoff_factor * (2 ** attempt)
+                    logger.warning(f"[{func_name}] Network error (attempt {attempt + 1}/{max_retries}): {e}. Retrying in {wait_time:.1f}s")
+                    time.sleep(wait_time)
+                except json.JSONDecodeError as e:
+                    logger.error(f"[{func_name}] JSON parse error: {e}")
+                    raise APIError(str(e), error_type='parse_error')
+                except Exception as e:
+                    logger.error(f"[{func_name}] Unexpected error: {e}\n{traceback.format_exc()}")
+                    raise
+
+            logger.error(f"[{func_name}] All {max_retries} attempts failed: {last_exception}")
             if last_exception:
                 raise last_exception
             raise RuntimeError("Unexpected retry failure")
@@ -6504,8 +6711,8 @@ def retry_request(max_retries: int = 3, backoff_factor: float = 1.0):
 
 @retry_request(max_retries=3, backoff_factor=1.0)
 def fetch_url(url: str, timeout: int = 15) -> dict:
-    """Fetch URL with retry logic."""
-    response = requests.get(url, timeout=timeout)
+    """Fetch URL with retry logic and rate limiting."""
+    response = rate_limited_request(url, timeout=timeout)
     response.raise_for_status()
     return response.json()
 
@@ -6522,8 +6729,8 @@ def fetch_espn_scoreboard(league: str, date_str: str, timeout: int = 15) -> dict
     
     return fetch_url(url, timeout)
 
-espn_teams_cache: dict = {}  # league -> {team_name: team_id}
-espn_team_schedule_cache: dict = {}  # "YYYY-MM-DD:league:team_name" -> games list (date-keyed for daily refresh)
+espn_teams_cache: dict = LRUCache(maxsize=50)  # league -> {team_name: team_id} - bounded to prevent memory leak
+espn_team_schedule_cache: dict = LRUCache(maxsize=500)  # "YYYY-MM-DD:league:team_name" -> games list - bounded
 
 def get_espn_team_id(team_name: str, league: str) -> Optional[str]:
     """Get ESPN team ID from team name using search endpoint with caching."""
@@ -6836,8 +7043,11 @@ def fetch_all_team_histories_batch(games: list) -> dict:
             for future in as_completed(futures):
                 cache_key = futures[future]
                 try:
-                    team_games = future.result()
+                    team_games = future.result(timeout=EXECUTOR_TIMEOUT)
                     results[cache_key] = team_games
+                except FuturesTimeoutError:
+                    logger.warning(f"Timeout fetching {cache_key}")
+                    results[cache_key] = []
                 except Exception as e:
                     logger.error(f"Batch fetch failed for {cache_key}: {e}")
                     results[cache_key] = []
@@ -6864,7 +7074,7 @@ def calculate_ou_hit_rate(games: list, direction: str, current_line: float = Non
         compare_line = current_line
     else:
         totals = [g["total"] for g in games]
-        compare_line = sum(totals) / len(totals)
+        compare_line = safe_average(totals)
     
     hits = 0
     pushes = 0
@@ -6896,9 +7106,9 @@ def calculate_avg_margin(games: list) -> float:
     """
     if len(games) < 5:
         return 0.0
-    
+
     margins = [g["margin"] for g in games]
-    return sum(margins) / len(margins)
+    return safe_average(margins)
 
 def calculate_spread_cover_rate(games: list, spread_direction: str = None, current_spread: float = None) -> float:
     """
@@ -6929,7 +7139,7 @@ def calculate_spread_cover_rate(games: list, spread_direction: str = None, curre
     if current_spread is not None:
         test_spread = current_spread
     else:
-        avg_margin = sum(margins) / len(margins)
+        avg_margin = safe_average(margins)
         test_spread = -avg_margin if avg_margin > 0 else abs(avg_margin)
     
     covers = 0
@@ -7046,16 +7256,16 @@ def fetch_h2h_history(team1: str, team2: str, league: str, direction: str = "O")
             return result
         
         totals = [g["total"] for g in h2h_games]
-        avg_total = sum(totals) / len(totals)
-        
+        avg_total = safe_average(totals)
+
         hits = 0
         for g in h2h_games:
             if direction == "O" and g["total"] > avg_total:
                 hits += 1
             elif direction == "U" and g["total"] < avg_total:
                 hits += 1
-        
-        ou_pct = (hits / len(h2h_games)) * 100
+
+        ou_pct = safe_divide(hits, len(h2h_games), 0) * 100
         
         result = {"ou_pct": ou_pct, "games_found": len(h2h_games), "games": h2h_games}
         espn_team_schedule_cache[cache_key] = result
@@ -7304,7 +7514,7 @@ def check_spread_pick_result(pick) -> int:
         
         if pick.league == "NHL":
             url = f"https://api-web.nhle.com/v1/score/{pick.date.strftime('%Y-%m-%d')}"
-            resp = requests.get(url, timeout=15)
+            resp = rate_limited_request(url, timeout=15)
             for game in resp.json().get("games", []):
                 if game.get("gameState") != "OFF":
                     continue
@@ -7317,7 +7527,7 @@ def check_spread_pick_result(pick) -> int:
                     break
         elif pick.league in sport_urls:
             url = sport_urls[pick.league]
-            resp = requests.get(url, timeout=30)
+            resp = rate_limited_request(url, timeout=30)
             for event in resp.json().get("events", []):
                 status = event.get("status", {}).get("type", {}).get("name", "")
                 if status != "STATUS_FINAL":
@@ -7564,7 +7774,7 @@ def dashboard():
             logger.warning(f"Background cleanup error (non-critical): {e}")
             try:
                 db.session.rollback()
-            except:
+            except Exception:
                 pass
     
     # Start cleanup in background thread (non-blocking)
@@ -7576,11 +7786,9 @@ def dashboard():
     # Show all games from today's slate (includes in-progress and completed)
     all_games = all_games_db
     
-    # Get standings for all leagues
-    nba_standings = get_nba_standings()
-    cbb_standings = get_cbb_standings()
-    nhl_standings = get_nhl_standings()
-    
+    # Get standings for all leagues in parallel
+    nba_standings, cbb_standings, nhl_standings = get_all_standings_parallel()
+
     # Add time window and logos to each game for weekend slate grouping
     for g in all_games:
         g.time_window = get_game_window(g.game_time)
@@ -7928,7 +8136,7 @@ def health():
     
     try:
         test_key = "_health_check_"
-        espn_schedule_cache.set(test_key, "test")
+        espn_schedule_cache[test_key] = "test"
         if espn_schedule_cache.get(test_key) == "test":
             health_status["checks"]["cache"] = "ok"
         else:
@@ -8000,7 +8208,7 @@ def api_live_scores():
     for date_str in dates_to_check:
         try:
             nba_url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={date_str}"
-            resp = requests.get(nba_url, timeout=10)
+            resp = rate_limited_request(nba_url, timeout=10)
             for event in resp.json().get("events", []):
                 status = event.get("status", {})
                 state = status.get("type", {}).get("state", "")
@@ -8038,7 +8246,7 @@ def api_live_scores():
     
     try:
         cbb_url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates={today_str}&limit=100&groups=50"
-        resp = requests.get(cbb_url, timeout=15)
+        resp = rate_limited_request(cbb_url, timeout=15)
         for event in resp.json().get("events", []):
             status = event.get("status", {})
             state = status.get("type", {}).get("state", "")
@@ -8075,7 +8283,7 @@ def api_live_scores():
     for nhl_date in [today, yesterday]:
         try:
             nhl_url = f"https://api-web.nhle.com/v1/score/{nhl_date.strftime('%Y-%m-%d')}"
-            resp = requests.get(nhl_url, timeout=10)
+            resp = rate_limited_request(nhl_url, timeout=10)
             for game in resp.json().get("games", []):
                 game_state = game.get("gameState", "")
                 if game_state in ("LIVE", "FINAL", "OFF", "CRIT"):
@@ -8166,27 +8374,63 @@ def api_covers_betting(game_id):
 def add_game():
     et = pytz.timezone('America/New_York')
     today = datetime.now(et).date()
-    
+
+    # Validate required fields
+    league, err = validate_string_param(request.form.get('league'), allowed_values=VALID_LEAGUES)
+    if err:
+        return jsonify({'error': f'Invalid league: {err}'}), 400
+
+    away_team, err = validate_string_param(request.form.get('away_team'), max_length=MAX_TEAM_NAME_LENGTH)
+    if err:
+        return jsonify({'error': f'Invalid away_team: {err}'}), 400
+
+    home_team, err = validate_string_param(request.form.get('home_team'), max_length=MAX_TEAM_NAME_LENGTH)
+    if err:
+        return jsonify({'error': f'Invalid home_team: {err}'}), 400
+
+    game_time, _ = validate_string_param(request.form.get('game_time'), max_length=50, allow_empty=True)
+
+    # Validate optional numeric fields
+    line, err = validate_float_param(request.form.get('line'), MIN_LINE_VALUE, MAX_LINE_VALUE)
+    if err:
+        return jsonify({'error': f'Invalid line: {err}'}), 400
+
+    away_ppg, err = validate_float_param(request.form.get('away_ppg'), 0, MAX_PPG_VALUE)
+    if err:
+        return jsonify({'error': f'Invalid away_ppg: {err}'}), 400
+
+    away_opp_ppg, err = validate_float_param(request.form.get('away_opp_ppg'), 0, MAX_PPG_VALUE)
+    if err:
+        return jsonify({'error': f'Invalid away_opp_ppg: {err}'}), 400
+
+    home_ppg, err = validate_float_param(request.form.get('home_ppg'), 0, MAX_PPG_VALUE)
+    if err:
+        return jsonify({'error': f'Invalid home_ppg: {err}'}), 400
+
+    home_opp_ppg, err = validate_float_param(request.form.get('home_opp_ppg'), 0, MAX_PPG_VALUE)
+    if err:
+        return jsonify({'error': f'Invalid home_opp_ppg: {err}'}), 400
+
     game = Game(
         date=today,
-        league=request.form['league'],
-        away_team=request.form['away_team'],
-        home_team=request.form['home_team'],
-        game_time=request.form.get('game_time', ''),
-        line=float(request.form['line']) if request.form.get('line') else None,
-        away_ppg=float(request.form['away_ppg']) if request.form.get('away_ppg') else None,
-        away_opp_ppg=float(request.form['away_opp_ppg']) if request.form.get('away_opp_ppg') else None,
-        home_ppg=float(request.form['home_ppg']) if request.form.get('home_ppg') else None,
-        home_opp_ppg=float(request.form['home_opp_ppg']) if request.form.get('home_opp_ppg') else None
+        league=league,
+        away_team=away_team,
+        home_team=home_team,
+        game_time=game_time or '',
+        line=line,
+        away_ppg=away_ppg,
+        away_opp_ppg=away_opp_ppg,
+        home_ppg=home_ppg,
+        home_opp_ppg=home_opp_ppg
     )
-    
+
     if all([game.away_ppg, game.away_opp_ppg, game.home_ppg, game.home_opp_ppg, game.line]):
         game.projected_total = calculate_projection(game.away_ppg, game.away_opp_ppg, game.home_ppg, game.home_opp_ppg)
         qualified, direction, edge = check_qualification(game.projected_total, game.line, game.league)
         game.is_qualified = qualified
         game.direction = direction
         game.edge = edge
-    
+
     db.session.add(game)
     db.session.commit()
     return redirect(url_for('dashboard'))
@@ -8195,18 +8439,25 @@ def add_game():
 def update_line(game_id):
     game = Game.query.get_or_404(game_id)
     data = request.get_json()
-    
+
+    if not data:
+        return jsonify({'error': 'No JSON data provided'}), 400
+
     if 'line' in data:
-        game.line = float(data['line'])
-    
+        line, err = validate_float_param(data['line'], MIN_LINE_VALUE, MAX_LINE_VALUE, allow_none=False)
+        if err:
+            return jsonify({'error': f'Invalid line: {err}'}), 400
+        game.line = line
+
     if all([game.away_ppg, game.away_opp_ppg, game.home_ppg, game.home_opp_ppg, game.line]):
         game.projected_total = calculate_projection(game.away_ppg, game.away_opp_ppg, game.home_ppg, game.home_opp_ppg)
         qualified, direction, edge = check_qualification(game.projected_total, game.line, game.league)
         game.is_qualified = qualified
         game.direction = direction
         game.edge = edge
-    
+
     db.session.commit()
+    logger.info(f"Updated line for game {game_id}: {game.line}")
     return jsonify({
         'success': True,
         'projected': round(game.projected_total, 1) if game.projected_total is not None else None,
@@ -8218,6 +8469,8 @@ def update_line(game_id):
 @app.route('/delete_game/<int:game_id>', methods=['POST'])
 def delete_game(game_id):
     game = Game.query.get_or_404(game_id)
+    # Audit log before deletion
+    logger.info(f"Deleting game {game_id}: {game.away_team} @ {game.home_team} ({game.league})")
     db.session.delete(game)
     db.session.commit()
     return redirect(url_for('dashboard'))
@@ -8229,12 +8482,12 @@ def get_nba_stats():
     try:
         time.sleep(1)
         offense = leaguedashteamstats.LeagueDashTeamStats(
-            season='2025-26', season_type_all_star='Regular Season',
+            season=CURRENT_NBA_SEASON, season_type_all_star='Regular Season',
             measure_type_detailed_defense='Base', per_mode_detailed='PerGame'
         )
         off_df = offense.get_data_frames()[0]
         defense = leaguedashteamstats.LeagueDashTeamStats(
-            season='2025-26', season_type_all_star='Regular Season',
+            season=CURRENT_NBA_SEASON, season_type_all_star='Regular Season',
             measure_type_detailed_defense='Opponent', per_mode_detailed='PerGame'
         )
         def_df = defense.get_data_frames()[0]
@@ -8255,8 +8508,8 @@ def get_nba_stats():
 def get_nhl_stats():
     stats = {}
     try:
-        nhl_url = "https://api.nhle.com/stats/rest/en/team/summary?cayenneExp=seasonId=20252026"
-        resp = requests.get(nhl_url, timeout=30)
+        nhl_url = f"https://api.nhle.com/stats/rest/en/team/summary?cayenneExp=seasonId={CURRENT_NHL_SEASON_ID}"
+        resp = rate_limited_request(nhl_url, timeout=30)
         for team in resp.json().get("data", []):
             name = team.get("teamFullName", "")
             games_played = team.get("gamesPlayed", 1)
@@ -8326,7 +8579,7 @@ def get_cached_team_stats(team_id, sport):
 
 def set_cached_team_stats(team_id, sport, ppg, opp_ppg):
     cache_key = f"{sport}_{team_id}"
-    _team_stats_cache.set(cache_key, (ppg, opp_ppg))
+    _team_stats_cache[cache_key] = (ppg, opp_ppg)
 
 def fetch_cbb_team_stats(team_id):
     cached = get_cached_team_stats(team_id, "cbb")
@@ -8382,16 +8635,22 @@ def fetch_nfl_team_stats(team_id):
     except Exception:
         return None, None
 
+# Thread-safe Torvik cache
 torvik_cache = {}
 torvik_cache_date = None
+_torvik_cache_lock = threading.Lock()
 
 def fetch_torvik_ratings():
-    """Fetch Bart Torvik team ratings for CBB. Cached daily."""
+    """Fetch Bart Torvik team ratings for CBB. Cached daily. Thread-safe."""
     global torvik_cache, torvik_cache_date
     today = date.today()
-    if torvik_cache_date == today and torvik_cache:
-        logger.info(f"Using cached Torvik data ({len(torvik_cache)} teams)")
-        return torvik_cache
+
+    # Check cache under lock
+    with _torvik_cache_lock:
+        if torvik_cache_date == today and torvik_cache:
+            logger.info(f"Using cached Torvik data ({len(torvik_cache)} teams)")
+            return torvik_cache.copy()  # Return copy to prevent external modification
+
     try:
         logger.info("Fetching Bart Torvik CBB ratings...")
         url = "https://barttorvik.com/trank.php?year=2026&sort=&top=0&conlimit=All"
@@ -8399,7 +8658,8 @@ def fetch_torvik_ratings():
         resp = requests.get(url, headers=headers, timeout=15)
         if resp.status_code != 200:
             logger.warning(f"Torvik fetch failed: {resp.status_code}")
-            return torvik_cache
+            with _torvik_cache_lock:
+                return torvik_cache.copy()
         soup = BeautifulSoup(resp.text, 'html.parser')
         table = soup.find('table', {'id': 'ratings-table'})
         if not table:
@@ -8407,7 +8667,8 @@ def fetch_torvik_ratings():
             table = tables[0] if tables else None
         if not table:
             logger.warning("Could not find Torvik ratings table")
-            return torvik_cache
+            with _torvik_cache_lock:
+                return torvik_cache.copy()
         rows = table.find_all('tr')[1:]
         new_cache = {}
         for row in rows:
@@ -8440,27 +8701,38 @@ def fetch_torvik_ratings():
                             'barthag': barthag,
                             'tempo': tempo
                         }
-                except (ValueError, IndexError) as e:
+                except (ValueError, IndexError):
                     continue
         if new_cache:
-            torvik_cache = new_cache
-            torvik_cache_date = today
+            with _torvik_cache_lock:
+                torvik_cache = new_cache
+                torvik_cache_date = today
             logger.info(f"Torvik data loaded: {len(new_cache)} teams")
-        return torvik_cache
+        with _torvik_cache_lock:
+            return torvik_cache.copy()
     except Exception as e:
         logger.error(f"Torvik fetch error: {e}")
-        return torvik_cache
+        with _torvik_cache_lock:
+            return torvik_cache.copy()
 
 def get_torvik_team(team_name: str) -> Optional[dict]:
-    """Get Torvik stats for a team by name (fuzzy match)."""
-    if not torvik_cache:
+    """Get Torvik stats for a team by name (fuzzy match). Thread-safe."""
+    # Get a snapshot of the cache under lock
+    with _torvik_cache_lock:
+        cache_snapshot = torvik_cache.copy() if torvik_cache else None
+
+    if not cache_snapshot:
         fetch_torvik_ratings()
-    if not torvik_cache:
+        with _torvik_cache_lock:
+            cache_snapshot = torvik_cache.copy() if torvik_cache else None
+
+    if not cache_snapshot:
         return None
+
     name_lower = team_name.lower().strip()
-    if name_lower in torvik_cache:
-        return torvik_cache[name_lower]
-    for key, data in torvik_cache.items():
+    if name_lower in cache_snapshot:
+        return cache_snapshot[name_lower]
+    for key, data in cache_snapshot.items():
         if name_lower in key or key in name_lower:
             return data
         key_parts = key.split()
@@ -8477,8 +8749,8 @@ def get_torvik_team(team_name: str) -> Optional[dict]:
     }
     if name_lower in common_aliases:
         alias = common_aliases[name_lower]
-        if alias in torvik_cache:
-            return torvik_cache[alias]
+        if alias in cache_snapshot:
+            return cache_snapshot[alias]
     return None
 
 def calculate_torvik_projection(away_team: str, home_team: str) -> Optional[dict]:
@@ -8522,8 +8794,11 @@ def fetch_team_stats_batch(team_ids, fetch_func):
         for future in as_completed(futures):
             tid = futures[future]
             try:
-                results[tid] = future.result()
-            except:
+                results[tid] = future.result(timeout=EXECUTOR_TIMEOUT)
+            except FuturesTimeoutError:
+                logger.warning(f"Timeout fetching stats for team {tid}")
+                results[tid] = (None, None)
+            except Exception:
                 results[tid] = (None, None)
     return results
 
@@ -8553,8 +8828,11 @@ def fetch_scoreboard_parallel(urls: dict, timeout: int = 30) -> dict:
         for future in as_completed(futures):
             league = futures[future]
             try:
-                resp = future.result()
+                resp = future.result(timeout=EXECUTOR_TIMEOUT)
                 results[league] = resp.json() if resp.status_code == 200 else {}
+            except FuturesTimeoutError:
+                logger.warning(f"Timeout fetching scoreboard for {league}")
+                results[league] = {}
             except Exception as e:
                 logger.debug(f"Scoreboard fetch error for {league}: {e}")
                 results[league] = {}
@@ -8617,10 +8895,12 @@ def fetch_games():
             league = stats_futures[future]
             try:
                 if league == "NBA":
-                    nba_stats = future.result()
+                    nba_stats = future.result(timeout=EXECUTOR_TIMEOUT)
                 else:
-                    nhl_stats = future.result()
-            except:
+                    nhl_stats = future.result(timeout=EXECUTOR_TIMEOUT)
+            except FuturesTimeoutError:
+                logger.warning(f"Timeout fetching {league} stats")
+            except Exception:
                 pass
     
     all_games_data = []
@@ -8652,7 +8932,7 @@ def fetch_games():
                             utc_dt = datetime.fromisoformat(start_time_utc.replace("Z", "+00:00"))
                             et_dt = utc_dt.astimezone(et)
                             nhl_game_time = et_dt.strftime("%-m/%-d - %-I:%M %p EST")
-                        except:
+                        except (ValueError, TypeError):
                             nhl_game_time = start_time_utc[:10]
                     away_s = find_team_stats(away_name, nhl_stats)
                     home_s = find_team_stats(home_name, nhl_stats)
@@ -8681,8 +8961,11 @@ def fetch_games():
         for future in as_completed(futures):
             league = futures[future]
             try:
-                all_stats[league] = future.result()
-            except:
+                all_stats[league] = future.result(timeout=EXECUTOR_TIMEOUT)
+            except FuturesTimeoutError:
+                logger.warning(f"Timeout fetching {league} stats batch")
+                all_stats[league] = {}
+            except Exception:
                 all_stats[league] = {}
     
     for gd in all_games_data:
@@ -8753,7 +9036,7 @@ def fetch_odds_for_league(league: str, sport_key: str, api_key: str) -> tuple:
             "oddsFormat": "american",
             "bookmakers": "bovada,pinnacle"
         }
-        resp = requests.get(url, params=params, timeout=30)
+        resp = rate_limited_request(url, params=params, timeout=30)
         if resp.status_code == 200:
             return (league, sport_key, resp.json())
         return (league, sport_key, [])
@@ -8784,13 +9067,15 @@ def fetch_odds_internal() -> dict:
     # STEP 1: Fetch ALL odds in parallel FIRST (no DB changes yet)
     all_odds = {}
     with ThreadPoolExecutor(max_workers=5) as executor:
-        futures = {executor.submit(fetch_odds_for_league, league, sport_key, api_key): league 
+        futures = {executor.submit(fetch_odds_for_league, league, sport_key, api_key): league
                    for league, sport_key in sport_map.items()}
         for future in as_completed(futures):
             try:
-                league, sport_key, events = future.result()
+                league, sport_key, events = future.result(timeout=EXECUTOR_TIMEOUT)
                 all_odds[league] = {"sport_key": sport_key, "events": events}
-            except:
+            except FuturesTimeoutError:
+                logger.warning(f"Timeout fetching odds")
+            except Exception:
                 pass
     
     # STEP 2: Validate we got data before touching DB
@@ -9122,12 +9407,14 @@ def performance_metrics_api():
     for operation, measurements in _performance_metrics.items():
         if not measurements:
             continue
-        
+
         durations = [m['duration'] for m in measurements]
-        
+        if not durations:
+            continue
+
         metrics[operation] = {
             'count': len(durations),
-            'avg_ms': round(sum(durations) / len(durations) * 1000, 1),
+            'avg_ms': round(safe_average(durations) * 1000, 1),
             'min_ms': round(min(durations) * 1000, 1),
             'max_ms': round(max(durations) * 1000, 1),
         }
@@ -9348,10 +9635,10 @@ def fetch_single_alt_line(game_info: dict, api_key: str) -> dict:
             "oddsFormat": "american",
             "bookmakers": "bovada"
         }
-        resp = requests.get(url, params=params, timeout=15)
+        resp = rate_limited_request(url, params=params, timeout=15)
         if resp.status_code != 200:
             return result
-        
+
         data = resp.json()
         bookmakers = data.get("bookmakers", [])
         book = next((b for b in bookmakers if b.get("key") == "bovada"), None)
@@ -9407,8 +9694,15 @@ def fetch_alt_lines_internal() -> dict:
     with ThreadPoolExecutor(max_workers=10) as executor:
         futures = {executor.submit(fetch_single_alt_line, info, api_key): info['id'] for info in game_infos}
         for future in as_completed(futures):
-            result = future.result()
-            results[result['game_id']] = result
+            try:
+                result = future.result(timeout=EXECUTOR_TIMEOUT)
+                results[result['game_id']] = result
+            except FuturesTimeoutError:
+                game_id = futures[future]
+                logger.warning(f"Timeout fetching alt line for game {game_id}")
+            except Exception as e:
+                game_id = futures[future]
+                logger.debug(f"Error fetching alt line for game {game_id}: {e}")
     
     for game in qualified_totals:
         if game.id in results:
@@ -10036,19 +10330,14 @@ _nba_team_stats_cache = {'data': {}, 'timestamp': 0}
 
 # Pre-game stats cache - persists ATS/L10 data even when games start
 # Key: game_id -> {away_ats, home_ats, away_l10, home_l10, away_l10_ats, home_l10_ats, timestamp}
-_pre_game_stats_cache = {}
+# Using TTLCache for automatic expiration instead of manual cleanup
 CACHE_TTL_PRE_GAME = 86400  # 24 hours - games don't last longer than this
+_pre_game_stats_cache = TTLCache(maxsize=500, ttl=CACHE_TTL_PRE_GAME)
 
 def _cleanup_pre_game_cache():
-    """Remove expired entries from pre-game stats cache."""
-    global _pre_game_stats_cache
-    now = time.time()
-    expired_keys = [k for k, v in _pre_game_stats_cache.items() 
-                    if now - v.get('timestamp', 0) > CACHE_TTL_PRE_GAME]
-    for k in expired_keys:
-        del _pre_game_stats_cache[k]
-    if expired_keys:
-        logging.info(f"Cleaned up {len(expired_keys)} expired pre-game cache entries")
+    """Cleanup is now automatic via TTLCache - this function is kept for compatibility."""
+    # TTLCache automatically expires entries, manual cleanup not needed
+    pass
 
 def get_nba_team_stats():
     """Fetch comprehensive NBA team stats including ATS, Last 10, Home/Road records."""
@@ -10063,7 +10352,7 @@ def get_nba_team_stats():
     try:
         # Fetch from ESPN API for team records
         url = 'https://site.api.espn.com/apis/v2/sports/basketball/nba/standings'
-        resp = requests.get(url, timeout=15)
+        resp = rate_limited_request(url, timeout=15)
         if resp.status_code == 200:
             data = resp.json()
             for conf in data.get('children', []):
@@ -10131,7 +10420,7 @@ def get_nba_standings():
     standings = {}
     try:
         url = 'https://site.api.espn.com/apis/v2/sports/basketball/nba/standings'
-        resp = requests.get(url, timeout=10)
+        resp = rate_limited_request(url, timeout=10)
         if resp.status_code == 200:
             data = resp.json()
             for child in data.get('children', []):
@@ -10182,7 +10471,7 @@ def get_cbb_standings():
     try:
         today = datetime.now().strftime('%Y%m%d')
         url = f'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates={today}&limit=200'
-        resp = requests.get(url, timeout=15)
+        resp = rate_limited_request(url, timeout=15)
         if resp.status_code == 200:
             data = resp.json()
             for event in data.get('events', []):
@@ -10223,7 +10512,7 @@ def get_nhl_standings():
     standings = {}
     try:
         url = 'https://site.api.espn.com/apis/v2/sports/hockey/nhl/standings'
-        resp = requests.get(url, timeout=10)
+        resp = rate_limited_request(url, timeout=10)
         if resp.status_code == 200:
             data = resp.json()
             for child in data.get('children', []):
@@ -10264,6 +10553,32 @@ def get_nhl_standings():
         logger.warning(f"Error fetching NHL standings: {e}")
     return standings
 
+def get_all_standings_parallel():
+    """Fetch NBA, CBB, and NHL standings in parallel for faster load times."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    results = {'nba': {}, 'cbb': {}, 'nhl': {}}
+
+    def fetch_nba():
+        return ('nba', get_nba_standings())
+
+    def fetch_cbb():
+        return ('cbb', get_cbb_standings())
+
+    def fetch_nhl():
+        return ('nhl', get_nhl_standings())
+
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        futures = [executor.submit(fetch_nba), executor.submit(fetch_cbb), executor.submit(fetch_nhl)]
+        for future in as_completed(futures):
+            try:
+                key, data = future.result(timeout=20)
+                results[key] = data
+            except Exception as e:
+                logger.warning(f"Parallel standings fetch error: {e}")
+
+    return results['nba'], results['cbb'], results['nhl']
+
 @app.route('/spreads')
 def spreads():
     """Spreads page - shows all upcoming games with spread data (no totals filtering)."""
@@ -10273,17 +10588,35 @@ def spreads():
     # Cleanup expired pre-game cache entries
     _cleanup_pre_game_cache()
     
-    # Fetch standings for all leagues
-    nba_standings = get_nba_standings()
-    cbb_standings = get_cbb_standings()
-    nhl_standings = get_nhl_standings()
-    
-    # Fetch comprehensive team stats from Covers.com (includes ATS, L10, Home/Road)
-    nba_team_stats = get_nba_team_stats()
-    covers_nba_stats = get_covers_matchup_stats('NBA')
-    covers_cbb_stats = get_covers_matchup_stats('CBB')
-    covers_nhl_stats = get_covers_matchup_stats('NHL')
-    
+    # Fetch standings for all leagues in parallel
+    nba_standings, cbb_standings, nhl_standings = get_all_standings_parallel()
+
+    # Fetch comprehensive team stats in parallel
+    def _fetch_all_stats():
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        results = {}
+        fetchers = {
+            'nba_team': lambda: ('nba_team', get_nba_team_stats()),
+            'covers_nba': lambda: ('covers_nba', get_covers_matchup_stats('NBA')),
+            'covers_cbb': lambda: ('covers_cbb', get_covers_matchup_stats('CBB')),
+            'covers_nhl': lambda: ('covers_nhl', get_covers_matchup_stats('NHL')),
+        }
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = [executor.submit(fn) for fn in fetchers.values()]
+            for future in as_completed(futures):
+                try:
+                    key, data = future.result(timeout=30)
+                    results[key] = data
+                except Exception as e:
+                    logger.warning(f"Stats fetch error: {e}")
+        return results
+
+    stats_results = _fetch_all_stats()
+    nba_team_stats = stats_results.get('nba_team', {})
+    covers_nba_stats = stats_results.get('covers_nba', {})
+    covers_cbb_stats = stats_results.get('covers_cbb', {})
+    covers_nhl_stats = stats_results.get('covers_nhl', {})
+
     # Get ALL games for today without any totals filtering
     all_games = Game.query.filter_by(date=today).order_by(Game.game_time.asc()).all()
     
@@ -10545,7 +10878,7 @@ def spreads():
     nba_l10_records = {}
     try:
         standings_url = "https://site.api.espn.com/apis/v2/sports/basketball/nba/standings"
-        resp = requests.get(standings_url, timeout=15)
+        resp = rate_limited_request(standings_url, timeout=15)
         if resp.status_code == 200:
             data = resp.json()
             for child in data.get('children', []):
@@ -10577,7 +10910,7 @@ def spreads():
         if not nba_l10_records:
             # Fallback: fetch from scoreboard/team endpoints
             teams_url = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams"
-            resp = requests.get(teams_url, timeout=15)
+            resp = rate_limited_request(teams_url, timeout=15)
             if resp.status_code == 200:
                 for team in resp.json().get('sports', [{}])[0].get('leagues', [{}])[0].get('teams', []):
                     team_info = team.get('team', {})
@@ -10640,7 +10973,7 @@ def spreads():
         yesterday = today - timedelta(days=1)
         yesterday_str = yesterday.strftime('%Y%m%d')
         yesterday_url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={yesterday_str}"
-        resp = requests.get(yesterday_url, timeout=10)
+        resp = rate_limited_request(yesterday_url, timeout=10)
         if resp.status_code == 200:
             for event in resp.json().get('events', []):
                 comps = event.get('competitions', [{}])[0]
@@ -10777,7 +11110,7 @@ def get_matchup_data(game_id):
                 game_datetime = now.replace(hour=game_time_obj.hour, minute=game_time_obj.minute, second=0)
                 # Game considered started if current time is past game time
                 game_started = now >= game_datetime
-            except:
+            except (ValueError, TypeError):
                 pass
     except Exception as e:
         logging.debug(f"Game started check error: {e}")
@@ -11211,7 +11544,7 @@ def get_matchup_data(game_id):
                             result['h2h_leader'] = game.home_team
                         else:
                             result['h2h_leader'] = 'Even'
-                except:
+                except (ValueError, TypeError, AttributeError):
                     pass
             if covers_last10.get('h2h', {}).get('ats') and covers_last10['h2h']['ats'] != 'N/A':
                 result['h2h_ats'] = covers_last10['h2h']['ats']
@@ -11226,7 +11559,7 @@ def get_matchup_data(game_id):
                             result['ats_leader'] = game.home_team
                         else:
                             result['ats_leader'] = 'Even'
-                except:
+                except (ValueError, TypeError, AttributeError):
                     pass
             
             # Also set last5 for backward compatibility (first 5 of last 10)
@@ -11658,8 +11991,15 @@ def export_picks_sql():
     Export all picks as SQL INSERT statements for production database sync.
     Access via browser and copy the SQL to run in production database.
     """
+    def sql_escape(value):
+        """Safely escape a string for SQL insertion (PostgreSQL standard)."""
+        if value is None:
+            return None
+        # Standard SQL escaping: replace ' with ''
+        return str(value).replace("'", "''")
+
     picks = Pick.query.order_by(Pick.date.desc()).all()
-    
+
     sql_statements = []
     sql_statements.append("-- Export of all picks from development database")
     sql_statements.append("-- Run this SQL in your PRODUCTION database to sync picks")
@@ -11668,15 +12008,15 @@ def export_picks_sql():
     sql_statements.append("-- First, clear existing picks (optional - uncomment if needed)")
     sql_statements.append("-- DELETE FROM pick;")
     sql_statements.append("")
-    
+
     for p in picks:
-        # Escape single quotes in strings
-        matchup_safe = (p.matchup or '').replace("'", "''")
-        pick_safe = (p.pick or '').replace("'", "''")
-        result_safe = (p.result or '').replace("'", "''") if p.result else None
-        league_safe = (p.league or '').replace("'", "''")
-        pick_type_safe = (p.pick_type or '').replace("'", "''") if p.pick_type else None
-        game_window_safe = (p.game_window or '').replace("'", "''") if p.game_window else None
+        # Use helper function for consistent escaping
+        matchup_safe = sql_escape(p.matchup) or ''
+        pick_safe = sql_escape(p.pick) or ''
+        result_safe = sql_escape(p.result)
+        league_safe = sql_escape(p.league) or ''
+        pick_type_safe = sql_escape(p.pick_type)
+        game_window_safe = sql_escape(p.game_window)
         
         # Format date fields
         date_str = f"'{p.date}'" if p.date else 'NULL'
@@ -11712,4 +12052,6 @@ auto_loader = setup_automatic_loading(app, db)
 logger.info("Automatic game loading enabled - games will load on new day automatically")
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    # Use debug=False in production; gunicorn handles this in deployment
+    debug_mode = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
+    app.run(host='0.0.0.0', port=5000, debug=debug_mode)
