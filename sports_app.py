@@ -2369,14 +2369,15 @@ class MatchupIntelligence:
     @staticmethod
     def fetch_rlm_data(league: str = 'NBA', game_time: str = None) -> dict:
         """
-        Fetch betting data from WagerTalk.com.
-        - Bet % (tickets) and Money % (handle) for spreads
-        - Sharp money detection (when money% diverges from bet%)
+        Fetch betting data from VSIN (replaces WagerTalk).
+        - Tickets % (bets) and Handle % (money) for spreads
+        - Open and current lines from VSIN Line Tracker
+        - Sharp money detection (when money% diverges from tickets%)
         
         Auto-refreshes 2 hours before game time for live data.
         """
         from datetime import datetime
-        from wagertalk_scraper import get_all_wagertalk_data
+        from vsin_scraper import get_all_vsin_data
         
         result = {}
         cache_key = f"{league}_{datetime.now().strftime('%Y%m%d')}"
@@ -2408,7 +2409,8 @@ class MatchupIntelligence:
             return MatchupIntelligence._rlm_cache[cache_key]
         
         try:
-            wagertalk_data = get_all_wagertalk_data(league)
+            vsin_result = get_all_vsin_data(league)
+            vsin_data = vsin_result.get('data', {}) if vsin_result.get('success') else {}
             
             # City to Nickname mapping for consistent Bovada-style names
             city_to_nickname = {
@@ -2442,36 +2444,34 @@ class MatchupIntelligence:
                         return nickname
                 return name
             
-            for key, data in wagertalk_data.items():
+            for key, data in vsin_data.items():
                 away_team = normalize_team_name(data.get('away_team', ''))
                 home_team = normalize_team_name(data.get('home_team', ''))
                 
-                # Spread percentages (favorite vs underdog)
-                spread_tickets_pct = data.get('spread_tickets_pct', 50)
-                spread_money_pct = data.get('spread_money_pct', 50)
-                away_bet_pct = data.get('away_bet_pct', spread_tickets_pct)
-                home_bet_pct = data.get('home_bet_pct', 100 - spread_tickets_pct)
-                away_money_pct = data.get('away_money_pct', spread_money_pct)
-                home_money_pct = data.get('home_money_pct', 100 - spread_money_pct)
+                # VSIN terminology: tickets = bets %, money = handle %
+                away_bet_pct = data.get('tickets_away') or 50
+                home_bet_pct = data.get('tickets_home') or 50
+                away_money_pct = data.get('money_away') or 50
+                home_money_pct = data.get('money_home') or 50
                 
-                # Totals percentages (over/under)
-                over_bet_pct = data.get('over_bet_pct', 50)
-                under_bet_pct = data.get('under_bet_pct', 50)
-                over_money_pct = data.get('over_money_pct', 50)
-                under_money_pct = data.get('under_money_pct', 50)
+                # Totals percentages (VSIN may not have totals splits - use 50/50 default)
+                over_bet_pct = 50
+                under_bet_pct = 50
+                over_money_pct = 50
+                under_money_pct = 50
                 
                 majority_team = 'away' if away_bet_pct > home_bet_pct else 'home'
                 majority_pct = max(away_bet_pct, home_bet_pct)
                 
-                # Line movement data - scraper returns 'open_spread', 'current_spread', 'total_open_line', 'total_current_line'
-                spread_open_line = data.get('open_spread') or data.get('spread_open_line')
-                spread_open_odds = data.get('spread_open_odds')
-                spread_current_line = data.get('current_spread') or data.get('spread_current_line')
-                spread_current_odds = data.get('spread_current_odds')
-                total_open_line = data.get('total_open_line')
-                total_open_odds = data.get('total_open_odds')
-                total_current_line = data.get('total_current_line')
-                total_current_odds = data.get('total_current_odds')
+                # Line movement data from VSIN Line Tracker
+                spread_open_line = data.get('open_away_spread')
+                spread_open_odds = data.get('open_away_odds')
+                spread_current_line = data.get('current_away_spread')
+                spread_current_odds = data.get('current_away_odds')
+                total_open_line = None  # VSIN doesn't have totals lines currently
+                total_open_odds = None
+                total_current_line = None
+                total_current_odds = None
                 
                 # === TRUE RLM DETECTION ===
                 # RLM = Public bets heavily one way, but line moves OPPOSITE direction
@@ -2482,11 +2482,14 @@ class MatchupIntelligence:
                 totals_rlm_detected = False
                 totals_rlm_sharp_side = None
                 
-                # Get favorite info from WagerTalk data - use open_favorite ONLY
-                open_favorite_raw = data.get('open_favorite', '')
-                open_favorite = normalize_team_name(open_favorite_raw) if open_favorite_raw else ''
+                # Determine favorite based on spread (negative spread = favorite)
+                open_favorite = ''
+                if spread_open_line is not None and spread_open_line < 0:
+                    open_favorite = away_team
+                elif spread_open_line is not None and spread_open_line > 0:
+                    open_favorite = home_team
                 
-                # Determine favorite/underdog based on open_favorite from WagerTalk
+                # Determine favorite/underdog based on open spread
                 favorite_team = None
                 underdog_team = None
                 if open_favorite == away_team:
@@ -2602,7 +2605,7 @@ class MatchupIntelligence:
                     'under_money_pct': under_money_pct
                 }
             
-            logger.info(f"WagerTalk data fetched for {league}: {len(result)} games")
+            logger.info(f"VSIN data fetched for {league}: {len(result)} games")
             
             if result:
                 MatchupIntelligence._rlm_cache[cache_key] = result
@@ -2611,7 +2614,7 @@ class MatchupIntelligence:
             return result
             
         except Exception as e:
-            logger.warning(f"Error fetching WagerTalk data for {league}: {e}")
+            logger.warning(f"Error fetching VSIN data for {league}: {e}")
             if cache_key in MatchupIntelligence._rlm_cache:
                 logger.info(f"Returning cached RLM data after error for {league}")
                 return MatchupIntelligence._rlm_cache[cache_key]
@@ -10199,6 +10202,101 @@ def fetch_odds_for_league(league: str, sport_key: str, api_key: str) -> tuple:
         logger.debug(f"Odds fetch error for {league}: {e}")
         return (league, sport_key, [])
 
+_bovada_games_cache = {}
+_bovada_games_cache_time = None
+
+def get_bovada_games(league: str = 'CBB') -> set:
+    """
+    Fetch games that Bovada has lines for.
+    Returns set of (away_team, home_team) tuples for games with Bovada spreads.
+    Caches for 10 minutes to avoid excessive API calls.
+    """
+    global _bovada_games_cache, _bovada_games_cache_time
+    
+    cache_key = f"{league}_{datetime.now().strftime('%Y%m%d')}"
+    
+    # Check cache
+    if cache_key in _bovada_games_cache and _bovada_games_cache_time:
+        cache_age = (datetime.now() - _bovada_games_cache_time).total_seconds()
+        if cache_age < 600:  # 10 minute cache
+            return _bovada_games_cache[cache_key]
+    
+    sport_map = {
+        'NBA': 'basketball_nba',
+        'CBB': 'basketball_ncaab',
+        'NFL': 'americanfootball_nfl',
+        'NHL': 'icehockey_nhl',
+    }
+    
+    api_key = os.environ.get("BOVADA_API_KEY") or os.environ.get("ODDS_API_KEY")
+    if not api_key:
+        return set()
+    
+    sport_key = sport_map.get(league, 'basketball_ncaab')
+    
+    try:
+        url = f"https://api.the-odds-api.com/v4/sports/{sport_key}/odds"
+        params = {
+            'apiKey': api_key,
+            'regions': 'us',
+            'markets': 'spreads',
+            'bookmakers': 'bovada',
+            'dateFormat': 'iso',
+        }
+        resp = requests.get(url, params=params, timeout=30)
+        if resp.status_code != 200:
+            return set()
+        
+        data = resp.json()
+        bovada_games = set()
+        
+        for game in data:
+            away = game.get('away_team', '')
+            home = game.get('home_team', '')
+            bookmakers = game.get('bookmakers', [])
+            
+            # Only include if Bovada has spreads
+            bovada = next((b for b in bookmakers if b.get('key') == 'bovada'), None)
+            if bovada:
+                spreads = next((m for m in bovada.get('markets', []) if m.get('key') == 'spreads'), None)
+                if spreads:
+                    bovada_games.add((away.lower(), home.lower()))
+        
+        _bovada_games_cache[cache_key] = bovada_games
+        _bovada_games_cache_time = datetime.now()
+        logger.info(f"Fetched {len(bovada_games)} Bovada {league} games")
+        
+        return bovada_games
+        
+    except Exception as e:
+        logger.warning(f"Error fetching Bovada games: {e}")
+        return _bovada_games_cache.get(cache_key, set())
+
+
+def is_bovada_game(away_team: str, home_team: str, bovada_games: set) -> bool:
+    """Check if a game is available on Bovada using fuzzy matching."""
+    if not bovada_games:
+        return True  # If no Bovada data, show all games
+    
+    away_lower = away_team.lower()
+    home_lower = home_team.lower()
+    
+    # Exact match
+    if (away_lower, home_lower) in bovada_games:
+        return True
+    
+    # Fuzzy match - check if team names are contained in each other
+    for (bov_away, bov_home) in bovada_games:
+        away_match = (away_lower in bov_away or bov_away in away_lower or 
+                      any(w in bov_away for w in away_lower.split() if len(w) > 3))
+        home_match = (home_lower in bov_home or bov_home in home_lower or
+                      any(w in bov_home for w in home_lower.split() if len(w) > 3))
+        if away_match and home_match:
+            return True
+    
+    return False
+
+
 def fetch_odds_internal() -> dict:
     """Internal function to fetch odds from Bovada via The Odds API - PARALLEL + ATOMIC (TOTALS ONLY)."""
     start_time = time.time()
@@ -11777,6 +11875,11 @@ def spreads():
     covers_cbb_stats = get_covers_matchup_stats('CBB')
     covers_nhl_stats = get_covers_matchup_stats('NHL')
     
+    # Get Bovada games for filtering (only show games Bovada has lines for)
+    bovada_cbb_games = get_bovada_games('CBB')
+    bovada_nba_games = get_bovada_games('NBA')
+    bovada_nhl_games = get_bovada_games('NHL')
+    
     # Get ALL games for today without any totals filtering
     all_games = Game.query.filter_by(date=today).order_by(Game.game_time.asc()).all()
     
@@ -11790,6 +11893,14 @@ def spreads():
     }
     
     for g in all_games:
+        # Filter to only show games that Bovada has lines for
+        if g.league == 'CBB' and not is_bovada_game(g.away_team, g.home_team, bovada_cbb_games):
+            continue  # Skip CBB games not on Bovada
+        if g.league == 'NBA' and not is_bovada_game(g.away_team, g.home_team, bovada_nba_games):
+            continue  # Skip NBA games not on Bovada
+        if g.league == 'NHL' and not is_bovada_game(g.away_team, g.home_team, bovada_nhl_games):
+            continue  # Skip NHL games not on Bovada
+        
         if g.league in games_by_league:
             if g.league == 'NBA':
                 g.away_logo = nba_team_logos.get(g.away_team, 'https://a.espncdn.com/i/teamlogos/nba/500/nba.png')
