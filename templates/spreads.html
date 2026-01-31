@@ -2558,31 +2558,34 @@
                 {% set line_toward_home = away_is_favorite and line_moved_toward_underdog %}
                 {% set line_toward_away = home_is_favorite and line_moved_toward_underdog %}
                 
-                {# Tickets and Money sides #}
-                {% set tickets_on_away = (game.vsin_tickets_away or 0) > (game.vsin_tickets_home or 0) %}
-                {% set tickets_on_home = (game.vsin_tickets_home or 0) > (game.vsin_tickets_away or 0) %}
-                {% set money_on_away = (game.vsin_money_away or 0) > (game.vsin_money_home or 0) %}
-                {% set money_on_home = (game.vsin_money_home or 0) > (game.vsin_money_away or 0) %}
+                {# Money (handle %) - who has significant majority #}
+                {% set money_on_away = (game.vsin_money_away or 0) > 55 %}
+                {% set money_on_home = (game.vsin_money_home or 0) > 55 %}
                 
-                {# RLM = Line moved toward team + LESS tickets but MORE money on that team #}
+                {# RLM = FAVORITE has majority money BUT line moved TOWARD UNDERDOG #}
+                {# Sharp side is the UNDERDOG (team line moved toward) #}
                 {% set rlm_detected = false %}
-                {% if line_toward_home and not tickets_on_home and money_on_home %}
-                    {# Line moved toward home, less tickets on home, but more money on home = RLM #}
+                {% set rlm_sharp_side = none %}
+                {% if away_is_favorite and money_on_away and line_moved_toward_underdog %}
+                    {# Away is favorite with money, but line moved toward home (underdog) = RLM #}
                     {% set rlm_detected = true %}
-                {% elif line_toward_away and not tickets_on_away and money_on_away %}
-                    {# Line moved toward away, less tickets on away, but more money on away = RLM #}
+                    {% set rlm_sharp_side = 'home' %}
+                {% elif home_is_favorite and money_on_home and line_moved_toward_underdog %}
+                    {# Home is favorite with money, but line moved toward away (underdog) = RLM #}
                     {% set rlm_detected = true %}
+                    {% set rlm_sharp_side = 'away' %}
                 {% endif %}
                 
                 {# For display/highlighting purposes #}
                 {% set line_movement = open_spread_num - current_spread_num %}
-                {% set public_side = 'away' if tickets_on_away else 'home' %}
-                {% set money_side = 'away' if money_on_away else 'home' %}
+                {% set money_side = 'away' if (game.vsin_money_away or 0) > (game.vsin_money_home or 0) else 'home' %}
+                {% set favorite_side = 'away' if away_is_favorite else 'home' %}
                 {% else %}
                 {% set rlm_detected = false %}
+                {% set rlm_sharp_side = none %}
                 {% set line_movement = 0 %}
-                {% set public_side = 'home' %}
                 {% set money_side = 'home' %}
+                {% set favorite_side = 'home' %}
                 {% endif %}
                 
                 <div class="betting-action {% if rlm_detected %}rlm-alert{% elif has_sharp_money %}sharp-alert-box{% endif %}">
@@ -2620,12 +2623,12 @@
                             <div class="split-values">
                                 <div class="split-team">
                                     <div class="split-team-name">{{ game.away_team[:8] }}</div>
-                                    {# RLM: Highlight the side with LESS tickets (sharp side) #}
-                                    <div class="split-pct {% if (game.vsin_tickets_away or 0) > (game.vsin_tickets_home or 0) %}majority{% endif %} {% if rlm_detected and money_side == 'away' %}rlm-fade{% endif %}">{{ game.vsin_tickets_away }}%</div>
+                                    {# RLM: Highlight the UNDERDOG (sharp side) with golden glow #}
+                                    <div class="split-pct {% if (game.vsin_tickets_away or 0) > (game.vsin_tickets_home or 0) %}majority{% endif %} {% if rlm_detected and rlm_sharp_side == 'away' %}rlm-highlight{% endif %}">{{ game.vsin_tickets_away }}%</div>
                                 </div>
                                 <div class="split-team">
                                     <div class="split-team-name">{{ game.home_team[:8] }}</div>
-                                    <div class="split-pct {% if (game.vsin_tickets_home or 0) > (game.vsin_tickets_away or 0) %}majority{% endif %} {% if rlm_detected and money_side == 'home' %}rlm-fade{% endif %}">{{ game.vsin_tickets_home }}%</div>
+                                    <div class="split-pct {% if (game.vsin_tickets_home or 0) > (game.vsin_tickets_away or 0) %}majority{% endif %} {% if rlm_detected and rlm_sharp_side == 'home' %}rlm-highlight{% endif %}">{{ game.vsin_tickets_home }}%</div>
                                 </div>
                             </div>
                         </div>
@@ -2634,12 +2637,12 @@
                             <div class="split-values">
                                 <div class="split-team">
                                     <div class="split-team-name">{{ game.away_team[:8] }}</div>
-                                    {# RLM: Highlight the side with MORE money (sharp side) with golden glow #}
-                                    <div class="split-pct {% if (game.vsin_money_away or 0) > (game.vsin_money_home or 0) %}majority{% endif %} {% if rlm_detected and money_side == 'away' %}rlm-highlight{% elif away_sharp_diff >= 15 %}sharp{% endif %}">{{ game.vsin_money_away }}%</div>
+                                    {# RLM: Fade the FAVORITE money (majority money side) #}
+                                    <div class="split-pct {% if (game.vsin_money_away or 0) > (game.vsin_money_home or 0) %}majority{% endif %} {% if rlm_detected and rlm_sharp_side != 'away' %}rlm-fade{% elif away_sharp_diff >= 15 %}sharp{% endif %}">{{ game.vsin_money_away }}%</div>
                                 </div>
                                 <div class="split-team">
                                     <div class="split-team-name">{{ game.home_team[:8] }}</div>
-                                    <div class="split-pct {% if (game.vsin_money_home or 0) > (game.vsin_money_away or 0) %}majority{% endif %} {% if rlm_detected and money_side == 'home' %}rlm-highlight{% elif home_sharp_diff >= 15 %}sharp{% endif %}">{{ game.vsin_money_home }}%</div>
+                                    <div class="split-pct {% if (game.vsin_money_home or 0) > (game.vsin_money_away or 0) %}majority{% endif %} {% if rlm_detected and rlm_sharp_side != 'home' %}rlm-fade{% elif home_sharp_diff >= 15 %}sharp{% endif %}">{{ game.vsin_money_home }}%</div>
                                 </div>
                             </div>
                         </div>
@@ -2648,7 +2651,7 @@
                     {% if rlm_detected %}
                     <div class="sharp-alert" style="background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(139, 92, 246, 0.2)); border: 1px solid rgba(255, 215, 0, 0.4);">
                         <i class="bi bi-shuffle" style="color: #ffd700;"></i>
-                        <span style="color: #ffd700; font-weight: 700;">RLM ALERT:</span> Line moved AGAINST {{ game.away_team if public_side == 'away' else game.home_team }} despite {{ game.vsin_tickets_away if public_side == 'away' else game.vsin_tickets_home }}% tickets
+                        <span style="color: #ffd700; font-weight: 700;">RLM:</span> Sharp money on {{ game.away_team if rlm_sharp_side == 'away' else game.home_team }} (line moved toward dog despite {{ game.vsin_money_away if favorite_side == 'away' else game.vsin_money_home }}% handle on favorite)
                     </div>
                     {% elif has_sharp_money %}
                     <div class="sharp-alert">
