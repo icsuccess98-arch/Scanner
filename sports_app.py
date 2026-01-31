@@ -226,10 +226,60 @@ class QualificationStatus(Enum):
     VALIDATION_FAILED = "VALIDATION_FAILED"       # Data validation failed
     NOT_QUALIFIED = "NOT_QUALIFIED"               # Didn't meet basic criteria
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+# ============================================================
+# LOGGING CONFIGURATION
+# ============================================================
+import json as _json_module
+
+class JSONFormatter(logging.Formatter):
+    """Structured JSON log formatter for production monitoring."""
+
+    def format(self, record):
+        log_entry = {
+            'timestamp': datetime.utcnow().isoformat() + 'Z',
+            'level': record.levelname,
+            'logger': record.name,
+            'message': record.getMessage(),
+            'module': record.module,
+            'function': record.funcName,
+            'line': record.lineno,
+        }
+
+        # Add request context if available
+        try:
+            from flask import g, has_request_context
+            if has_request_context() and hasattr(g, 'request_id'):
+                log_entry['request_id'] = g.request_id
+        except (RuntimeError, ImportError):
+            pass
+
+        # Add exception info if present
+        if record.exc_info:
+            log_entry['exception'] = self.formatException(record.exc_info)
+
+        return _json_module.dumps(log_entry)
+
+
+def setup_logging():
+    """Configure logging with optional JSON format based on LOG_FORMAT env var."""
+    log_format = os.environ.get('LOG_FORMAT', 'text').lower()
+    log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
+
+    handler = logging.StreamHandler()
+
+    if log_format == 'json':
+        handler.setFormatter(JSONFormatter())
+    else:
+        handler.setFormatter(logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        ))
+
+    logging.root.handlers = [handler]
+    logging.root.setLevel(getattr(logging, log_level, logging.INFO))
+
+
+# Initialize logging
+setup_logging()
 logger = logging.getLogger(__name__)
 
 # ============================================================
@@ -8118,46 +8168,78 @@ def dashboard_redirect():
     """Redirect /dashboard to main page."""
     return redirect(url_for('dashboard'))
 
-@app.route('/health')
-def health():
-    """Comprehensive health check for monitoring."""
+@app.route('/health/detailed')
+def health_detailed():
+    """
+    Comprehensive health check for monitoring.
+
+    Checks database connectivity, cache functionality, and game counts.
+    Returns 200 if healthy, 503 if unhealthy.
+    """
+    import time as _time
     health_status = {
         "status": "healthy",
-        "timestamp": datetime.utcnow().isoformat(),
+        "version": APP_VERSION,
+        "timestamp": datetime.utcnow().isoformat() + 'Z',
         "checks": {}
     }
-    
+
+    # Database check with latency
     try:
+        db_start = _time.time()
         db.session.execute(db.text('SELECT 1'))
-        health_status["checks"]["database"] = "ok"
+        db_latency = (_time.time() - db_start) * 1000
+        health_status["checks"]["database"] = {
+            "status": "healthy",
+            "latency_ms": round(db_latency, 2)
+        }
     except Exception as e:
-        health_status["checks"]["database"] = f"error: {str(e)}"
+        health_status["checks"]["database"] = {
+            "status": "unhealthy",
+            "error": str(e)
+        }
         health_status["status"] = "unhealthy"
-    
+
+    # Cache check
     try:
         test_key = "_health_check_"
         espn_schedule_cache[test_key] = "test"
-        if espn_schedule_cache.get(test_key) == "test":
-            health_status["checks"]["cache"] = "ok"
+        cache_working = espn_schedule_cache.get(test_key) == "test"
+        if cache_working:
+            health_status["checks"]["cache"] = {
+                "status": "healthy",
+                "entries": len(espn_schedule_cache) if hasattr(espn_schedule_cache, '__len__') else 'unknown'
+            }
         else:
-            health_status["checks"]["cache"] = "error: cache not working"
+            health_status["checks"]["cache"] = {
+                "status": "degraded",
+                "error": "cache write/read failed"
+            }
             health_status["status"] = "degraded"
     except Exception as e:
-        health_status["checks"]["cache"] = f"error: {str(e)}"
+        health_status["checks"]["cache"] = {
+            "status": "degraded",
+            "error": str(e)
+        }
         health_status["status"] = "degraded"
-    
+
+    # Game counts
     try:
         et = pytz.timezone('America/New_York')
         today = datetime.now(et).date()
         game_count = Game.query.filter_by(date=today).count()
         qualified_count = Game.query.filter_by(date=today, is_qualified=True).count()
         health_status["checks"]["games"] = {
-            "total": game_count,
-            "qualified": qualified_count
+            "status": "healthy",
+            "total_today": game_count,
+            "qualified_today": qualified_count
         }
     except Exception as e:
-        health_status["checks"]["games"] = f"error: {str(e)}"
-    
+        health_status["checks"]["games"] = {
+            "status": "unknown",
+            "error": str(e)
+        }
+
     status_code = 200 if health_status["status"] == "healthy" else 503
     return jsonify(health_status), status_code
 
