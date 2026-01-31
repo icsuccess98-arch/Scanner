@@ -12729,28 +12729,127 @@ def spreads():
     cbb_home_teams_list.sort(key=lambda x: x[0])
     cbb_remaining_display = ', '.join([f'#{rank} {team}' for rank, team in cbb_home_teams_list]) if cbb_home_teams_list else 'No qualified teams'
     
-    # Helper function to detect if a game is live
-    def is_game_live(game) -> bool:
-        """Check if game is currently in progress."""
-        if not game.game_time:
+    # Fetch live scores from ESPN to detect games in progress
+    live_game_keys = set()
+    live_game_data = {}
+    try:
+        today_str = today.strftime("%Y%m%d")
+        # Fetch NBA live scores
+        nba_url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={today_str}"
+        resp = requests.get(nba_url, timeout=5)
+        for event in resp.json().get("events", []):
+            state = event.get("status", {}).get("type", {}).get("state", "")
+            if state == "in":  # Currently in progress
+                comps = event.get("competitions", [{}])[0]
+                teams = comps.get("competitors", [])
+                if len(teams) == 2:
+                    away = next((t for t in teams if t.get("homeAway") == "away"), None)
+                    home = next((t for t in teams if t.get("homeAway") == "home"), None)
+                    if away and home:
+                        away_name = away.get("team", {}).get("shortDisplayName", "")
+                        home_name = home.get("team", {}).get("shortDisplayName", "")
+                        key = f"{away_name}@{home_name}"
+                        live_game_keys.add(key)
+                        status = event.get("status", {})
+                        live_game_data[key] = {
+                            "away_score": int(away.get("score", 0)),
+                            "home_score": int(home.get("score", 0)),
+                            "period": f"Q{status.get('period', 1)}",
+                            "clock": status.get("displayClock", "")
+                        }
+        # Fetch CBB live scores
+        cbb_url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates={today_str}&limit=200&groups=50"
+        resp = requests.get(cbb_url, timeout=10)
+        for event in resp.json().get("events", []):
+            state = event.get("status", {}).get("type", {}).get("state", "")
+            if state == "in":  # Currently in progress
+                comps = event.get("competitions", [{}])[0]
+                teams = comps.get("competitors", [])
+                if len(teams) == 2:
+                    away = next((t for t in teams if t.get("homeAway") == "away"), None)
+                    home = next((t for t in teams if t.get("homeAway") == "home"), None)
+                    if away and home:
+                        away_name = away.get("team", {}).get("shortDisplayName", "")
+                        home_name = home.get("team", {}).get("shortDisplayName", "")
+                        key = f"{away_name}@{home_name}"
+                        live_game_keys.add(key)
+                        status = event.get("status", {})
+                        live_game_data[key] = {
+                            "away_score": int(away.get("score", 0)),
+                            "home_score": int(home.get("score", 0)),
+                            "period": f"H{status.get('period', 1)}",
+                            "clock": status.get("displayClock", "")
+                        }
+        # Fetch NHL live scores
+        nhl_url = f"https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard?dates={today_str}"
+        resp = requests.get(nhl_url, timeout=5)
+        for event in resp.json().get("events", []):
+            state = event.get("status", {}).get("type", {}).get("state", "")
+            if state == "in":
+                comps = event.get("competitions", [{}])[0]
+                teams = comps.get("competitors", [])
+                if len(teams) == 2:
+                    away = next((t for t in teams if t.get("homeAway") == "away"), None)
+                    home = next((t for t in teams if t.get("homeAway") == "home"), None)
+                    if away and home:
+                        away_name = away.get("team", {}).get("shortDisplayName", "")
+                        home_name = home.get("team", {}).get("shortDisplayName", "")
+                        key = f"{away_name}@{home_name}"
+                        live_game_keys.add(key)
+                        status = event.get("status", {})
+                        live_game_data[key] = {
+                            "away_score": int(away.get("score", 0)),
+                            "home_score": int(home.get("score", 0)),
+                            "period": f"P{status.get('period', 1)}",
+                            "clock": status.get("displayClock", "")
+                        }
+        logging.info(f"Live games detected: {len(live_game_keys)} games in progress")
+        if live_game_keys:
+            logging.info(f"Live game keys from ESPN: {list(live_game_keys)[:5]}")
+    except Exception as e:
+        logging.warning(f"Error fetching live scores for spreads: {e}")
+    
+    # Helper for fuzzy team name matching
+    def teams_match_fuzzy(name1: str, name2: str) -> bool:
+        if not name1 or not name2:
             return False
-        time_str = str(game.game_time).lower()
-        # Check for live indicators
-        live_indicators = ['1st', '2nd', '3rd', '4th', 'ot', 'half', 'halftime', 
-                          '1q', '2q', '3q', '4q', 'period', 'quarter', 'live',
-                          'in progress', 'inprogress', 'playing']
-        for indicator in live_indicators:
-            if indicator in time_str:
-                return True
-        # Check for score format like "75-68" which indicates live
-        if re.search(r'\d+-\d+', time_str):
+        n1 = name1.lower().strip()
+        n2 = name2.lower().strip()
+        if n1 == n2:
+            return True
+        # Check if one contains the other
+        if n1 in n2 or n2 in n1:
+            return True
+        # Check core tokens
+        tokens1 = {t for t in n1.replace('.', '').split() if len(t) > 2}
+        tokens2 = {t for t in n2.replace('.', '').split() if len(t) > 2}
+        if tokens1 & tokens2:
             return True
         return False
     
     # Mark games as live and sort: live games first, then by game time
+    matched_live_count = 0
     for league in games_by_league:
         for g in games_by_league[league]:
-            g.is_live = is_game_live(g)
+            key = f"{g.away_team}@{g.home_team}"
+            g.is_live = key in live_game_keys
+            # If not exact match, try fuzzy match
+            if not g.is_live:
+                for live_key in live_game_keys:
+                    if '@' in live_key:
+                        live_away, live_home = live_key.split('@', 1)
+                        if teams_match_fuzzy(g.away_team, live_away) and teams_match_fuzzy(g.home_team, live_home):
+                            g.is_live = True
+                            key = live_key
+                            matched_live_count += 1
+                            logging.info(f"Live game matched: {g.away_team} vs {g.home_team} -> {live_key}")
+                            break
+            if g.is_live and key in live_game_data:
+                ld = live_game_data[key]
+                g.live_away_score = ld.get("away_score", 0)
+                g.live_home_score = ld.get("home_score", 0)
+                g.live_period = ld.get("period", "")
+                g.live_clock = ld.get("clock", "")
         # Sort: live games first, then by game time
         games_by_league[league] = sorted(
             games_by_league[league],
