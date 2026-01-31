@@ -12017,31 +12017,113 @@ def spreads():
     logging.info(f"VSIN data loaded: NBA={len(vsin_nba_data)}, CBB={len(vsin_cbb_data)}, NHL={len(vsin_nhl_data)} games")
     
     # Helper function to match VSIN data to a game
+    # Team name aliases for VSIN matching
+    VSIN_TEAM_ALIASES = {
+        # CBB abbreviations
+        'uconn': 'connecticut', 'ole miss': 'mississippi', 'lsu': 'louisiana state',
+        'pitt': 'pittsburgh', 'umass': 'massachusetts', 'unlv': 'nevada las vegas',
+        'usc': 'southern california', 'ucf': 'central florida', 'smu': 'southern methodist',
+        'tcu': 'texas christian', 'byu': 'brigham young', 'vcu': 'virginia commonwealth',
+        'mtsu': 'middle tennessee', 'utep': 'texas el paso', 'utsa': 'texas san antonio',
+        'fiu': 'florida international', 'fau': 'florida atlantic', 'fgcu': 'florida gulf coast',
+        'gcu': 'grand canyon', 'lmu': 'loyola marymount', 'siu': 'southern illinois',
+        'niu': 'northern illinois', 'wku': 'western kentucky', 'wmu': 'western michigan',
+        'emu': 'eastern michigan', 'cmu': 'central michigan', 'bgsu': 'bowling green',
+        'siue': 'siu edwardsville', 'uic': 'illinois chicago', 'iupui': 'iupui',
+        'purdue fw': 'purdue fort wayne', 'pfw': 'purdue fort wayne',
+        'c connecticut': 'central connecticut', 'g washington': 'george washington',
+        's illinois': 'southern illinois', 'n illinois': 'northern illinois',
+        'e michigan': 'eastern michigan', 'w kentucky': 'western kentucky',
+        'western ky': 'western kentucky', 'e washington': 'eastern washington',
+        'n colorado': 'northern colorado', 'so indiana': 'southern indiana',
+        'abil christian': 'abilene christian', 'abilene chrstn': 'abilene christian',
+        'ga southern': 'georgia southern', 'miami oh': 'miami ohio', 'miami ohio': 'miami oh',
+        'nc a&t': 'north carolina at', 'nc central': 'north carolina central',
+        'sc state': 'south carolina state', 'jax state': 'jacksonville state',
+        "hawai'i": 'hawaii', 'hawaii': 'hawaii', "n'western st": 'northwestern state',
+        'sam houston': 'sam houston state', 'ut rio grande': 'texas rio grande valley',
+        'hou christian': 'houston christian', 'texas a&m-cc': 'texas am corpus christi',
+        'incarnate word': 'incarnate word', 'tarleton st': 'tarleton state',
+        'utah tech': 'utah tech', 'app state': 'appalachian state',
+        'fdu': 'fairleigh dickinson', 'le moyne': 'le moyne', 'stonehill': 'stonehill',
+        'long island': 'long island', 'ualbany': 'albany', 'umbc': 'maryland baltimore county',
+        'boston u': 'boston university', 'washington st': 'washington state',
+        'sacramento st': 'sacramento state', 'missouri st': 'missouri state',
+        'indiana st': 'indiana state', 'boston college': 'boston college',
+        # NBA
+        '76ers': 'philadelphia 76ers', 'sixers': 'philadelphia 76ers',
+        # NHL
+        'mammoth': 'utah hockey club', 'maple leafs': 'toronto maple leafs',
+    }
+    
     def match_vsin_data(game_away: str, game_home: str, league: str) -> dict:
-        """Find matching VSIN data for a game."""
+        """Find matching VSIN data for a game using improved fuzzy matching."""
         vsin_data = vsin_all_data.get(league, {})
         if not vsin_data:
             return {}
         
-        def normalize_tokens(name: str) -> set:
+        def normalize_team(name: str) -> str:
+            """Normalize team name for matching."""
             if not name:
-                return set()
+                return ''
             n = name.lower().strip()
-            for suffix in [' state', ' st', ' st.', ' university', ' univ']:
-                n = n.replace(suffix, ' ')
-            return {t for t in n.split() if len(t) > 2}
+            # Remove HTML entities
+            n = n.replace('&amp;', '&').replace('&#39;', "'")
+            # Check our aliases first
+            if n in VSIN_TEAM_ALIASES:
+                n = VSIN_TEAM_ALIASES[n]
+            # Use CBB aliases if available
+            if league == 'CBB' and n in CBB_TEAM_NAME_ALIASES:
+                n = CBB_TEAM_NAME_ALIASES[n].lower()
+            # Common replacements
+            replacements = [
+                ('st.', 'state'), (' st ', ' state '), (' st$', ' state'),
+                ('univ.', ''), ('university', ''), (' u ', ' '),
+                ("'", ''), ('-', ' '), ('  ', ' ')
+            ]
+            for old, new in replacements:
+                n = n.replace(old, new)
+            return n.strip()
+        
+        def normalize_tokens(name: str) -> set:
+            n = normalize_team(name)
+            return {t for t in n.split() if len(t) >= 2}
         
         def teams_match(vsin_team: str, game_team: str) -> bool:
             if not vsin_team or not game_team:
                 return False
-            if vsin_team.lower() == game_team.lower():
+            vsin_lower = vsin_team.lower().strip()
+            game_lower = game_team.lower().strip()
+            # Exact match (case-insensitive)
+            if vsin_lower == game_lower:
                 return True
-            vsin_tokens = normalize_tokens(vsin_team)
-            game_tokens = normalize_tokens(game_team)
-            if vsin_tokens & game_tokens:
+            # Normalized match
+            vsin_norm = normalize_team(vsin_team)
+            game_norm = normalize_team(game_team)
+            if vsin_norm == game_norm:
                 return True
-            if vsin_team.lower() in game_team.lower() or game_team.lower() in vsin_team.lower():
+            # Token overlap (any shared word with length >= 3)
+            vsin_tokens = {t for t in normalize_tokens(vsin_team) if len(t) >= 3}
+            game_tokens = {t for t in normalize_tokens(game_team) if len(t) >= 3}
+            if vsin_tokens and game_tokens and vsin_tokens & game_tokens:
                 return True
+            # Substring match (with shorter minimum)
+            if len(vsin_norm) >= 3 and len(game_norm) >= 3:
+                if vsin_norm in game_norm or game_norm in vsin_norm:
+                    return True
+            # First word match (handles partial names)
+            vsin_words = vsin_norm.split()
+            game_words = game_norm.split()
+            if vsin_words and game_words:
+                # Match first 4+ char word
+                vsin_first = next((w for w in vsin_words if len(w) >= 4), '')
+                game_first = next((w for w in game_words if len(w) >= 4), '')
+                if vsin_first and game_first and vsin_first == game_first:
+                    return True
+                # Also try last word match for multi-word names
+                if len(vsin_words) > 1 and len(game_words) > 1:
+                    if vsin_words[-1] == game_words[-1] and len(vsin_words[-1]) >= 4:
+                        return True
             return False
         
         for key, data in vsin_data.items():
@@ -12388,6 +12470,7 @@ def spreads():
                 g.vsin_open_odds = '-110'
                 g.vsin_current_odds = '-110'
                 g.vsin_has_data = False
+                logger.warning(f"No VSIN match for {g.league}: {g.away_team} @ {g.home_team}")
             
             games_by_league[g.league].append(g)
     
