@@ -13090,11 +13090,18 @@ def spreads():
                 g.live_home_score = ld.get("home_score", 0)
                 g.live_period = ld.get("period", "")
                 g.live_clock = ld.get("clock", "")
-        # Sort: live games first, then by game time
-        games_by_league[league] = sorted(
-            games_by_league[league],
-            key=lambda x: (0 if x.is_live else 1, x.game_time or '')
-        )
+        # Sort: live games first, then upcoming by game time, then final games last
+        def game_sort_key(g):
+            is_final = getattr(g, 'is_final', False) or (getattr(g, 'live_period', '') or '').lower() in ('final', 'f')
+            is_live = getattr(g, 'is_live', False) and not is_final
+            # 0 = live, 1 = upcoming, 2 = final
+            if is_live:
+                return (0, g.game_time or '')
+            elif is_final:
+                return (2, g.game_time or '')
+            else:
+                return (1, g.game_time or '')
+        games_by_league[league] = sorted(games_by_league[league], key=game_sort_key)
     
     # Reorder games_by_league to prioritize CBB
     ordered_games_by_league = {
@@ -13105,12 +13112,21 @@ def spreads():
         'NHL': games_by_league.get('NHL', [])
     }
     
-    # Reorder all_games to show CBB first, with live games at top of each league
+    # Reorder all_games to show CBB first, with live games at top and final games at bottom
     cbb_games = [g for g in basketball_games if g.league == 'CBB']
     other_games = [g for g in basketball_games if g.league != 'CBB']
-    # Sort each group: live first
-    cbb_games = sorted(cbb_games, key=lambda x: (0 if getattr(x, 'is_live', False) else 1, x.game_time or ''))
-    other_games = sorted(other_games, key=lambda x: (0 if getattr(x, 'is_live', False) else 1, x.game_time or ''))
+    # Sort each group: live first, upcoming middle, final last
+    def all_games_sort_key(g):
+        is_final = getattr(g, 'is_final', False) or (getattr(g, 'live_period', '') or '').lower() in ('final', 'f')
+        is_live = getattr(g, 'is_live', False) and not is_final
+        if is_live:
+            return (0, g.game_time or '')
+        elif is_final:
+            return (2, g.game_time or '')
+        else:
+            return (1, g.game_time or '')
+    cbb_games = sorted(cbb_games, key=all_games_sort_key)
+    other_games = sorted(other_games, key=all_games_sort_key)
     cbb_first_games = cbb_games + other_games
     
     return render_template('spreads.html', 
