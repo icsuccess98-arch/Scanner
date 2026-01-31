@@ -8754,15 +8754,13 @@ def fetch_kenpom_misc() -> dict:
     if kenpom_cache_date == today and kenpom_misc_cache:
         return kenpom_misc_cache
 
-    # Try different endpoint names for Miscellaneous Stats
-    for endpoint in ['miscstats', 'miscellaneous', 'misc-stats', 'teamstats', 'misc']:
-        data = fetch_kenpom_api(endpoint)
-        if data:
-            logger.info(f"KenPom Misc loaded via endpoint: {endpoint}")
-            break
+    # Use correct endpoint name from KenPom API docs: misc-stats
+    data = fetch_kenpom_api('misc-stats')
     if not data:
-        logger.warning("KenPom Misc Stats endpoint not found - tried all variations")
+        logger.warning("KenPom misc-stats endpoint failed")
         return kenpom_misc_cache
+    
+    logger.info(f"KenPom Misc Stats loaded: {len(data)} teams")
 
     cache = {}
     for team in data:
@@ -8770,34 +8768,38 @@ def fetch_kenpom_misc() -> dict:
             team_name = team.get('TeamName', '').lower()
             if team_name:
                 cache[team_name] = {
-                    # Offensive misc stats
-                    'o_3pt_pct': team.get('Off3Pct', 0),       # 3PT shooting %
-                    'o_3pt_rank': team.get('RankOff3Pct', 0),
-                    'o_2pt_pct': team.get('Off2Pct', 0),       # 2PT shooting %
-                    'o_2pt_rank': team.get('RankOff2Pct', 0),
-                    'o_ft_pct': team.get('OffFTPct', 0),       # FT shooting %
-                    'o_ft_rank': team.get('RankOffFTPct', 0),
-                    'o_blk_pct': team.get('OffBlkPct', 0),     # Block % against
-                    'o_stl_pct': team.get('OffStlPct', 0),     # Steal % against
-                    'o_ast_rate': team.get('AstRate', 0),      # Assist rate
-                    'o_ast_rank': team.get('RankAstRate', 0),
-                    'o_3pt_rate': team.get('Off3PRate', 0),    # 3PT attempt rate
-                    'o_3pt_rate_rank': team.get('RankOff3PRate', 0),
+                    # Offensive misc stats (field names from KenPom API docs)
+                    'o_3pt_pct': team.get('FG3Pct', 0),        # 3PT shooting %
+                    'o_3pt_rank': team.get('RankFG3Pct', 0),
+                    'o_2pt_pct': team.get('FG2Pct', 0),        # 2PT shooting %
+                    'o_2pt_rank': team.get('RankFG2Pct', 0),
+                    'o_ft_pct': team.get('FTPct', 0),          # FT shooting %
+                    'o_ft_rank': team.get('RankFTPct', 0),
+                    'o_blk_pct': team.get('BlockPct', 0),      # Block % against
+                    'o_blk_rank': team.get('RankBlockPct', 0),
+                    'o_stl_rate': team.get('StlRate', 0),      # Steal rate against
+                    'o_stl_rank': team.get('RankStlRate', 0),
+                    'o_ast_rate': team.get('ARate', 0),        # Assist rate
+                    'o_ast_rank': team.get('RankARate', 0),
+                    'o_nst_rate': team.get('NSTRate', 0),      # Non-steal TO rate
+                    'o_nst_rank': team.get('RankNSTRate', 0),
+                    'o_3pt_rate': team.get('FG3ARate', 0),     # 3PT attempt rate
+                    'o_3pt_rate_rank': team.get('RankFG3ARate', 0),
                     # Defensive misc stats
-                    'd_3pt_pct': team.get('Def3Pct', 0),       # Opponent 3PT%
-                    'd_3pt_rank': team.get('RankDef3Pct', 0),
-                    'd_2pt_pct': team.get('Def2Pct', 0),       # Opponent 2PT%
-                    'd_2pt_rank': team.get('RankDef2Pct', 0),
-                    'd_ft_pct': team.get('DefFTPct', 0),       # Opponent FT%
-                    'd_blk_pct': team.get('BlkPct', 0),        # Block %
-                    'd_blk_rank': team.get('RankBlkPct', 0),
-                    'd_stl_pct': team.get('StlPct', 0),        # Steal %
-                    'd_stl_rank': team.get('RankStlPct', 0),
-                    'd_3pt_rate': team.get('Def3PRate', 0),    # Opponent 3PT attempt rate
-                    'd_3pt_rate_rank': team.get('RankDef3PRate', 0),
-                    # Other
-                    'non_stl_to': team.get('NonStlTO', 0),     # Non-steal TO%
-                    'adj_tempo': team.get('AdjTempo', 0),       # Adjusted tempo
+                    'd_3pt_pct': team.get('DFG3Pct', 0),       # Opponent 3PT%
+                    'd_3pt_rank': team.get('RankDFG3Pct', 0),
+                    'd_2pt_pct': team.get('DFG2Pct', 0),       # Opponent 2PT%
+                    'd_2pt_rank': team.get('RankDFG2Pct', 0),
+                    'd_ft_pct': team.get('DFTPct', 0),         # Opponent FT%
+                    'd_ft_rank': team.get('RankDFTPct', 0),
+                    'd_blk_pct': team.get('DBlockPct', 0),     # Block %
+                    'd_blk_rank': team.get('RankDBlockPct', 0),
+                    'd_stl_rate': team.get('DStlRate', 0),     # Steal rate
+                    'd_stl_rank': team.get('RankDStlRate', 0),
+                    'd_nst_rate': team.get('DNSTRate', 0),     # Opp non-steal TO rate
+                    'd_nst_rank': team.get('RankDNSTRate', 0),
+                    'd_3pt_rate': team.get('DFG3ARate', 0),    # Opponent 3PT attempt rate
+                    'd_3pt_rate_rank': team.get('RankDFG3ARate', 0),
                 }
         except Exception:
             continue
