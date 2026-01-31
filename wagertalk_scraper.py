@@ -15,9 +15,6 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-# Import centralized utilities
-from utils import validate_percentage, validate_spread, validate_total
-
 _wagertalk_cache = {}
 _wagertalk_cache_time = {}
 CACHE_TTL = 60  # 1 minute for faster updates
@@ -326,8 +323,8 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                                         # Track which team is favorite based on which row has the spread
                                         # line_idx 0 = away team row, line_idx 1 = home team row
                                         favorite_is_away = (line_idx == 0)
-                                except (ValueError, AttributeError, TypeError) as e:
-                                    logger.debug(f"WagerTalk parse error: {e}")
+                                except:
+                                    pass
                                 continue
                             # Total with fraction: "225½"
                             total_m = re.match(r'^(\d{3})½', line)
@@ -336,8 +333,8 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                                     val = float(total_m.group(1)) + 0.5
                                     if 150 < val < 300:
                                         open_total = val
-                                except (ValueError, AttributeError, TypeError) as e:
-                                    logger.debug(f"WagerTalk parse error: {e}")
+                                except:
+                                    pass
                                 continue
                             # Plain total: "225"
                             plain_m = re.match(r'^(\d{3})$', line)
@@ -346,8 +343,8 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                                     val = float(plain_m.group(1))
                                     if 150 < val < 300:
                                         open_total = val
-                                except (ValueError, AttributeError, TypeError) as e:
-                                    logger.debug(f"WagerTalk parse error: {e}")
+                                except:
+                                    pass
                     
                     # Parse CURRENT/DraftKings column (index 8) - current/closing spread and total
                     # Same format: first line = away, second line = home
@@ -372,8 +369,8 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                                         # If we didn't find open spread, use current to determine favorite
                                         if favorite_is_away is None:
                                             favorite_is_away = current_fav_is_away
-                                except (ValueError, AttributeError, TypeError) as e:
-                                    logger.debug(f"WagerTalk parse error: {e}")
+                                except:
+                                    pass
                                 continue
                             # Total with fraction: "225½o-15"
                             total_m = re.match(r'^(\d{3})½', line)
@@ -382,8 +379,8 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                                     val = float(total_m.group(1)) + 0.5
                                     if 150 < val < 300:
                                         current_total = val
-                                except (ValueError, AttributeError, TypeError) as e:
-                                    logger.debug(f"WagerTalk parse error: {e}")
+                                except:
+                                    pass
                                 continue
                             # Plain total: "225"
                             plain_m = re.match(r'^(\d{3})$', line)
@@ -392,8 +389,8 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                                     val = float(plain_m.group(1))
                                     if 150 < val < 300:
                                         current_total = val
-                                except (ValueError, AttributeError, TypeError) as e:
-                                    logger.debug(f"WagerTalk parse error: {e}")
+                                except:
+                                    pass
                     
                     # Assign spread percentages
                     if tickets_percentages:
@@ -434,8 +431,8 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                                         spread_val = float(spread_odds_match.group(1))
                                         if abs(spread_val) < 50:
                                             lines_found.append(('spread', spread_val))
-                                    except (ValueError, AttributeError, TypeError) as e:
-                                        logger.debug(f"WagerTalk line parse error: {e}")
+                                    except:
+                                        pass
                                     continue
                                 
                                 # Match total with fraction: "225½" or "227½u-15"
@@ -445,8 +442,8 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                                         total_val = float(total_frac_match.group(1)) + 0.5
                                         if 150 < total_val < 300:
                                             lines_found.append(('total', total_val))
-                                    except (ValueError, AttributeError, TypeError) as e:
-                                        logger.debug(f"WagerTalk line parse error: {e}")
+                                    except:
+                                        pass
                                     continue
                                 
                                 # Match plain total: "225" 
@@ -456,8 +453,8 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
                                         total_val = float(total_plain_match.group(1))
                                         if 150 < total_val < 300:
                                             lines_found.append(('total', total_val))
-                                    except (ValueError, AttributeError, TypeError) as e:
-                                        logger.debug(f"WagerTalk line parse error: {e}")
+                                    except:
+                                        pass
                     
                     # Find teams from full row text if not found
                     lines = row_text.split('\n')
@@ -531,8 +528,8 @@ async def _fetch_wagertalk_async(league: str = 'NBA') -> Dict[str, Dict]:
         if browser:
             try:
                 await browser.close()
-            except Exception as close_err:
-                logger.debug(f"Browser close error (ignored): {close_err}")
+            except:
+                pass
     
     return result
 

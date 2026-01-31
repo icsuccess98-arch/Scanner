@@ -65,21 +65,10 @@ The Sports Scanner fetches game data, stats, and odds for NBA, CBB, NFL, CFB, an
     -   The Odds API (alternate lines)
     -   NBA API (nba_api package)
     -   Bart Torvik (CBB advanced analytics)
-    -   TeamRankings.com (stat ranking pages - NOT matchup pages which changed format Jan 2026)
+    -   TeamRankings.com (matchup pages)
     -   Cleaning the Glass (CTG) (NBA advanced stats)
     -   WagerTalk.com (betting action: Bet %, Money %)
     -   Covers.com (H2H, ATS records)
-
-### TeamRankings Stats Architecture (Jan 2026)
-TeamRankings matchup pages changed to "Hotness Score" format and no longer provide detailed stats. The system now uses `TeamRankingsGlobalStats` class to fetch from 20 stat ranking pages:
-- O Eff/D Eff (offensive/defensive efficiency)
-- PPP/Opp PPP (points per possession)
-- eFG%/Opp eFG% (effective field goal %)
-- ORB%/DRB% (rebound percentages)
-- TOV%/Opp TOV% (turnover percentages)
-- 3PT%/Opp 3PT%, FTA/FGA, Assists, Power Rank, SOS, etc.
-
-Stats are cached globally with 60-minute TTL, fetched in parallel (6 workers), and provide instant lookups by team name. Each stat includes both value and rank (e.g., 'O Eff': 1.12, 'O Eff Rank': 5).
 
 ### Pre-Game Stats Persistence (Jan 2026)
 When Covers.com data is available for a game (before it starts), all stats are captured and saved to the database:

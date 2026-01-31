@@ -277,8 +277,7 @@ def fetch_team_data_parallel(team: str, league: str = 'NBA') -> Dict[str, Any]:
             key = futures[future]
             try:
                 results[key] = future.result(timeout=5)
-            except (FutureTimeoutError, Exception) as e:
-                logger.debug(f"Team data fetch error for {key}: {e}")
+            except:
                 results[key] = {}
     
     results['fetch_time'] = time.time() - start_time

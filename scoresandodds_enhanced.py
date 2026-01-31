@@ -54,7 +54,7 @@ class ScoresAndOddsEnhancedScraper:
             )
             path = result.stdout.strip()
             return path if path else None
-        except (subprocess.SubprocessError, OSError, FileNotFoundError):
+        except:
             return None
     
     def _is_cache_valid(self, key: str) -> bool:
@@ -256,7 +256,7 @@ class ScoresAndOddsEnhancedScraper:
                     spread = float(match.group(1))
                     if -30 <= spread <= 30:  # Valid spread range
                         spreads.append(spread)
-                except (ValueError, AttributeError):
+                except:
                     continue
         
         if len(spreads) >= 2:
@@ -277,7 +277,7 @@ class ScoresAndOddsEnhancedScraper:
                         total = float(match.group(1))
                         if 150 <= total <= 300:  # Valid total range
                             totals.append(total)
-                    except (ValueError, AttributeError):
+                    except:
                         continue
         
         if len(totals) >= 2:
@@ -297,7 +297,7 @@ class ScoresAndOddsEnhancedScraper:
                     pct = int(match)
                     if 0 <= pct <= 100:
                         percentages.append(pct)
-                except (ValueError, TypeError):
+                except:
                     continue
         
         # ScoresAndOdds typically shows percentages in this order:

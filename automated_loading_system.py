@@ -20,12 +20,9 @@ Elimination Process:
 
 import logging
 import time
-import threading
-import atexit
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
-from cachetools import TTLCache
+from concurrent.futures import ThreadPoolExecutor
 import pytz
 from flask import Flask, jsonify
 from sqlalchemy import and_, or_
@@ -34,24 +31,6 @@ from bs4 import BeautifulSoup
 import re
 
 logger = logging.getLogger(__name__)
-
-# Thread-safe lock for shared state
-_state_lock = threading.RLock()
-
-# Registry of active background threads for cleanup
-_active_threads: List[threading.Thread] = []
-
-def _cleanup_threads():
-    """Cleanup handler for graceful shutdown."""
-    logger.info("Shutting down automated loading system...")
-    for thread in _active_threads:
-        if thread.is_alive():
-            logger.info(f"Waiting for thread {thread.name} to complete...")
-            thread.join(timeout=5)
-    logger.info("Automated loading system shutdown complete")
-
-# Register cleanup handler
-atexit.register(_cleanup_threads)
 
 
 # ============================================================
@@ -1018,70 +997,62 @@ class TeamRankingsScraper:
     """
     Scrapes defensive rankings from TeamRankings.com.
     Identifies bottom 5 defenses (ranks 27-32) for elimination filter.
-    Thread-safe with bounded cache.
     """
-
+    
     BASE_URL = "https://www.teamrankings.com"
-    CACHE_TTL = 3600  # 1 hour
-    CACHE_MAXSIZE = 50
-
+    
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         })
-        self._cache = TTLCache(maxsize=self.CACHE_MAXSIZE, ttl=self.CACHE_TTL)
-        self._cache_lock = threading.Lock()
+        self._cache = {}
+        self._cache_time = {}
     
     def get_defensive_rankings_l5(self, league: str = 'NBA') -> Dict[str, int]:
         """
         Get defensive rankings for last 5 games.
-        Thread-safe with automatic TTL cache.
-
+        
         Returns:
             Dict mapping team name to defensive rank (1 = best, 30 = worst)
         """
         cache_key = f"def_l5_{league}"
-
-        # Thread-safe cache check
-        with self._cache_lock:
-            if cache_key in self._cache:
+        if cache_key in self._cache:
+            age = time.time() - self._cache_time.get(cache_key, 0)
+            if age < 3600:  # 1 hour cache
                 return self._cache[cache_key]
-
+        
         try:
             if league == 'NBA':
                 url = f"{self.BASE_URL}/nba/stat/defensive-efficiency-last-5"
             else:
                 url = f"{self.BASE_URL}/ncaa-basketball/stat/defensive-efficiency"
-
+            
             response = self.session.get(url, timeout=10)
             response.raise_for_status()
-
+            
             soup = BeautifulSoup(response.content, 'html.parser')
             rankings = {}
-
+            
             # Parse rankings table
             table = soup.find('table', class_=re.compile(r'.*datatable.*'))
             if table:
                 rows = table.find_all('tr')[1:]  # Skip header
-
+                
                 for rank, row in enumerate(rows, 1):
                     cells = row.find_all('td')
                     if len(cells) >= 2:
                         team_cell = cells[0]
                         team_name = team_cell.text.strip()
                         rankings[team_name] = rank
-
-            # Thread-safe cache update
-            with self._cache_lock:
-                self._cache[cache_key] = rankings
-
+            
+            # Cache results
+            self._cache[cache_key] = rankings
+            self._cache_time[cache_key] = time.time()
+            
             logger.info(f"Fetched defensive rankings for {league}: {len(rankings)} teams")
             return rankings
-
-        except requests.RequestException as e:
-            logger.error(f"Network error fetching defensive rankings: {e}")
-            return {}
+            
         except Exception as e:
             logger.error(f"Error fetching defensive rankings: {e}")
             return {}
@@ -1320,27 +1291,13 @@ class AutomaticGameLoader:
     """
     Automatically loads games on new day.
     No manual "Fetch Games" button needed.
-    Thread-safe implementation.
     """
-
+    
     def __init__(self, app, db):
         self.app = app
         self.db = db
-        self._last_load_date = None
-        self._load_lock = threading.RLock()
+        self.last_load_date = None
         self.elimination_filter = EliminationFilterSystem(db.session)
-
-    @property
-    def last_load_date(self):
-        """Thread-safe getter for last_load_date."""
-        with self._load_lock:
-            return self._last_load_date
-
-    @last_load_date.setter
-    def last_load_date(self, value):
-        """Thread-safe setter for last_load_date."""
-        with self._load_lock:
-            self._last_load_date = value
     
     def check_and_load_if_new_day(self):
         """

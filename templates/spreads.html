@@ -855,14 +855,9 @@
             min-width: 90px;
             flex: 0 0 auto;
         }
-        .pikkit-live-area {
-            text-align: center;
-            padding: 4px 0;
-        }
         .pikkit-score-area {
             display: flex;
             align-items: center;
-            justify-content: center;
             gap: 8px;
         }
         .pikkit-score {
@@ -940,11 +935,6 @@
             color: #fff;
         }
         .pikkit-final-total {
-            font-size: 10px;
-            color: #9ca3af;
-            margin-top: 2px;
-        }
-        .pikkit-live-total {
             font-size: 10px;
             color: #9ca3af;
             margin-top: 2px;
@@ -2181,7 +2171,6 @@
                                 </div>
                                 <span class="pikkit-score home-score">0</span>
                             </div>
-                            <div class="pikkit-live-total">Total: <span class="running-total">0</span></div>
                         </div>
                         <div class="pikkit-final-area" id="final-score-{{ game.id }}" style="display: none;">
                             <div class="pikkit-final-display">
@@ -3363,8 +3352,6 @@
         }
         
         function updateMatchupStats(container, data) {
-            try {
-            console.log('updateMatchupStats called with data:', Object.keys(data));
             // Use Season and L3 (Last 3 Games) stats from TeamRankings matchup page
             const awaySeason = data.away_season || {};
             const homeSeason = data.home_season || {};
@@ -3372,7 +3359,6 @@
             const homeL3 = data.home_l3 || {};
             const awayTeam = data.away_team;
             const homeTeam = data.home_team;
-            console.log('Teams:', awayTeam, 'vs', homeTeam);
             
             // Get rank badge color class based on ranking (1-30 scale)
             function getRankClass(rank, higherIsBetter = true) {
@@ -3920,20 +3906,7 @@
                 `;
                 })() : ''}
             `;
-            console.log('HTML generated, length:', html?.length || 'null');
             container.innerHTML = html;
-            console.log('HTML set successfully');
-            } catch (error) {
-                console.error('Error in updateMatchupStats:', error);
-                container.innerHTML = `<div style="padding: 20px; color: #ef4444; text-align: center;">
-                    <p>Error loading matchup data:</p>
-                    <p style="font-size: 12px; color: #9ca3af;">${error.message}</p>
-                    <button onclick="this.closest('.matchup-content').dataset.loaded=''; toggleMatchup(this.closest('.matchup-content').previousElementSibling);" 
-                            style="margin-top: 10px; padding: 8px 16px; background: #8B5CF6; color: white; border: none; border-radius: 6px; cursor: pointer;">
-                        Retry
-                    </button>
-                </div>`;
-            }
         }
         
         document.querySelectorAll('.league-tab').forEach(tab => {
@@ -3957,11 +3930,6 @@
             try {
                 const response = await fetch('/api/live_scores');
                 if (!response.ok) return;
-                
-                const contentType = response.headers.get('content-type');
-                if (!contentType || !contentType.includes('application/json')) {
-                    return;
-                }
                 
                 const data = await response.json();
                 const liveScores = data.live_scores || {};
@@ -4007,7 +3975,7 @@
                             liveEl.querySelector('.live-clock').textContent = score.clock || '';
                             const runningTotal = liveEl.querySelector('.running-total');
                             if (runningTotal) runningTotal.textContent = total;
-                            liveEl.style.display = 'block';
+                            liveEl.style.display = 'flex';
                             card.classList.add('game-live');
                             card.classList.remove('game-final');
                         }

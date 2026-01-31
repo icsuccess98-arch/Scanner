@@ -110,8 +110,7 @@ class WagerTalkProductionAPI:
                         game_data = self._parse_game_rows(away_row, home_row)
                         if game_data:
                             games.append(game_data)
-                    except (IndexError, ValueError, AttributeError) as e:
-                        logger.debug(f"Row parsing skipped: {e}")
+                    except:
                         continue
             
             return games
@@ -143,7 +142,7 @@ class WagerTalkProductionAPI:
                     try:
                         pct = int(text.replace('%', '').strip())
                         percentages.append(pct)
-                    except (ValueError, AttributeError):
+                    except:
                         pass
             
             # Need at least 4 percentages (tickets away/home, money away/home)
@@ -251,10 +250,10 @@ class ActionNetworkAPI:
                     'home_team': game.get('home_team', ''),
                     'timestamp': time.time()
                 }
-
+                
                 games.append(game_data)
-        except (KeyError, TypeError, AttributeError) as e:
-            logger.debug(f"Action Network parse error: {e}")
+        except:
+            pass
         
         return games
     

@@ -209,8 +209,8 @@ def is_under_20ma(symbol):
             result = last_close < last_sma20
             ma20_cache[symbol] = result
             return result
-    except (Exception, KeyError, IndexError) as e:
-        pass  # yfinance errors are expected for some symbols
+    except:
+        pass
     ma20_cache[symbol] = False
     return False
 
@@ -446,7 +446,7 @@ def scan(title, granularity, topic_id=None, discord_webhook=None):
                 w_arr = "↑" if direction(weekly[-1]) == "UP" else "↓"
                 d_arr = "↑" if direction(daily[-1]) == "UP" else "↓"
                 return f"{m_arr}{w_arr}{d_arr}"
-        except (IndexError, KeyError, TypeError, AttributeError):
+        except:
             pass
         return "---"
     
