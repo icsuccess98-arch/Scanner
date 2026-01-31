@@ -10759,7 +10759,7 @@ def spreads():
                         losses = int(l10_parts[1])
                         if wins <= 3 and g.away_team not in cbb_cold_teams_set:
                             rank = cbb_kenpom_ranks.get(g.away_team, 999)
-                            cbb_cold_teams_list.append(f'<span style="white-space:nowrap">#{rank} {g.away_team} ({wins}-{losses})</span>')
+                            cbb_cold_teams_list.append(f'<span class="slate-team-click" data-team="{g.away_team}" data-league="CBB" style="white-space:nowrap; cursor:pointer; text-decoration:underline; text-decoration-color:rgba(167,139,250,0.5);">#{rank} {g.away_team} ({wins}-{losses})</span>')
                             cbb_cold_teams_set.add(g.away_team)
                 except:
                     pass
@@ -10773,7 +10773,7 @@ def spreads():
                         losses = int(l10_parts[1])
                         if wins <= 3 and g.home_team not in cbb_cold_teams_set:
                             rank = cbb_kenpom_ranks.get(g.home_team, 999)
-                            cbb_cold_teams_list.append(f'<span style="white-space:nowrap">#{rank} {g.home_team} ({wins}-{losses})</span>')
+                            cbb_cold_teams_list.append(f'<span class="slate-team-click" data-team="{g.home_team}" data-league="CBB" style="white-space:nowrap; cursor:pointer; text-decoration:underline; text-decoration-color:rgba(167,139,250,0.5);">#{rank} {g.home_team} ({wins}-{losses})</span>')
                             cbb_cold_teams_set.add(g.home_team)
                 except:
                     pass
@@ -10793,7 +10793,7 @@ def spreads():
                         losses = int(l10_parts[1])
                         if wins >= 8 and g.away_team not in cbb_hot_teams_set:
                             rank = cbb_kenpom_ranks.get(g.away_team, 999)
-                            cbb_hot_teams_list.append(f'<span style="white-space:nowrap">#{rank} {g.away_team} ({wins}-{losses})</span>')
+                            cbb_hot_teams_list.append(f'<span class="slate-team-click" data-team="{g.away_team}" data-league="CBB" style="white-space:nowrap; cursor:pointer; text-decoration:underline; text-decoration-color:rgba(167,139,250,0.5);">#{rank} {g.away_team} ({wins}-{losses})</span>')
                             cbb_hot_teams_set.add(g.away_team)
                 except:
                     pass
@@ -10807,7 +10807,7 @@ def spreads():
                         losses = int(l10_parts[1])
                         if wins >= 8 and g.home_team not in cbb_hot_teams_set:
                             rank = cbb_kenpom_ranks.get(g.home_team, 999)
-                            cbb_hot_teams_list.append(f'<span style="white-space:nowrap">#{rank} {g.home_team} ({wins}-{losses})</span>')
+                            cbb_hot_teams_list.append(f'<span class="slate-team-click" data-team="{g.home_team}" data-league="CBB" style="white-space:nowrap; cursor:pointer; text-decoration:underline; text-decoration-color:rgba(167,139,250,0.5);">#{rank} {g.home_team} ({wins}-{losses})</span>')
                             cbb_hot_teams_set.add(g.home_team)
                 except:
                     pass
@@ -10823,14 +10823,14 @@ def spreads():
             away_def = away_data.get('adj_d', 0)
             if away_def and away_def > 105 and g.away_team not in cbb_bad_defense_set:
                 rank = cbb_kenpom_ranks.get(g.away_team, 999)
-                cbb_bad_defense_list.append(f'<span style="white-space:nowrap">#{rank} {g.away_team} ({away_def:.1f})</span>')
+                cbb_bad_defense_list.append(f'<span class="slate-team-click" data-team="{g.away_team}" data-league="CBB" style="white-space:nowrap; cursor:pointer; text-decoration:underline; text-decoration-color:rgba(167,139,250,0.5);">#{rank} {g.away_team} ({away_def:.1f})</span>')
                 cbb_bad_defense_set.add(g.away_team)
         if g.home_team in cbb_all_teams_set:
             home_data = get_torvik_team(g.home_team) or {}
             home_def = home_data.get('adj_d', 0)
             if home_def and home_def > 105 and g.home_team not in cbb_bad_defense_set:
                 rank = cbb_kenpom_ranks.get(g.home_team, 999)
-                cbb_bad_defense_list.append(f'<span style="white-space:nowrap">#{rank} {g.home_team} ({home_def:.1f})</span>')
+                cbb_bad_defense_list.append(f'<span class="slate-team-click" data-team="{g.home_team}" data-league="CBB" style="white-space:nowrap; cursor:pointer; text-decoration:underline; text-decoration-color:rgba(167,139,250,0.5);">#{rank} {g.home_team} ({home_def:.1f})</span>')
                 cbb_bad_defense_set.add(g.home_team)
     cbb_bad_defense_list.sort(key=lambda x: int(x.split('#')[1].split(' ')[0]))  # Sort by KenPom rank
     cbb_bad_defense_display = ', '.join(cbb_bad_defense_list[:10]) if cbb_bad_defense_list else 'None'
@@ -10900,9 +10900,9 @@ def spreads():
                 rank = cbb_kenpom_ranks.get(g.home_team, 999)
                 cbb_home_teams_list.append((rank, g.home_team))
     
-    # Sort by ranking, display just team names like NBA
+    # Sort by ranking, display just team names like NBA (clickable)
     cbb_home_teams_list.sort(key=lambda x: x[0])
-    cbb_remaining_display = ', '.join([f'#{rank} {team}' for rank, team in cbb_home_teams_list]) if cbb_home_teams_list else 'No qualified teams'
+    cbb_remaining_display = ', '.join([f'<span class="slate-team-click" data-team="{team}" data-league="CBB" style="cursor:pointer; text-decoration:underline; text-decoration-color:rgba(16,185,129,0.5);">#{rank} {team}</span>' for rank, team in cbb_home_teams_list]) if cbb_home_teams_list else 'No qualified teams'
     
     # Reorder games_by_league to prioritize CBB
     ordered_games_by_league = {
@@ -11487,6 +11487,95 @@ def get_matchup_data(game_id):
         result['covers_last10'] = {'away': {'games': []}, 'home': {'games': []}, 'h2h': {'games': []}}
         result['last5_away'] = []
         result['last5_home'] = []
+    
+    return jsonify(result)
+
+@app.route('/api/team_game_data/<league>/<team_name>')
+def get_team_game_data(league, team_name):
+    """Fetch game data for a team by name from today's slate."""
+    from urllib.parse import unquote
+    team_name = unquote(team_name)
+    today = date.today()
+    
+    # Find game with this team
+    game = Game.query.filter(
+        Game.date == today,
+        Game.league == league,
+        db.or_(
+            Game.away_team.ilike(f'%{team_name}%'),
+            Game.home_team.ilike(f'%{team_name}%')
+        )
+    ).first()
+    
+    if not game:
+        return jsonify({'error': f'No game found for {team_name}', 'team': team_name}), 404
+    
+    # Get WagerTalk data for betting lines
+    wt_data = {}
+    try:
+        from wagertalk_scraper import get_all_wagertalk_data
+        all_wt = get_all_wagertalk_data(league)
+        for key, data in all_wt.items():
+            if game.away_team.lower() in key.lower() or game.home_team.lower() in key.lower():
+                wt_data = data
+                break
+    except Exception as e:
+        logging.warning(f"WagerTalk fetch error: {e}")
+    
+    # Get KenPom data for CBB
+    away_kenpom = {}
+    home_kenpom = {}
+    if league == 'CBB':
+        away_kenpom = get_torvik_team(game.away_team) or {}
+        home_kenpom = get_torvik_team(game.home_team) or {}
+    
+    # Get Covers data if available
+    covers_data = {}
+    try:
+        covers_data = MatchupIntelligence.fetch_covers_h2h(game.away_team, game.home_team, league) or {}
+    except Exception as e:
+        logging.warning(f"Covers fetch error: {e}")
+    
+    result = {
+        'game_id': game.id,
+        'team_searched': team_name,
+        'away_team': game.away_team,
+        'home_team': game.home_team,
+        'league': league,
+        'game_time': game.game_time if hasattr(game, 'game_time') else '',
+        'spread_line': game.spread_line,
+        'total_line': game.total_line if hasattr(game, 'total_line') else None,
+        # WagerTalk betting data
+        'open_spread': wt_data.get('open_spread') or wt_data.get('spread_open_line') or 'N/A',
+        'current_spread': wt_data.get('current_spread') or wt_data.get('spread_current_line') or 'N/A',
+        'total_open': wt_data.get('total_open_line') or 'N/A',
+        'total_current': wt_data.get('total_current_line') or 'N/A',
+        'away_spread_pct': wt_data.get('away_spread_pct') or 'N/A',
+        'home_spread_pct': wt_data.get('home_spread_pct') or 'N/A',
+        'away_money_pct': wt_data.get('away_money_pct') or 'N/A',
+        'home_money_pct': wt_data.get('home_money_pct') or 'N/A',
+        'over_pct': wt_data.get('over_pct') or 'N/A',
+        'under_pct': wt_data.get('under_pct') or 'N/A',
+        'over_money_pct': wt_data.get('over_money_pct') or 'N/A',
+        'under_money_pct': wt_data.get('under_money_pct') or 'N/A',
+        # KenPom data (CBB only)
+        'away_kenpom_rank': away_kenpom.get('rank', 'N/A'),
+        'away_adj_o': away_kenpom.get('adj_o', 'N/A'),
+        'away_adj_d': away_kenpom.get('adj_d', 'N/A'),
+        'away_adj_em': away_kenpom.get('adj_em', 'N/A'),
+        'away_tempo': away_kenpom.get('adj_t', 'N/A'),
+        'home_kenpom_rank': home_kenpom.get('rank', 'N/A'),
+        'home_adj_o': home_kenpom.get('adj_o', 'N/A'),
+        'home_adj_d': home_kenpom.get('adj_d', 'N/A'),
+        'home_adj_em': home_kenpom.get('adj_em', 'N/A'),
+        'home_tempo': home_kenpom.get('adj_t', 'N/A'),
+        # Covers data
+        'away_ats': covers_data.get('away_ats', 'N/A'),
+        'home_ats': covers_data.get('home_ats', 'N/A'),
+        'away_l10': game.away_l10 if hasattr(game, 'away_l10') else 'N/A',
+        'home_l10': game.home_l10 if hasattr(game, 'home_l10') else 'N/A',
+        'h2h_record': covers_data.get('h2h_record', 'N/A'),
+    }
     
     return jsonify(result)
 

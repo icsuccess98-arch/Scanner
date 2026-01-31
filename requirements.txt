@@ -16,3 +16,6 @@ yfinance
 pandas
 playwright
 undetected-chromedriver
+brotli
+brotlicffi
+cffi

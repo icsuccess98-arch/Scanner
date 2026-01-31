@@ -4265,6 +4265,123 @@
                 }
             }, { passive: true });
         })();
+        
+        // Slate Team Click Handler - Load key metrics
+        document.addEventListener('click', function(e) {
+            const teamSpan = e.target.closest('.slate-team-click');
+            if (teamSpan) {
+                const teamName = teamSpan.dataset.team;
+                const league = teamSpan.dataset.league;
+                showTeamMetrics(teamName, league);
+            }
+        });
+        
+        function showTeamMetrics(teamName, league) {
+            const modal = document.getElementById('team-metrics-modal');
+            const content = document.getElementById('team-metrics-content');
+            const title = document.getElementById('team-metrics-title');
+            
+            title.textContent = teamName + ' Game Data';
+            content.innerHTML = '<div style="text-align:center;padding:20px;"><div class="spinner-border" style="color:#a78bfa;"></div><div style="margin-top:10px;color:#a78bfa;">Loading data...</div></div>';
+            modal.style.display = 'flex';
+            
+            fetch(`/api/team_game_data/${league}/${encodeURIComponent(teamName)}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.error) {
+                        content.innerHTML = `<div style="color:#ef4444;text-align:center;padding:20px;">${data.error}</div>`;
+                        return;
+                    }
+                    
+                    const isAway = teamName.toLowerCase().includes(data.away_team.toLowerCase().split(' ')[0]);
+                    const selectedTeam = isAway ? data.away_team : data.home_team;
+                    const opponentTeam = isAway ? data.home_team : data.away_team;
+                    
+                    title.textContent = `${data.away_team} @ ${data.home_team}`;
+                    
+                    content.innerHTML = `
+                        <div style="display:grid;gap:12px;">
+                            <div style="background:rgba(139,92,246,0.1);border-radius:8px;padding:12px;border:1px solid rgba(139,92,246,0.3);">
+                                <div style="font-size:11px;font-weight:700;color:#a78bfa;margin-bottom:8px;text-transform:uppercase;">Line Movement</div>
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">
+                                    <div><span style="color:#94a3b8;">Open Spread:</span> <span style="color:#e2e8f0;">${data.open_spread}</span></div>
+                                    <div><span style="color:#94a3b8;">Current Spread:</span> <span style="color:#e2e8f0;">${data.current_spread}</span></div>
+                                    <div><span style="color:#94a3b8;">Open Total:</span> <span style="color:#e2e8f0;">${data.total_open}</span></div>
+                                    <div><span style="color:#94a3b8;">Current Total:</span> <span style="color:#e2e8f0;">${data.total_current}</span></div>
+                                </div>
+                            </div>
+                            
+                            <div style="background:rgba(16,185,129,0.1);border-radius:8px;padding:12px;border:1px solid rgba(16,185,129,0.3);">
+                                <div style="font-size:11px;font-weight:700;color:#10b981;margin-bottom:8px;text-transform:uppercase;">Betting Action (WagerTalk)</div>
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">
+                                    <div style="color:#94a3b8;">${data.away_team} Spread:</div>
+                                    <div style="color:#e2e8f0;">${data.away_spread_pct} Bets / ${data.away_money_pct} Money</div>
+                                    <div style="color:#94a3b8;">${data.home_team} Spread:</div>
+                                    <div style="color:#e2e8f0;">${data.home_spread_pct} Bets / ${data.home_money_pct} Money</div>
+                                    <div style="color:#94a3b8;">Over Total:</div>
+                                    <div style="color:#e2e8f0;">${data.over_pct} Bets / ${data.over_money_pct} Money</div>
+                                    <div style="color:#94a3b8;">Under Total:</div>
+                                    <div style="color:#e2e8f0;">${data.under_pct} Bets / ${data.under_money_pct} Money</div>
+                                </div>
+                            </div>
+                            
+                            ${league === 'CBB' ? `
+                            <div style="background:rgba(251,191,36,0.1);border-radius:8px;padding:12px;border:1px solid rgba(251,191,36,0.3);">
+                                <div style="font-size:11px;font-weight:700;color:#fbbf24;margin-bottom:8px;text-transform:uppercase;">KenPom Ratings</div>
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">
+                                    <div>
+                                        <div style="font-weight:600;color:#fbbf24;margin-bottom:4px;">${data.away_team} #${data.away_kenpom_rank}</div>
+                                        <div style="color:#94a3b8;">AdjO: <span style="color:#e2e8f0;">${data.away_adj_o}</span></div>
+                                        <div style="color:#94a3b8;">AdjD: <span style="color:#e2e8f0;">${data.away_adj_d}</span></div>
+                                        <div style="color:#94a3b8;">AdjEM: <span style="color:#e2e8f0;">${data.away_adj_em}</span></div>
+                                        <div style="color:#94a3b8;">Tempo: <span style="color:#e2e8f0;">${data.away_tempo}</span></div>
+                                    </div>
+                                    <div>
+                                        <div style="font-weight:600;color:#fbbf24;margin-bottom:4px;">${data.home_team} #${data.home_kenpom_rank}</div>
+                                        <div style="color:#94a3b8;">AdjO: <span style="color:#e2e8f0;">${data.home_adj_o}</span></div>
+                                        <div style="color:#94a3b8;">AdjD: <span style="color:#e2e8f0;">${data.home_adj_d}</span></div>
+                                        <div style="color:#94a3b8;">AdjEM: <span style="color:#e2e8f0;">${data.home_adj_em}</span></div>
+                                        <div style="color:#94a3b8;">Tempo: <span style="color:#e2e8f0;">${data.home_tempo}</span></div>
+                                    </div>
+                                </div>
+                            </div>
+                            ` : ''}
+                            
+                            <div style="background:rgba(59,130,246,0.1);border-radius:8px;padding:12px;border:1px solid rgba(59,130,246,0.3);">
+                                <div style="font-size:11px;font-weight:700;color:#3b82f6;margin-bottom:8px;text-transform:uppercase;">Team Records</div>
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">
+                                    <div style="color:#94a3b8;">${data.away_team} L10:</div>
+                                    <div style="color:#e2e8f0;">${data.away_l10 || 'N/A'}</div>
+                                    <div style="color:#94a3b8;">${data.home_team} L10:</div>
+                                    <div style="color:#e2e8f0;">${data.home_l10 || 'N/A'}</div>
+                                    <div style="color:#94a3b8;">${data.away_team} ATS:</div>
+                                    <div style="color:#e2e8f0;">${data.away_ats}</div>
+                                    <div style="color:#94a3b8;">${data.home_team} ATS:</div>
+                                    <div style="color:#e2e8f0;">${data.home_ats}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                })
+                .catch(err => {
+                    content.innerHTML = `<div style="color:#ef4444;text-align:center;padding:20px;">Error loading data: ${err.message}</div>`;
+                });
+        }
+        
+        function closeTeamModal() {
+            document.getElementById('team-metrics-modal').style.display = 'none';
+        }
     </script>
+    
+    <!-- Team Metrics Modal -->
+    <div id="team-metrics-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:9999;justify-content:center;align-items:center;padding:20px;">
+        <div style="background:linear-gradient(135deg,rgba(15,18,30,0.98),rgba(20,25,45,0.95));border-radius:16px;max-width:500px;width:100%;max-height:85vh;overflow-y:auto;border:1px solid rgba(139,92,246,0.4);box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:16px;border-bottom:1px solid rgba(139,92,246,0.3);">
+                <h3 id="team-metrics-title" style="margin:0;font-size:16px;font-weight:700;color:#a78bfa;">Key Metrics</h3>
+                <button onclick="closeTeamModal()" style="background:none;border:none;color:#94a3b8;font-size:24px;cursor:pointer;padding:0;line-height:1;">&times;</button>
+            </div>
+            <div id="team-metrics-content" style="padding:16px;"></div>
+        </div>
+    </div>
 </body>
 </html>
