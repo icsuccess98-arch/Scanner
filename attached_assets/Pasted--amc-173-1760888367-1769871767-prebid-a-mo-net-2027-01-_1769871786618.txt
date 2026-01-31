@@ -1,0 +1,31 @@
+	__amc	173_1760888367_1769871767	.prebid.a-mo.net	/	2027-01-31T15:02:46.074Z	30	✓	✓	None			Medium	
+__cf_bm	uOIuHBwgN8RC3KlSXzKu0C5_Xc69KFwJr1ga6bBoi6Y-1769871250.8130832-1.0.1.1-2AY0XXjkd4suV75ETZhU0RJOuHhxloPM98V1f5XDnAM7R.zBxq7zOYuJcia2x4n0zhdkFQM144b_LJ_JMfAJKDQhlavd.utq8zO13.0YtUYZIAu3gsEsRO9pBRAPenKX	.vsin.com	/	2026-01-31T15:24:09.920Z	206	✓	✓				Medium	
+__eoi	ID=18e2e48b376e6dd7:T=1766017232:RT=1769871452:S=AA-AfjbBHwRtJ7JwkMnB_GRQkDSw	.vsin.com	/	2026-06-16T00:20:32.000Z	82		✓	None			Medium	
+__gads	ID=98faf536b552e252:T=1766017232:RT=1769871452:S=ALNI_MZBlU2KjxMlY0kVR5VG9bc4_kvKnQ	.vsin.com	/	2027-01-12T00:20:32.000Z	89		✓	None			Medium	
+__gpi	UID=0000131cca6de310:T=1766017232:RT=1769871452:S=ALNI_MZ213mygt9EeXEPebMJ4qEX3ThjmA	.vsin.com	/	2027-01-12T00:20:32.000Z	89		✓	None			Medium	
+__idr	1	.vsin.com	/	2026-03-03T00:51:49.000Z	6		✓	Lax			High	
+__mggpc__	0	.googlesyndication.com	/	2027-01-27T15:06:28.000Z	10		✓	None			Medium	
+__mggpc__	0	.doubleclick.net	/	2027-01-29T01:17:52.000Z	10		✓	None			Medium	
+__pat	-18000000	.vsin.com	/	2026-03-02T14:54:11.000Z	14			Lax			Medium	
+__pid	.vsin.com	.vsin.com	/	2026-03-02T14:54:07.000Z	14		✓	Lax			High	
+__pil	en_US	.vsin.com	/	2026-02-25T19:03:21.000Z	10		✓	Lax			High	
+__pnahc	0	vsin.com	/	2026-05-01T13:50:30.000Z	8			Lax			Medium	
+__pvi	eyJpZCI6InYtbWwyZmY0N3p6M3Q4bnh1diIsImRvbWFpbiI6Ii52c2luLmNvbSIsInRpbWUiOjE3Njk4NzEyNDU1MDR9	.vsin.com	/	2026-02-01T14:54:05.000Z	97			Lax			Medium	
+__qca	P1-8af5458c-3d32-4cea-98e2-7bb9304ec251	.vsin.com	/college-basketball	Session	44						Medium	
+__qca	P1-8af5458c-3d32-4cea-98e2-7bb9304ec251	.vsin.com	/	2027-01-14T00:29:32.000Z	44						Medium	
+__qca	P1-8af5458c-3d32-4cea-98e2-7bb9304ec251	.vsin.com	/college-basketball/betting-splits	Session	44						Medium	
+__tac	%7Bjax%7DjPswWs4NeapLObXV4pD293MYYgxOOknctEuVOFgiyj5Qdfp3Qrl-dy6msr5x5u0Zvl_8ADXoDpjWtQ2_CbTbIAXVsFKnw1wkltsDyOxMfN1hT0xn7EFPIB6357fseUVvtI964tn1rGUDNJj2yzO3L_CKEkwAFaT2AzwbBPvh5BwP0ppA_jaLHguKfIcwO9TCy_Ds1YB8soVMGFBgq8ySCA	.vsin.com	/	2027-03-07T14:51:49.476Z	228		✓	Lax			Medium	
+__tae	1769871109411	.vsin.com	/	2027-03-07T14:51:49.477Z	18		✓	Lax			Medium	
+__tbc	%7Bkpex%7DYtGBhjBBqFuFMsfBLPrfj75mxGq_yOwzatlZbah5h3c8oo7ngDFRckHJ2cnQPppK2TPalypx3nwaAVn3K3EcTUs-5WZ4tRk_hFO2dn0tHKk	.vsin.com	/	2027-03-07T14:54:11.584Z	122			Lax			Medium	
+__utp	eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwczovL2lkLnBpYW5vLmlvIiwic3ViIjoiZTc2YTM2NjUtYjNjYi00OTdiLWI5ZDYtYTllMDQ1YzMxMDlhIiwiYXVkIjoiTjFvd1lJaUFwdSIsImxvZ2luX3RpbWVzdGFtcCI6IjE3Njk4NzExMDkxNDUiLCJnaXZlbl9uYW1lIjoiU3VjY2VzcyIsImZhbWlseV9uYW1lIjoiT25seSIsImVtYWlsIjoiaWNzdWNjZXNzOThAZ21haWwuY29tIiwiZXhwIjoxNzcyNDk5MTA5LCJpYXQiOjE3Njk4NzExMDksImp0aSI6IlRJWmRveUV5cnp0OXFoYWQiLCJwYXNzd29yZFR5cGUiOiJwYXNzd29yZEV4cGlyZWQiLCJyIjp0cnVlLCJscyI6IklEIiwic2MiOjIsInRzYyI6Mn0.oynjyTCg_GX6iiKErIZCmYN_FbyhyUNROSnKJP2DzOc	.vsin.com	/	2026-03-03T00:51:49.000Z	509		✓	Lax			High	
+_au_1d	AU1D-0100-001766017230-8BPC0MO6-LGP1	.vsin.com	/	2027-01-31T14:54:29.564Z	42		✓	None			Medium	
+_awl	2.1769870894.5-be2c64ed96e3ed7d159695af9e182cae-6763652d75732d6561737431-0	.vsin.com	/	2027-03-02T14:48:14.550Z	78		✓	None			Medium	
+_cc_id	9f306f67cc3344ddab1f00168425b408	.vsin.com	/	2026-10-28T14:48:04.000Z	38			Lax			Medium	
+_clck	1j9opfr%5E2%5Eg36%5E0%5E2178	.vsin.com	/	2027-01-31T14:47:53.000Z	33						Medium	
+_clsk	8uuz18%5E1769871247400%5E9%5E1%5El.clarity.ms%2Fcollect	.vsin.com	/	2026-02-01T14:54:07.000Z	60						Medium	
+_D9J	bb20596101df42d0831e70ee7abfd3cd	.flashtalking.com	/	2027-01-31T14:54:17.711Z	36		✓	None			Medium	
+_ez_optable_enabled_90	true	data.vsin.com	/	2026-02-25T21:34:38.000Z	26						Medium	
+_ez_optable_enabled_90	true	vsin.com	/	2026-02-26T20:14:41.000Z	26						Medium	
+_ezli_enabled	true	data.vsin.com	/	2026-02-25T19:03:08.000Z	17						Medium	
+_ezli_enabled	true	vsin.com	/	2026-02-25T19:02:54.000Z	17						Medium	
+_fbp	fb.1.1769454273312.366335565338639673	.vsin.com	/	2026-04-30T00:21:36.000Z	41			Lax			Medium	
