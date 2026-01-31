@@ -46,11 +46,10 @@ The system implements professional sharp money detection based on divergence bet
 - Recent performance (L3-L5) matters more than season-long narratives
 
 **CBB Daily Slate Analysis Categories:**
-1. **Cold Teams (L10)** - Red - Teams with ≤3 L10 wins
-2. **Hot Momentum (L10)** - Green - Teams with 8+ wins in last 10 games
-3. **Bad Defense** - Orange - Teams with defensive efficiency > 105 (KenPom adj_d)
-4. **Large Spreads (10+)** - Purple - Games with spreads of 10+ points
-5. **Remaining Teams** - Gold - Home teams with 5+ L10 wins (home-court advantage filter applied)
+1. **Cold Teams (L10)** - Teams with ≤3 L10 wins
+2. **Hot Teams (L10)** - Teams with 8+ wins in last 10 games
+3. **Bad Defense (L5)** - Teams with defensive efficiency > 105 (KenPom adj_d)
+4. **Remaining Teams** - Home teams with 5+ L10 wins (home-court advantage filter applied)
 
 ### Technical Implementation
 The system includes two independent applications: a Sports App and a Stocks App, running on port 5000.
