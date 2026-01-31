@@ -856,6 +856,59 @@
             border-top: 1px solid rgba(139, 92, 246, 0.15);
             padding: 10px 12px;
         }
+        .betting-action.rlm-alert {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(255, 215, 0, 0.15));
+            border: 2px solid rgba(255, 215, 0, 0.6);
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.3), inset 0 0 20px rgba(139, 92, 246, 0.1);
+            animation: rlmGlow 2s ease-in-out infinite;
+        }
+        @keyframes rlmGlow {
+            0%, 100% { box-shadow: 0 0 15px rgba(255, 215, 0, 0.3); }
+            50% { box-shadow: 0 0 25px rgba(255, 215, 0, 0.5), 0 0 35px rgba(139, 92, 246, 0.3); }
+        }
+        .betting-action.sharp-alert-box {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(139, 92, 246, 0.1));
+            border: 2px solid rgba(16, 185, 129, 0.5);
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
+        }
+        .rlm-badge {
+            background: linear-gradient(135deg, #ffd700, #f59e0b);
+            color: #1a1a2e;
+            font-size: 9px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-weight: 700;
+            margin-right: 6px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        .split-pct.rlm-highlight {
+            background: linear-gradient(135deg, #ffd700, #f59e0b) !important;
+            color: #1a1a2e !important;
+            font-weight: 800 !important;
+            font-size: 14px !important;
+            padding: 4px 8px !important;
+            border-radius: 6px !important;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
+        }
+        .split-pct.sharp-highlight {
+            background: linear-gradient(135deg, #10b981, #059669) !important;
+            color: white !important;
+            font-weight: 800 !important;
+            font-size: 14px !important;
+            padding: 4px 8px !important;
+            border-radius: 6px !important;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+        }
+        .line-movement-highlight {
+            background: rgba(255, 215, 0, 0.2);
+            border: 1px solid rgba(255, 215, 0, 0.4);
+            border-radius: 8px;
+            padding: 8px;
+        }
         .betting-action-header {
             display: flex;
             align-items: center;
@@ -2459,33 +2512,56 @@
                 
                 <!-- VSIN BETTING ACTION -->
                 {% if game.vsin_has_data %}
-                <div class="betting-action">
+                {# Calculate RLM and Sharp Money detection #}
+                {% set away_sharp_diff = (game.vsin_money_away or 0) - (game.vsin_tickets_away or 0) %}
+                {% set home_sharp_diff = (game.vsin_money_home or 0) - (game.vsin_tickets_home or 0) %}
+                {% set has_sharp_money = away_sharp_diff >= 15 or home_sharp_diff >= 15 %}
+                {% set sharp_side = 'away' if away_sharp_diff >= home_sharp_diff else 'home' %}
+                {% set sharp_diff = away_sharp_diff if sharp_side == 'away' else home_sharp_diff %}
+                
+                {# RLM: Line moves TOWARD team with less tickets (sharps) despite public on other side #}
+                {% if game.vsin_open_spread is not none and game.vsin_current_spread is not none %}
+                {% set open_spread_num = game.vsin_open_spread|float %}
+                {% set current_spread_num = game.vsin_current_spread|float %}
+                {% set line_movement = open_spread_num - current_spread_num %}
+                {# Positive movement = line moved toward home (home getting more points) #}
+                {# Negative movement = line moved toward away (away getting more points) #}
+                {% set public_side = 'away' if (game.vsin_tickets_away or 0) > (game.vsin_tickets_home or 0) else 'home' %}
+                {% set money_side = 'away' if (game.vsin_money_away or 0) > (game.vsin_money_home or 0) else 'home' %}
+                {# RLM = line moved AGAINST public (toward sharp side) #}
+                {% set rlm_detected = (line_movement > 0.5 and public_side == 'away' and money_side == 'home') or (line_movement < -0.5 and public_side == 'home' and money_side == 'away') %}
+                {% else %}
+                {% set rlm_detected = false %}
+                {% set line_movement = 0 %}
+                {% set public_side = 'home' %}
+                {% set money_side = 'home' %}
+                {% endif %}
+                
+                <div class="betting-action {% if rlm_detected %}rlm-alert{% elif has_sharp_money %}sharp-alert-box{% endif %}">
                     <div class="betting-action-header">
                         <span class="betting-action-title">Betting Action</span>
-                        <span class="vsin-badge">VSIN</span>
+                        <div>
+                            {% if rlm_detected %}<span class="rlm-badge">🔄 RLM</span>{% endif %}
+                            <span class="vsin-badge">VSIN</span>
+                        </div>
                     </div>
                     
                     {% if game.vsin_open_spread is not none and game.vsin_current_spread is not none %}
-                    {# Convert to float for comparison - negative spread = away favorite, positive = home favorite #}
-                    {% set open_spread_num = game.vsin_open_spread|float %}
-                    {% set current_spread_num = game.vsin_current_spread|float %}
                     {% set open_fav_name = game.away_team if open_spread_num < 0 else game.home_team %}
                     {% set open_fav_line = open_spread_num|abs %}
                     {% set current_fav_name = game.away_team if current_spread_num < 0 else game.home_team %}
                     {% set current_fav_line = current_spread_num|abs %}
-                    {# Line movement: more negative = favorite got stronger (down arrow shows line went down) #}
-                    {% set movement = open_spread_num - current_spread_num %}
-                    <div class="line-movement-row">
+                    <div class="line-movement-row {% if rlm_detected %}line-movement-highlight{% endif %}">
                         <div class="line-box">
                             <span class="line-label">Open</span>
                             <span class="line-value">{{ open_fav_name[:6] }} -{{ '%.1f'|format(open_fav_line) }}</span>
                         </div>
-                        <span class="line-arrow {% if movement > 0 %}down{% elif movement < 0 %}up{% endif %}">
-                            {% if movement > 0 %}<i class="bi bi-arrow-down-circle-fill"></i>{% elif movement < 0 %}<i class="bi bi-arrow-up-circle-fill"></i>{% else %}<i class="bi bi-arrow-right-circle"></i>{% endif %}
+                        <span class="line-arrow {% if line_movement > 0 %}down{% elif line_movement < 0 %}up{% endif %}">
+                            {% if line_movement > 0 %}<i class="bi bi-arrow-down-circle-fill"></i>{% elif line_movement < 0 %}<i class="bi bi-arrow-up-circle-fill"></i>{% else %}<i class="bi bi-arrow-right-circle"></i>{% endif %}
                         </span>
                         <div class="line-box">
                             <span class="line-label">Current</span>
-                            <span class="line-value {% if movement > 0 %}moved-down{% elif movement < 0 %}moved-up{% endif %}">{{ current_fav_name[:6] }} -{{ '%.1f'|format(current_fav_line) }}</span>
+                            <span class="line-value {% if line_movement > 0 %}moved-down{% elif line_movement < 0 %}moved-up{% endif %}">{{ current_fav_name[:6] }} -{{ '%.1f'|format(current_fav_line) }}</span>
                         </div>
                     </div>
                     {% endif %}
@@ -2496,11 +2572,11 @@
                             <div class="split-values">
                                 <div class="split-team">
                                     <div class="split-team-name">{{ game.away_team[:8] }}</div>
-                                    <div class="split-pct {% if game.vsin_tickets_away > game.vsin_tickets_home %}majority{% endif %}">{{ game.vsin_tickets_away }}%</div>
+                                    <div class="split-pct {% if (game.vsin_tickets_away or 0) > (game.vsin_tickets_home or 0) %}majority{% endif %} {% if rlm_detected and public_side == 'away' %}rlm-highlight{% endif %}">{{ game.vsin_tickets_away }}%</div>
                                 </div>
                                 <div class="split-team">
                                     <div class="split-team-name">{{ game.home_team[:8] }}</div>
-                                    <div class="split-pct {% if game.vsin_tickets_home > game.vsin_tickets_away %}majority{% endif %}">{{ game.vsin_tickets_home }}%</div>
+                                    <div class="split-pct {% if (game.vsin_tickets_home or 0) > (game.vsin_tickets_away or 0) %}majority{% endif %} {% if rlm_detected and public_side == 'home' %}rlm-highlight{% endif %}">{{ game.vsin_tickets_home }}%</div>
                                 </div>
                             </div>
                         </div>
@@ -2509,23 +2585,26 @@
                             <div class="split-values">
                                 <div class="split-team">
                                     <div class="split-team-name">{{ game.away_team[:8] }}</div>
-                                    <div class="split-pct {% if game.vsin_money_away > game.vsin_money_home %}majority{% endif %} {% if (game.vsin_money_away - game.vsin_tickets_away) >= 10 %}sharp{% endif %}">{{ game.vsin_money_away }}%</div>
+                                    <div class="split-pct {% if (game.vsin_money_away or 0) > (game.vsin_money_home or 0) %}majority{% endif %} {% if rlm_detected and money_side == 'away' %}sharp-highlight{% elif away_sharp_diff >= 15 %}sharp{% endif %}">{{ game.vsin_money_away }}%</div>
                                 </div>
                                 <div class="split-team">
                                     <div class="split-team-name">{{ game.home_team[:8] }}</div>
-                                    <div class="split-pct {% if game.vsin_money_home > game.vsin_money_away %}majority{% endif %} {% if (game.vsin_money_home - game.vsin_tickets_home) >= 10 %}sharp{% endif %}">{{ game.vsin_money_home }}%</div>
+                                    <div class="split-pct {% if (game.vsin_money_home or 0) > (game.vsin_money_away or 0) %}majority{% endif %} {% if rlm_detected and money_side == 'home' %}sharp-highlight{% elif home_sharp_diff >= 15 %}sharp{% endif %}">{{ game.vsin_money_home }}%</div>
                                 </div>
                             </div>
                         </div>
                     </div>
                     
-                    {% set away_sharp_diff = game.vsin_money_away - game.vsin_tickets_away %}
-                    {% set home_sharp_diff = game.vsin_money_home - game.vsin_tickets_home %}
-                    {% if away_sharp_diff >= 15 or home_sharp_diff >= 15 %}
+                    {% if rlm_detected %}
+                    <div class="sharp-alert" style="background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(139, 92, 246, 0.2)); border: 1px solid rgba(255, 215, 0, 0.4);">
+                        <i class="bi bi-shuffle" style="color: #ffd700;"></i>
+                        <span style="color: #ffd700; font-weight: 700;">RLM ALERT:</span> Line moved AGAINST {{ game.away_team if public_side == 'away' else game.home_team }} despite {{ game.vsin_tickets_away if public_side == 'away' else game.vsin_tickets_home }}% tickets
+                    </div>
+                    {% elif has_sharp_money %}
                     <div class="sharp-alert">
                         <i class="bi bi-lightning-charge-fill"></i>
-                        Sharp Money on {% if away_sharp_diff >= home_sharp_diff %}{{ game.away_team }}{% else %}{{ game.home_team }}{% endif %}
-                        ({% if away_sharp_diff >= home_sharp_diff %}{{ away_sharp_diff }}{% else %}{{ home_sharp_diff }}{% endif %}% divergence)
+                        Sharp Money on {% if sharp_side == 'away' %}{{ game.away_team }}{% else %}{{ game.home_team }}{% endif %}
+                        ({{ sharp_diff }}% divergence)
                     </div>
                     {% endif %}
                 </div>

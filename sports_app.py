@@ -12142,6 +12142,34 @@ def spreads():
             n = normalize_team(name)
             return {t for t in n.split() if len(t) >= 2}
         
+        # Reverse alias lookup (VSIN name -> canonical)
+        REVERSE_ALIASES = {}
+        for alias, canonical in VSIN_TEAM_ALIASES.items():
+            if canonical not in REVERSE_ALIASES:
+                REVERSE_ALIASES[canonical] = set()
+            REVERSE_ALIASES[canonical].add(alias)
+        
+        def get_all_variants(name: str) -> set:
+            """Get all possible name variants for matching."""
+            n = name.lower().strip().replace('&amp;', '&').replace('&#39;', "'")
+            variants = {n}
+            # Add alias if exists
+            if n in VSIN_TEAM_ALIASES:
+                variants.add(VSIN_TEAM_ALIASES[n])
+            # Add reverse lookups
+            for canonical, aliases in REVERSE_ALIASES.items():
+                if n == canonical or n in aliases:
+                    variants.add(canonical)
+                    variants.update(aliases)
+            # Add CBB aliases
+            if league == 'CBB':
+                if n in CBB_TEAM_NAME_ALIASES:
+                    variants.add(CBB_TEAM_NAME_ALIASES[n].lower())
+                for alias, canonical in CBB_TEAM_NAME_ALIASES.items():
+                    if n == canonical.lower():
+                        variants.add(alias.lower())
+            return variants
+        
         def teams_match(vsin_team: str, game_team: str) -> bool:
             if not vsin_team or not game_team:
                 return False
@@ -12150,16 +12178,30 @@ def spreads():
             # Exact match (case-insensitive)
             if vsin_lower == game_lower:
                 return True
+            # Get all variants for both names
+            vsin_variants = get_all_variants(vsin_team)
+            game_variants = get_all_variants(game_team)
+            # Check if any variants overlap
+            if vsin_variants & game_variants:
+                return True
             # Normalized match
             vsin_norm = normalize_team(vsin_team)
             game_norm = normalize_team(game_team)
             if vsin_norm == game_norm:
                 return True
-            # Token overlap (any shared word with length >= 3)
-            vsin_tokens = {t for t in normalize_tokens(vsin_team) if len(t) >= 3}
-            game_tokens = {t for t in normalize_tokens(game_team) if len(t) >= 3}
+            # Token overlap (any shared word with length >= 4, more selective)
+            vsin_tokens = {t for t in normalize_tokens(vsin_team) if len(t) >= 4}
+            game_tokens = {t for t in normalize_tokens(game_team) if len(t) >= 4}
             if vsin_tokens and game_tokens and vsin_tokens & game_tokens:
                 return True
+            # Also try with 3-char tokens but require at least 2 matches
+            vsin_tokens3 = {t for t in normalize_tokens(vsin_team) if len(t) >= 3}
+            game_tokens3 = {t for t in normalize_tokens(game_team) if len(t) >= 3}
+            if vsin_tokens3 and game_tokens3 and len(vsin_tokens3 & game_tokens3) >= 1:
+                # Verify it's not a false positive by checking first letter
+                for tok in vsin_tokens3 & game_tokens3:
+                    if len(tok) >= 4:
+                        return True
             # Substring match (with shorter minimum)
             if len(vsin_norm) >= 3 and len(game_norm) >= 3:
                 if vsin_norm in game_norm or game_norm in vsin_norm:
