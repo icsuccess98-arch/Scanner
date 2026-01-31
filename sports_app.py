@@ -1584,6 +1584,23 @@ class MatchupIntelligence:
                 })
                 logger.info(f"KenPom Four Factors merged for {team_name}")
             
+            # Get 3PT% data from misc cache (if available)
+            misc_data = kenpom_misc_cache.get(team_key)
+            if not misc_data:
+                for key, data in kenpom_misc_cache.items():
+                    if team_key in key or key in team_key:
+                        misc_data = data
+                        break
+            
+            if misc_data:
+                result.update({
+                    'off_3pt': misc_data.get('o_3pt_pct', 0),
+                    'off_3pt_rank': misc_data.get('o_3pt_rank', 0),
+                    'def_3pt': misc_data.get('d_3pt_pct', 0),
+                    'def_3pt_rank': misc_data.get('d_3pt_rank', 0)
+                })
+                logger.info(f"KenPom 3PT% data merged for {team_name}")
+            
             return result
         except Exception as e:
             logger.warning(f"Error fetching KenPom stats for {team_name}: {e}")
@@ -8722,7 +8739,7 @@ def fetch_kenpom_height() -> dict:
 
 def fetch_kenpom_misc() -> dict:
     """
-    Fetch KenPom Miscellaneous Stats.
+    Fetch KenPom Miscellaneous Stats (teamstats endpoint).
     Returns: 3PT%, 2PT%, FT%, block%, steal%, assist rate, etc.
     """
     global kenpom_misc_cache, kenpom_cache_date
@@ -8731,7 +8748,11 @@ def fetch_kenpom_misc() -> dict:
     if kenpom_cache_date == today and kenpom_misc_cache:
         return kenpom_misc_cache
 
-    data = fetch_kenpom_api('misc')
+    # Try 'teamstats' endpoint first (KenPom website uses teamstats.php for misc stats)
+    data = fetch_kenpom_api('teamstats')
+    if not data:
+        # Fallback to 'misc' endpoint
+        data = fetch_kenpom_api('misc')
     if not data:
         return kenpom_misc_cache
 
