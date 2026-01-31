@@ -850,6 +850,138 @@
             font-weight: 500;
         }
         
+        /* VSIN Betting Action Component */
+        .betting-action {
+            background: rgba(20, 20, 35, 0.9);
+            border-top: 1px solid rgba(139, 92, 246, 0.15);
+            padding: 10px 12px;
+        }
+        .betting-action-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .betting-action-title {
+            font-size: 10px;
+            font-weight: 700;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .vsin-badge {
+            font-size: 8px;
+            font-weight: 700;
+            color: #FFD700;
+            background: rgba(255, 215, 0, 0.15);
+            padding: 2px 6px;
+            border-radius: 4px;
+            letter-spacing: 0.5px;
+        }
+        .line-movement-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            background: rgba(30, 30, 50, 0.6);
+            border-radius: 8px;
+        }
+        .line-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+        .line-label {
+            font-size: 9px;
+            color: #9ca3af;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+        .line-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: #e2e8f0;
+        }
+        .line-value.moved-up {
+            color: #DC143C;
+        }
+        .line-value.moved-down {
+            color: #50C878;
+        }
+        .line-arrow {
+            font-size: 20px;
+            color: #7B2CBF;
+        }
+        .line-arrow.up {
+            color: #DC143C;
+        }
+        .line-arrow.down {
+            color: #50C878;
+        }
+        .splits-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .split-box {
+            background: rgba(30, 30, 50, 0.5);
+            padding: 8px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .split-label {
+            font-size: 9px;
+            color: #9ca3af;
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .split-values {
+            display: flex;
+            justify-content: space-between;
+            gap: 4px;
+        }
+        .split-team {
+            flex: 1;
+            text-align: center;
+        }
+        .split-team-name {
+            font-size: 9px;
+            color: #9ca3af;
+            margin-bottom: 2px;
+        }
+        .split-pct {
+            font-size: 14px;
+            font-weight: 700;
+            color: #e2e8f0;
+        }
+        .split-pct.majority {
+            color: #FFD700;
+        }
+        .split-pct.sharp {
+            color: #50C878;
+        }
+        .sharp-alert {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 8px;
+            padding: 6px 10px;
+            background: linear-gradient(135deg, rgba(80, 200, 120, 0.2), rgba(80, 200, 120, 0.1));
+            border: 1px solid rgba(80, 200, 120, 0.3);
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #50C878;
+        }
+        .sharp-alert i {
+            font-size: 14px;
+        }
+        
         .pikkit-center {
             display: flex;
             flex-direction: column;
@@ -2322,6 +2454,72 @@
                             <span class="covers-stat-sub">{{ game.home_l10_ats or '--' }}</span>
                         </div>
                     </div>
+                </div>
+                {% endif %}
+                
+                <!-- VSIN BETTING ACTION -->
+                {% if game.vsin_has_data %}
+                <div class="betting-action">
+                    <div class="betting-action-header">
+                        <span class="betting-action-title">Betting Action</span>
+                        <span class="vsin-badge">VSIN</span>
+                    </div>
+                    
+                    {% if game.vsin_open_spread and game.vsin_current_spread %}
+                    <div class="line-movement-row">
+                        <div class="line-box">
+                            <span class="line-label">Open</span>
+                            <span class="line-value">{% if game.vsin_open_spread > 0 %}+{% endif %}{{ game.vsin_open_spread }}</span>
+                        </div>
+                        {% set movement = game.vsin_current_spread - game.vsin_open_spread %}
+                        <span class="line-arrow {% if movement > 0 %}up{% elif movement < 0 %}down{% endif %}">
+                            {% if movement > 0 %}<i class="bi bi-arrow-up-circle-fill"></i>{% elif movement < 0 %}<i class="bi bi-arrow-down-circle-fill"></i>{% else %}<i class="bi bi-arrow-right-circle"></i>{% endif %}
+                        </span>
+                        <div class="line-box">
+                            <span class="line-label">Current</span>
+                            <span class="line-value {% if movement > 0 %}moved-up{% elif movement < 0 %}moved-down{% endif %}">{% if game.vsin_current_spread > 0 %}+{% endif %}{{ game.vsin_current_spread }}</span>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="splits-row">
+                        <div class="split-box">
+                            <div class="split-label">Tickets %</div>
+                            <div class="split-values">
+                                <div class="split-team">
+                                    <div class="split-team-name">{{ game.away_team[:8] }}</div>
+                                    <div class="split-pct {% if game.vsin_tickets_away > game.vsin_tickets_home %}majority{% endif %}">{{ game.vsin_tickets_away }}%</div>
+                                </div>
+                                <div class="split-team">
+                                    <div class="split-team-name">{{ game.home_team[:8] }}</div>
+                                    <div class="split-pct {% if game.vsin_tickets_home > game.vsin_tickets_away %}majority{% endif %}">{{ game.vsin_tickets_home }}%</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="split-box">
+                            <div class="split-label">Money %</div>
+                            <div class="split-values">
+                                <div class="split-team">
+                                    <div class="split-team-name">{{ game.away_team[:8] }}</div>
+                                    <div class="split-pct {% if game.vsin_money_away > game.vsin_money_home %}majority{% endif %} {% if (game.vsin_money_away - game.vsin_tickets_away) >= 10 %}sharp{% endif %}">{{ game.vsin_money_away }}%</div>
+                                </div>
+                                <div class="split-team">
+                                    <div class="split-team-name">{{ game.home_team[:8] }}</div>
+                                    <div class="split-pct {% if game.vsin_money_home > game.vsin_money_away %}majority{% endif %} {% if (game.vsin_money_home - game.vsin_tickets_home) >= 10 %}sharp{% endif %}">{{ game.vsin_money_home }}%</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% set away_sharp_diff = game.vsin_money_away - game.vsin_tickets_away %}
+                    {% set home_sharp_diff = game.vsin_money_home - game.vsin_tickets_home %}
+                    {% if away_sharp_diff >= 15 or home_sharp_diff >= 15 %}
+                    <div class="sharp-alert">
+                        <i class="bi bi-lightning-charge-fill"></i>
+                        Sharp Money on {% if away_sharp_diff >= home_sharp_diff %}{{ game.away_team }}{% else %}{{ game.home_team }}{% endif %}
+                        ({% if away_sharp_diff >= home_sharp_diff %}{{ away_sharp_diff }}{% else %}{{ home_sharp_diff }}{% endif %}% divergence)
+                    </div>
+                    {% endif %}
                 </div>
                 {% endif %}
                 

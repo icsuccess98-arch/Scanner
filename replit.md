@@ -23,6 +23,14 @@ The application features a jewel-tone color scheme and is optimized for mobile w
 - League Tabs: Hover lift effect, active pulse glow (tabPulse 2s), count badge pop animation (countPop 0.4s)
 - Animated Badges: SUPERMAX golden glow (superMaxGlow 1.5s), Best Bet shimmer effect (badgeShimmer 3s), RLM pulse (rlmPulse 2s), Sharp Money gradient styling
 
+**VSIN Betting Action Component (Jan 2026):**
+- Displays on each game card when VSIN data is available
+- Line Movement: Shows Open → Current spread with color-coded arrows (green=down/favorable, red=up/unfavorable)
+- Betting Splits: Tickets % (public bets) and Money % (handle) for each team
+- Majority highlighting: Gold color indicates the side with majority action
+- Sharp Money Alert: Green lightning bolt badge when money-tickets divergence exceeds 15%
+- VSIN badge in header indicates exclusive VSIN.com data source
+
 ### Sharp Money & Betting Strategy
 The system implements professional sharp money detection based on divergence between bet % and money %:
 - Sharp money = lower bet % but higher money/handle % (e.g., 40% bets but 70% money = sharp side)
