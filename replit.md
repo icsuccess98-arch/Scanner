@@ -69,6 +69,19 @@ The Sports Scanner fetches game data, stats, and odds for NBA, CBB, NFL, CFB, an
     -   Cleaning the Glass (CTG) (NBA advanced stats)
     -   WagerTalk.com (betting action: Bet %, Money %)
     -   Covers.com (H2H, ATS records)
+
+### Pre-Game Stats Persistence (Jan 2026)
+When Covers.com data is available for a game (before it starts), all stats are captured and saved to the database:
+- ATS records (overall and home/road)
+- Last 10 records (overall and ATS)
+- Home/Road records
+
+These stats persist even when the game starts (Covers removes live games from their matchup page). The data priority is:
+1. Live Covers data (if available)
+2. Database pre-game cache (captured before game started)
+3. ESPN fallback (limited - no ATS data)
+
+The `pregame_stats_captured` flag on each game indicates whether pre-game data has been saved. Stats update after game completion when fresh Covers data becomes available the next day.
 -   **Stocks Data**:
     -   yfinance (Yahoo Finance)
 -   **Communication**:

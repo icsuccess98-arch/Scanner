@@ -5785,6 +5785,19 @@ class Game(db.Model):
     totals_rlm_sharp_side = db.Column(db.String(10))  # 'Over' or 'Under'
     totals_rlm_explanation = db.Column(db.Text)
     
+    # PRE-GAME STATS from Covers.com - persist until game completes
+    pregame_away_ats = db.Column(db.String(20))
+    pregame_home_ats = db.Column(db.String(20))
+    pregame_away_ats_road = db.Column(db.String(20))
+    pregame_home_ats_home = db.Column(db.String(20))
+    pregame_away_l10 = db.Column(db.String(20))
+    pregame_home_l10 = db.Column(db.String(20))
+    pregame_away_l10_ats = db.Column(db.String(20))
+    pregame_home_l10_ats = db.Column(db.String(20))
+    pregame_away_road_record = db.Column(db.String(20))
+    pregame_home_home_record = db.Column(db.String(20))
+    pregame_stats_captured = db.Column(db.Boolean, default=False)
+    
     __table_args__ = (
         db.Index('idx_date_league', 'date', 'league'),
         db.Index('idx_qualified', 'is_qualified'),
@@ -10302,41 +10315,39 @@ def spreads():
                 away_espn = nba_team_stats.get(g.away_team, {})
                 home_espn = nba_team_stats.get(g.home_team, {})
                 
-                # Check pre-game stats cache for this game
-                game_cache_key = f"{g.id}"
-                cached_stats = _pre_game_stats_cache.get(game_cache_key, {})
+                # If Covers has data AND we haven't captured pre-game stats yet, save to DB
+                if away_covers and home_covers and not g.pregame_stats_captured:
+                    g.pregame_away_ats = away_covers.get('ats', '--')
+                    g.pregame_home_ats = home_covers.get('ats', '--')
+                    g.pregame_away_ats_road = away_covers.get('ats_road', '--')
+                    g.pregame_home_ats_home = home_covers.get('ats_home', '--')
+                    g.pregame_away_l10 = away_covers.get('l10', '--')
+                    g.pregame_home_l10 = home_covers.get('l10', '--')
+                    g.pregame_away_l10_ats = away_covers.get('l10_ats', '--')
+                    g.pregame_home_l10_ats = home_covers.get('l10_ats', '--')
+                    g.pregame_away_road_record = away_covers.get('road_record', '--')
+                    g.pregame_home_home_record = home_covers.get('home_record', '--')
+                    g.pregame_stats_captured = True
+                    try:
+                        db.session.commit()
+                        logging.info(f"Saved pre-game stats for {g.away_team} @ {g.home_team}")
+                    except Exception as e:
+                        logging.warning(f"Failed to save pre-game stats: {e}")
+                        db.session.rollback()
                 
-                # If Covers has data, use it AND cache it for when game starts
-                if away_covers and home_covers:
-                    # Cache the pre-game data
-                    _pre_game_stats_cache[game_cache_key] = {
-                        'away_ats': away_covers.get('ats', '--'),
-                        'home_ats': home_covers.get('ats', '--'),
-                        'away_ats_road': away_covers.get('ats_road', '--'),
-                        'home_ats_home': home_covers.get('ats_home', '--'),
-                        'away_l10': away_covers.get('l10', '--'),
-                        'home_l10': home_covers.get('l10', '--'),
-                        'away_l10_ats': away_covers.get('l10_ats', '--'),
-                        'home_l10_ats': home_covers.get('l10_ats', '--'),
-                        'away_road_record': away_covers.get('road_record', '--'),
-                        'home_home_record': home_covers.get('home_record', '--'),
-                        'timestamp': time.time()
-                    }
-                    cached_stats = _pre_game_stats_cache[game_cache_key]
-                
-                # Use data priority: Covers -> Cached Pre-game -> ESPN
+                # Use data priority: Covers (live) -> DB Pre-game -> ESPN fallback
                 g.away_overall = away_covers.get('record') or away_espn.get('overall_record', g.away_record)
                 g.home_overall = home_covers.get('record') or home_espn.get('overall_record', g.home_record)
-                g.away_road_record = away_covers.get('road_record') or cached_stats.get('away_road_record') or away_espn.get('road_record', '--')
-                g.home_home_record = home_covers.get('home_record') or cached_stats.get('home_home_record') or home_espn.get('home_record', '--')
-                g.away_ats = away_covers.get('ats') or cached_stats.get('away_ats') or away_espn.get('ats_record', '--')
-                g.home_ats = home_covers.get('ats') or cached_stats.get('home_ats') or home_espn.get('ats_record', '--')
-                g.away_ats_road = away_covers.get('ats_road') or cached_stats.get('away_ats_road') or away_espn.get('ats_road', '--')
-                g.home_ats_home = home_covers.get('ats_home') or cached_stats.get('home_ats_home') or home_espn.get('ats_home', '--')
-                g.away_l10 = away_covers.get('l10') or cached_stats.get('away_l10') or away_espn.get('last_10', '--')
-                g.home_l10 = home_covers.get('l10') or cached_stats.get('home_l10') or home_espn.get('last_10', '--')
-                g.away_l10_ats = away_covers.get('l10_ats') or cached_stats.get('away_l10_ats') or away_espn.get('last_10_ats', '--')
-                g.home_l10_ats = home_covers.get('l10_ats') or cached_stats.get('home_l10_ats') or home_espn.get('last_10_ats', '--')
+                g.away_road_record = away_covers.get('road_record') or g.pregame_away_road_record or away_espn.get('road_record', '--')
+                g.home_home_record = home_covers.get('home_record') or g.pregame_home_home_record or home_espn.get('home_record', '--')
+                g.away_ats = away_covers.get('ats') or g.pregame_away_ats or away_espn.get('ats_record', '--')
+                g.home_ats = home_covers.get('ats') or g.pregame_home_ats or home_espn.get('ats_record', '--')
+                g.away_ats_road = away_covers.get('ats_road') or g.pregame_away_ats_road or away_espn.get('ats_road', '--')
+                g.home_ats_home = home_covers.get('ats_home') or g.pregame_home_ats_home or home_espn.get('ats_home', '--')
+                g.away_l10 = away_covers.get('l10') or g.pregame_away_l10 or away_espn.get('last_10', '--')
+                g.home_l10 = home_covers.get('l10') or g.pregame_home_l10 or home_espn.get('last_10', '--')
+                g.away_l10_ats = away_covers.get('l10_ats') or g.pregame_away_l10_ats or away_espn.get('last_10_ats', '--')
+                g.home_l10_ats = home_covers.get('l10_ats') or g.pregame_home_l10_ats or home_espn.get('last_10_ats', '--')
             elif g.league == 'CBB':
                 g.away_logo = get_transparent_cbb_logo(g.away_team) or get_cbb_logo(g.away_team) or 'https://a.espncdn.com/i/teamlogos/leagues/500-dark/nba.png'
                 g.home_logo = get_transparent_cbb_logo(g.home_team) or get_cbb_logo(g.home_team) or 'https://a.espncdn.com/i/teamlogos/leagues/500-dark/nba.png'
@@ -10346,44 +10357,43 @@ def spreads():
                 g.home_record = home_stand.get('record', '--')
                 g.away_standing = ''
                 g.home_standing = ''
-                # CBB Covers-style stats with pre-game caching
+                # CBB Covers-style stats with database persistence
                 away_covers = covers_cbb_stats.get(g.away_team, {})
                 home_covers = covers_cbb_stats.get(g.home_team, {})
                 
-                # Check pre-game stats cache for this game
-                game_cache_key = f"{g.id}"
-                cached_stats = _pre_game_stats_cache.get(game_cache_key, {})
+                # If Covers has data AND we haven't captured pre-game stats yet, save to DB
+                if away_covers and home_covers and not g.pregame_stats_captured:
+                    g.pregame_away_ats = away_covers.get('ats', '--')
+                    g.pregame_home_ats = home_covers.get('ats', '--')
+                    g.pregame_away_ats_road = away_covers.get('ats_road', '--')
+                    g.pregame_home_ats_home = home_covers.get('ats_home', '--')
+                    g.pregame_away_l10 = away_covers.get('l10', '--')
+                    g.pregame_home_l10 = home_covers.get('l10', '--')
+                    g.pregame_away_l10_ats = away_covers.get('l10_ats', '--')
+                    g.pregame_home_l10_ats = home_covers.get('l10_ats', '--')
+                    g.pregame_away_road_record = away_covers.get('road_record', '--')
+                    g.pregame_home_home_record = home_covers.get('home_record', '--')
+                    g.pregame_stats_captured = True
+                    try:
+                        db.session.commit()
+                        logging.info(f"Saved CBB pre-game stats for {g.away_team} @ {g.home_team}")
+                    except Exception as e:
+                        logging.warning(f"Failed to save CBB pre-game stats: {e}")
+                        db.session.rollback()
                 
-                # If Covers has data, cache it for when game starts
-                if away_covers and home_covers:
-                    _pre_game_stats_cache[game_cache_key] = {
-                        'away_ats': away_covers.get('ats', '--'),
-                        'home_ats': home_covers.get('ats', '--'),
-                        'away_ats_road': away_covers.get('ats_road', '--'),
-                        'home_ats_home': home_covers.get('ats_home', '--'),
-                        'away_l10': away_covers.get('l10', '--'),
-                        'home_l10': home_covers.get('l10', '--'),
-                        'away_l10_ats': away_covers.get('l10_ats', '--'),
-                        'home_l10_ats': home_covers.get('l10_ats', '--'),
-                        'away_road_record': away_covers.get('road_record', '--'),
-                        'home_home_record': home_covers.get('home_record', '--'),
-                        'timestamp': time.time()
-                    }
-                    cached_stats = _pre_game_stats_cache[game_cache_key]
-                
-                # Use data priority: Covers -> Cached Pre-game
+                # Use data priority: Covers (live) -> DB Pre-game
                 g.away_overall = away_covers.get('record', g.away_record)
                 g.home_overall = home_covers.get('record', g.home_record)
-                g.away_road_record = away_covers.get('road_record') or cached_stats.get('away_road_record', '--')
-                g.home_home_record = home_covers.get('home_record') or cached_stats.get('home_home_record', '--')
-                g.away_ats = away_covers.get('ats') or cached_stats.get('away_ats', '--')
-                g.home_ats = home_covers.get('ats') or cached_stats.get('home_ats', '--')
-                g.away_ats_road = away_covers.get('ats_road') or cached_stats.get('away_ats_road', '--')
-                g.home_ats_home = home_covers.get('ats_home') or cached_stats.get('home_ats_home', '--')
-                g.away_l10 = away_covers.get('l10') or cached_stats.get('away_l10', '--')
-                g.home_l10 = home_covers.get('l10') or cached_stats.get('home_l10', '--')
-                g.away_l10_ats = away_covers.get('l10_ats') or cached_stats.get('away_l10_ats', '--')
-                g.home_l10_ats = home_covers.get('l10_ats') or cached_stats.get('home_l10_ats', '--')
+                g.away_road_record = away_covers.get('road_record') or g.pregame_away_road_record or '--'
+                g.home_home_record = home_covers.get('home_record') or g.pregame_home_home_record or '--'
+                g.away_ats = away_covers.get('ats') or g.pregame_away_ats or '--'
+                g.home_ats = home_covers.get('ats') or g.pregame_home_ats or '--'
+                g.away_ats_road = away_covers.get('ats_road') or g.pregame_away_ats_road or '--'
+                g.home_ats_home = home_covers.get('ats_home') or g.pregame_home_ats_home or '--'
+                g.away_l10 = away_covers.get('l10') or g.pregame_away_l10 or '--'
+                g.home_l10 = home_covers.get('l10') or g.pregame_home_l10 or '--'
+                g.away_l10_ats = away_covers.get('l10_ats') or g.pregame_away_l10_ats or '--'
+                g.home_l10_ats = home_covers.get('l10_ats') or g.pregame_home_l10_ats or '--'
             elif g.league == 'NHL':
                 g.away_logo = nhl_team_logos.get(g.away_team, 'https://a.espncdn.com/i/teamlogos/nhl/500/nhl.png')
                 g.home_logo = nhl_team_logos.get(g.home_team, 'https://a.espncdn.com/i/teamlogos/nhl/500/nhl.png')
