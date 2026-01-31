@@ -4441,25 +4441,36 @@
         }
         updateRlmSharpCount();
         
-        // Initial sort on page load: LIVE first, upcoming middle, FINAL last
+        // Sort function for games: LIVE first, upcoming middle, FINAL last
+        function getGamePriority(card) {
+            const liveArea = card.querySelector('[id^="live-score-"]');
+            const finalArea = card.querySelector('[id^="final-score-"]');
+            
+            const isLive = (liveArea && liveArea.style.display !== 'none') || card.querySelector('.live-badge') !== null;
+            const isFinal = (finalArea && finalArea.style.display !== 'none') || 
+                           card.dataset.isFinal === 'true' || 
+                           (card.dataset.period && card.dataset.period.toLowerCase().includes('final'));
+            
+            // Priority: LIVE (0) > upcoming (1) > FINAL (2)
+            return (isLive && !isFinal) ? 0 : (isFinal ? 2 : 1);
+        }
+        
+        function sortGameCards(cards) {
+            return cards.sort((a, b) => {
+                const aPriority = getGamePriority(a);
+                const bPriority = getGamePriority(b);
+                
+                if (aPriority !== bPriority) return aPriority - bPriority;
+                return (a.dataset.gameTime || '').localeCompare(b.dataset.gameTime || '');
+            });
+        }
+        
+        // Initial sort on page load
         function sortAllGames() {
             document.querySelectorAll('.league-section').forEach(section => {
                 const container = section.querySelector('.league-games') || section;
                 const allCards = Array.from(container.querySelectorAll('.game-card'));
-                
-                allCards.sort((a, b) => {
-                    const aIsLive = a.querySelector('.live-badge') !== null;
-                    const bIsLive = b.querySelector('.live-badge') !== null;
-                    const aIsFinal = a.dataset.isFinal === 'true' || (a.dataset.period && a.dataset.period.toLowerCase().includes('final'));
-                    const bIsFinal = b.dataset.isFinal === 'true' || (b.dataset.period && b.dataset.period.toLowerCase().includes('final'));
-                    
-                    const aPriority = aIsLive ? 0 : (aIsFinal ? 2 : 1);
-                    const bPriority = bIsLive ? 0 : (bIsFinal ? 2 : 1);
-                    
-                    if (aPriority !== bPriority) return aPriority - bPriority;
-                    return (a.dataset.gameTime || '').localeCompare(b.dataset.gameTime || '');
-                });
-                
+                sortGameCards(allCards);
                 allCards.forEach(card => container.appendChild(card));
             });
         }
@@ -4496,24 +4507,8 @@
                             }
                         });
                         
-                        // Sort visible cards: LIVE first, then upcoming (by time), then FINAL last
-                        visibleCards.sort((a, b) => {
-                            const aIsLive = a.querySelector('.live-badge') !== null;
-                            const bIsLive = b.querySelector('.live-badge') !== null;
-                            const aIsFinal = a.dataset.isFinal === 'true' || (a.dataset.period && a.dataset.period.toLowerCase().includes('final'));
-                            const bIsFinal = b.dataset.isFinal === 'true' || (b.dataset.period && b.dataset.period.toLowerCase().includes('final'));
-                            
-                            // Priority: LIVE (0) > upcoming (1) > FINAL (2)
-                            const aPriority = aIsLive ? 0 : (aIsFinal ? 2 : 1);
-                            const bPriority = bIsLive ? 0 : (bIsFinal ? 2 : 1);
-                            
-                            if (aPriority !== bPriority) return aPriority - bPriority;
-                            
-                            // Same priority, sort by game time
-                            const aTime = a.dataset.gameTime || '';
-                            const bTime = b.dataset.gameTime || '';
-                            return aTime.localeCompare(bTime);
-                        });
+                        // Sort visible cards using shared function
+                        sortGameCards(visibleCards);
                         
                         // Reorder cards in DOM
                         visibleCards.forEach(card => container.appendChild(card));
@@ -4532,23 +4527,10 @@
                         if (league === 'all' || section.dataset.league === league) {
                             section.classList.remove('hidden');
                             
-                            // Re-sort games in proper order: LIVE, upcoming, FINAL
+                            // Re-sort games using shared function
                             const container = section.querySelector('.league-games') || section;
                             const allCards = Array.from(container.querySelectorAll('.game-card'));
-                            
-                            allCards.sort((a, b) => {
-                                const aIsLive = a.querySelector('.live-badge') !== null;
-                                const bIsLive = b.querySelector('.live-badge') !== null;
-                                const aIsFinal = a.dataset.isFinal === 'true' || (a.dataset.period && a.dataset.period.toLowerCase().includes('final'));
-                                const bIsFinal = b.dataset.isFinal === 'true' || (b.dataset.period && b.dataset.period.toLowerCase().includes('final'));
-                                
-                                const aPriority = aIsLive ? 0 : (aIsFinal ? 2 : 1);
-                                const bPriority = bIsLive ? 0 : (bIsFinal ? 2 : 1);
-                                
-                                if (aPriority !== bPriority) return aPriority - bPriority;
-                                return (a.dataset.gameTime || '').localeCompare(b.dataset.gameTime || '');
-                            });
-                            
+                            sortGameCards(allCards);
                             allCards.forEach(card => container.appendChild(card));
                         } else {
                             section.classList.add('hidden');
