@@ -12077,10 +12077,17 @@ def spreads():
     }
     
     # Helper to check if game is currently live (fetch ESPN live games early)
+    # Also collect full live game data to inject missing games
     early_live_keys = set()
+    early_live_games = []  # Full game data for missing games
     today_str = today.strftime('%Y%m%d') if hasattr(today, 'strftime') else str(today).replace('-', '')
     try:
-        for sport_path in ['basketball/mens-college-basketball', 'basketball/nba', 'hockey/nhl']:
+        sport_league_map = {
+            'basketball/mens-college-basketball': 'CBB',
+            'basketball/nba': 'NBA',
+            'hockey/nhl': 'NHL'
+        }
+        for sport_path, league in sport_league_map.items():
             resp = requests.get(f"https://site.api.espn.com/apis/site/v2/sports/{sport_path}/scoreboard?dates={today_str}", timeout=5)
             if resp.ok:
                 for event in resp.json().get("events", []):
@@ -12089,9 +12096,57 @@ def spreads():
                         if len(comps) >= 2:
                             away = next((c for c in comps if c.get("homeAway") == "away"), comps[0])
                             home = next((c for c in comps if c.get("homeAway") == "home"), comps[1])
-                            early_live_keys.add(f"{away['team']['shortDisplayName']}@{home['team']['shortDisplayName']}")
+                            away_name = away['team']['shortDisplayName']
+                            home_name = home['team']['shortDisplayName']
+                            early_live_keys.add(f"{away_name}@{home_name}")
+                            # Store full game data
+                            early_live_games.append({
+                                'away_team': away_name,
+                                'home_team': home_name,
+                                'away_score': int(away.get('score', 0)),
+                                'home_score': int(home.get('score', 0)),
+                                'period': event.get('status', {}).get('period', 1),
+                                'clock': event.get('status', {}).get('displayClock', ''),
+                                'league': league,
+                                'away_id': away['team'].get('id', ''),
+                                'home_id': home['team'].get('id', ''),
+                                'away_record': away.get('records', [{}])[0].get('summary', '--') if away.get('records') else '--',
+                                'home_record': home.get('records', [{}])[0].get('summary', '--') if home.get('records') else '--'
+                            })
     except Exception as e:
         logging.warning(f"Early live check failed: {e}")
+    
+    # Inject missing live games that aren't in the database
+    existing_keys = {f"{g.away_team}@{g.home_team}" for g in all_games}
+    for lg in early_live_games:
+        key = f"{lg['away_team']}@{lg['home_team']}"
+        # Check if this game is missing (fuzzy match)
+        is_missing = True
+        for ek in existing_keys:
+            ek_parts = ek.split('@')
+            if len(ek_parts) == 2:
+                if (lg['away_team'].lower() in ek_parts[0].lower() or ek_parts[0].lower() in lg['away_team'].lower()) and \
+                   (lg['home_team'].lower() in ek_parts[1].lower() or ek_parts[1].lower() in lg['home_team'].lower()):
+                    is_missing = False
+                    break
+        if is_missing:
+            # Create a temporary game object for this live game
+            temp_game = Game(
+                date=today,
+                league=lg['league'],
+                away_team=lg['away_team'],
+                home_team=lg['home_team'],
+                game_time=datetime.now(pytz.timezone('America/New_York')).strftime('%H:%M')
+            )
+            temp_game.away_record = lg['away_record']
+            temp_game.home_record = lg['home_record']
+            temp_game.is_live = True
+            temp_game.live_away_score = lg['away_score']
+            temp_game.live_home_score = lg['home_score']
+            temp_game.live_period = f"P{lg['period']}" if lg['league'] != 'CBB' else f"H{min(lg['period'], 2)}"
+            temp_game.live_clock = lg['clock']
+            all_games.append(temp_game)
+            logging.info(f"Injected missing live game: {lg['away_team']} @ {lg['home_team']} ({lg['league']})")
     
     def is_game_live_early(away: str, home: str) -> bool:
         """Check if game is currently in progress using early ESPN check"""
