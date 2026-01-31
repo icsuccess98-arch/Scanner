@@ -82,11 +82,18 @@ import pytz
 from bs4 import BeautifulSoup
 from enhanced_scraping import get_cbb_logo, CBB_TEAM_LOGOS, get_covers_matchup_stats
 from automated_loading_system import (
-    setup_automatic_loading, 
-    get_transparent_cbb_logo, 
+    setup_automatic_loading,
+    get_transparent_cbb_logo,
     CBB_TEAM_LOGOS_COMPLETE,
     TeamRankingsScraper,
     EliminationFilterSystem
+)
+from utils import (
+    api_response,
+    extract_teams_from_competitors,
+    validate_percentage,
+    safe_divide,
+    safe_average,
 )
 
 # ============================================================
@@ -650,6 +657,39 @@ def add_cache_headers(response):
     response.headers['Pragma'] = 'no-cache'
     response.headers['Expires'] = '0'
     return response
+
+
+# ============================================================
+# GLOBAL ERROR HANDLERS
+# ============================================================
+
+@app.errorhandler(400)
+def handle_bad_request(error):
+    """Handle 400 Bad Request errors with standardized JSON response."""
+    return jsonify(api_response(False, error=f'Bad request: {str(error)}')), 400
+
+
+@app.errorhandler(404)
+def handle_not_found(error):
+    """Handle 404 Not Found errors with standardized JSON response."""
+    # Only return JSON for API routes, otherwise redirect to dashboard
+    if request.path.startswith('/api/'):
+        return jsonify(api_response(False, error='Resource not found')), 404
+    return redirect(url_for('dashboard'))
+
+
+@app.errorhandler(405)
+def handle_method_not_allowed(error):
+    """Handle 405 Method Not Allowed errors."""
+    return jsonify(api_response(False, error=f'Method not allowed: {request.method}')), 405
+
+
+@app.errorhandler(500)
+def handle_internal_error(error):
+    """Handle 500 Internal Server errors with logging."""
+    logger.error(f"Internal server error: {error}", exc_info=True)
+    return jsonify(api_response(False, error='Internal server error')), 500
+
 
 class GameConstants:
     """Centralized configuration for all magic numbers and thresholds."""
@@ -8261,15 +8301,22 @@ def offline():
 
 @app.route('/api/status')
 def api_status():
+    """
+    Get current application status including game counts.
+
+    Returns:
+        JSON response with date, game counts, and change detection.
+    """
     et = pytz.timezone('America/New_York')
     today = datetime.now(et).date()
     current_count = Game.query.filter_by(date=today).count()
     games_changed = last_game_count.get('count', 0) != current_count
-    return jsonify({
-        'date': today.strftime('%B %d, %Y'),
-        'games_count': current_count,
-        'games_changed': games_changed
-    })
+    return jsonify(api_response(
+        True,
+        date=today.strftime('%B %d, %Y'),
+        games_count=current_count,
+        games_changed=games_changed
+    ))
 
 @app.route('/api/live_scores')
 def api_live_scores():
@@ -8413,31 +8460,42 @@ def api_live_scores():
 @app.route('/api/live_lines')
 @app.route('/api/live_lines/<league>')
 def api_live_lines(league='NBA'):
-    """Get current live lines from The Odds API - refreshes every 30 seconds."""
+    """
+    Get current live lines from The Odds API.
+
+    Args:
+        league: League code (NBA, CBB, NHL, NFL, CFB)
+
+    Returns:
+        JSON with current betting lines, refreshes every 30 seconds.
+    """
     try:
         from live_odds_fetcher import get_live_odds
         odds_data = get_live_odds(league.upper())
-        return jsonify({
-            'success': True,
-            'league': league.upper(),
-            'lines': odds_data,
-            'count': len(odds_data),
-            'timestamp': time.time()
-        })
+        return jsonify(api_response(
+            True,
+            league=league.upper(),
+            lines=odds_data,
+            count=len(odds_data)
+        ))
     except Exception as e:
-        logging.error(f"Live lines API error: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'lines': {}
-        })
+        logger.error(f"Live lines API error: {e}")
+        return jsonify(api_response(False, error=str(e), lines={}))
 
 @app.route('/api/covers_h2h/<int:game_id>')
 def api_covers_h2h(game_id):
-    """Get full H2H data from Covers.com - W/L, ATS, O/U with team logos and games."""
+    """
+    Get full H2H data from Covers.com.
+
+    Args:
+        game_id: Database game ID
+
+    Returns:
+        JSON with W/L, ATS, O/U records, team logos, and recent games.
+    """
     game = Game.query.get_or_404(game_id)
     h2h_data = MatchupIntelligence.fetch_covers_full_h2h(game.away_team, game.home_team, game.league)
-    return jsonify(h2h_data)
+    return jsonify(api_response(True, data=h2h_data))
 
 @app.route('/api/covers_live/<int:game_id>')
 def api_covers_live(game_id):
