@@ -13115,31 +13115,48 @@ def spreads():
                 return True
         return False
     
-    # Sort key function for ordering: live first, upcoming middle, final last
-    def game_sort_key(g):
-        is_final = getattr(g, 'is_final', False) or (getattr(g, 'live_period', '') or '').lower() in ('final', 'f')
-        is_live = getattr(g, 'is_live', False) and not is_final
-        
+    # Helper function to detect if game is FINAL based on time
+    def check_and_set_final_status(g):
+        """Check if game is FINAL and set is_final attribute"""
+        # Already set as final
+        if getattr(g, 'is_final', False):
+            return True
+        # Check live_period
+        if (getattr(g, 'live_period', '') or '').lower() in ('final', 'f'):
+            g.is_final = True
+            return True
         # Check if game started long ago (likely FINAL even if not in ESPN live data)
-        game_started_long_ago = False
-        if g.game_time:
+        is_live = getattr(g, 'is_live', False)
+        if g.game_time and not is_live:
             try:
                 et_tz = pytz.timezone('America/New_York')
                 now = datetime.now(et_tz)
-                game_time_str = g.game_time.replace(' ET', '').strip()
-                game_dt = datetime.strptime(game_time_str, "%I:%M %p")
-                game_dt = game_dt.replace(year=now.year, month=now.month, day=now.day)
+                game_time_str = g.game_time.replace(' EST', '').replace(' ET', '').strip()
+                # Handle formats like "1/31 - 7:00 PM" or "7:00 PM"
+                if ' - ' in game_time_str:
+                    date_part, time_part = game_time_str.split(' - ', 1)
+                    game_dt = datetime.strptime(f"{date_part}/{now.year} {time_part}", "%m/%d/%Y %I:%M %p")
+                else:
+                    game_dt = datetime.strptime(game_time_str, "%I:%M %p")
+                    game_dt = game_dt.replace(year=now.year, month=now.month, day=now.day)
                 game_dt = et_tz.localize(game_dt)
                 hours_since_start = (now - game_dt).total_seconds() / 3600
-                if hours_since_start >= 3.0 and not is_live:
-                    game_started_long_ago = True
+                if hours_since_start >= 3.0:
+                    g.is_final = True
+                    return True
             except:
                 pass
+        return False
+    
+    # Sort key function for ordering: live first, upcoming middle, final last
+    def game_sort_key(g):
+        is_final = check_and_set_final_status(g)
+        is_live = getattr(g, 'is_live', False) and not is_final
         
         # 0 = live, 1 = upcoming, 2 = final
         if is_live:
             return (0, g.game_time or '')
-        elif is_final or game_started_long_ago:
+        elif is_final:
             return (2, g.game_time or '')
         else:
             return (1, g.game_time or '')
