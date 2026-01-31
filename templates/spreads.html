@@ -2651,7 +2651,7 @@
                     {% if rlm_detected %}
                     <div class="sharp-alert" style="background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(139, 92, 246, 0.2)); border: 1px solid rgba(255, 215, 0, 0.4);">
                         <i class="bi bi-shuffle" style="color: #ffd700;"></i>
-                        <span style="color: #ffd700; font-weight: 700;">RLM:</span> Sharp money on {{ game.away_team if rlm_sharp_side == 'away' else game.home_team }} (line moved toward dog despite {{ game.vsin_money_away if favorite_side == 'away' else game.vsin_money_home }}% handle on favorite)
+                        <span style="color: #ffd700; font-weight: 700;">RLM:</span> Sharp money on {{ game.away_team if rlm_sharp_side == 'away' else game.home_team }}
                     </div>
                     {% elif has_sharp_money %}
                     <div class="sharp-alert">
