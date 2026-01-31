@@ -8601,7 +8601,7 @@ def fetch_kenpom_four_factors() -> dict:
     if kenpom_cache_date == today and kenpom_four_factors_cache:
         return kenpom_four_factors_cache
 
-    data = fetch_kenpom_api('fourfactors')
+    data = fetch_kenpom_api('four-factors')
     if not data:
         return kenpom_four_factors_cache
 
@@ -8939,7 +8939,7 @@ def fetch_all_kenpom_data():
 
     endpoints_to_fetch = [
         ('ratings', fetch_kenpom_ratings),
-        ('fourfactors', fetch_kenpom_four_factors),
+        ('four-factors', fetch_kenpom_four_factors),
         ('pointdist', fetch_kenpom_point_distribution),
         ('height', fetch_kenpom_height),
         ('misc', fetch_kenpom_misc),

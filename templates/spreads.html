@@ -1688,29 +1688,39 @@
             background: linear-gradient(90deg, rgba(139, 92, 246, 0.3), rgba(139, 92, 246, 0.1));
             color: #A78BFA;
             font-weight: 700;
-            font-size: 11px;
-            padding: 6px 8px;
+            font-size: 10px;
+            padding: 6px 4px;
+            white-space: normal;
+            word-wrap: break-word;
+            max-width: 80px;
         }
         .stats-table td.edge-home {
             background: linear-gradient(90deg, rgba(255, 215, 0, 0.25), rgba(255, 215, 0, 0.08));
             color: #FFD700;
             font-weight: 700;
-            font-size: 11px;
-            padding: 6px 8px;
+            font-size: 10px;
+            padding: 6px 4px;
+            white-space: normal;
+            word-wrap: break-word;
+            max-width: 80px;
         }
         .stats-table td.edge-away.edge-strong {
             background: linear-gradient(90deg, rgba(139, 92, 246, 0.4), rgba(139, 92, 246, 0.15));
             color: #A78BFA;
             font-weight: 800;
-            font-size: 11px;
+            font-size: 10px;
             text-shadow: 0 0 6px rgba(139, 92, 246, 0.5);
+            white-space: normal;
+            word-wrap: break-word;
         }
         .stats-table td.edge-home.edge-strong {
             background: linear-gradient(90deg, rgba(255, 215, 0, 0.35), rgba(255, 215, 0, 0.12));
             color: #FFD700;
             font-weight: 800;
-            font-size: 11px;
+            font-size: 10px;
             text-shadow: 0 0 6px rgba(255, 215, 0, 0.5);
+            white-space: normal;
+            word-wrap: break-word;
         }
         .stats-table tr:nth-child(odd) {
             background: rgba(139, 92, 246, 0.03);
@@ -3601,10 +3611,6 @@
                         </thead>
                         <tbody>
                             ${data.league === 'CBB' ? `
-                                ${statRow('KenPom Rank', awaySeason['KenPom Rank'], homeSeason['KenPom Rank'], 'num', false)}
-                                ${statRow('Adj Offense', awaySeason['Adj O'], homeSeason['Adj O'], 'num', true)}
-                                ${statRow('Adj Defense', awaySeason['Adj D'], homeSeason['Adj D'], 'num', false)}
-                                ${statRow('Adj Margin', awaySeason['Adj EM'], homeSeason['Adj EM'], 'num', true)}
                                 ${statRow('Tempo', awaySeason['Tempo'], homeSeason['Tempo'], 'num', true)}
                             ` : `
                                 ${statRow('PPP', awaySeason['PPP'], homeSeason['PPP'], 'num', true, awaySeason['PPP Rank'], homeSeason['PPP Rank'])}
@@ -3618,8 +3624,8 @@
                             ${statRow('Forced TO%', awaySeason['Opp TOV%'], homeSeason['Opp TOV%'], 'pct', true, awaySeason['F-TOV% Rank'], homeSeason['F-TOV% Rank'])}
                             ${statRow('ORB%', awaySeason['ORB%'], homeSeason['ORB%'], 'pct', true, awaySeason['ORB% Rank'], homeSeason['ORB% Rank'])}
                             ${statRow('DRB%', awaySeason['DRB%'], homeSeason['DRB%'], 'pct', true, awaySeason['DRB% Rank'], homeSeason['DRB% Rank'])}
-                            ${statRow('3PT%', awaySeason['3PT%'], homeSeason['3PT%'], 'pct', true)}
-                            ${statRow('Opp 3PT%', awaySeason['Opp 3PT%'], homeSeason['Opp 3PT%'], 'pct', false)}
+                            ${(awaySeason['3PT%'] && awaySeason['3PT%'] > 0) || data.league !== 'CBB' ? statRow('3PT%', awaySeason['3PT%'], homeSeason['3PT%'], 'pct', true) : ''}
+                            ${(awaySeason['Opp 3PT%'] && awaySeason['Opp 3PT%'] > 0) || data.league !== 'CBB' ? statRow('Opp 3PT%', awaySeason['Opp 3PT%'], homeSeason['Opp 3PT%'], 'pct', false) : ''}
                             ${statRow('FT Rate', awaySeason['FTA/FGA'], homeSeason['FTA/FGA'], 'num', true, awaySeason['FT Rate Rank'], homeSeason['FT Rate Rank'])}
                             ${statRow('Opp FT Rate', awaySeason['Opp FTA/FGA'], homeSeason['Opp FTA/FGA'], 'num', false, awaySeason['Opp FT Rate Rank'], homeSeason['Opp FT Rate Rank'])}
                             ${statRow('SOS Rank', awaySeason['SOS'], homeSeason['SOS'], 'num', false)}
