@@ -4442,17 +4442,26 @@
         updateRlmSharpCount();
         
         // Sort function for games: LIVE first, upcoming middle, FINAL last
+        // Within each category, RLM games come first
         function getGamePriority(card) {
             const liveArea = card.querySelector('[id^="live-score-"]');
             const finalArea = card.querySelector('[id^="final-score-"]');
+            const bettingAction = card.querySelector('.betting-action');
             
             const isLive = (liveArea && liveArea.style.display !== 'none') || card.querySelector('.live-badge') !== null;
             const isFinal = (finalArea && finalArea.style.display !== 'none') || 
                            card.dataset.isFinal === 'true' || 
                            (card.dataset.period && card.dataset.period.toLowerCase().includes('final'));
+            const hasRlm = bettingAction && bettingAction.classList.contains('rlm-alert');
             
-            // Priority: LIVE (0) > upcoming (1) > FINAL (2)
-            return (isLive && !isFinal) ? 0 : (isFinal ? 2 : 1);
+            // Priority: LIVE+RLM (0) > LIVE (1) > Upcoming+RLM (2) > Upcoming (3) > FINAL+RLM (4) > FINAL (5)
+            if (isLive && !isFinal) {
+                return hasRlm ? 0 : 1;
+            } else if (isFinal) {
+                return hasRlm ? 4 : 5;
+            } else {
+                return hasRlm ? 2 : 3;
+            }
         }
         
         function sortGameCards(cards) {
