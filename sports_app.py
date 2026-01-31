@@ -1364,6 +1364,9 @@ class MatchupIntelligence:
         }
         return abbr_map.get(abbr.upper(), abbr)
     
+    _teamrankings_cache = {}
+    _teamrankings_cache_time = {}
+    
     @staticmethod
     def fetch_teamrankings_matchup(away_team: str, home_team: str, game_date: str, league: str = 'NBA') -> dict:
         """
@@ -1373,6 +1376,17 @@ class MatchupIntelligence:
         - /splits: Season + Last 3 Games columns
         - /power-ratings: SOS Rank, Predictive Rating, etc.
         """
+        # Check cache first (30 min expiry - stats don't change during game)
+        from datetime import datetime
+        cache_key = f"{league}_{away_team}_{home_team}_{game_date}"
+        now = datetime.now()
+        if cache_key in MatchupIntelligence._teamrankings_cache:
+            cached_time = MatchupIntelligence._teamrankings_cache_time.get(cache_key, now)
+            cache_age_minutes = (now - cached_time).total_seconds() / 60
+            if cache_age_minutes <= 30:
+                logger.info(f"Using cached TeamRankings data for {away_team} vs {home_team}")
+                return MatchupIntelligence._teamrankings_cache[cache_key]
+        
         try:
             import requests
             from bs4 import BeautifulSoup
@@ -1650,6 +1664,13 @@ class MatchupIntelligence:
                 logger.warning(f"Power-ratings page error: {e}")
             
             logger.info(f"TeamRankings TOTAL: away_season={len(result['away_season'])}, home_season={len(result['home_season'])}")
+            
+            # Cache the result
+            from datetime import datetime
+            cache_key = f"{league}_{away_team}_{home_team}_{game_date}"
+            MatchupIntelligence._teamrankings_cache[cache_key] = result
+            MatchupIntelligence._teamrankings_cache_time[cache_key] = datetime.now()
+            
             return result
             
         except Exception as e:
@@ -1713,17 +1734,18 @@ class MatchupIntelligence:
                 'Connection': 'keep-alive',
             }
             
-            # Retry logic with exponential backoff and rate limiting
-            max_retries = 3
+            # Quick fetch with minimal retries for responsiveness
+            max_retries = 1
+            resp = None
             for attempt in range(max_retries):
                 try:
-                    resp = rate_limited_request(url, headers=headers, timeout=20)
+                    resp = rate_limited_request(url, headers=headers, timeout=5)
                     if resp.status_code == 200:
                         break
                     elif resp.status_code == 429:  # Rate limited
-                        time.sleep(2 ** attempt)  # Exponential backoff
+                        time.sleep(1)
                     else:
-                        time.sleep(0.5 * (attempt + 1))
+                        time.sleep(0.5)
                 except requests.exceptions.Timeout:
                     if attempt < max_retries - 1:
                         time.sleep(1 * (attempt + 1))
@@ -1924,6 +1946,9 @@ class MatchupIntelligence:
             logger.warning(f"Error fetching Covers trends for {team_name}: {e}")
             return {}
     
+    _h2h_cache = {}
+    _h2h_cache_time = {}
+    
     @staticmethod
     def fetch_covers_h2h(away_team: str, home_team: str, league: str = 'NBA') -> dict:
         """
@@ -1933,6 +1958,7 @@ class MatchupIntelligence:
         import requests
         from bs4 import BeautifulSoup
         import re
+        from datetime import datetime
         
         result = {
             'h2h_record': 'N/A',
@@ -1944,6 +1970,16 @@ class MatchupIntelligence:
             'away_ats': 'N/A',
             'home_ats': 'N/A'
         }
+        
+        # Check H2H cache first (10 min expiry)
+        cache_key = f"{league}_{away_team}_{home_team}_{datetime.now().strftime('%Y%m%d')}"
+        now = datetime.now()
+        if cache_key in MatchupIntelligence._h2h_cache:
+            cached_time = MatchupIntelligence._h2h_cache_time.get(cache_key, now)
+            cache_age_minutes = (now - cached_time).total_seconds() / 60
+            if cache_age_minutes <= 30:  # 30 min cache for H2H (doesn't change during game)
+                logger.info(f"Using cached H2H data for {away_team} vs {home_team}")
+                return MatchupIntelligence._h2h_cache[cache_key]
         
         try:
             headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
@@ -2093,6 +2129,13 @@ class MatchupIntelligence:
                         result['home_ats'] = ats_records[1]
             
             logger.info(f"Covers H2H {away_team} vs {home_team}: W/L={result['h2h_record']} ({result['h2h_leader']}), ATS={result['h2h_ats']} ({result['ats_leader']})")
+            
+            # Cache the result
+            from datetime import datetime
+            cache_key = f"{league}_{away_team}_{home_team}_{datetime.now().strftime('%Y%m%d')}"
+            MatchupIntelligence._h2h_cache[cache_key] = result
+            MatchupIntelligence._h2h_cache_time[cache_key] = datetime.now()
+            
             return result
             
         except Exception as e:
@@ -2599,7 +2642,7 @@ class MatchupIntelligence:
         if cache_key in MatchupIntelligence._rlm_cache:
             cached_time = MatchupIntelligence._rlm_cache_time.get(cache_key, now)
             cache_age_minutes = (now - cached_time).total_seconds() / 60
-            should_refresh = cache_age_minutes > 2  # Refresh every 2 mins for live line movement
+            should_refresh = cache_age_minutes > 10  # Refresh every 10 mins - page loads refresh more frequently
             
             if game_time and not should_refresh:
                 try:
@@ -11290,24 +11333,11 @@ def get_matchup_data(game_id):
         game_date = game.date.strftime('%Y-%m-%d') if hasattr(game.date, 'strftime') else str(game.date)[:10]
         
         if game.league in ['NBA', 'CBB']:
-            # Fetch from TeamRankings matchup page
-            matchup_data = MatchupIntelligence.fetch_teamrankings_matchup(
-                game.away_team, game.home_team, game_date, game.league
-            ) or {}
-            
-            away_season = matchup_data.get('away_season', {})
-            home_season = matchup_data.get('home_season', {})
-            away_l3 = matchup_data.get('away_l3', {})
-            home_l3 = matchup_data.get('home_l3', {})
-            
-            # Log what stats we got for debugging
-            logging.info(f"TeamRankings stats for {game.away_team} vs {game.home_team}: {list(away_season.keys())[:10]}...")
-            
-            # Fetch external data in PARALLEL for faster loading
-            away_ctg = {}
-            home_ctg = {}
-            h2h_data = {}
-            rlm_data = {}
+            # Define all fetch functions
+            def fetch_teamrankings():
+                return MatchupIntelligence.fetch_teamrankings_matchup(
+                    game.away_team, game.home_team, game_date, game.league
+                ) or {}
             
             def fetch_ctg_away():
                 if game.league == 'NBA':
@@ -11326,40 +11356,50 @@ def get_matchup_data(game_id):
             def fetch_h2h():
                 return MatchupIntelligence.fetch_covers_h2h(game.away_team, game.home_team, game.league)
             
-            def fetch_rlm():
-                return MatchupIntelligence.fetch_rlm_data(game.league)
+            # Run ALL fetches in parallel with single timeout
+            from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FuturesTimeoutError
+            import time as time_mod
             
-            # Run all fetches in parallel
+            matchup_data, away_ctg, home_ctg, h2h_data = {}, {}, {}, {}
+            
             with ThreadPoolExecutor(max_workers=4) as executor:
-                ctg_away_future = executor.submit(fetch_ctg_away)
-                ctg_home_future = executor.submit(fetch_ctg_home)
-                h2h_future = executor.submit(fetch_h2h)
-                rlm_future = executor.submit(fetch_rlm)
+                futures = {
+                    executor.submit(fetch_teamrankings): 'teamrankings',
+                    executor.submit(fetch_ctg_away): 'ctg_away',
+                    executor.submit(fetch_ctg_home): 'ctg_home', 
+                    executor.submit(fetch_h2h): 'h2h'
+                }
                 
+                # Wait max 8 seconds total for ALL parallel fetches (including TeamRankings)
                 try:
-                    away_ctg = ctg_away_future.result(timeout=45)  # Allow time for retries
-                except Exception as e:
-                    logging.warning(f"CTG away fetch error: {e}")
-                    away_ctg = {}
-                
-                try:
-                    home_ctg = ctg_home_future.result(timeout=45)  # Allow time for retries
-                except Exception as e:
-                    logging.warning(f"CTG home fetch error: {e}")
-                    home_ctg = {}
-                
-                try:
-                    h2h_data = h2h_future.result(timeout=10)
-                    logging.info(f"Covers H2H data for {game.league}: {h2h_data}")
-                except Exception as e:
-                    logging.warning(f"Covers H2H fetch error: {e}")
-                    h2h_data = {}
-                
-                try:
-                    all_rlm = rlm_future.result(timeout=30)
-                except Exception as e:
-                    logging.warning(f"RLM fetch error: {e}")
-                    all_rlm = {}
+                    for future in as_completed(futures, timeout=8):
+                        name = futures[future]
+                        try:
+                            fetch_result = future.result(timeout=0.1)
+                            if name == 'teamrankings':
+                                matchup_data = fetch_result
+                                logging.info(f"TeamRankings stats for {game.away_team} vs {game.home_team}: {list(matchup_data.get('away_season', {}).keys())[:10]}...")
+                            elif name == 'ctg_away':
+                                away_ctg = fetch_result
+                            elif name == 'ctg_home':
+                                home_ctg = fetch_result
+                            elif name == 'h2h':
+                                h2h_data = fetch_result
+                                logging.info(f"Covers H2H data for {game.league}: {h2h_data}")
+                        except Exception as e:
+                            logging.debug(f"{name} fetch error: {e}")
+                except FuturesTimeoutError:
+                    logging.debug("Parallel fetch timeout - using available data")
+            
+            # Get RLM from cache only - don't trigger new fetch
+            cache_key = f"{game.league}_{datetime.now().strftime('%Y%m%d')}"
+            all_rlm = MatchupIntelligence._rlm_cache.get(cache_key, {})
+            
+            # Extract season/L3 data from matchup_data (fetched in parallel)
+            away_season = matchup_data.get('away_season', {})
+            home_season = matchup_data.get('home_season', {})
+            away_l3 = matchup_data.get('away_l3', {})
+            home_l3 = matchup_data.get('home_l3', {})
             
             if away_ctg or home_ctg:
                 logging.info(f"CTG data: away={away_ctg}, home={home_ctg}")
@@ -11665,10 +11705,12 @@ def get_matchup_data(game_id):
     except Exception as e:
         logging.warning(f"Error fetching TeamRankings matchup data for game {game_id}: {e}")
     
-    # Fetch Last 10 games from Covers.com (each team separately + H2H)
+    # Skip Covers Last10 fetch - it uses Playwright and takes 15+ seconds
+    # H2H data is already fetched in parallel above using the faster fetch_covers_h2h
     try:
         if game.league == 'NBA':
-            covers_last10 = MatchupIntelligence.fetch_covers_last10_games(game.away_team, game.home_team, game.league)
+            logging.info(f"Skipping Covers Last10 fetch - using parallel H2H data for speed")
+            covers_last10 = {}
             result['covers_last10'] = covers_last10
             
             # Update top-level H2H fields from covers_last10 data
@@ -11704,8 +11746,14 @@ def get_matchup_data(game_id):
                     pass
             
             # Also set last5 for backward compatibility (first 5 of last 10)
-            result['last5_away'] = covers_last10['away']['games'][:5] if covers_last10['away']['games'] else []
-            result['last5_home'] = covers_last10['home']['games'][:5] if covers_last10['home']['games'] else []
+            if covers_last10.get('away', {}).get('games'):
+                result['last5_away'] = covers_last10['away']['games'][:5]
+            else:
+                result['last5_away'] = []
+            if covers_last10.get('home', {}).get('games'):
+                result['last5_home'] = covers_last10['home']['games'][:5]
+            else:
+                result['last5_home'] = []
         else:
             result['covers_last10'] = {'away': {'games': []}, 'home': {'games': []}, 'h2h': {'games': []}}
             result['last5_away'] = []

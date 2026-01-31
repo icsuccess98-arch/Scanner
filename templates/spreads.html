@@ -3363,6 +3363,8 @@
         }
         
         function updateMatchupStats(container, data) {
+            try {
+            console.log('updateMatchupStats called with data:', Object.keys(data));
             // Use Season and L3 (Last 3 Games) stats from TeamRankings matchup page
             const awaySeason = data.away_season || {};
             const homeSeason = data.home_season || {};
@@ -3370,6 +3372,7 @@
             const homeL3 = data.home_l3 || {};
             const awayTeam = data.away_team;
             const homeTeam = data.home_team;
+            console.log('Teams:', awayTeam, 'vs', homeTeam);
             
             // Get rank badge color class based on ranking (1-30 scale)
             function getRankClass(rank, higherIsBetter = true) {
@@ -3917,7 +3920,20 @@
                 `;
                 })() : ''}
             `;
+            console.log('HTML generated, length:', html?.length || 'null');
             container.innerHTML = html;
+            console.log('HTML set successfully');
+            } catch (error) {
+                console.error('Error in updateMatchupStats:', error);
+                container.innerHTML = `<div style="padding: 20px; color: #ef4444; text-align: center;">
+                    <p>Error loading matchup data:</p>
+                    <p style="font-size: 12px; color: #9ca3af;">${error.message}</p>
+                    <button onclick="this.closest('.matchup-content').dataset.loaded=''; toggleMatchup(this.closest('.matchup-content').previousElementSibling);" 
+                            style="margin-top: 10px; padding: 8px 16px; background: #8B5CF6; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                        Retry
+                    </button>
+                </div>`;
+            }
         }
         
         document.querySelectorAll('.league-tab').forEach(tab => {
