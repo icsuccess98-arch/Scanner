@@ -10949,12 +10949,46 @@ def spreads():
                     cbb_large_spread_teams.add(g.home_team)
     cbb_large_spread_display = ', '.join(cbb_large_spread_matchups) if cbb_large_spread_matchups else 'None'
     
-    # CBB Remaining Teams - ONLY Top 25 teams not in other categories
+    # CBB Remaining Teams - ONLY Top 25 HOME teams with momentum (home-court advantage filter)
+    # Filter: Must be HOME team + not in eliminated categories + good recent form
     cbb_eliminated_top25 = cbb_cold_teams_set | cbb_large_spread_teams | cbb_bad_defense_set
     cbb_remaining_top25 = cbb_top25_set - cbb_eliminated_top25
-    # Sort by ranking
-    cbb_remaining_sorted = sorted(cbb_remaining_top25, key=lambda x: cbb_top25_ranks.get(x, 99))
-    cbb_remaining_display = ', '.join([f'#{cbb_top25_ranks.get(t, 99)} {t}' for t in cbb_remaining_sorted]) if cbb_remaining_sorted else 'No Top 25 teams remaining'
+    
+    # Build home teams set and their L10 records
+    cbb_home_teams_info = {}
+    for g in cbb_games:
+        if g.home_team in cbb_remaining_top25:
+            l10_wins = 5  # Default neutral
+            if hasattr(g, 'home_l10') and g.home_l10 and g.home_l10 != '--':
+                try:
+                    l10_parts = g.home_l10.replace(' ', '').split('-')
+                    if len(l10_parts) >= 2:
+                        l10_wins = int(l10_parts[0])
+                except:
+                    pass
+            # Only include if decent recent form (5+ wins in L10)
+            if l10_wins >= 5:
+                cbb_home_teams_info[g.home_team] = l10_wins
+    
+    # Sort by ranking, only HOME teams with momentum
+    cbb_remaining_sorted = sorted(cbb_home_teams_info.keys(), key=lambda x: cbb_top25_ranks.get(x, 99))
+    cbb_remaining_display = ', '.join([f'#{cbb_top25_ranks.get(t, 99)} {t} (L10: {cbb_home_teams_info[t]}-{10-cbb_home_teams_info[t]})' for t in cbb_remaining_sorted]) if cbb_remaining_sorted else 'No qualified HOME teams'
+    
+    # CBB Fade Teams - Cold/bad teams to bet AGAINST (away teams or poor recent form)
+    cbb_fade_teams_list = []
+    for g in cbb_games:
+        # Add cold teams (already identified) - label as fade
+        if g.away_team in cbb_cold_teams_set:
+            rank = cbb_top25_ranks.get(g.away_team, 99)
+            l10_record = g.away_l10 if hasattr(g, 'away_l10') and g.away_l10 else '--'
+            cbb_fade_teams_list.append(f'#{rank} {g.away_team} ({l10_record})')
+        if g.home_team in cbb_cold_teams_set:
+            rank = cbb_top25_ranks.get(g.home_team, 99)
+            l10_record = g.home_l10 if hasattr(g, 'home_l10') and g.home_l10 else '--'
+            cbb_fade_teams_list.append(f'#{rank} {g.home_team} ({l10_record})')
+    cbb_fade_teams_list = list(set(cbb_fade_teams_list))  # Remove duplicates
+    cbb_fade_teams_list.sort(key=lambda x: int(x.split('#')[1].split(' ')[0]))
+    cbb_fade_display = ', '.join(cbb_fade_teams_list) if cbb_fade_teams_list else 'None'
     
     # Reorder games_by_league to prioritize CBB
     ordered_games_by_league = {
@@ -10990,6 +11024,7 @@ def spreads():
                            cbb_bad_defense=cbb_bad_defense_display,
                            cbb_large_spreads=cbb_large_spread_display,
                            cbb_remaining_teams=cbb_remaining_display,
+                           cbb_fade_teams=cbb_fade_display,
                            team_colors=NBA_TEAM_COLORS)
 
 @app.route('/download/codebase_structure')

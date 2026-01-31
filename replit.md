@@ -38,12 +38,19 @@ The system implements professional sharp money detection based on divergence bet
 5. No trap signals detected
 6. Spread size acceptable (<10 points preferred)
 
-**Non-Negotiable Filters:**
-- Avoid bottom-tier teams with poor L10 records
-- Prefer teams with momentum (Hot Teams L10)
-- Home court advantage favored
+**Non-Negotiable Filters (Pre-Analysis Elimination):**
+- Avoid bottom-tier teams with poor L10 records (shown as "Fade" teams - bet against, not with)
+- Prefer teams with momentum (Hot Teams = 8+ L10 wins)
+- Home-court advantage STRONGLY favored (Remaining Teams shows ONLY home teams)
 - Rarely play spreads above -10
-- Recent performance (L3-L5) matters more than season averages
+- Recent performance (L3-L5) matters more than season-long narratives
+
+**CBB Daily Slate Analysis Categories:**
+1. **Fade (Bet Against)** - Red - Cold teams (≤3 L10 wins) to bet AGAINST, not with
+2. **Hot Momentum (L10)** - Green - Teams with 8+ wins in last 10 games
+3. **Bad Defense** - Orange - Teams with defensive efficiency > 105 (KenPom adj_d)
+4. **Large Spreads (10+)** - Purple - Games with spreads of 10+ points
+5. **HOME TEAMS WITH MOMENTUM** - Gold - ONLY home teams with 5+ L10 wins (qualified picks)
 
 ### Technical Implementation
 The system includes two independent applications: a Sports App and a Stocks App, running on port 5000.
