@@ -80,8 +80,18 @@ The Sports Scanner fetches game data, stats, and odds for NBA, CBB, NFL, CFB, an
         - All data cached daily to minimize API calls
     -   TeamRankings.com (matchup pages)
     -   Cleaning the Glass (CTG) (NBA advanced stats)
-    -   WagerTalk.com (betting action: Bet %, Money %)
+    -   VSIN.com (replaces WagerTalk - cookie-based authentication):
+        - Line Tracker: Open and current spread lines from DraftKings
+        - Betting Splits: Tickets % (bets) and Handle % (money)
+        - Sharp money detection based on tickets vs handle divergence
+        - Cookies stored in `vsin_cookies.json` (expires March 2026)
     -   Covers.com (H2H, ATS records)
+    
+### Bovada Filtering (Jan 2026)
+Games are filtered to only show matchups available on Bovada via The Odds API:
+- `get_bovada_games(league)` fetches Bovada game list with 10-minute cache
+- `is_bovada_game()` uses fuzzy matching to filter displayed games
+- Ensures users only see games they can actually bet on
 
 ### Pre-Game Stats Persistence (Jan 2026)
 When Covers.com data is available for a game (before it starts), all stats are captured and saved to the database:
