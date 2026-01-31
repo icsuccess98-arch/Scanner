@@ -2352,6 +2352,9 @@
         {% if games_by_league.get('NBA', [])|length > 0 %}
         <div class="league-tab" data-league="NBA">NBA <span class="count">{{ games_by_league.get('NBA', [])|length }}</span></div>
         {% endif %}
+        <div class="league-tab rlm-sharp-tab" data-league="rlm-sharp" style="background: linear-gradient(135deg, #f59e0b 0%, #22c55e 100%); color: #1a1a2e;">
+            🔄 RLM/Sharp <span class="count rlm-count">0</span>
+        </div>
     </div>
     
     <div class="games-container">
@@ -2519,17 +2522,47 @@
                 {% set sharp_side = 'away' if away_sharp_diff >= home_sharp_diff else 'home' %}
                 {% set sharp_diff = away_sharp_diff if sharp_side == 'away' else home_sharp_diff %}
                 
-                {# RLM: Line moves TOWARD team with less tickets (sharps) despite public on other side #}
+                {# CORRECT RLM FORMULA: Line moves TOWARD underdog BUT money stays on original favorite #}
+                {# RLM = Sharp money is on underdog, line moves their way despite public on favorite #}
                 {% if game.vsin_open_spread is not none and game.vsin_current_spread is not none %}
                 {% set open_spread_num = game.vsin_open_spread|float %}
                 {% set current_spread_num = game.vsin_current_spread|float %}
+                
+                {# Determine who is favorite at open (negative spread = away favorite, positive = home favorite) #}
+                {% set away_is_favorite = open_spread_num < 0 %}
+                {% set home_is_favorite = open_spread_num > 0 %}
+                
+                {# Calculate spread magnitude change #}
+                {% set open_magnitude = open_spread_num|abs %}
+                {% set current_magnitude = current_spread_num|abs %}
+                {% set magnitude_change = open_magnitude - current_magnitude %}
+                
+                {# Line moved TOWARD underdog = spread magnitude DECREASED (favorite gives fewer points) #}
+                {# Example: -7.5 to -6.5 = magnitude 7.5 to 6.5 = DECREASED = toward underdog #}
+                {# Example: -6.5 to -7.5 = magnitude 6.5 to 7.5 = INCREASED = toward favorite (NOT RLM) #}
+                {% set line_toward_underdog = magnitude_change > 0.4 %}
+                
+                {# Money side (handle %) - where the sharp money is #}
+                {% set money_on_away = (game.vsin_money_away or 0) > (game.vsin_money_home or 0) %}
+                {% set money_on_home = (game.vsin_money_home or 0) > (game.vsin_money_away or 0) %}
+                
+                {# RLM = Line moved toward underdog BUT money is on original favorite #}
+                {# This signals: Public is betting favorite, sharps are on underdog, line follows sharps #}
+                {% set rlm_detected = false %}
+                {% if line_toward_underdog %}
+                    {% if away_is_favorite and money_on_away %}
+                        {# Away was favorite, line moved toward home (underdog), but money stayed on away = RLM #}
+                        {% set rlm_detected = true %}
+                    {% elif home_is_favorite and money_on_home %}
+                        {# Home was favorite, line moved toward away (underdog), but money stayed on home = RLM #}
+                        {% set rlm_detected = true %}
+                    {% endif %}
+                {% endif %}
+                
+                {# For display/highlighting purposes #}
                 {% set line_movement = open_spread_num - current_spread_num %}
-                {# Positive movement = line moved toward home (home getting more points) #}
-                {# Negative movement = line moved toward away (away getting more points) #}
                 {% set public_side = 'away' if (game.vsin_tickets_away or 0) > (game.vsin_tickets_home or 0) else 'home' %}
-                {% set money_side = 'away' if (game.vsin_money_away or 0) > (game.vsin_money_home or 0) else 'home' %}
-                {# RLM = line moved AGAINST public (toward sharp side) #}
-                {% set rlm_detected = (line_movement > 0.5 and public_side == 'away' and money_side == 'home') or (line_movement < -0.5 and public_side == 'home' and money_side == 'away') %}
+                {% set money_side = 'away' if money_on_away else 'home' %}
                 {% else %}
                 {% set rlm_detected = false %}
                 {% set line_movement = 0 %}
@@ -4310,6 +4343,21 @@
             container.innerHTML = html;
         }
         
+        // Count RLM/Sharp games on page load
+        function updateRlmSharpCount() {
+            let rlmSharpCount = 0;
+            document.querySelectorAll('.game-card').forEach(card => {
+                const bettingAction = card.querySelector('.betting-action');
+                if (bettingAction && (bettingAction.classList.contains('rlm-alert') || bettingAction.classList.contains('sharp-alert-box'))) {
+                    card.dataset.rlmSharp = 'true';
+                    rlmSharpCount++;
+                }
+            });
+            const rlmCountEl = document.querySelector('.rlm-count');
+            if (rlmCountEl) rlmCountEl.textContent = rlmSharpCount;
+        }
+        updateRlmSharpCount();
+        
         document.querySelectorAll('.league-tab').forEach(tab => {
             tab.addEventListener('click', function() {
                 const league = this.dataset.league;
@@ -4317,32 +4365,57 @@
                 document.querySelectorAll('.league-tab').forEach(t => t.classList.remove('active'));
                 this.classList.add('active');
                 
-                document.querySelectorAll('.league-section').forEach(section => {
-                    if (league === 'all' || section.dataset.league === league) {
+                // Handle RLM/Sharp tab specially - filter individual games
+                if (league === 'rlm-sharp') {
+                    // Show all league sections
+                    document.querySelectorAll('.league-section').forEach(section => {
                         section.classList.remove('hidden');
-                    } else {
-                        section.classList.add('hidden');
-                    }
-                });
-                
-                // Toggle slate analysis panels based on selected tab
-                const slateSection = document.getElementById('slate-section');
-                const nbaSlate = document.getElementById('nba-slate-analysis');
-                const cbbSlate = document.getElementById('cbb-slate-analysis');
-                if (nbaSlate && cbbSlate && slateSection) {
-                    if (league === 'NBA') {
-                        slateSection.style.display = 'block';
-                        nbaSlate.style.display = 'block';
-                        cbbSlate.style.display = 'none';
-                    } else if (league === 'CBB') {
-                        slateSection.style.display = 'block';
-                        nbaSlate.style.display = 'none';
-                        cbbSlate.style.display = 'block';
-                    } else {
-                        // "All" tab - hide entire section
-                        slateSection.style.display = 'none';
-                        nbaSlate.style.display = 'none';
-                        cbbSlate.style.display = 'none';
+                    });
+                    // Hide games that don't have RLM/Sharp
+                    document.querySelectorAll('.game-card').forEach(card => {
+                        const bettingAction = card.querySelector('.betting-action');
+                        if (bettingAction && (bettingAction.classList.contains('rlm-alert') || bettingAction.classList.contains('sharp-alert-box'))) {
+                            card.style.display = '';
+                        } else {
+                            card.style.display = 'none';
+                        }
+                    });
+                    // Hide slate section
+                    const slateSection = document.getElementById('slate-section');
+                    if (slateSection) slateSection.style.display = 'none';
+                } else {
+                    // Normal league filtering - show all games first
+                    document.querySelectorAll('.game-card').forEach(card => {
+                        card.style.display = '';
+                    });
+                    
+                    document.querySelectorAll('.league-section').forEach(section => {
+                        if (league === 'all' || section.dataset.league === league) {
+                            section.classList.remove('hidden');
+                        } else {
+                            section.classList.add('hidden');
+                        }
+                    });
+                    
+                    // Toggle slate analysis panels based on selected tab
+                    const slateSection = document.getElementById('slate-section');
+                    const nbaSlate = document.getElementById('nba-slate-analysis');
+                    const cbbSlate = document.getElementById('cbb-slate-analysis');
+                    if (nbaSlate && cbbSlate && slateSection) {
+                        if (league === 'NBA') {
+                            slateSection.style.display = 'block';
+                            nbaSlate.style.display = 'block';
+                            cbbSlate.style.display = 'none';
+                        } else if (league === 'CBB') {
+                            slateSection.style.display = 'block';
+                            nbaSlate.style.display = 'none';
+                            cbbSlate.style.display = 'block';
+                        } else {
+                            // "All" tab - hide entire section
+                            slateSection.style.display = 'none';
+                            nbaSlate.style.display = 'none';
+                            cbbSlate.style.display = 'none';
+                        }
                     }
                 }
             });
