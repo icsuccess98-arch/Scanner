@@ -2023,10 +2023,11 @@
     
     <section class="header-section">
         <div class="control-panel">
-            <div style="background: linear-gradient(135deg, rgba(15, 18, 30, 0.98), rgba(20, 25, 45, 0.95)); border-radius: 14px; padding: 16px; border: 1px solid rgba(139, 92, 246, 0.4); box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+            <!-- NBA Daily Slate Analysis -->
+            <div id="nba-slate-analysis" class="slate-analysis-panel" style="background: linear-gradient(135deg, rgba(15, 18, 30, 0.98), rgba(20, 25, 45, 0.95)); border-radius: 14px; padding: 16px; border: 1px solid rgba(139, 92, 246, 0.4); box-shadow: 0 4px 20px rgba(0,0,0,0.3); display: none;">
                 <div style="text-align: center; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 2px solid rgba(139, 92, 246, 0.3);">
                     <div style="font-weight: 800; font-size: 14px; color: #a78bfa; text-transform: uppercase; letter-spacing: 1.5px;">{{ today.strftime('%B %d, %Y') }}</div>
-                    <div style="font-size: 10px; color: #8b5cf6; margin-top: 2px; letter-spacing: 0.5px;">DAILY SLATE ANALYSIS</div>
+                    <div style="font-size: 10px; color: #8b5cf6; margin-top: 2px; letter-spacing: 0.5px;">NBA DAILY SLATE ANALYSIS</div>
                 </div>
                 
                 <table style="width: 100%; border-collapse: separate; border-spacing: 0 4px;">
@@ -2071,16 +2072,59 @@
                     <span style="font-size: 10px; color: #e2e8f0;">{{ remaining_teams }}</span>
                 </div>
             </div>
+            
+            <!-- CBB Daily Slate Analysis -->
+            <div id="cbb-slate-analysis" class="slate-analysis-panel" style="background: linear-gradient(135deg, rgba(15, 18, 30, 0.98), rgba(20, 25, 45, 0.95)); border-radius: 14px; padding: 16px; border: 1px solid rgba(255, 140, 0, 0.4); box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+                <div style="text-align: center; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 2px solid rgba(255, 140, 0, 0.3);">
+                    <div style="font-weight: 800; font-size: 14px; color: #ff8c00; text-transform: uppercase; letter-spacing: 1.5px;">{{ today.strftime('%B %d, %Y') }}</div>
+                    <div style="font-size: 10px; color: #ffa500; margin-top: 2px; letter-spacing: 0.5px;">CBB DAILY SLATE ANALYSIS</div>
+                </div>
+                
+                <table style="width: 100%; border-collapse: separate; border-spacing: 0 4px;">
+                    <tr>
+                        <td style="background: rgba(255, 140, 0, 0.08); border-radius: 6px 0 0 6px; padding: 8px 10px; border-left: 3px solid #ff8c00; vertical-align: top; white-space: nowrap; width: 110px;">
+                            <span style="font-size: 10px; font-weight: 700; color: #ff8c00;">Cold Teams (L10)</span>
+                        </td>
+                        <td style="background: rgba(255, 140, 0, 0.08); border-radius: 0 6px 6px 0; padding: 8px 10px; vertical-align: top;">
+                            <span style="font-size: 10px; color: #e2e8f0;">{{ cbb_cold_teams|safe if cbb_cold_teams != 'None' else 'None' }}</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="background: rgba(255, 140, 0, 0.08); border-radius: 6px 0 0 6px; padding: 8px 10px; border-left: 3px solid #ff8c00; vertical-align: top; white-space: nowrap; width: 110px;">
+                            <span style="font-size: 10px; font-weight: 700; color: #ff8c00;">Hot Teams (L10)</span>
+                        </td>
+                        <td style="background: rgba(255, 140, 0, 0.08); border-radius: 0 6px 6px 0; padding: 8px 10px; vertical-align: top;">
+                            <span style="font-size: 10px; color: #e2e8f0;">{{ cbb_hot_teams|safe if cbb_hot_teams != 'None' else 'None' }}</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="background: rgba(255, 140, 0, 0.08); border-radius: 6px 0 0 6px; padding: 8px 10px; border-left: 3px solid #ff8c00; vertical-align: top; white-space: nowrap; width: 110px;">
+                            <span style="font-size: 10px; font-weight: 700; color: #ff8c00;">Large Spreads (10+)</span>
+                        </td>
+                        <td style="background: rgba(255, 140, 0, 0.08); border-radius: 0 6px 6px 0; padding: 8px 10px; vertical-align: top;">
+                            <span style="font-size: 10px; color: #e2e8f0;">{{ cbb_large_spreads|safe if cbb_large_spreads != 'None' else 'None' }}</span>
+                        </td>
+                    </tr>
+                </table>
+                
+                <div style="margin-top: 8px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.08)); border-radius: 8px; padding: 10px 12px; border: 1px solid rgba(16, 185, 129, 0.3);">
+                    <div style="font-size: 10px; font-weight: 700; color: #10b981; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+                        <span>✅</span> REMAINING TEAMS
+                    </div>
+                    <span style="font-size: 10px; color: #e2e8f0;">{{ cbb_remaining_teams }}</span>
+                </div>
+            </div>
         </div>
     </section>
     
     <div class="league-tabs">
         <div class="league-tab active" data-league="all">All <span class="count">{{ total_games }}</span></div>
-        {% for league, games in games_by_league.items() %}
-        {% if games|length > 0 and league != 'NHL' %}
-        <div class="league-tab" data-league="{{ league }}">{{ league }} <span class="count">{{ games|length }}</span></div>
+        {% if games_by_league.get('CBB', [])|length > 0 %}
+        <div class="league-tab" data-league="CBB">CBB <span class="count">{{ games_by_league.get('CBB', [])|length }}</span></div>
         {% endif %}
-        {% endfor %}
+        {% if games_by_league.get('NBA', [])|length > 0 %}
+        <div class="league-tab" data-league="NBA">NBA <span class="count">{{ games_by_league.get('NBA', [])|length }}</span></div>
+        {% endif %}
     </div>
     
     <div class="games-container">
@@ -3923,6 +3967,23 @@
                         section.classList.add('hidden');
                     }
                 });
+                
+                // Toggle slate analysis panels based on selected tab
+                const nbaSlate = document.getElementById('nba-slate-analysis');
+                const cbbSlate = document.getElementById('cbb-slate-analysis');
+                if (nbaSlate && cbbSlate) {
+                    if (league === 'NBA') {
+                        nbaSlate.style.display = 'block';
+                        cbbSlate.style.display = 'none';
+                    } else if (league === 'CBB') {
+                        nbaSlate.style.display = 'none';
+                        cbbSlate.style.display = 'block';
+                    } else {
+                        // "All" tab - show CBB by default (prioritized)
+                        nbaSlate.style.display = 'none';
+                        cbbSlate.style.display = 'block';
+                    }
+                }
             });
         });
         

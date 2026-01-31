@@ -10675,9 +10675,108 @@ def spreads():
     remaining = all_teams_in_slate - eliminated_teams
     remaining_display = ', '.join(sorted(remaining)) if remaining else 'All flagged - proceed with caution'
     
+    # ========== CBB DAILY SLATE ANALYSIS ==========
+    cbb_games = games_by_league.get('CBB', [])
+    
+    # CBB Cold Teams (use Covers L10 data)
+    cbb_cold_teams_list = []
+    cbb_cold_teams_set = set()
+    for g in cbb_games:
+        # Check away team L10
+        if hasattr(g, 'away_l10') and g.away_l10 and g.away_l10 != '--':
+            try:
+                l10_parts = g.away_l10.replace(' ', '').split('-')
+                if len(l10_parts) >= 2:
+                    wins = int(l10_parts[0])
+                    losses = int(l10_parts[1])
+                    if wins <= 3 and g.away_team not in cbb_cold_teams_set:
+                        cbb_cold_teams_list.append(f'<span style="white-space:nowrap">{g.away_team} ({wins}-{losses})</span>')
+                        cbb_cold_teams_set.add(g.away_team)
+            except:
+                pass
+        # Check home team L10
+        if hasattr(g, 'home_l10') and g.home_l10 and g.home_l10 != '--':
+            try:
+                l10_parts = g.home_l10.replace(' ', '').split('-')
+                if len(l10_parts) >= 2:
+                    wins = int(l10_parts[0])
+                    losses = int(l10_parts[1])
+                    if wins <= 3 and g.home_team not in cbb_cold_teams_set:
+                        cbb_cold_teams_list.append(f'<span style="white-space:nowrap">{g.home_team} ({wins}-{losses})</span>')
+                        cbb_cold_teams_set.add(g.home_team)
+            except:
+                pass
+    cbb_cold_teams_display = ', '.join(sorted(cbb_cold_teams_list, key=lambda x: int(x.split('(')[1].split('-')[0]))) if cbb_cold_teams_list else 'None'
+    
+    # CBB Hot Teams (8+ wins in L10)
+    cbb_hot_teams_list = []
+    cbb_hot_teams_set = set()
+    for g in cbb_games:
+        # Check away team L10
+        if hasattr(g, 'away_l10') and g.away_l10 and g.away_l10 != '--':
+            try:
+                l10_parts = g.away_l10.replace(' ', '').split('-')
+                if len(l10_parts) >= 2:
+                    wins = int(l10_parts[0])
+                    losses = int(l10_parts[1])
+                    if wins >= 8 and g.away_team not in cbb_hot_teams_set:
+                        cbb_hot_teams_list.append(f'<span style="white-space:nowrap">{g.away_team} ({wins}-{losses})</span>')
+                        cbb_hot_teams_set.add(g.away_team)
+            except:
+                pass
+        # Check home team L10
+        if hasattr(g, 'home_l10') and g.home_l10 and g.home_l10 != '--':
+            try:
+                l10_parts = g.home_l10.replace(' ', '').split('-')
+                if len(l10_parts) >= 2:
+                    wins = int(l10_parts[0])
+                    losses = int(l10_parts[1])
+                    if wins >= 8 and g.home_team not in cbb_hot_teams_set:
+                        cbb_hot_teams_list.append(f'<span style="white-space:nowrap">{g.home_team} ({wins}-{losses})</span>')
+                        cbb_hot_teams_set.add(g.home_team)
+            except:
+                pass
+    cbb_hot_teams_display = ', '.join(sorted(cbb_hot_teams_list, key=lambda x: -int(x.split('(')[1].split('-')[0]))) if cbb_hot_teams_list else 'None'
+    
+    # CBB Large Spreads (10+ points) 
+    cbb_large_spread_teams = set()
+    cbb_large_spread_matchups = []
+    for g in cbb_games:
+        if g.spread_line is not None:
+            spread_val = abs(g.spread_line)
+            if spread_val >= 10:
+                if g.spread_line < 0:
+                    cbb_large_spread_matchups.append(f"{g.away_team} {g.spread_line}")
+                    cbb_large_spread_teams.add(g.home_team)
+                else:
+                    cbb_large_spread_matchups.append(f"{g.home_team} -{spread_val}")
+                    cbb_large_spread_teams.add(g.away_team)
+    cbb_large_spread_display = ', '.join(cbb_large_spread_matchups) if cbb_large_spread_matchups else 'None'
+    
+    # CBB Remaining Teams
+    cbb_all_teams = set()
+    for g in cbb_games:
+        cbb_all_teams.add(g.away_team)
+        cbb_all_teams.add(g.home_team)
+    cbb_eliminated = cbb_cold_teams_set | cbb_large_spread_teams
+    cbb_remaining = cbb_all_teams - cbb_eliminated
+    cbb_remaining_display = ', '.join(sorted(cbb_remaining)) if cbb_remaining else 'All flagged - proceed with caution'
+    
+    # Reorder games_by_league to prioritize CBB
+    ordered_games_by_league = {
+        'CBB': games_by_league.get('CBB', []),
+        'NBA': games_by_league.get('NBA', []),
+        'NFL': games_by_league.get('NFL', []),
+        'CFB': games_by_league.get('CFB', []),
+        'NHL': games_by_league.get('NHL', [])
+    }
+    
+    # Reorder all_games to show CBB first
+    cbb_first_games = [g for g in basketball_games if g.league == 'CBB'] + [g for g in basketball_games if g.league != 'CBB']
+    
     return render_template('spreads.html', 
-                           games_by_league=games_by_league,
-                           all_games=basketball_games,
+                           games_by_league=ordered_games_by_league,
+                           all_games=cbb_first_games,
                            today=today,
                            total_games=len(basketball_games),
                            eliminated_large_spread=eliminated_large_spread,
@@ -10691,6 +10790,10 @@ def spreads():
                            b2b_teams=b2b_display,
                            home_away_edge=home_away_display,
                            remaining_teams=remaining_display,
+                           cbb_cold_teams=cbb_cold_teams_display,
+                           cbb_hot_teams=cbb_hot_teams_display,
+                           cbb_large_spreads=cbb_large_spread_display,
+                           cbb_remaining_teams=cbb_remaining_display,
                            team_colors=NBA_TEAM_COLORS)
 
 @app.route('/download/codebase_structure')
