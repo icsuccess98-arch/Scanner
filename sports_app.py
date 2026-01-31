@@ -2548,37 +2548,44 @@ class MatchupIntelligence:
                 logger.debug(f"RLM setup: {away_team} vs {home_team} | Favorite: {favorite_team} (from open: '{open_favorite}')")
                 
                 # SPREAD RLM: Detect reverse line movement for spreads
-                # CORRECT FORMULA: Favorite SWITCHES + Money to NEW favorite = RLM
-                # Example: Team A was -3 favorite, now +1 underdog. Team B is new favorite. Money on B = RLM
+                # FORMULA: Line moves toward underdog + LESS tickets but MORE money on that team = RLM
+                # Example: Gonzaga -10.5 to -9.5 (line toward SMC), less tickets but more money on SMC = RLM
                 try:
                     if spread_open_line is not None and spread_current_line is not None and away_team and home_team:
                         open_spread = float(spread_open_line)
                         current_spread = float(spread_current_line)
                         
-                        # Determine who WAS favorite at open vs who IS favorite now
-                        # Negative spread = away favorite, Positive spread = home favorite
-                        away_was_favorite = open_spread < 0
-                        home_was_favorite = open_spread > 0
-                        away_is_favorite_now = current_spread < 0
-                        home_is_favorite_now = current_spread > 0
+                        # Determine who is favorite (negative = away favorite)
+                        away_is_favorite = open_spread < 0
+                        home_is_favorite = open_spread > 0
                         
-                        # REVERSE LINE = Favorite SWITCHED (teams swapped places)
-                        favorite_switched = (away_was_favorite and home_is_favorite_now) or (home_was_favorite and away_is_favorite_now)
+                        # Calculate spread magnitude change
+                        open_magnitude = abs(open_spread)
+                        current_magnitude = abs(current_spread)
+                        magnitude_change = open_magnitude - current_magnitude
                         
-                        # Money side (handle %) - where the sharp money is
+                        # Line moved toward underdog = spread magnitude DECREASED
+                        line_moved_toward_underdog = magnitude_change > 0.4
+                        
+                        # Which team did line move TOWARD (the underdog)
+                        line_toward_home = away_is_favorite and line_moved_toward_underdog
+                        line_toward_away = home_is_favorite and line_moved_toward_underdog
+                        
+                        # Tickets (bet %) and Money (handle %) sides
+                        tickets_on_away = away_bet_pct > home_bet_pct
+                        tickets_on_home = home_bet_pct > away_bet_pct
                         money_on_away = away_money_pct > home_money_pct
                         money_on_home = home_money_pct > away_money_pct
                         
-                        # RLM = Favorite switched AND money is on the NEW favorite
-                        if favorite_switched:
-                            if home_is_favorite_now and money_on_home:
-                                spread_rlm_detected = True
-                                spread_rlm_sharp_side = home_team
-                                logger.info(f"RLM DETECTED: {away_team} was fav, now {home_team} is fav. Money on {home_team} ({home_money_pct}%)")
-                            elif away_is_favorite_now and money_on_away:
-                                spread_rlm_detected = True
-                                spread_rlm_sharp_side = away_team
-                                logger.info(f"RLM DETECTED: {home_team} was fav, now {away_team} is fav. Money on {away_team} ({away_money_pct}%)")
+                        # RLM = Line moved toward team + LESS tickets but MORE money on that team
+                        if line_toward_home and not tickets_on_home and money_on_home:
+                            spread_rlm_detected = True
+                            spread_rlm_sharp_side = home_team
+                            logger.info(f"RLM DETECTED: Line toward {home_team}, less tickets ({home_bet_pct}%) but more money ({home_money_pct}%)")
+                        elif line_toward_away and not tickets_on_away and money_on_away:
+                            spread_rlm_detected = True
+                            spread_rlm_sharp_side = away_team
+                            logger.info(f"RLM DETECTED: Line toward {away_team}, less tickets ({away_bet_pct}%) but more money ({away_money_pct}%)")
                 except Exception as e:
                     logger.warning(f"Error detecting spread RLM: {e}")
                 
