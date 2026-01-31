@@ -934,6 +934,200 @@ def get_team_logo_bulletproof(team_name: str, league: str) -> str:
     return f'https://via.placeholder.com/64/667eea/ffffff?text={team_name[:3].upper()}'
 
 
+class TeamRankingsGlobalStats:
+    """
+    Fetches team stats from TeamRankings RANKING pages (not matchup pages which changed format).
+    Caches all team rankings globally and provides fast lookups by team name.
+    This is the bulletproof approach - ranking pages always have data.
+    """
+    
+    _cache = {}  # {stat_name: {'teams': {team_slug: {'value': x, 'rank': y}}, 'timestamp': datetime}}
+    _cache_lock = threading.RLock()
+    CACHE_TTL_MINUTES = 60  # 1 hour cache
+    
+    # TeamRankings stat pages to fetch
+    STAT_PAGES = {
+        'O Eff': 'https://www.teamrankings.com/nba/stat/offensive-efficiency',
+        'D Eff': 'https://www.teamrankings.com/nba/stat/defensive-efficiency',
+        'PPP': 'https://www.teamrankings.com/nba/stat/points-per-game',
+        'Opp PPP': 'https://www.teamrankings.com/nba/stat/opponent-points-per-game',
+        'eFG%': 'https://www.teamrankings.com/nba/stat/effective-field-goal-pct',
+        'Opp eFG%': 'https://www.teamrankings.com/nba/stat/opponent-effective-field-goal-pct',
+        'ORB%': 'https://www.teamrankings.com/nba/stat/offensive-rebounding-pct',
+        'DRB%': 'https://www.teamrankings.com/nba/stat/defensive-rebounding-pct',
+        'TOV%': 'https://www.teamrankings.com/nba/stat/turnovers-per-possession',
+        'Opp TOV%': 'https://www.teamrankings.com/nba/stat/opponent-turnovers-per-possession',
+        '3PT%': 'https://www.teamrankings.com/nba/stat/three-point-pct',
+        'Opp 3PT%': 'https://www.teamrankings.com/nba/stat/opponent-three-point-pct',
+        'FTA/FGA': 'https://www.teamrankings.com/nba/stat/free-throw-rate',
+        'Opp FTA/FGA': 'https://www.teamrankings.com/nba/stat/opponent-free-throw-rate',
+        'Power Rank': 'https://www.teamrankings.com/nba/ranking/predictive-by-other',
+        'Avg Score Margin': 'https://www.teamrankings.com/nba/stat/average-scoring-margin',
+        'Fastbreak Pts': 'https://www.teamrankings.com/nba/stat/fastbreak-points-per-game',
+        'Pts in Paint': 'https://www.teamrankings.com/nba/stat/points-in-paint-per-game',
+        'Assists': 'https://www.teamrankings.com/nba/stat/assists-per-game',
+        'SOS': 'https://www.teamrankings.com/nba/ranking/schedule-strength-by-other',
+    }
+    
+    # Team name normalization
+    TEAM_SLUGS = {
+        'okla city': 'thunder', 'oklahoma city': 'thunder', 'okc': 'thunder', 'thunder': 'thunder',
+        'houston': 'rockets', 'rockets': 'rockets',
+        'detroit': 'pistons', 'pistons': 'pistons',
+        'san antonio': 'spurs', 'spurs': 'spurs',
+        'minnesota': 'timberwolves', 'wolves': 'timberwolves', 'timberwolves': 'timberwolves',
+        'cleveland': 'cavaliers', 'cavs': 'cavaliers', 'cavaliers': 'cavaliers',
+        'boston': 'celtics', 'celtics': 'celtics',
+        'denver': 'nuggets', 'nuggets': 'nuggets',
+        'golden state': 'warriors', 'warriors': 'warriors',
+        'memphis': 'grizzlies', 'grizzlies': 'grizzlies',
+        'dallas': 'mavericks', 'mavs': 'mavericks', 'mavericks': 'mavericks',
+        'phoenix': 'suns', 'suns': 'suns',
+        'new york': 'knicks', 'knicks': 'knicks',
+        'indiana': 'pacers', 'pacers': 'pacers',
+        'miami': 'heat', 'heat': 'heat',
+        'milwaukee': 'bucks', 'bucks': 'bucks',
+        'la clippers': 'clippers', 'l.a. clippers': 'clippers', 'clippers': 'clippers',
+        'la lakers': 'lakers', 'l.a. lakers': 'lakers', 'los angeles lakers': 'lakers', 'lakers': 'lakers',
+        'sacramento': 'kings', 'kings': 'kings',
+        'atlanta': 'hawks', 'hawks': 'hawks',
+        'orlando': 'magic', 'magic': 'magic',
+        'philadelphia': 'sixers', '76ers': 'sixers', 'sixers': 'sixers',
+        'toronto': 'raptors', 'raptors': 'raptors',
+        'chicago': 'bulls', 'bulls': 'bulls',
+        'portland': 'blazers', 'trail blazers': 'blazers', 'blazers': 'blazers',
+        'utah': 'jazz', 'jazz': 'jazz',
+        'new orleans': 'pelicans', 'pelicans': 'pelicans',
+        'charlotte': 'hornets', 'hornets': 'hornets',
+        'brooklyn': 'nets', 'nets': 'nets',
+        'washington': 'wizards', 'wizards': 'wizards',
+    }
+    
+    @classmethod
+    def _normalize_team(cls, team_name: str) -> str:
+        """Normalize team name to slug for matching."""
+        team_lower = team_name.lower().strip()
+        return cls.TEAM_SLUGS.get(team_lower, team_lower)
+    
+    @classmethod
+    def _fetch_stat_page(cls, stat_name: str, url: str) -> dict:
+        """Fetch a single stat ranking page and parse all teams."""
+        import requests
+        from bs4 import BeautifulSoup
+        import re
+        
+        try:
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+            resp = requests.get(url, headers=headers, timeout=10)
+            
+            if resp.status_code != 200:
+                logger.warning(f"TeamRankings {stat_name}: HTTP {resp.status_code}")
+                return {}
+            
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            tables = soup.find_all('table')
+            
+            if not tables:
+                return {}
+            
+            teams = {}
+            for table in tables:
+                rows = table.find_all('tr')
+                for row in rows[1:]:  # Skip header
+                    cells = row.find_all(['td', 'th'])
+                    if len(cells) >= 3:
+                        rank_text = cells[0].get_text(strip=True)
+                        team_text = cells[1].get_text(strip=True)
+                        value_text = cells[2].get_text(strip=True)
+                        
+                        # Parse rank
+                        rank_match = re.match(r'(\d+)', rank_text)
+                        rank = int(rank_match.group(1)) if rank_match else None
+                        
+                        # Parse team name (remove record like "(38-11)")
+                        team_clean = re.sub(r'\s*\([^)]+\)\s*$', '', team_text).strip().lower()
+                        team_slug = cls._normalize_team(team_clean)
+                        
+                        # Parse value
+                        value_clean = value_text.replace('%', '').strip()
+                        value_match = re.match(r'([+-]?\d*\.?\d+)', value_clean)
+                        value = float(value_match.group(1)) if value_match else None
+                        
+                        if team_slug and rank is not None:
+                            teams[team_slug] = {'value': value, 'rank': rank}
+            
+            return teams
+            
+        except Exception as e:
+            logger.warning(f"TeamRankings {stat_name} fetch error: {e}")
+            return {}
+    
+    @classmethod
+    def _refresh_cache(cls, force: bool = False):
+        """Refresh the global stats cache from all ranking pages."""
+        from datetime import datetime
+        
+        with cls._cache_lock:
+            # Check if cache is still valid
+            now = datetime.now()
+            if not force and cls._cache:
+                oldest = min((v.get('timestamp', now) for v in cls._cache.values()), default=now)
+                age_minutes = (now - oldest).total_seconds() / 60
+                if age_minutes < cls.CACHE_TTL_MINUTES:
+                    return  # Cache is valid
+            
+            logger.info("Refreshing TeamRankings global stats cache...")
+            
+            # Fetch all stat pages in parallel
+            with ThreadPoolExecutor(max_workers=6) as executor:
+                futures = {
+                    executor.submit(cls._fetch_stat_page, name, url): name 
+                    for name, url in cls.STAT_PAGES.items()
+                }
+                
+                for future in as_completed(futures, timeout=30):
+                    stat_name = futures[future]
+                    try:
+                        teams = future.result(timeout=15)
+                        if teams:
+                            cls._cache[stat_name] = {'teams': teams, 'timestamp': now}
+                            logger.info(f"Cached {stat_name}: {len(teams)} teams")
+                    except Exception as e:
+                        logger.warning(f"Failed to cache {stat_name}: {e}")
+            
+            logger.info(f"TeamRankings cache refreshed: {len(cls._cache)} stats cached")
+    
+    @classmethod
+    def get_team_stat(cls, team_name: str, stat_name: str) -> dict:
+        """Get a team's stat value and rank."""
+        cls._refresh_cache()
+        
+        team_slug = cls._normalize_team(team_name)
+        
+        with cls._cache_lock:
+            stat_data = cls._cache.get(stat_name, {})
+            teams = stat_data.get('teams', {})
+            return teams.get(team_slug, {'value': None, 'rank': None})
+    
+    @classmethod
+    def get_all_stats(cls, team_name: str) -> dict:
+        """Get all available stats for a team."""
+        cls._refresh_cache()
+        
+        team_slug = cls._normalize_team(team_name)
+        result = {}
+        
+        with cls._cache_lock:
+            for stat_name, stat_data in cls._cache.items():
+                teams = stat_data.get('teams', {})
+                team_stat = teams.get(team_slug, {})
+                if team_stat.get('value') is not None:
+                    result[stat_name] = team_stat['value']
+                    result[f'{stat_name} Rank'] = team_stat.get('rank')
+        
+        return result
+
+
 class MatchupIntelligence:
     """
     Advanced Matchup Intelligence engine for NBA/CBB games.
@@ -1370,16 +1564,14 @@ class MatchupIntelligence:
     @staticmethod
     def fetch_teamrankings_matchup(away_team: str, home_team: str, game_date: str, league: str = 'NBA') -> dict:
         """
-        Fetch matchup data from ALL TeamRankings FREE matchup pages:
-        - /stats: Basic stats (PPG, rebounds, assists, etc.)
-        - /efficiency: Off/Def Efficiency, eFG%, Turnover rates, Rebound %
-        - /splits: Season + Last 3 Games columns
-        - /power-ratings: SOS Rank, Predictive Rating, etc.
+        BULLETPROOF: Fetch team stats from TeamRankings RANKING pages.
+        The matchup pages changed format and no longer have stats.
+        Uses global TeamRankingsGlobalStats cache for reliability.
         """
-        # Check cache first (30 min expiry - stats don't change during game)
         from datetime import datetime
         cache_key = f"{league}_{away_team}_{home_team}_{game_date}"
         now = datetime.now()
+        
         if cache_key in MatchupIntelligence._teamrankings_cache:
             cached_time = MatchupIntelligence._teamrankings_cache_time.get(cache_key, now)
             cache_age_minutes = (now - cached_time).total_seconds() / 60
@@ -1388,289 +1580,25 @@ class MatchupIntelligence:
                 return MatchupIntelligence._teamrankings_cache[cache_key]
         
         try:
-            import requests
-            from bs4 import BeautifulSoup
-            import re
-            
-            team_slugs = {
-                'bulls': 'bulls', 'chicago': 'bulls', 'pacers': 'pacers', 'indiana': 'pacers',
-                'celtics': 'celtics', 'boston': 'celtics', 'lakers': 'lakers', 'los angeles lakers': 'lakers',
-                'l.a. lakers': 'lakers', 'la lakers': 'lakers',
-                'heat': 'heat', 'miami': 'heat', 'bucks': 'bucks', 'milwaukee': 'bucks',
-                'nets': 'nets', 'brooklyn': 'nets', '76ers': '76ers', 'sixers': '76ers', 'philadelphia': '76ers',
-                'knicks': 'knicks', 'new york': 'knicks', 'hawks': 'hawks', 'atlanta': 'hawks',
-                'hornets': 'hornets', 'charlotte': 'hornets', 'cavaliers': 'cavaliers', 'cavs': 'cavaliers', 'cleveland': 'cavaliers',
-                'pistons': 'pistons', 'detroit': 'pistons', 'magic': 'magic', 'orlando': 'magic',
-                'wizards': 'wizards', 'washington': 'wizards', 'raptors': 'raptors', 'toronto': 'raptors',
-                'nuggets': 'nuggets', 'denver': 'nuggets', 'clippers': 'clippers', 'l.a. clippers': 'clippers', 'la clippers': 'clippers',
-                'suns': 'suns', 'phoenix': 'suns', 'warriors': 'warriors', 'golden state': 'warriors',
-                'grizzlies': 'grizzlies', 'memphis': 'grizzlies', 'mavericks': 'mavericks', 'mavs': 'mavericks', 'dallas': 'mavericks',
-                'rockets': 'rockets', 'houston': 'rockets', 'pelicans': 'pelicans', 'new orleans': 'pelicans',
-                'spurs': 'spurs', 'san antonio': 'spurs', 'thunder': 'thunder', 'oklahoma city': 'thunder', 'okc': 'thunder',
-                'timberwolves': 'timberwolves', 'wolves': 'timberwolves', 'minnesota': 'timberwolves',
-                'trail blazers': 'trail-blazers', 'blazers': 'trail-blazers', 'portland': 'trail-blazers',
-                'jazz': 'jazz', 'utah': 'jazz', 'kings': 'kings', 'sacramento': 'kings'
-            }
-            
-            away_slug = team_slugs.get(away_team.lower(), away_team.lower().replace(' ', '-'))
-            home_slug = team_slugs.get(home_team.lower(), home_team.lower().replace(' ', '-'))
-            base_url = f"https://www.teamrankings.com/{league.lower()}/matchup/{away_slug}-{home_slug}-{game_date}"
-            
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-            
             result = {'away_season': {}, 'home_season': {}, 'away_l3': {}, 'home_l3': {}}
             
-            def parse_value(val_str):
-                if not val_str:
-                    return None
-                val_str = val_str.replace('%', '').strip()
-                match = re.match(r'([+-]?\d*\.?\d+)', val_str)
-                if match:
-                    try:
-                        return float(match.group(1))
-                    except (ValueError, TypeError):
-                        pass
-                return None
+            away_stats = TeamRankingsGlobalStats.get_all_stats(away_team)
+            home_stats = TeamRankingsGlobalStats.get_all_stats(home_team)
             
-            def extract_rank(val_str):
-                if not val_str:
-                    return None
-                match = re.search(r'#(\d+)', val_str)
-                if match:
-                    return int(match.group(1))
-                return None
+            logger.info(f"TeamRankings stats from global cache: away={len(away_stats)}, home={len(home_stats)}")
             
-            # Metric name mapping for consistent keys
-            def normalize_stat_name(stat):
-                """Map stat names to our standardized keys"""
-                stat_lower = stat.lower().strip()
-                mappings = {
-                    'points/game': 'PPP', 'ppg': 'PPP', 'points per game': 'PPP',
-                    'opp points/game': 'Opp PPP', 'opponent ppg': 'Opp PPP',
-                    'offensive reb %': 'ORB%', 'off reb%': 'ORB%', 'orb%': 'ORB%', 'offensive rebound %': 'ORB%',
-                    'defensive reb %': 'DRB%', 'def reb%': 'DRB%', 'drb%': 'DRB%', 'defensive rebound %': 'DRB%',
-                    'turnover %': 'TOV%', 'tov%': 'TOV%', 'to%': 'TOV%',
-                    'opponent to%': 'Opp TOV%', 'forced to%': 'Opp TOV%', 'opp tov%': 'Opp TOV%',
-                    'effective fg%': 'eFG%', 'efg%': 'eFG%', 'effective fg %': 'eFG%',
-                    'opp effective fg%': 'Opp eFG%', 'opp efg%': 'Opp eFG%',
-                    '3-pt%': '3PT%', '3pt%': '3PT%', '3-point%': '3PT%', 'three point %': '3PT%',
-                    'opp 3-pt%': 'Opp 3PT%', 'opp 3pt%': 'Opp 3PT%',
-                    'fta/fga': 'FTA/FGA', 'ft rate': 'FTA/FGA', 'free throw rate': 'FTA/FGA',
-                    'opp fta/fga': 'Opp FTA/FGA', 'opp ft rate': 'Opp FTA/FGA',
-                    'off efficiency': 'O Eff', 'offensive efficiency': 'O Eff',
-                    'def efficiency': 'D Eff', 'defensive efficiency': 'D Eff',
-                }
-                return mappings.get(stat_lower, stat)
+            for key, value in away_stats.items():
+                if value is not None:
+                    result['away_season'][key] = value
             
-            # 1. STATS PAGE - Format: StatName | Value(rank) | Value(rank) | OppStatName
-            try:
-                resp = requests.get(f"{base_url}/stats", headers=headers, timeout=15)
-                if resp.status_code == 200:
-                    soup = BeautifulSoup(resp.text, 'html.parser')
-                    tables = soup.find_all('table')
-                    
-                    for table in tables:
-                        rows = table.find_all('tr')
-                        if len(rows) < 2:
-                            continue
-                        header = rows[0].find_all(['td', 'th'])
-                        if len(header) < 4:
-                            continue
-                        h0 = header[0].get_text(strip=True).upper()
-                        h3 = header[3].get_text(strip=True).upper() if len(header) > 3 else ''
-                        is_away_table = away_team.upper()[:3] in h0 or 'CHI' in h0 or 'BOS' in h0 or away_slug.upper()[:3] in h0
-                        is_home_table = home_team.upper()[:3] in h0 or 'IND' in h0 or home_slug.upper()[:3] in h0
-                        
-                        for row in rows[1:]:
-                            cells = row.find_all(['td', 'th'])
-                            if len(cells) < 4:
-                                continue
-                            stat1_raw = cells[0].get_text(strip=True)
-                            cell1_text = cells[1].get_text(strip=True)
-                            cell2_text = cells[2].get_text(strip=True)
-                            stat2_raw = cells[3].get_text(strip=True)
-                            
-                            stat1 = normalize_stat_name(stat1_raw)
-                            stat2 = normalize_stat_name(stat2_raw)
-                            val1 = parse_value(cell1_text)
-                            val2 = parse_value(cell2_text)
-                            rank1 = extract_rank(cell1_text)
-                            rank2 = extract_rank(cell2_text)
-                            
-                            if 'subscribe' in stat1.lower() or not stat1:
-                                continue
-                            
-                            if is_away_table and not is_home_table:
-                                if val1 is not None:
-                                    result['away_season'][stat1] = val1
-                                    if rank1:
-                                        result['away_season'][f'{stat1} Rank'] = rank1
-                                if val2 is not None:
-                                    result['home_season'][stat2] = val2
-                                    if rank2:
-                                        result['home_season'][f'{stat2} Rank'] = rank2
-                            elif is_home_table and not is_away_table:
-                                if val1 is not None:
-                                    result['home_season'][stat1] = val1
-                                    if rank1:
-                                        result['home_season'][f'{stat1} Rank'] = rank1
-                                if val2 is not None:
-                                    result['away_season'][stat2] = val2
-                                    if rank2:
-                                        result['away_season'][f'{stat2} Rank'] = rank2
-                            else:
-                                if val1 is not None:
-                                    result['away_season'][stat1] = val1
-                                    if rank1:
-                                        result['away_season'][f'{stat1} Rank'] = rank1
-                                if val2 is not None:
-                                    result['home_season'][stat2] = val2
-                                    if rank2:
-                                        result['home_season'][f'{stat2} Rank'] = rank2
-                    
-                    logger.info(f"Stats page: away={len(result['away_season'])}, home={len(result['home_season'])}")
-            except Exception as e:
-                logger.warning(f"Stats page error: {e}")
+            for key, value in home_stats.items():
+                if value is not None:
+                    result['home_season'][key] = value
             
-            # 2. EFFICIENCY PAGE - Format: Stat | CHI | adv | IND (4 columns)
-            try:
-                resp = requests.get(f"{base_url}/efficiency", headers=headers, timeout=15)
-                if resp.status_code == 200:
-                    soup = BeautifulSoup(resp.text, 'html.parser')
-                    tables = soup.find_all('table')
-                    
-                    for table in tables:
-                        rows = table.find_all('tr')
-                        if len(rows) < 2:
-                            continue
-                        
-                        for row in rows[1:]:
-                            cells = row.find_all(['td', 'th'])
-                            if len(cells) < 4:
-                                continue
-                            stat_name_raw = cells[0].get_text(strip=True)
-                            stat_name = normalize_stat_name(stat_name_raw)
-                            away_text = cells[1].get_text(strip=True)
-                            home_text = cells[3].get_text(strip=True)
-                            away_val = parse_value(away_text)
-                            home_val = parse_value(home_text)
-                            away_rank = extract_rank(away_text)
-                            home_rank = extract_rank(home_text)
-                            
-                            if 'subscribe' in stat_name.lower() or not stat_name:
-                                continue
-                            if away_val is not None:
-                                result['away_season'][stat_name] = away_val
-                                if away_rank:
-                                    result['away_season'][f'{stat_name} Rank'] = away_rank
-                            if home_val is not None:
-                                result['home_season'][stat_name] = home_val
-                                if home_rank:
-                                    result['home_season'][f'{stat_name} Rank'] = home_rank
-                    
-                    eff_keys = [k for k in result['away_season'].keys() if 'eff' in k.lower()]
-                    logger.info(f"Efficiency page added stats. Efficiency keys found: {eff_keys}")
-            except Exception as e:
-                logger.warning(f"Efficiency page error: {e}")
-            
-            # 3. SPLITS PAGE - Multi-header format with Season + Last 3 Games columns
-            try:
-                resp = requests.get(f"{base_url}/splits", headers=headers, timeout=15)
-                if resp.status_code == 200:
-                    soup = BeautifulSoup(resp.text, 'html.parser')
-                    tables = soup.find_all('table')
-                    
-                    for table in tables:
-                        rows = table.find_all('tr')
-                        if len(rows) < 3:
-                            continue
-                        
-                        for row in rows:
-                            cells = row.find_all(['td', 'th'])
-                            if len(cells) < 7:
-                                continue
-                            stat_name = cells[0].get_text(strip=True).lower()
-                            if not stat_name or 'stat' in stat_name or 'subscribe' in stat_name:
-                                continue
-                            
-                            away_season = parse_value(cells[1].get_text(strip=True))
-                            home_season = parse_value(cells[3].get_text(strip=True))
-                            away_l3 = parse_value(cells[4].get_text(strip=True))
-                            home_l3 = parse_value(cells[6].get_text(strip=True))
-                            
-                            if away_season is not None:
-                                result['away_season'][stat_name] = away_season
-                            if home_season is not None:
-                                result['home_season'][stat_name] = home_season
-                            if away_l3 is not None:
-                                result['away_l3'][stat_name] = away_l3
-                            if home_l3 is not None:
-                                result['home_l3'][stat_name] = home_l3
-                    
-                    logger.info(f"Splits page: L3 away={len(result['away_l3'])}, home={len(result['home_l3'])}")
-            except Exception as e:
-                logger.warning(f"Splits page error: {e}")
-            
-            # 4. POWER-RATINGS PAGE - Format: Rating | CHI Value(#rank) | adv | IND Value(#rank)
-            try:
-                resp = requests.get(f"{base_url}/power-ratings", headers=headers, timeout=15)
-                if resp.status_code == 200:
-                    soup = BeautifulSoup(resp.text, 'html.parser')
-                    tables = soup.find_all('table')
-                    sos_found = False
-                    
-                    for table in tables:
-                        rows = table.find_all('tr')
-                        for row in rows:
-                            cells = row.find_all(['td', 'th'])
-                            if len(cells) >= 4:
-                                stat_name = cells[0].get_text(strip=True).lower()
-                                cell1_text = cells[1].get_text(strip=True)
-                                cell3_text = cells[3].get_text(strip=True)
-                                
-                                if not sos_found and 'schedule strength (past)' in stat_name:
-                                    away_rank = extract_rank(cell1_text)
-                                    home_rank = extract_rank(cell3_text)
-                                    if away_rank and home_rank:
-                                        result['away_season']['sos rank'] = away_rank
-                                        result['home_season']['sos rank'] = home_rank
-                                        sos_found = True
-                                        logger.info(f"SOS Rank: away=#{away_rank}, home=#{home_rank}")
-                                
-                                if 'predictive' in stat_name and 'predictive rating' not in result['away_season']:
-                                    away_val = parse_value(cell1_text)
-                                    home_val = parse_value(cell3_text)
-                                    if away_val is not None:
-                                        result['away_season']['predictive rating'] = away_val
-                                    if home_val is not None:
-                                        result['home_season']['predictive rating'] = home_val
-                                
-                                if 'last 10' in stat_name and 'last 10 rating' not in result['away_season']:
-                                    away_val = parse_value(cell1_text)
-                                    home_val = parse_value(cell3_text)
-                                    if away_val is not None:
-                                        result['away_season']['last 10 rating'] = away_val
-                                    if home_val is not None:
-                                        result['home_season']['last 10 rating'] = home_val
-                                
-                                if 'luck' in stat_name and 'luck rating' not in result['away_season']:
-                                    away_val = parse_value(cell1_text)
-                                    home_val = parse_value(cell3_text)
-                                    if away_val is not None:
-                                        result['away_season']['luck rating'] = away_val
-                                    if home_val is not None:
-                                        result['home_season']['luck rating'] = home_val
-            except Exception as e:
-                logger.warning(f"Power-ratings page error: {e}")
+            MatchupIntelligence._teamrankings_cache[cache_key] = result
+            MatchupIntelligence._teamrankings_cache_time[cache_key] = now
             
             logger.info(f"TeamRankings TOTAL: away_season={len(result['away_season'])}, home_season={len(result['home_season'])}")
-            
-            # Cache the result
-            from datetime import datetime
-            cache_key = f"{league}_{away_team}_{home_team}_{game_date}"
-            MatchupIntelligence._teamrankings_cache[cache_key] = result
-            MatchupIntelligence._teamrankings_cache_time[cache_key] = datetime.now()
-            
             return result
             
         except Exception as e:
@@ -11391,15 +11319,25 @@ def get_matchup_data(game_id):
                 except FuturesTimeoutError:
                     logging.debug("Parallel fetch timeout - using available data")
             
-            # Get RLM from cache only - don't trigger new fetch
+            # Get RLM from cache - if empty, fetch WagerTalk data directly
             cache_key = f"{game.league}_{datetime.now().strftime('%Y%m%d')}"
             all_rlm = MatchupIntelligence._rlm_cache.get(cache_key, {})
+            
+            # If RLM cache empty, populate from WagerTalk
+            if not all_rlm:
+                try:
+                    all_rlm = MatchupIntelligence.fetch_rlm_data(game.league)
+                except Exception as e:
+                    logging.debug(f"WagerTalk fetch for RLM: {e}")
             
             # Extract season/L3 data from matchup_data (fetched in parallel)
             away_season = matchup_data.get('away_season', {})
             home_season = matchup_data.get('home_season', {})
             away_l3 = matchup_data.get('away_l3', {})
             home_l3 = matchup_data.get('home_l3', {})
+            
+            # NOTE: NBA API rankings fallback removed - data not available for 2025-26 season
+            # Power Ranks are now extracted from TeamRankings matchup table text (e.g. "#3 Detroit at #10 Golden State")
             
             if away_ctg or home_ctg:
                 logging.info(f"CTG data: away={away_ctg}, home={home_ctg}")
@@ -11570,32 +11508,32 @@ def get_matchup_data(game_id):
                 'Opp PPG': find_stat(away_season, 'opp points/game'),
                 'FG%': find_stat(away_season, 'shooting %'),
                 'Opp FG%': find_stat(away_season, 'opp shooting %'),
-                '3PT%': find_stat(away_season, 'three point %'),
-                'Opp 3PT%': find_stat(away_season, 'opp three point %'),
+                '3PT%': find_stat(away_season, '3PT%', 'three point %'),
+                'Opp 3PT%': find_stat(away_season, 'Opp 3PT%', 'opp three point %'),
                 'FT%': find_stat(away_season, 'free throw %'),
                 'Opp FT%': find_stat(away_season, 'opp free throw %'),
                 'PACE': find_stat(away_season, 'possessions/gm'),
                 'Assists/TO': find_stat(away_season, 'assists/turnover'),
-                'eFG%': find_stat(away_season, 'effective fg %') or away_ctg.get('off_efg'),
-                'Opp eFG%': find_stat(away_season, 'opp effective fg %') or away_ctg.get('def_efg'),
+                'eFG%': find_stat(away_season, 'eFG%', 'effective fg %') or away_ctg.get('off_efg'),
+                'Opp eFG%': find_stat(away_season, 'Opp eFG%', 'opp effective fg %') or away_ctg.get('def_efg'),
                 'TOV': find_stat(away_season, 'turnovers/game'),
-                'TOV%': find_stat(away_season, 'turnovers/play') or away_ctg.get('off_tov'),
+                'TOV%': find_stat(away_season, 'TOV%', 'turnovers/play') or away_ctg.get('off_tov'),
                 'ORB': find_stat(away_season, 'off rebounds/gm'),
-                'ORB%': find_stat(away_season, 'off rebound %') or away_ctg.get('off_orb'),
+                'ORB%': find_stat(away_season, 'ORB%', 'off rebound %') or away_ctg.get('off_orb'),
                 'DRB': find_stat(away_season, 'def rebounds/gm'),
-                'DRB%': find_stat(away_season, 'def rebound %') or away_ctg.get('def_orb'),
+                'DRB%': find_stat(away_season, 'DRB%', 'def rebound %') or away_ctg.get('def_orb'),
                 'Assists': find_stat(away_season, 'assists/game'),
                 'Blocks': find_stat(away_season, 'blocks/game'),
                 'Steals': find_stat(away_season, 'steals/game'),
                 'Fouls': find_stat(away_season, 'personal fouls/gm'),
-                'O Eff': find_stat(away_season, 'off efficiency'),
-                'D Eff': find_stat(away_season, 'def efficiency'),
+                'O Eff': find_stat(away_season, 'O Eff', 'off efficiency'),
+                'D Eff': find_stat(away_season, 'D Eff', 'def efficiency'),
                 'Pts in Paint': find_stat(away_season, 'pts in paint/gm'),
                 'Fastbreak Pts': find_stat(away_season, 'fastbreak pts/gm'),
                 'FTA/FGA': away_ctg.get('off_ft_rate') or find_stat(away_season, 'fta/fga'),
                 '3PM/Game': find_stat(away_season, '3pm/game'),
                 'Opp TOV': find_stat(away_season, 'opp turnovers/game'),
-                'Opp TOV%': find_stat(away_season, 'opp turnovers/play'),
+                'Opp TOV%': find_stat(away_season, 'Opp TOV%', 'opp turnovers/play'),
                 'Opp 3PM/Game': find_stat(away_season, 'opp 3pm/game'),
                 'Opp FTA/FGA': away_ctg.get('def_ft_rate') or find_stat(away_season, 'opp fta/fga'),
                 # RANKS: Use TeamRankings first, CTG as fallback
@@ -11609,40 +11547,45 @@ def get_matchup_data(game_id):
                 'F-TOV% Rank': find_stat(away_season, 'F-TOV% Rank') or away_ctg.get('def_tov_rank'),
                 'ORB% Rank': find_stat(away_season, 'ORB% Rank') or away_ctg.get('off_orb_rank'),
                 'DRB% Rank': find_stat(away_season, 'DRB% Rank') or away_ctg.get('def_orb_rank'),
-                'FT Rate Rank': find_stat(away_season, 'FT Rate Rank') or away_ctg.get('off_ft_rank'),
-                'Opp FT Rate Rank': find_stat(away_season, 'Opp FT Rate Rank') or away_ctg.get('def_ft_rank')
+                'FT Rate Rank': find_stat(away_season, 'FT Rate Rank', 'FTA/FGA Rank') or away_ctg.get('off_ft_rank'),
+                'Opp FT Rate Rank': find_stat(away_season, 'Opp FT Rate Rank', 'Opp FTA/FGA Rank') or away_ctg.get('def_ft_rank'),
+                'O Eff Rank': find_stat(away_season, 'O Eff Rank'),
+                'D Eff Rank': find_stat(away_season, 'D Eff Rank'),
+                'Power Rank': find_stat(away_season, 'Power Rank'),
+                'SOS': find_stat(away_season, 'SOS'),
+                'SOS Rank': find_stat(away_season, 'SOS Rank')
             }
             result['home_season'] = {
                 'PPG': find_stat(home_season, 'points/game'),
                 'Opp PPG': find_stat(home_season, 'opp points/game'),
                 'FG%': find_stat(home_season, 'shooting %'),
                 'Opp FG%': find_stat(home_season, 'opp shooting %'),
-                '3PT%': find_stat(home_season, 'three point %'),
-                'Opp 3PT%': find_stat(home_season, 'opp three point %'),
+                '3PT%': find_stat(home_season, '3PT%', 'three point %'),
+                'Opp 3PT%': find_stat(home_season, 'Opp 3PT%', 'opp three point %'),
                 'FT%': find_stat(home_season, 'free throw %'),
                 'Opp FT%': find_stat(home_season, 'opp free throw %'),
                 'PACE': find_stat(home_season, 'possessions/gm'),
                 'Assists/TO': find_stat(home_season, 'assists/turnover'),
-                'eFG%': find_stat(home_season, 'effective fg %') or home_ctg.get('off_efg'),
-                'Opp eFG%': find_stat(home_season, 'opp effective fg %') or home_ctg.get('def_efg'),
+                'eFG%': find_stat(home_season, 'eFG%', 'effective fg %') or home_ctg.get('off_efg'),
+                'Opp eFG%': find_stat(home_season, 'Opp eFG%', 'opp effective fg %') or home_ctg.get('def_efg'),
                 'TOV': find_stat(home_season, 'turnovers/game'),
-                'TOV%': find_stat(home_season, 'turnovers/play') or home_ctg.get('off_tov'),
+                'TOV%': find_stat(home_season, 'TOV%', 'turnovers/play') or home_ctg.get('off_tov'),
                 'ORB': find_stat(home_season, 'off rebounds/gm'),
-                'ORB%': find_stat(home_season, 'off rebound %') or home_ctg.get('off_orb'),
+                'ORB%': find_stat(home_season, 'ORB%', 'off rebound %') or home_ctg.get('off_orb'),
                 'DRB': find_stat(home_season, 'def rebounds/gm'),
-                'DRB%': find_stat(home_season, 'def rebound %') or home_ctg.get('def_orb'),
+                'DRB%': find_stat(home_season, 'DRB%', 'def rebound %') or home_ctg.get('def_orb'),
                 'Assists': find_stat(home_season, 'assists/game'),
                 'Blocks': find_stat(home_season, 'blocks/game'),
                 'Steals': find_stat(home_season, 'steals/game'),
                 'Fouls': find_stat(home_season, 'personal fouls/gm'),
-                'O Eff': find_stat(home_season, 'off efficiency'),
-                'D Eff': find_stat(home_season, 'def efficiency'),
+                'O Eff': find_stat(home_season, 'O Eff', 'off efficiency'),
+                'D Eff': find_stat(home_season, 'D Eff', 'def efficiency'),
                 'Pts in Paint': find_stat(home_season, 'pts in paint/gm'),
                 'Fastbreak Pts': find_stat(home_season, 'fastbreak pts/gm'),
                 'FTA/FGA': home_ctg.get('off_ft_rate') or find_stat(home_season, 'fta/fga'),
                 '3PM/Game': find_stat(home_season, '3pm/game'),
                 'Opp TOV': find_stat(home_season, 'opp turnovers/game'),
-                'Opp TOV%': find_stat(home_season, 'opp turnovers/play'),
+                'Opp TOV%': find_stat(home_season, 'Opp TOV%', 'opp turnovers/play'),
                 'Opp 3PM/Game': find_stat(home_season, 'opp 3pm/game'),
                 'Opp FTA/FGA': home_ctg.get('def_ft_rate') or find_stat(home_season, 'opp fta/fga'),
                 # RANKS: Use TeamRankings first, CTG as fallback
@@ -11656,13 +11599,14 @@ def get_matchup_data(game_id):
                 'F-TOV% Rank': find_stat(home_season, 'F-TOV% Rank') or home_ctg.get('def_tov_rank'),
                 'ORB% Rank': find_stat(home_season, 'ORB% Rank') or home_ctg.get('off_orb_rank'),
                 'DRB% Rank': find_stat(home_season, 'DRB% Rank') or home_ctg.get('def_orb_rank'),
-                'FT Rate Rank': find_stat(home_season, 'FT Rate Rank') or home_ctg.get('off_ft_rank'),
-                'Opp FT Rate Rank': find_stat(home_season, 'Opp FT Rate Rank') or home_ctg.get('def_ft_rank')
+                'FT Rate Rank': find_stat(home_season, 'FT Rate Rank', 'FTA/FGA Rank') or home_ctg.get('off_ft_rank'),
+                'Opp FT Rate Rank': find_stat(home_season, 'Opp FT Rate Rank', 'Opp FTA/FGA Rank') or home_ctg.get('def_ft_rank'),
+                'O Eff Rank': find_stat(home_season, 'O Eff Rank'),
+                'D Eff Rank': find_stat(home_season, 'D Eff Rank'),
+                'Power Rank': find_stat(home_season, 'Power Rank'),
+                'SOS': find_stat(home_season, 'SOS'),
+                'SOS Rank': find_stat(home_season, 'SOS Rank')
             }
-            
-            # SOS Rank comes from the power-ratings page scraper
-            result['away_season']['SOS'] = find_stat(away_season, 'sos rank') or 'N/A'
-            result['home_season']['SOS'] = find_stat(home_season, 'sos rank') or 'N/A'
             
             # Last 3 Games - use season stats as fallback since L3 may not be available from all pages
             result['away_l3'] = {
