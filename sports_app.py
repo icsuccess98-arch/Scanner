@@ -13115,7 +13115,36 @@ def spreads():
                 return True
         return False
     
-    # Mark games as live and sort: live games first, then by game time
+    # Sort key function for ordering: live first, upcoming middle, final last
+    def game_sort_key(g):
+        is_final = getattr(g, 'is_final', False) or (getattr(g, 'live_period', '') or '').lower() in ('final', 'f')
+        is_live = getattr(g, 'is_live', False) and not is_final
+        
+        # Check if game started long ago (likely FINAL even if not in ESPN live data)
+        game_started_long_ago = False
+        if g.game_time:
+            try:
+                et_tz = pytz.timezone('America/New_York')
+                now = datetime.now(et_tz)
+                game_time_str = g.game_time.replace(' ET', '').strip()
+                game_dt = datetime.strptime(game_time_str, "%I:%M %p")
+                game_dt = game_dt.replace(year=now.year, month=now.month, day=now.day)
+                game_dt = et_tz.localize(game_dt)
+                hours_since_start = (now - game_dt).total_seconds() / 3600
+                if hours_since_start >= 3.0 and not is_live:
+                    game_started_long_ago = True
+            except:
+                pass
+        
+        # 0 = live, 1 = upcoming, 2 = final
+        if is_live:
+            return (0, g.game_time or '')
+        elif is_final or game_started_long_ago:
+            return (2, g.game_time or '')
+        else:
+            return (1, g.game_time or '')
+    
+    # Mark games as live and sort
     matched_live_count = 0
     for league in games_by_league:
         for g in games_by_league[league]:
@@ -13138,17 +13167,9 @@ def spreads():
                 g.live_home_score = ld.get("home_score", 0)
                 g.live_period = ld.get("period", "")
                 g.live_clock = ld.get("clock", "")
-        # Sort: live games first, then upcoming by game time, then final games last
-        def game_sort_key(g):
-            is_final = getattr(g, 'is_final', False) or (getattr(g, 'live_period', '') or '').lower() in ('final', 'f')
-            is_live = getattr(g, 'is_live', False) and not is_final
-            # 0 = live, 1 = upcoming, 2 = final
-            if is_live:
-                return (0, g.game_time or '')
-            elif is_final:
-                return (2, g.game_time or '')
-            else:
-                return (1, g.game_time or '')
+                # Set is_final flag based on the live data
+                g.is_final = ld.get("is_final", False) or (g.live_period or '').lower() in ('final', 'f')
+        # Sort games for this league
         games_by_league[league] = sorted(games_by_league[league], key=game_sort_key)
     
     # Reorder games_by_league to prioritize CBB
@@ -13163,18 +13184,9 @@ def spreads():
     # Reorder all_games to show CBB first, with live games at top and final games at bottom
     cbb_games = [g for g in basketball_games if g.league == 'CBB']
     other_games = [g for g in basketball_games if g.league != 'CBB']
-    # Sort each group: live first, upcoming middle, final last
-    def all_games_sort_key(g):
-        is_final = getattr(g, 'is_final', False) or (getattr(g, 'live_period', '') or '').lower() in ('final', 'f')
-        is_live = getattr(g, 'is_live', False) and not is_final
-        if is_live:
-            return (0, g.game_time or '')
-        elif is_final:
-            return (2, g.game_time or '')
-        else:
-            return (1, g.game_time or '')
-    cbb_games = sorted(cbb_games, key=all_games_sort_key)
-    other_games = sorted(other_games, key=all_games_sort_key)
+    # Sort each group: live first, upcoming middle, final last (using same logic as game_sort_key)
+    cbb_games = sorted(cbb_games, key=game_sort_key)
+    other_games = sorted(other_games, key=game_sort_key)
     cbb_first_games = cbb_games + other_games
     
     return render_template('spreads.html', 
