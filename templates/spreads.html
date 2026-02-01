@@ -2604,12 +2604,12 @@
                             <span class="line-label">Open</span>
                             <span class="line-value">{{ open_fav_name[:6] }} -{{ '%.1f'|format(open_fav_line) }}</span>
                         </div>
-                        <span class="line-arrow {% if line_movement > 0 %}down{% elif line_movement < 0 %}up{% endif %}">
-                            {% if line_movement > 0 %}<i class="bi bi-arrow-down-circle-fill"></i>{% elif line_movement < 0 %}<i class="bi bi-arrow-up-circle-fill"></i>{% else %}<i class="bi bi-arrow-right-circle"></i>{% endif %}
+                        <span class="line-arrow {% if line_movement > 0 %}up{% elif line_movement < 0 %}down{% endif %}">
+                            {% if line_movement > 0 %}<i class="bi bi-arrow-up-circle-fill"></i>{% elif line_movement < 0 %}<i class="bi bi-arrow-down-circle-fill"></i>{% else %}<i class="bi bi-arrow-right-circle"></i>{% endif %}
                         </span>
                         <div class="line-box">
                             <span class="line-label">Current</span>
-                            <span class="line-value {% if line_movement > 0 %}moved-down{% elif line_movement < 0 %}moved-up{% endif %}">{{ current_fav_name[:6] }} -{{ '%.1f'|format(current_fav_line) }}</span>
+                            <span class="line-value {% if line_movement > 0 %}moved-up{% elif line_movement < 0 %}moved-down{% endif %}">{{ current_fav_name[:6] }} -{{ '%.1f'|format(current_fav_line) }}</span>
                         </div>
                     </div>
                     {% endif %}
