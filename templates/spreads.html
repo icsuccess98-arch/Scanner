@@ -891,122 +891,127 @@
             font-weight: 500;
         }
         
-        /* VSIN Betting Action Component */
+        /* VSIN Betting Action Component - Enhanced Jewel Tones */
         .betting-action {
-            background: rgba(20, 20, 35, 0.9);
-            border-top: 1px solid rgba(139, 92, 246, 0.15);
-            padding: 10px 12px;
+            background: linear-gradient(180deg, rgba(30, 25, 50, 0.95) 0%, rgba(20, 18, 35, 0.98) 100%);
+            border-top: 1px solid rgba(139, 92, 246, 0.25);
+            padding: 12px 14px;
+            border-radius: 0 0 16px 16px;
         }
         .betting-action.rlm-alert {
-            background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(255, 215, 0, 0.15));
-            border: 2px solid rgba(255, 215, 0, 0.6);
-            box-shadow: 0 0 15px rgba(255, 215, 0, 0.3), inset 0 0 20px rgba(139, 92, 246, 0.1);
+            background: linear-gradient(145deg, rgba(139, 92, 246, 0.25) 0%, rgba(255, 215, 0, 0.18) 50%, rgba(30, 25, 50, 0.95) 100%);
+            border: 2px solid rgba(255, 215, 0, 0.7);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.35), inset 0 0 30px rgba(139, 92, 246, 0.15);
             animation: rlmGlow 2s ease-in-out infinite;
         }
         @keyframes rlmGlow {
-            0%, 100% { box-shadow: 0 0 15px rgba(255, 215, 0, 0.3); }
-            50% { box-shadow: 0 0 25px rgba(255, 215, 0, 0.5), 0 0 35px rgba(139, 92, 246, 0.3); }
+            0%, 100% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.35); }
+            50% { box-shadow: 0 0 30px rgba(255, 215, 0, 0.6), 0 0 40px rgba(139, 92, 246, 0.4); }
         }
         .betting-action.sharp-alert-box {
-            background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(139, 92, 246, 0.1));
-            border: 2px solid rgba(16, 185, 129, 0.5);
-            box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
+            background: linear-gradient(145deg, rgba(16, 185, 129, 0.2) 0%, rgba(139, 92, 246, 0.12) 50%, rgba(30, 25, 50, 0.95) 100%);
+            border: 2px solid rgba(16, 185, 129, 0.6);
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
         }
         .rlm-badge {
-            background: linear-gradient(135deg, #ffd700, #f59e0b);
+            background: linear-gradient(135deg, #ffd700 0%, #f59e0b 100%);
             color: #1a1a2e;
-            font-size: 9px;
-            padding: 3px 8px;
-            border-radius: 12px;
-            font-weight: 700;
-            margin-right: 6px;
+            font-size: 10px;
+            padding: 4px 10px;
+            border-radius: 14px;
+            font-weight: 800;
+            margin-right: 8px;
             animation: pulse 1.5s ease-in-out infinite;
+            box-shadow: 0 2px 8px rgba(255, 215, 0, 0.4);
         }
         @keyframes pulse {
             0%, 100% { transform: scale(1); }
             50% { transform: scale(1.05); }
         }
         .split-pct.rlm-highlight {
-            background: linear-gradient(135deg, #ffd700, #f59e0b) !important;
+            background: linear-gradient(135deg, #ffd700 0%, #f59e0b 100%) !important;
             color: #1a1a2e !important;
             font-weight: 800 !important;
-            font-size: 14px !important;
-            padding: 4px 8px !important;
-            border-radius: 6px !important;
-            box-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
+            font-size: 15px !important;
+            padding: 5px 10px !important;
+            border-radius: 8px !important;
+            box-shadow: 0 2px 12px rgba(255, 215, 0, 0.5);
             animation: rlmPulse 1.5s ease-in-out infinite;
         }
         .split-pct.rlm-fade {
-            background: linear-gradient(135deg, rgba(239, 68, 68, 0.3), rgba(220, 38, 38, 0.3)) !important;
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.35), rgba(220, 38, 38, 0.35)) !important;
             color: #fca5a5 !important;
             font-weight: 700 !important;
-            font-size: 13px !important;
-            padding: 3px 6px !important;
-            border-radius: 4px !important;
-            border: 1px dashed rgba(239, 68, 68, 0.5);
-        }
-        @keyframes rlmPulse {
-            0%, 100% { box-shadow: 0 0 10px rgba(255, 215, 0, 0.4); }
-            50% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.8); }
-        }
-        .split-pct.sharp-highlight {
-            background: linear-gradient(135deg, #10b981, #059669) !important;
-            color: white !important;
-            font-weight: 800 !important;
             font-size: 14px !important;
             padding: 4px 8px !important;
             border-radius: 6px !important;
-            box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+            border: 1px dashed rgba(239, 68, 68, 0.6);
+        }
+        @keyframes rlmPulse {
+            0%, 100% { box-shadow: 0 2px 12px rgba(255, 215, 0, 0.5); }
+            50% { box-shadow: 0 4px 24px rgba(255, 215, 0, 0.9); }
+        }
+        .split-pct.sharp-highlight {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+            color: white !important;
+            font-weight: 800 !important;
+            font-size: 15px !important;
+            padding: 5px 10px !important;
+            border-radius: 8px !important;
+            box-shadow: 0 2px 12px rgba(16, 185, 129, 0.5);
         }
         .line-movement-highlight {
-            background: rgba(255, 215, 0, 0.2);
-            border: 1px solid rgba(255, 215, 0, 0.4);
-            border-radius: 8px;
-            padding: 8px;
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.25) 0%, rgba(139, 92, 246, 0.15) 100%);
+            border: 1px solid rgba(255, 215, 0, 0.5);
+            border-radius: 10px;
+            padding: 10px;
         }
         .betting-action-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
         }
         .betting-action-title {
-            font-size: 10px;
-            font-weight: 700;
-            color: #9ca3af;
+            font-size: 11px;
+            font-weight: 800;
+            color: #c4b5fd;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.8px;
         }
         .vsin-badge {
-            font-size: 8px;
-            font-weight: 700;
-            color: #FFD700;
-            background: rgba(255, 215, 0, 0.15);
-            padding: 2px 6px;
-            border-radius: 4px;
-            letter-spacing: 0.5px;
+            font-size: 9px;
+            font-weight: 800;
+            color: #fbbf24;
+            background: linear-gradient(135deg, rgba(251, 191, 36, 0.2) 0%, rgba(245, 158, 11, 0.15) 100%);
+            padding: 3px 8px;
+            border-radius: 6px;
+            letter-spacing: 0.8px;
+            border: 1px solid rgba(251, 191, 36, 0.3);
         }
         .line-movement-row {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
-            margin-bottom: 10px;
-            padding: 8px 12px;
-            background: rgba(30, 30, 50, 0.6);
-            border-radius: 8px;
+            gap: 10px;
+            margin-bottom: 12px;
+            padding: 10px 14px;
+            background: linear-gradient(135deg, rgba(45, 40, 70, 0.7) 0%, rgba(30, 25, 50, 0.8) 100%);
+            border-radius: 10px;
+            border: 1px solid rgba(139, 92, 246, 0.2);
         }
         .line-box {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 2px;
+            gap: 3px;
         }
         .line-label {
-            font-size: 9px;
-            color: #9ca3af;
+            font-size: 10px;
+            color: #a78bfa;
             text-transform: uppercase;
-            font-weight: 600;
+            font-weight: 700;
+            letter-spacing: 0.5px;
         }
         .line-value {
             font-size: 18px;
@@ -1032,42 +1037,49 @@
         .splits-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 8px;
+            gap: 10px;
         }
         .split-box {
-            background: rgba(30, 30, 50, 0.5);
-            padding: 8px;
-            border-radius: 6px;
+            background: linear-gradient(145deg, rgba(45, 40, 70, 0.6) 0%, rgba(30, 25, 50, 0.7) 100%);
+            padding: 10px;
+            border-radius: 10px;
             text-align: center;
+            border: 1px solid rgba(139, 92, 246, 0.15);
         }
         .split-label {
-            font-size: 9px;
-            color: #9ca3af;
+            font-size: 10px;
+            color: #a78bfa;
             text-transform: uppercase;
-            font-weight: 600;
-            margin-bottom: 4px;
+            font-weight: 700;
+            margin-bottom: 6px;
+            letter-spacing: 0.5px;
         }
         .split-values {
             display: flex;
             justify-content: space-between;
-            gap: 4px;
+            gap: 6px;
         }
         .split-team {
             flex: 1;
             text-align: center;
         }
         .split-team-name {
-            font-size: 9px;
-            color: #9ca3af;
-            margin-bottom: 2px;
+            font-size: 10px;
+            color: #c4b5fd;
+            margin-bottom: 3px;
+            font-weight: 600;
         }
         .split-pct {
-            font-size: 14px;
-            font-weight: 700;
+            font-size: 15px;
+            font-weight: 800;
             color: #e2e8f0;
+            padding: 4px 8px;
+            border-radius: 6px;
+            background: rgba(20, 18, 35, 0.5);
         }
         .split-pct.majority {
-            color: #FFD700;
+            color: #fbbf24;
+            background: rgba(251, 191, 36, 0.15);
         }
         .split-pct.sharp {
             color: #50C878;
