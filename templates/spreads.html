@@ -4429,7 +4429,7 @@
                 const hasRlm = bettingAction && bettingAction.classList.contains('rlm-alert');
                 const isSpreadQualified = card.dataset.spreadQualified === 'true';
                 
-                if (hasRlm || isSpreadQualified) {
+                if (hasRlm && isSpreadQualified) {
                     card.dataset.qualified = 'true';
                     qualifiedCount++;
                 } else {
@@ -4500,7 +4500,7 @@
                     const hasRlm = bettingAction && bettingAction.classList.contains('rlm-alert');
                     const isSpreadQualified = card.dataset.spreadQualified === 'true';
                     
-                    if (hasRlm || isSpreadQualified) {
+                    if (hasRlm && isSpreadQualified) {
                         card.style.display = '';
                         visibleCards.push(card);
                     } else {
@@ -4528,7 +4528,7 @@
                 document.querySelectorAll('.league-tab').forEach(t => t.classList.remove('active'));
                 this.classList.add('active');
                 
-                // Handle Qualified tab - show only games with RLM OR spread-qualified
+                // Handle Qualified tab - show only games with RLM AND spread-qualified
                 if (league === 'qualified') {
                     document.querySelectorAll('.league-section').forEach(section => {
                         section.classList.remove('hidden');
@@ -4544,7 +4544,7 @@
                             const hasRlm = bettingAction && bettingAction.classList.contains('rlm-alert');
                             const isSpreadQualified = card.dataset.spreadQualified === 'true';
                             
-                            if (hasRlm || isSpreadQualified) {
+                            if (hasRlm && isSpreadQualified) {
                                 card.style.display = '';
                                 visibleCards.push(card);
                             } else {
