@@ -12539,22 +12539,34 @@ def spreads():
                     def normalize_for_match(name):
                         """Normalize team name for matching: strip accents, lowercase, expand abbreviations."""
                         n = strip_accents(strip_ranking(name)).lower()
+                        # Remove apostrophes and extra spaces (Saint Peter's -> saint peter s -> saint peters)
+                        n = n.replace("'", "").replace("  ", " ")
                         # Expand common abbreviations
                         n = n.replace(' st.', ' state').replace(' st ', ' state ')
                         if n.endswith(' st'):
                             n = n[:-3] + ' state'
                         return n.strip()
                     
+                    def normalize_possessive(name):
+                        """Normalize possessive forms: Saint Peter's -> saint peter s"""
+                        return name.lower().replace("'", " ").replace("  ", " ").strip()
+                    
                     team_normalized = normalize_for_match(ascii_name)
                     team_lower = team_name.lower()
+                    team_possessive = normalize_possessive(team_name)
                     
                     for key in stats_dict:
                         key_clean = strip_ranking(key)
                         key_normalized = normalize_for_match(key)
                         key_lower = key_clean.lower()
+                        key_possessive = normalize_possessive(key_clean)
                         
                         # Exact match after normalization
                         if team_normalized == key_normalized:
+                            return stats_dict[key]
+                        
+                        # Possessive match (Saint Peter's -> saint peter s matches Saint Peter S)
+                        if team_possessive == key_possessive:
                             return stats_dict[key]
                         
                         # Partial match - team name starts the key (e.g., "Illinois" matches "Illinois Fighting")
