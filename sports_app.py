@@ -449,7 +449,7 @@ EXTENDED_THRESHOLDS = {
     }
 }
 
-CBB_SPREAD_THRESHOLD = 8.0
+CBB_SPREAD_THRESHOLD = 4.0  # Lowered from 8.0 - professional edge is typically 2-4pts for spreads
 
 def qualify_spread_game(away_team: str, home_team: str, market_spread: float, league: str = 'CBB') -> dict:
     """
