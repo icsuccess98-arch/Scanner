@@ -13580,11 +13580,38 @@ def get_matchup_data(game_id):
             # Process RLM data (already fetched in parallel above)
             rlm_data = {}
             try:
+                # CBB team name aliases for VSIN matching
+                cbb_team_aliases = {
+                    'fau': 'fl atlantic', 'florida atlantic': 'fl atlantic',
+                    'ecu': 'east carolina', 
+                    'uconn': 'connecticut', 'conn': 'connecticut',
+                    'smu': 'southern methodist', 'smoo': 'southern methodist',
+                    'ucf': 'central florida',
+                    'usf': 'south florida',
+                    'fiu': 'florida international', 'fla intl': 'florida international',
+                    'utep': 'texas el paso',
+                    'unlv': 'nevada las vegas',
+                    'lsu': 'louisiana state',
+                    'ole miss': 'mississippi',
+                    'usc': 'southern california', 'southern cal': 'southern california',
+                    'ucla': 'california los angeles',
+                    'umass': 'massachusetts',
+                    'uva': 'virginia', 'va': 'virginia',
+                    'vcu': 'virginia commonwealth',
+                    'wvu': 'west virginia',
+                    'tcu': 'texas christian',
+                    'byu': 'brigham young',
+                    'st marys': 'saint marys', "st mary's": 'saint marys', 'st. marys': 'saint marys',
+                }
+                
                 def normalize_for_vsin_match(name: str) -> set:
                     """Create a set of normalized tokens for fuzzy matching."""
                     if not name:
                         return set()
                     n = name.lower().strip()
+                    # Apply aliases
+                    if n in cbb_team_aliases:
+                        n = cbb_team_aliases[n]
                     # Remove common suffixes
                     for suffix in [' state', ' st', ' st.', ' university', ' univ']:
                         n = n.replace(suffix, ' ')
@@ -13598,19 +13625,29 @@ def get_matchup_data(game_id):
                     """Check if VSIN team matches game team using token overlap."""
                     if not vsin_team or not game_team:
                         return False
+                    
+                    # Apply aliases to both sides
+                    vsin_lower = vsin_team.lower().strip()
+                    game_lower = game_team.lower().strip()
+                    vsin_aliased = cbb_team_aliases.get(vsin_lower, vsin_lower)
+                    game_aliased = cbb_team_aliases.get(game_lower, game_lower)
+                    
+                    # Direct match after aliasing
+                    if vsin_aliased == game_aliased:
+                        return True
+                    if vsin_lower == game_lower:
+                        return True
+                    
                     vsin_tokens = normalize_for_vsin_match(vsin_team)
                     game_tokens = normalize_for_vsin_match(game_team)
-                    # Direct match
-                    if vsin_team.lower() == game_team.lower():
-                        return True
                     # Token overlap - at least one significant word matches
                     overlap = vsin_tokens & game_tokens
                     if overlap:
                         return True
                     # Substring match for single-word names (Duke, Gonzaga, etc)
-                    vsin_lower = vsin_team.lower()
-                    game_lower = game_team.lower()
                     if vsin_lower in game_lower or game_lower in vsin_lower:
+                        return True
+                    if vsin_aliased in game_aliased or game_aliased in vsin_aliased:
                         return True
                     return False
                 
