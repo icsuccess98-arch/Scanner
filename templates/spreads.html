@@ -2359,19 +2359,16 @@
     </section>
     
     <div class="league-tabs">
-        <div class="league-tab active" data-league="all">All <span class="count">{{ total_games }}</span></div>
+        <div class="league-tab qualified-tab active" data-league="qualified" style="background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%); color: white;">
+            🎯 Qualified <span class="count qualified-count">0</span>
+        </div>
+        <div class="league-tab" data-league="all">All <span class="count">{{ total_games }}</span></div>
         {% if games_by_league.get('CBB', [])|length > 0 %}
         <div class="league-tab" data-league="CBB">CBB <span class="count">{{ games_by_league.get('CBB', [])|length }}</span></div>
         {% endif %}
         {% if games_by_league.get('NBA', [])|length > 0 %}
         <div class="league-tab" data-league="NBA">NBA <span class="count">{{ games_by_league.get('NBA', [])|length }}</span></div>
         {% endif %}
-        <div class="league-tab rlm-sharp-tab" data-league="rlm-sharp" style="background: linear-gradient(135deg, #f59e0b 0%, #22c55e 100%); color: #1a1a2e;">
-            🔄 RLM/Sharp <span class="count rlm-count">0</span>
-        </div>
-        <div class="league-tab qualified-tab" data-league="qualified" style="background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%); color: white;">
-            📊 Qualified <span class="count qualified-count">0</span>
-        </div>
     </div>
     
     <div class="games-container">
@@ -4432,26 +4429,18 @@
             container.innerHTML = html;
         }
         
-        // Count RLM/Sharp games on page load
-        function updateRlmSharpCount() {
-            let rlmSharpCount = 0;
-            document.querySelectorAll('.game-card').forEach(card => {
-                const bettingAction = card.querySelector('.betting-action');
-                if (bettingAction && (bettingAction.classList.contains('rlm-alert') || bettingAction.classList.contains('sharp-alert-box'))) {
-                    card.dataset.rlmSharp = 'true';
-                    rlmSharpCount++;
-                }
-            });
-            const rlmCountEl = document.querySelector('.rlm-count');
-            if (rlmCountEl) rlmCountEl.textContent = rlmSharpCount;
-        }
-        updateRlmSharpCount();
-        
         function updateQualifiedCount() {
             let qualifiedCount = 0;
             document.querySelectorAll('.game-card').forEach(card => {
-                if (card.dataset.spreadQualified === 'true') {
+                const bettingAction = card.querySelector('.betting-action');
+                const hasRlm = bettingAction && bettingAction.classList.contains('rlm-alert');
+                const isSpreadQualified = card.dataset.spreadQualified === 'true';
+                
+                if (hasRlm || isSpreadQualified) {
+                    card.dataset.qualified = 'true';
                     qualifiedCount++;
+                } else {
+                    card.dataset.qualified = 'false';
                 }
             });
             const qualCountEl = document.querySelector('.qualified-count');
@@ -4503,6 +4492,42 @@
         }
         sortAllGames();
         
+        function showQualifiedGamesOnly() {
+            document.querySelectorAll('.league-section').forEach(section => {
+                section.classList.remove('hidden');
+            });
+            
+            document.querySelectorAll('.league-section').forEach(section => {
+                const container = section.querySelector('.league-games') || section;
+                const allCards = Array.from(container.querySelectorAll('.game-card'));
+                
+                const visibleCards = [];
+                allCards.forEach(card => {
+                    const bettingAction = card.querySelector('.betting-action');
+                    const hasRlm = bettingAction && bettingAction.classList.contains('rlm-alert');
+                    const isSpreadQualified = card.dataset.spreadQualified === 'true';
+                    
+                    if (hasRlm || isSpreadQualified) {
+                        card.style.display = '';
+                        visibleCards.push(card);
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+                
+                sortGameCards(visibleCards);
+                visibleCards.forEach(card => container.appendChild(card));
+                
+                if (visibleCards.length === 0) {
+                    section.classList.add('hidden');
+                }
+            });
+            
+            const slateSection = document.getElementById('slate-section');
+            if (slateSection) slateSection.style.display = 'none';
+        }
+        showQualifiedGamesOnly();
+        
         document.querySelectorAll('.league-tab').forEach(tab => {
             tab.addEventListener('click', function() {
                 const league = this.dataset.league;
@@ -4510,23 +4535,23 @@
                 document.querySelectorAll('.league-tab').forEach(t => t.classList.remove('active'));
                 this.classList.add('active');
                 
-                // Handle RLM/Sharp tab specially - filter and sort games
-                if (league === 'rlm-sharp') {
-                    // Show all league sections
+                // Handle Qualified tab - show only games with RLM OR spread-qualified
+                if (league === 'qualified') {
                     document.querySelectorAll('.league-section').forEach(section => {
                         section.classList.remove('hidden');
                     });
                     
-                    // Collect RLM and Sharp games, maintaining LIVE/upcoming/FINAL order
                     document.querySelectorAll('.league-section').forEach(section => {
                         const container = section.querySelector('.league-games') || section;
                         const allCards = Array.from(container.querySelectorAll('.game-card'));
                         
-                        // Separate visible (RLM/Sharp) and hidden games
                         const visibleCards = [];
                         allCards.forEach(card => {
                             const bettingAction = card.querySelector('.betting-action');
-                            if (bettingAction && (bettingAction.classList.contains('rlm-alert') || bettingAction.classList.contains('sharp-alert-box'))) {
+                            const hasRlm = bettingAction && bettingAction.classList.contains('rlm-alert');
+                            const isSpreadQualified = card.dataset.spreadQualified === 'true';
+                            
+                            if (hasRlm || isSpreadQualified) {
                                 card.style.display = '';
                                 visibleCards.push(card);
                             } else {
@@ -4534,47 +4559,15 @@
                             }
                         });
                         
-                        // Sort visible cards using shared function
                         sortGameCards(visibleCards);
-                        
-                        // Reorder cards in DOM
                         visibleCards.forEach(card => container.appendChild(card));
-                    });
-                    
-                    // Hide slate section
-                    const slateSection = document.getElementById('slate-section');
-                    if (slateSection) slateSection.style.display = 'none';
-                } else if (league === 'qualified') {
-                    // Handle Qualified tab - show only spread-qualified CBB games
-                    document.querySelectorAll('.league-section').forEach(section => {
-                        if (section.dataset.league === 'CBB') {
-                            section.classList.remove('hidden');
-                        } else {
+                        
+                        const hasVisible = visibleCards.length > 0;
+                        if (!hasVisible) {
                             section.classList.add('hidden');
                         }
                     });
                     
-                    document.querySelectorAll('.league-section').forEach(section => {
-                        if (section.dataset.league !== 'CBB') return;
-                        
-                        const container = section.querySelector('.league-games') || section;
-                        const allCards = Array.from(container.querySelectorAll('.game-card'));
-                        
-                        const visibleCards = [];
-                        allCards.forEach(card => {
-                            if (card.dataset.spreadQualified === 'true') {
-                                card.style.display = '';
-                                visibleCards.push(card);
-                            } else {
-                                card.style.display = 'none';
-                            }
-                        });
-                        
-                        sortGameCards(visibleCards);
-                        visibleCards.forEach(card => container.appendChild(card));
-                    });
-                    
-                    // Hide slate section
                     const slateSection = document.getElementById('slate-section');
                     if (slateSection) slateSection.style.display = 'none';
                 } else {
