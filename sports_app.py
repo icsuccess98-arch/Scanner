@@ -449,6 +449,105 @@ EXTENDED_THRESHOLDS = {
     }
 }
 
+CBB_SPREAD_THRESHOLD = 8.0
+
+def qualify_spread_game(away_team: str, home_team: str, market_spread: float, league: str = 'CBB') -> dict:
+    """
+    Qualify a spread game using KenPom stats and PPG formula.
+    
+    Returns dict with:
+        - qualified: bool
+        - projected_spread: float
+        - spread_edge: float (difference from market)
+        - decision: str (e.g., "Team A -5.5" or "Team B +5.5")
+        - net_gap: float (KenPom net rating difference)
+        - reason: str (why qualified/disqualified)
+    """
+    result = {
+        'qualified': False,
+        'projected_spread': 0,
+        'spread_edge': 0,
+        'decision': '',
+        'net_gap': 0,
+        'reason': 'Unknown'
+    }
+    
+    if league != 'CBB':
+        result['reason'] = 'Only CBB supported'
+        return result
+    
+    away_stats = get_torvik_team(away_team)
+    home_stats = get_torvik_team(home_team)
+    
+    if not away_stats or not home_stats:
+        result['reason'] = 'Missing KenPom data'
+        return result
+    
+    away_adj_o = away_stats.get('adj_o', 0)
+    away_adj_d = away_stats.get('adj_d', 0)
+    home_adj_o = home_stats.get('adj_o', 0)
+    home_adj_d = home_stats.get('adj_d', 0)
+    
+    if not all([away_adj_o, away_adj_d, home_adj_o, home_adj_d]):
+        result['reason'] = 'Incomplete KenPom efficiency data'
+        return result
+    
+    away_adj_em = away_adj_o - away_adj_d
+    home_adj_em = home_adj_o - home_adj_d
+    
+    avg_tempo = (away_stats.get('tempo', 68) + home_stats.get('tempo', 68)) / 2
+    tempo_factor = avg_tempo / 68.0
+    
+    expected_away = ((away_adj_o + home_adj_d) / 2) * tempo_factor
+    expected_home = ((home_adj_o + away_adj_d) / 2) * tempo_factor
+    
+    home_court_advantage = 3.5
+    projected_spread = (expected_away - expected_home) + home_court_advantage
+    
+    spread_diff = projected_spread - abs(market_spread)
+    
+    if abs(spread_diff) < CBB_SPREAD_THRESHOLD:
+        result['reason'] = f'Edge {abs(spread_diff):.1f} below {CBB_SPREAD_THRESHOLD} threshold'
+        result['projected_spread'] = round(projected_spread, 1)
+        result['spread_edge'] = round(spread_diff, 1)
+        return result
+    
+    net_gap = away_adj_em - home_adj_em
+    
+    if projected_spread > 0 and net_gap <= 0:
+        result['reason'] = 'Net rating conflicts with projected spread (away favored but home better NetRtg)'
+        result['projected_spread'] = round(projected_spread, 1)
+        result['spread_edge'] = round(spread_diff, 1)
+        result['net_gap'] = round(net_gap, 1)
+        return result
+    
+    if projected_spread < 0 and net_gap >= 0:
+        result['reason'] = 'Net rating conflicts with projected spread (home favored but away better NetRtg)'
+        result['projected_spread'] = round(projected_spread, 1)
+        result['spread_edge'] = round(spread_diff, 1)
+        result['net_gap'] = round(net_gap, 1)
+        return result
+    
+    if projected_spread > 0:
+        if market_spread > 0:
+            decision = f"{away_team} -{abs(market_spread)}"
+        else:
+            decision = f"{away_team} +{abs(market_spread)}"
+    else:
+        if market_spread < 0:
+            decision = f"{home_team} -{abs(market_spread)}"
+        else:
+            decision = f"{home_team} +{abs(market_spread)}"
+    
+    result['qualified'] = True
+    result['projected_spread'] = round(projected_spread, 1)
+    result['spread_edge'] = round(spread_diff, 1)
+    result['net_gap'] = round(net_gap, 1)
+    result['decision'] = decision
+    result['reason'] = f'QUALIFIED: {abs(spread_diff):.1f}pt edge, NetRtg aligns'
+    
+    return result
+
 
 def calculate_rlm(game) -> bool:
     """
@@ -12629,6 +12728,15 @@ def spreads():
                     g.matchup_l5 = cbb_breakdown
             except Exception as e:
                 logger.debug(f"CBB breakdown error for {g.away_team} vs {g.home_team}: {e}")
+            
+            market_spread = g.spread_line if g.spread_line is not None else 0
+            spread_qual = qualify_spread_game(g.away_team, g.home_team, market_spread, 'CBB')
+            g.spread_qualified = spread_qual.get('qualified', False)
+            g.spread_projected = spread_qual.get('projected_spread', 0)
+            g.spread_edge = spread_qual.get('spread_edge', 0)
+            g.spread_decision = spread_qual.get('decision', '')
+            g.spread_net_gap = spread_qual.get('net_gap', 0)
+            g.spread_qual_reason = spread_qual.get('reason', '')
         
         # Apply elimination filters for NBA games
         if g.league == 'NBA' and g.spread_line is not None:

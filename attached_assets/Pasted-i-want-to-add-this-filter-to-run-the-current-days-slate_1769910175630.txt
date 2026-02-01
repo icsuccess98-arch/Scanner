@@ -1,0 +1,68 @@
+i want to add this filter to run the current days slate and then filter games like my totals models does and retunrs only qualifying      
+  games just like the dashboard only has qualifying games for the totals model. i want to use this code to filter my spreads tab to         
+  only show qualifying teams and matchups that meets these requirements pull stats from kenpom netrtg from kenpom as well as the other      
+  stats i want to keep the gamecards model breakdown advanced stats the same just filter what games show up on my app with this then        
+  ill go through and choose what i want to pick THRESHOLD = 8.0  # CBB locked                                                               
+                                                                                                                                            
+  def scan_slate(games):                                                                                                                    
+      qualified_plays = []                                                                                                                  
+                                                                                                                                            
+      for game in games:                                                                                                                    
+          # -----------------------------                                                                                                   
+          # Required data check                                                                                                             
+          # -----------------------------                                                                                                   
+          required_fields = [                                                                                                               
+              "team_a", "team_b",                                                                                                           
+              "team_a_ppg", "team_a_opp_ppg",                                                                                               
+              "team_b_ppg", "team_b_opp_ppg",                                                                                               
+              "market_spread",                                                                                                              
+              "kenpom_net_a", "kenpom_net_b"                                                                                                
+          ]                                                                                                                                 
+                                                                                                                                            
+          if not all(field in game for field in required_fields):                                                                           
+              continue                                                                                                                      
+                                                                                                                                            
+          # -----------------------------                                                                                                   
+          # Expected scores                                                                                                                 
+          # -----------------------------                                                                                                   
+          expected_a = (game["team_a_ppg"] + game["team_b_opp_ppg"]) / 2                                                                    
+          expected_b = (game["team_b_ppg"] + game["team_a_opp_ppg"]) / 2                                                                    
+                                                                                                                                            
+          projected_spread = expected_a - expected_b                                                                                        
+          spread_diff = projected_spread - abs(game["market_spread"])                                                                       
+                                                                                                                                            
+          # -----------------------------                                                                                                   
+          # Threshold check                                                                                                                 
+          # -----------------------------                                                                                                   
+          if abs(spread_diff) < THRESHOLD:                                                                                                  
+              continue                                                                                                                      
+                                                                                                                                            
+          # -----------------------------                                                                                                   
+          # Net Rating filter                                                                                                               
+          # -----------------------------                                                                                                   
+          net_gap = game["kenpom_net_a"] - game["kenpom_net_b"]                                                                             
+                                                                                                                                            
+          if projected_spread > 0 and net_gap <= 0:                                                                                         
+              continue                                                                                                                      
+          if projected_spread < 0 and net_gap >= 0:                                                                                         
+              continue                                                                                                                      
+                                                                                                                                            
+          # -----------------------------                                                                                                   
+          # Final ATS decision                                                                                                              
+          # -----------------------------                                                                                                   
+          if projected_spread > abs(game["market_spread"]):                                                                                 
+              decision = f"{game['team_a']} -{abs(game['market_spread'])}"                                                                  
+          else:                                                                                                                             
+              decision = f"{game['team_b']} +{abs(game['market_spread'])}"                                                                  
+                                                                                                                                            
+          qualified_plays.append({                                                                                                          
+              "Game": f"{game['team_a']} vs {game['team_b']}",                                                                              
+              "Decision": decision,                                                                                                         
+              "Projected Spread": round(projected_spread, 1),                                                                               
+              "Market Spread": game["market_spread"],                                                                                       
+              "Spread Difference": round(spread_diff, 1),                                                                                   
+              "Net Rating Gap": round(net_gap, 1),                                                                                          
+              "Status": "QUALIFIED"                                                                                                         
+          })                                                                                                                                
+                                                                                                                                            
+      return qualified_plays                                                                              

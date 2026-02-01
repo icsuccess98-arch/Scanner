@@ -2369,6 +2369,9 @@
         <div class="league-tab rlm-sharp-tab" data-league="rlm-sharp" style="background: linear-gradient(135deg, #f59e0b 0%, #22c55e 100%); color: #1a1a2e;">
             🔄 RLM/Sharp <span class="count rlm-count">0</span>
         </div>
+        <div class="league-tab qualified-tab" data-league="qualified" style="background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%); color: white;">
+            📊 Qualified <span class="count qualified-count">0</span>
+        </div>
     </div>
     
     <div class="games-container">
@@ -2443,7 +2446,10 @@
                  data-vsin-tickets-away="{{ game.vsin_tickets_away|default(50) }}" data-vsin-tickets-home="{{ game.vsin_tickets_home|default(50) }}"
                  data-vsin-money-away="{{ game.vsin_money_away|default(50) }}" data-vsin-money-home="{{ game.vsin_money_home|default(50) }}"
                  data-vsin-open-spread="{{ game.vsin_open_spread|default('') }}" data-vsin-current-spread="{{ game.vsin_current_spread|default('') }}"
-                 data-vsin-has-data="{{ 'true' if game.vsin_has_data else 'false' }}">
+                 data-vsin-has-data="{{ 'true' if game.vsin_has_data else 'false' }}"
+                 data-spread-qualified="{{ 'true' if game.spread_qualified else 'false' }}"
+                 data-spread-edge="{{ game.spread_edge|default(0) }}"
+                 data-spread-decision="{{ game.spread_decision|default('') }}">
                 <!-- PIKKIT-STYLE HEADER WITH LOGOS -->
                 <div class="pikkit-header">
                     <div class="pikkit-team">
@@ -4441,6 +4447,18 @@
         }
         updateRlmSharpCount();
         
+        function updateQualifiedCount() {
+            let qualifiedCount = 0;
+            document.querySelectorAll('.game-card').forEach(card => {
+                if (card.dataset.spreadQualified === 'true') {
+                    qualifiedCount++;
+                }
+            });
+            const qualCountEl = document.querySelector('.qualified-count');
+            if (qualCountEl) qualCountEl.textContent = qualifiedCount;
+        }
+        updateQualifiedCount();
+        
         // Sort function for games: LIVE first, upcoming middle, FINAL last
         // Within each category, RLM games come first
         function getGamePriority(card) {
@@ -4520,6 +4538,39 @@
                         sortGameCards(visibleCards);
                         
                         // Reorder cards in DOM
+                        visibleCards.forEach(card => container.appendChild(card));
+                    });
+                    
+                    // Hide slate section
+                    const slateSection = document.getElementById('slate-section');
+                    if (slateSection) slateSection.style.display = 'none';
+                } else if (league === 'qualified') {
+                    // Handle Qualified tab - show only spread-qualified CBB games
+                    document.querySelectorAll('.league-section').forEach(section => {
+                        if (section.dataset.league === 'CBB') {
+                            section.classList.remove('hidden');
+                        } else {
+                            section.classList.add('hidden');
+                        }
+                    });
+                    
+                    document.querySelectorAll('.league-section').forEach(section => {
+                        if (section.dataset.league !== 'CBB') return;
+                        
+                        const container = section.querySelector('.league-games') || section;
+                        const allCards = Array.from(container.querySelectorAll('.game-card'));
+                        
+                        const visibleCards = [];
+                        allCards.forEach(card => {
+                            if (card.dataset.spreadQualified === 'true') {
+                                card.style.display = '';
+                                visibleCards.push(card);
+                            } else {
+                                card.style.display = 'none';
+                            }
+                        });
+                        
+                        sortGameCards(visibleCards);
                         visibleCards.forEach(card => container.appendChild(card));
                     });
                     
