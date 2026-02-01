@@ -1324,6 +1324,68 @@
             .pick-stats { grid-template-columns: auto auto auto; gap: 0.4rem; }
             .pick-edge-bar { display: none; }
         }
+        
+        /* Premium Section Headers */
+        .qualified-section-header {
+            background: linear-gradient(135deg, rgba(251, 191, 36, 0.1) 0%, rgba(245, 158, 11, 0.05) 100%);
+            border: 1px solid rgba(251, 191, 36, 0.25);
+            border-radius: 14px;
+            padding: 0.875rem 1.25rem;
+            margin-bottom: 1.25rem;
+        }
+        .qualified-title {
+            display: flex;
+            align-items: center;
+            gap: 0.625rem;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #fbbf24;
+        }
+        .qualified-title i { 
+            font-size: 1.25rem;
+            filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.5));
+        }
+        .league-header-premium {
+            display: flex;
+            align-items: center;
+            gap: 0.875rem;
+            padding: 0.875rem 1rem;
+            background: linear-gradient(145deg, rgba(35, 30, 55, 0.7) 0%, rgba(25, 22, 42, 0.8) 100%);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: 14px;
+            margin-bottom: 1rem;
+        }
+        .league-logo-wrap {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 6px;
+        }
+        .league-logo-wrap.nba { background: linear-gradient(135deg, rgba(201, 8, 42, 0.2), rgba(23, 64, 139, 0.2)); border: 1px solid rgba(201, 8, 42, 0.3); }
+        .league-logo-wrap.cbb { background: linear-gradient(135deg, rgba(249, 115, 22, 0.2), rgba(234, 179, 8, 0.2)); border: 1px solid rgba(249, 115, 22, 0.3); }
+        .league-logo-wrap.nhl { background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(6, 182, 212, 0.2)); border: 1px solid rgba(59, 130, 246, 0.3); }
+        .league-logo-wrap.nfl { background: linear-gradient(135deg, rgba(1, 51, 105, 0.2), rgba(213, 10, 10, 0.2)); border: 1px solid rgba(1, 51, 105, 0.3); }
+        .league-logo-wrap.cfb { background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(168, 85, 247, 0.2)); border: 1px solid rgba(139, 92, 246, 0.3); }
+        .league-logo-wrap img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .league-info-wrap { flex: 1; }
+        .league-title-premium {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #e2e8f0;
+            margin-bottom: 0.125rem;
+        }
+        .league-count-premium {
+            font-size: 0.75rem;
+            color: #a78bfa;
+            font-weight: 600;
+        }
         .analytics-grid { display: flex; gap: 1rem; }
         .analytics-grid > * { flex: 1; min-width: 0; }
         @media (max-width: 768px) { 
@@ -1822,9 +1884,10 @@
             </div>
         </div>
 
-        <div class="section-header">
-            <div class="d-flex align-items-center gap-3">
-                <h5 class="mb-0"><i class="bi bi-trophy-fill" style="color: var(--gold);"></i> All Qualified Picks</h5>
+        <div class="qualified-section-header">
+            <div class="qualified-title">
+                <i class="bi bi-trophy-fill"></i>
+                <span>All Qualified Picks</span>
             </div>
         </div>
 
@@ -1835,12 +1898,14 @@
             {% set league_games = all_league_games|selectattr('is_qualified')|list %}
             {% if league_games|length > 0 %}
             <div class="league-section league-{{ league|lower }}">
-                <div class="league-header">
+                <div class="league-header-premium">
                     {% set logo_paths = {'NBA': '/i/teamlogos/leagues/500/nba.png', 'CBB': '/i/espn/misc_logos/500/ncaa.png', 'NFL': '/i/teamlogos/leagues/500/nfl.png', 'CFB': '/i/espn/misc_logos/500/ncaa.png', 'NHL': '/i/teamlogos/leagues/500/nhl.png'} %}
-                    <img src="https://a.espncdn.com/combiner/i?img={{ logo_paths[league] }}&w=100" class="league-logo" alt="{{ league }}">
-                    <div>
-                        <div class="league-title">{{ {'NBA': 'NBA Basketball', 'CBB': 'College Basketball', 'NFL': 'NFL Football', 'CFB': 'College Football', 'NHL': 'NHL Hockey'}[league] }}</div>
-                        <div class="league-count">{{ league_games|length }} qualified pick{% if league_games|length != 1 %}s{% endif %}</div>
+                    <div class="league-logo-wrap {{ league|lower }}">
+                        <img src="https://a.espncdn.com/combiner/i?img={{ logo_paths[league] }}&w=100" class="league-logo" alt="{{ league }}">
+                    </div>
+                    <div class="league-info-wrap">
+                        <div class="league-title-premium">{{ {'NBA': 'NBA Basketball', 'CBB': 'College Basketball', 'NFL': 'NFL Football', 'CFB': 'College Football', 'NHL': 'NHL Hockey'}[league] }}</div>
+                        <div class="league-count-premium">{{ league_games|length }} qualified pick{% if league_games|length != 1 %}s{% endif %}</div>
                     </div>
                 </div>
                 
