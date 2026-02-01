@@ -13602,6 +13602,8 @@ def get_matchup_data(game_id):
                     'tcu': 'texas christian',
                     'byu': 'brigham young',
                     'st marys': 'saint marys', "st mary's": 'saint marys', 'st. marys': 'saint marys',
+                    "saint peter's": 'st peters', 'saint peters': 'st peters', "st. peter's": 'st peters',
+                    'st peters': 'st peters',
                 }
                 
                 def normalize_for_vsin_match(name: str) -> set:
