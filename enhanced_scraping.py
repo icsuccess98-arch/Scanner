@@ -365,79 +365,110 @@ CBB_TEAM_LOGOS = {
 }
 
 CBB_TEAM_NAME_ALIASES = {
+    # ============================================================
+    # COMPREHENSIVE TEAM NAME MAPPING
+    # Maps ESPN, Covers, VSIN names → KenPom canonical names
+    # ============================================================
+    
     # HTML entities
     'Texas A&amp;M': 'Texas A&M',
-    'Texas A&M': 'Texas A&M',
     'Texas A&M Aggies': 'Texas A&M',
-    # St. John's variations
-    "St. John's": 'St. Johns',
-    "Saint John's": 'St. Johns',
-    'St Johns': 'St. Johns',
-    "St. John's Red Storm": 'St. Johns',
-    'SJU': 'St. Johns',
-    # UConn
-    'Connecticut': 'UConn',
-    'Connecticut Huskies': 'UConn',
-    'CONN': 'UConn',
-    # Saint Mary's
-    "Saint Mary's": 'Saint Marys',
-    'Saint Marys (CA)': 'Saint Marys',
-    'SMC': 'Saint Marys',
-    "St. Mary's": 'Saint Marys',
-    "St Mary's": 'Saint Marys',
-    # Ole Miss
-    'Mississippi': 'Ole Miss',
-    'Mississippi Rebels': 'Ole Miss',
-    'MISS': 'Ole Miss',
-    # NC State
-    'North Carolina State': 'NC State',
-    'N.C. State': 'NC State',
-    'NC St.': 'NC State',
-    'NCST': 'NC State',
-    'N Carolina St': 'NC State',
+    
+    # St. John's variations - KenPom uses "St. John's"
+    "St. John's": "St. John's",
+    "Saint John's": "St. John's",
+    'St Johns': "St. John's",
+    "St. John's Red Storm": "St. John's",
+    'SJU': "St. John's",
+    "St John's": "St. John's",
+    
+    # UConn - KenPom uses "Connecticut"
+    'UConn': 'Connecticut',
+    'Connecticut Huskies': 'Connecticut',
+    'CONN': 'Connecticut',
+    'UCONN': 'Connecticut',
+    
+    # Saint Mary's - KenPom uses "Saint Mary's"
+    'Saint Marys': "Saint Mary's",
+    'Saint Marys (CA)': "Saint Mary's",
+    'SMC': "Saint Mary's",
+    "St. Mary's": "Saint Mary's",
+    "St Mary's": "Saint Mary's",
+    "St. Marys": "Saint Mary's",
+    "St Marys": "Saint Mary's",
+    "Saint Mary's Gaels": "Saint Mary's",
+    "Saint Mary's CA": "Saint Mary's",
+    # Ole Miss - KenPom uses "Mississippi"  
+    'Ole Miss': 'Mississippi',
+    'Mississippi Rebels': 'Mississippi',
+    'MISS': 'Mississippi',
+    'Ole Miss Rebels': 'Mississippi',
+    
+    # NC State - KenPom uses "N.C. State"
+    'NC State': 'N.C. State',
+    'North Carolina State': 'N.C. State',
+    'NC St.': 'N.C. State',
+    'NC St': 'N.C. State',
+    'NCST': 'N.C. State',
+    'N Carolina St': 'N.C. State',
+    'Wolfpack': 'N.C. State',
     # Pittsburgh
     'Pitt': 'Pittsburgh',
     'Pitt Panthers': 'Pittsburgh',
-    # San Diego State
-    'SDSU': 'San Diego State',
-    'San Diego St.': 'San Diego State',
-    'San Diego St': 'San Diego State',
-    'S Diego St': 'San Diego State',
+    # San Diego State - KenPom uses "San Diego St."
+    'San Diego State': 'San Diego St.',
+    'SDSU': 'San Diego St.',
+    'San Diego St': 'San Diego St.',
+    'S Diego St': 'San Diego St.',
+    'SDST': 'San Diego St.',
     # USC/UCLA
     'USC Trojans': 'USC',
     'So. California': 'USC',
     'Southern Cal': 'USC',
     'UCLA Bruins': 'UCLA',
-    # Big Ten State Schools
-    'Michigan St.': 'Michigan State',
-    'Michigan St': 'Michigan State',
-    'Mich. St.': 'Michigan State',
-    'Mich St': 'Michigan State',
-    'MSU': 'Michigan State',
-    'Ohio St.': 'Ohio State',
-    'Ohio St': 'Ohio State',
-    'OSU': 'Ohio State',
-    'Penn St.': 'Penn State',
-    'Penn St': 'Penn State',
-    'PSU': 'Penn State',
-    'Iowa St.': 'Iowa State',
-    'Iowa St': 'Iowa State',
-    'ISU': 'Iowa State',
-    'Kansas St.': 'Kansas State',
-    'Kansas St': 'Kansas State',
-    'K-State': 'Kansas State',
-    'KSU': 'Kansas State',
-    'Oklahoma St.': 'Oklahoma State',
-    'Oklahoma St': 'Oklahoma State',
-    'Okla. St.': 'Oklahoma State',
-    'Okla St': 'Oklahoma State',
-    'Ok State': 'Oklahoma State',
-    # ACC Schools
-    'Fla. State': 'Florida State',
-    'Florida St.': 'Florida State',
-    'Florida St': 'Florida State',
-    'Fla St': 'Florida State',
-    'FSU': 'Florida State',
+    # Big Ten State Schools - KenPom uses periods (e.g., "Michigan St.")
+    'Michigan State': 'Michigan St.',
+    'Michigan St': 'Michigan St.',
+    'Mich. St.': 'Michigan St.',
+    'Mich St': 'Michigan St.',
+    'MSU': 'Michigan St.',
+    'Michigan State Spartans': 'Michigan St.',
+    
+    'Ohio State': 'Ohio St.',
+    'Ohio St': 'Ohio St.',
+    'OSU': 'Ohio St.',
+    'Ohio State Buckeyes': 'Ohio St.',
+    
+    'Penn State': 'Penn St.',
+    'Penn St': 'Penn St.',
+    'PSU': 'Penn St.',
+    'Penn State Nittany Lions': 'Penn St.',
+    
+    'Iowa State': 'Iowa St.',
+    'Iowa St': 'Iowa St.',
+    'ISU': 'Iowa St.',
+    'Iowa State Cyclones': 'Iowa St.',
+    
+    'Kansas State': 'Kansas St.',
+    'Kansas St': 'Kansas St.',
+    'K-State': 'Kansas St.',
+    'KSU': 'Kansas St.',
+    'Kansas State Wildcats': 'Kansas St.',
+    
+    'Oklahoma State': 'Oklahoma St.',
+    'Oklahoma St': 'Oklahoma St.',
+    'Okla. St.': 'Oklahoma St.',
+    'Okla St': 'Oklahoma St.',
+    'Ok State': 'Oklahoma St.',
+    'OKS': 'Oklahoma St.',
+    'OKST': 'Oklahoma St.',
+    'Oklahoma State Cowboys': 'Oklahoma St.',
+    # ACC Schools - KenPom uses "Florida St."
+    'Florida State': 'Florida St.',
+    'Fla. State': 'Florida St.',
+    'Fla St': 'Florida St.',
+    'FSU': 'Florida St.',
+    'Florida State Seminoles': 'Florida St.',
     'Georgia Tech': 'Georgia Tech',
     'Ga. Tech': 'Georgia Tech',
     'Ga Tech': 'Georgia Tech',
@@ -488,12 +519,11 @@ CBB_TEAM_NAME_ALIASES = {
     # Le Moyne
     'Le Moyne': 'Le Moyne',
     'LeMoyne': 'Le Moyne',
-    # Sam Houston
-    'Sam Houston': 'Sam Houston',
-    'Sam Houston St.': 'Sam Houston',
-    'Sam Houston State': 'Sam Houston',
-    'SHSU': 'Sam Houston',
-    'Sam Hous St': 'Sam Houston',
+    # Sam Houston - KenPom uses "Sam Houston St."
+    'Sam Houston': 'Sam Houston St.',
+    'Sam Houston State': 'Sam Houston St.',
+    'SHSU': 'Sam Houston St.',
+    'Sam Hous St': 'Sam Houston St.',
     # Louisiana Tech
     'La. Tech': 'Louisiana Tech',
     'Louisiana Tech': 'Louisiana Tech',
@@ -510,18 +540,20 @@ CBB_TEAM_NAME_ALIASES = {
     'Northern Ky.': 'Northern Kentucky',
     'NKY': 'Northern Kentucky',
     'NKU': 'Northern Kentucky',
-    # Appalachian State
-    'App State': 'Appalachian State',
-    'App St': 'Appalachian State',
-    'App. State': 'Appalachian State',
-    'Appalachian St.': 'Appalachian State',
-    'APP': 'Appalachian State',
-    # Middle Tennessee
+    # Appalachian State - KenPom uses "Appalachian St."
+    'Appalachian State': 'Appalachian St.',
+    'App State': 'Appalachian St.',
+    'App St': 'Appalachian St.',
+    'App. State': 'Appalachian St.',
+    'APP': 'Appalachian St.',
+    # Middle Tennessee - KenPom uses "Middle Tennessee"
     'MTSU': 'Middle Tennessee',
     'Middle Tenn.': 'Middle Tennessee',
     'Middle Tenn': 'Middle Tennessee',
     'Mid. Tennessee': 'Middle Tennessee',
     'M Tennessee': 'Middle Tennessee',
+    'Middle Tennessee State': 'Middle Tennessee',
+    'Middle Tennessee St': 'Middle Tennessee',
     # Western Kentucky
     'WKU': 'Western Kentucky',
     'W. Kentucky': 'Western Kentucky',
@@ -561,47 +593,63 @@ CBB_TEAM_NAME_ALIASES = {
     'BGSU': 'Bowling Green',
     'BG': 'Bowling Green',
     'Bowl. Green': 'Bowling Green',
-    # Ball State
-    'Ball St.': 'Ball State',
-    'Ball St': 'Ball State',
-    # Kent State
-    'Kent St.': 'Kent State',
-    'Kent St': 'Kent State',
-    # Fresno State
-    'Fresno St.': 'Fresno State',
-    'Fresno St': 'Fresno State',
-    # Boise State
-    'Boise St.': 'Boise State',
-    'Boise St': 'Boise State',
-    # Colorado State
-    'Colorado St.': 'Colorado State',
-    'Colorado St': 'Colorado State',
-    'Colo. St.': 'Colorado State',
-    'Colo St': 'Colorado State',
-    'CSU': 'Colorado State',
-    # Utah State
-    'Utah St.': 'Utah State',
-    'Utah St': 'Utah State',
-    # New Mexico State
-    'New Mexico St.': 'New Mexico State',
-    'New Mexico St': 'New Mexico State',
-    'NM State': 'New Mexico State',
-    'NMSU': 'New Mexico State',
-    # Arizona State
-    'Arizona St.': 'Arizona State',
-    'Arizona St': 'Arizona State',
-    'Ariz. St.': 'Arizona State',
-    'Ariz St': 'Arizona State',
-    'ASU': 'Arizona State',
-    # Oregon State
-    'Oregon St.': 'Oregon State',
-    'Oregon St': 'Oregon State',
-    # Washington State
-    'Washington St.': 'Washington State',
-    'Washington St': 'Washington State',
-    'Wash. St.': 'Washington State',
-    'Wash St': 'Washington State',
-    'WSU': 'Washington State',
+    # Ball State - KenPom uses "Ball St."
+    'Ball State': 'Ball St.',
+    'Ball St': 'Ball St.',
+    
+    # Kent State - KenPom uses "Kent St."
+    'Kent State': 'Kent St.',
+    'Kent St': 'Kent St.',
+    # Fresno State - KenPom uses "Fresno St."
+    'Fresno State': 'Fresno St.',
+    'Fresno St': 'Fresno St.',
+    'FRESNO': 'Fresno St.',
+    'FRESST': 'Fresno St.',
+    
+    # Boise State - KenPom uses "Boise St."
+    'Boise State': 'Boise St.',
+    'Boise St': 'Boise St.',
+    'BOISE': 'Boise St.',
+    'BSU': 'Boise St.',
+    
+    # Colorado State - KenPom uses "Colorado St."
+    'Colorado State': 'Colorado St.',
+    'Colorado St': 'Colorado St.',
+    'Colo. St.': 'Colorado St.',
+    'Colo St': 'Colorado St.',
+    'CSU': 'Colorado St.',
+    'CSTATE': 'Colorado St.',
+    
+    # Utah State - KenPom uses "Utah St."
+    'Utah State': 'Utah St.',
+    'Utah St': 'Utah St.',
+    'USU': 'Utah St.',
+    
+    # New Mexico State - KenPom uses "New Mexico St."
+    'New Mexico State': 'New Mexico St.',
+    'New Mexico St': 'New Mexico St.',
+    'NM State': 'New Mexico St.',
+    'NMSU': 'New Mexico St.',
+    
+    # Arizona State - KenPom uses "Arizona St."
+    'Arizona State': 'Arizona St.',
+    'Arizona St': 'Arizona St.',
+    'Ariz. St.': 'Arizona St.',
+    'Ariz St': 'Arizona St.',
+    'ASU': 'Arizona St.',
+    'Arizona State Sun Devils': 'Arizona St.',
+    
+    # Oregon State - KenPom uses "Oregon St."
+    'Oregon State': 'Oregon St.',
+    'Oregon St': 'Oregon St.',
+    'ORST': 'Oregon St.',
+    
+    # Washington State - KenPom uses "Washington St."
+    'Washington State': 'Washington St.',
+    'Washington St': 'Washington St.',
+    'Wash. St.': 'Washington St.',
+    'Wash St': 'Washington St.',
+    'WSU': 'Washington St.',
     # UNC schools
     'UNC': 'North Carolina',
     'N. Carolina': 'North Carolina',
@@ -793,8 +841,10 @@ CBB_TEAM_NAME_ALIASES = {
     'TULANE': 'Tulane',
     'TUL': 'Tulane',
     'TULSA': 'Tulsa',
-    'WICHITA': 'Wichita State',
-    'WICH': 'Wichita State',
+    'Wichita State': 'Wichita St.',
+    'WICHITA': 'Wichita St.',
+    'WICH': 'Wichita St.',
+    'Wichita St': 'Wichita St.',
     'SMU': 'SMU',
     'HOUSTON': 'Houston',
     'HOU': 'Houston',
@@ -844,7 +894,156 @@ CBB_TEAM_NAME_ALIASES = {
     'TXST': 'Texas State',
     'TXAM': 'Texas A&M',
     'TAMU': 'Texas A&M',
-    'ARIZ ST': 'Arizona State',
+    'ARIZ ST': 'Arizona St.',
+    
+    # ============================================================
+    # ADDITIONAL ESPN shortDisplayName -> KenPom mappings
+    # ============================================================
+    'N Illinois': 'Northern Illinois',
+    'Miami OH': 'Miami OH',
+    'Miami (OH)': 'Miami OH',
+    'Miami FL': 'Miami FL',
+    'Miami (FL)': 'Miami FL',
+    'Mississippi St.': 'Mississippi St.',
+    'Illinois St.': 'Illinois St.',
+    'Arkansas St.': 'Arkansas St.',
+    'Indiana St.': 'Indiana St.',
+    'Missouri St.': 'Missouri St.',
+    'Stephen F Austin': 'Stephen F. Austin',
+    'SFA': 'Stephen F. Austin',
+    'Cal Fullerton': 'Cal St. Fullerton',
+    'Long Beach St': 'Long Beach St.',
+    'Long Beach State': 'Long Beach St.',
+    'Portland St': 'Portland St.',
+    'Portland State': 'Portland St.',
+    'Wright St': 'Wright St.',
+    'Wright State': 'Wright St.',
+    'Kennesaw St': 'Kennesaw St.',
+    'Kennesaw State': 'Kennesaw St.',
+    'Jacksonville St': 'Jacksonville St.',
+    'Jacksonville State': 'Jacksonville St.',
+    'Weber St': 'Weber St.',
+    'Weber State': 'Weber St.',
+    'North Dakota St': 'North Dakota St.',
+    'North Dakota State': 'North Dakota St.',
+    'NDSU': 'North Dakota St.',
+    'South Dakota St': 'South Dakota St.',
+    'South Dakota State': 'South Dakota St.',
+    'Tarleton St': 'Tarleton St.',
+    'Tarleton State': 'Tarleton St.',
+    'E Tennessee St': 'East Tennessee St.',
+    'East Tennessee St': 'East Tennessee St.',
+    'East Tennessee State': 'East Tennessee St.',
+    'ETSU': 'East Tennessee St.',
+    'Youngstown St': 'Youngstown St.',
+    'Youngstown State': 'Youngstown St.',
+    'YSU': 'Youngstown St.',
+    'Tennessee St': 'Tennessee St.',
+    'Tennessee State': 'Tennessee St.',
+    'Cleveland St': 'Cleveland St.',
+    'Cleveland State': 'Cleveland St.',
+    'Idaho St': 'Idaho St.',
+    'Idaho State': 'Idaho St.',
+    'Montana St': 'Montana St.',
+    'Montana State': 'Montana St.',
+    'Northwestern St': 'Northwestern St.',
+    'Northwestern State': 'Northwestern St.',
+    'Grambling St': 'Grambling St.',
+    'Grambling State': 'Grambling St.',
+    'Norfolk St': 'Norfolk St.',
+    'Norfolk State': 'Norfolk St.',
+    'Alabama St': 'Alabama St.',
+    'Alabama State': 'Alabama St.',
+    'Murray St': 'Murray St.',
+    'Murray State': 'Murray St.',
+    'Morehead St': 'Morehead St.',
+    'Morehead State': 'Morehead St.',
+    
+    # ============================================================
+    # VSIN-SPECIFIC FIXES (from log warnings)
+    # ============================================================
+    # San José State (accent removal)
+    'San José St': 'San Jose St.',
+    'San José State': 'San Jose St.',
+    
+    # Sacramento St
+    'Sacramento St': 'Sacramento St.',
+    
+    # Louisiana Tech / Sam Houston
+    'Sam Houston': 'Sam Houston St.',
+    
+    # Northern Illinois
+    'N Illinois': 'Northern Illinois',
+    'Northern Ill': 'Northern Illinois',
+    
+    # Central Connecticut
+    'C Connecticut': 'Central Connecticut',
+    'C Conn': 'Central Connecticut',
+    
+    # George Washington
+    'G Washington': 'George Washington',
+    'GW': 'George Washington',
+    
+    # Eastern Washington / Northern Colorado
+    'E Washington': 'Eastern Washington',
+    'N Colorado': 'Northern Colorado',
+    
+    # Abilene Christian
+    'Abilene Chrstn': 'Abilene Christian',
+    'Abilene Chr': 'Abilene Christian',
+    
+    # Georgia Southern
+    'GA Southern': 'Georgia Southern',
+    'Ga Southern': 'Georgia Southern',
+    
+    # Hawai'i
+    "Hawai'i": 'Hawaii',
+    'Hawaii': 'Hawaii',
+    
+    # Houston Christian / Texas A&M-CC
+    'Hou Christian': 'Houston Christian',
+    'Houston Chr': 'Houston Christian',
+    'Texas A&M-CC': 'Texas A&M Corpus Chris',
+    'Texas A&amp;M-CC': 'Texas A&M Corpus Chris',
+    'TAMUCC': 'Texas A&M Corpus Chris',
+    
+    # UT Rio Grande Valley
+    'UT Rio Grande': 'UT Rio Grande Valley',
+    'UTRGV': 'UT Rio Grande Valley',
+    
+    # Northwestern State
+    "N'Western St": 'Northwestern St.',
+    'NW State': 'Northwestern St.',
+    
+    # Southern Indiana
+    'So Indiana': 'Southern Indiana',
+    'S Indiana': 'Southern Indiana',
+    
+    # SIUE
+    'SIUE': 'SIUE',
+    'SIU Edwardsville': 'SIUE',
+    
+    # UAlbany
+    'UAlbany': 'Albany',
+    'U Albany': 'Albany',
+    
+    # Chicago State
+    'Chicago St': 'Chicago St.',
+    'Chicago State': 'Chicago St.',
+    
+    # Boston University / Boston College
+    'Boston U': 'Boston University',
+    'BU': 'Boston University',
+    
+    # Purdue Fort Wayne
+    'Purdue FW': 'Purdue Fort Wayne',
+    'PFW': 'Purdue Fort Wayne',
+    
+    # Utah State  
+    'Utah State': 'Utah St.',
+    
+    # LIU / Long Island
+    'Long Island': 'LIU',
 }
 
 def strip_accents(text: str) -> str:
@@ -1955,6 +2154,56 @@ KENPOM_TEAM_SLUGS = {
     'Sacred Heart': 'Sacred.Heart', 'St. Francis (PA)': 'St..Francis.PA',
     'Mount St. Mary\'s': 'Mount.St..Mary\'s', 'LIU': 'LIU', 'Wagner': 'Wagner',
     'Merrimack': 'Merrimack', 'Stonehill': 'Stonehill',
+    
+    # Additional State schools with KenPom periods
+    'Mississippi St.': 'Mississippi.St.', 'Mississippi State': 'Mississippi.St.',
+    'Illinois St.': 'Illinois.St.', 'Illinois State': 'Illinois.St.',
+    'Arkansas St.': 'Arkansas.St.', 'Arkansas State': 'Arkansas.St.',
+    'Indiana St.': 'Indiana.St.', 'Indiana State': 'Indiana.St.',
+    'Missouri St.': 'Missouri.St.', 'Missouri State': 'Missouri.St.',
+    'Stephen F. Austin': 'Stephen.F..Austin', 'SFA': 'Stephen.F..Austin',
+    'Cal St. Fullerton': 'Cal.St..Fullerton', 'CSF': 'Cal.St..Fullerton', 'CSUF': 'Cal.St..Fullerton',
+    'Cal St. Bakersfield': 'Cal.St..Bakersfield', 'CSUB': 'Cal.St..Bakersfield',
+    'Long Beach St.': 'Long.Beach.St.', 'Long Beach State': 'Long.Beach.St.', 'LBSU': 'Long.Beach.St.',
+    'Portland St.': 'Portland.St.', 'Portland State': 'Portland.St.',
+    'Wright St.': 'Wright.St.', 'Wright State': 'Wright.St.',
+    'Kennesaw St.': 'Kennesaw.St.', 'Kennesaw State': 'Kennesaw.St.',
+    'Jacksonville St.': 'Jacksonville.St.', 'Jacksonville State': 'Jacksonville.St.',
+    'Weber St.': 'Weber.St.', 'Weber State': 'Weber.St.',
+    'North Dakota St.': 'North.Dakota.St.', 'North Dakota State': 'North.Dakota.St.', 'NDSU': 'North.Dakota.St.',
+    'South Dakota St.': 'South.Dakota.St.', 'South Dakota State': 'South.Dakota.St.', 'SDSU': 'South.Dakota.St.',
+    'Tarleton St.': 'Tarleton.St.', 'Tarleton State': 'Tarleton.St.',
+    'East Tennessee St.': 'East.Tennessee.St.', 'East Tennessee State': 'East.Tennessee.St.', 'ETSU': 'East.Tennessee.St.',
+    'Youngstown St.': 'Youngstown.St.', 'Youngstown State': 'Youngstown.St.', 'YSU': 'Youngstown.St.',
+    'Tennessee St.': 'Tennessee.St.', 'Tennessee State': 'Tennessee.St.', 'TSU': 'Tennessee.St.',
+    'Cleveland St.': 'Cleveland.St.', 'Cleveland State': 'Cleveland.St.',
+    'San Jose St.': 'San.Jose.St.',
+    'Fresno St.': 'Fresno.St.', 'Fresno State': 'Fresno.St.',
+    'Idaho St.': 'Idaho.St.', 'Idaho State': 'Idaho.St.',
+    'Montana St.': 'Montana.St.', 'Montana State': 'Montana.St.',
+    'Northwestern St.': 'Northwestern.St.', 'Northwestern State': 'Northwestern.St.',
+    'Grambling St.': 'Grambling.St.', 'Grambling State': 'Grambling.St.',
+    'Norfolk St.': 'Norfolk.St.', 'Norfolk State': 'Norfolk.St.',
+    'Alabama St.': 'Alabama.St.', 'Alabama State': 'Alabama.St.',
+    'Ball St.': 'Ball.St.', 'Ball State': 'Ball.St.',
+    'Kent St.': 'Kent.St.', 'Kent State': 'Kent.St.',
+    'St. Thomas': 'St..Thomas',
+    
+    # Miami disambiguation
+    'Miami FL': 'Miami.FL', 'Miami (FL)': 'Miami.FL', 'Miami Florida': 'Miami.FL',
+    'Miami OH': 'Miami.OH', 'Miami (OH)': 'Miami.OH', 'Miami Ohio': 'Miami.OH',
+    
+    # N Illinois / Northern Illinois
+    'N Illinois': 'Northern.Illinois', 'Northern Illinois': 'Northern.Illinois', 'NIU': 'Northern.Illinois',
+    
+    # UCF / Central Florida
+    'UCF': 'UCF', 'Central Florida': 'UCF',
+    
+    # Florida Atlantic
+    'Florida Atlantic': 'Florida.Atlantic', 'FAU': 'Florida.Atlantic',
+    
+    # Santa Clara
+    'Santa Clara': 'Santa.Clara',
 }
 
 
