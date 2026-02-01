@@ -3161,9 +3161,32 @@
             filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.5));
         }
         @media (max-width: 768px) {
-            .mobile-bottom-nav { display: block; }
+            .mobile-bottom-nav { 
+                display: block; 
+                padding-bottom: env(safe-area-inset-bottom, 0px);
+            }
             .nav-links { display: none !important; }
-            body { padding-bottom: 70px; }
+            body { 
+                padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px)); 
+                -webkit-tap-highlight-color: transparent;
+            }
+            .header { padding-top: calc(1rem + env(safe-area-inset-top, 0px)); }
+            .game-card { 
+                border-radius: 16px;
+                transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            .game-card:active { transform: scale(0.985); }
+            .stat-pill {
+                min-height: 44px;
+                transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            .stat-pill:active { transform: scale(0.96); }
+        }
+        @media (max-width: 390px) {
+            .lock-matchup { font-size: 1.1rem; }
+            .lock-pick { font-size: 1.3rem; }
+            .stat-pill { padding: 0.25rem 0.5rem; }
+            .stat-pill .value { font-size: 1rem; }
         }
     </style>
 </body>
