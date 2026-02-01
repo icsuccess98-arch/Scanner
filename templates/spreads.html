@@ -1034,52 +1034,79 @@
         .line-arrow.down {
             color: #DC143C;  /* Red for line moving down (away from favorite) */
         }
-        .splits-row {
+        .betting-splits-container {
+            background: linear-gradient(145deg, rgba(35, 30, 55, 0.8) 0%, rgba(25, 22, 42, 0.9) 100%);
+            border-radius: 12px;
+            padding: 10px 12px;
+            border: 1px solid rgba(139, 92, 246, 0.2);
+        }
+        .betting-splits-header {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
+            grid-template-columns: 1fr 70px 70px;
+            gap: 8px;
+            margin-bottom: 8px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid rgba(139, 92, 246, 0.15);
         }
-        .split-box {
-            background: linear-gradient(145deg, rgba(45, 40, 70, 0.6) 0%, rgba(30, 25, 50, 0.7) 100%);
-            padding: 10px;
-            border-radius: 10px;
-            text-align: center;
-            border: 1px solid rgba(139, 92, 246, 0.15);
-        }
-        .split-label {
+        .splits-header-label {
             font-size: 10px;
+            color: #6b7280;
+        }
+        .splits-header-col {
+            font-size: 10px;
+            font-weight: 700;
             color: #a78bfa;
             text-transform: uppercase;
-            font-weight: 700;
-            margin-bottom: 6px;
             letter-spacing: 0.5px;
-        }
-        .split-values {
-            display: flex;
-            justify-content: space-between;
-            gap: 6px;
-        }
-        .split-team {
-            flex: 1;
             text-align: center;
         }
-        .split-team-name {
-            font-size: 10px;
-            color: #c4b5fd;
-            margin-bottom: 3px;
+        .betting-splits-row {
+            display: grid;
+            grid-template-columns: 1fr 70px 70px;
+            gap: 8px;
+            align-items: center;
+            padding: 6px 0;
+        }
+        .betting-splits-row.away-row {
+            border-bottom: 1px solid rgba(139, 92, 246, 0.1);
+        }
+        .splits-team-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .splits-team-tag {
+            font-size: 9px;
+            font-weight: 700;
+            color: #9ca3af;
+            background: rgba(156, 163, 175, 0.15);
+            padding: 2px 6px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .splits-team-name {
+            font-size: 12px;
             font-weight: 600;
+            color: #e2e8f0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100px;
         }
         .split-pct {
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 800;
             color: #e2e8f0;
-            padding: 4px 8px;
-            border-radius: 6px;
-            background: rgba(20, 18, 35, 0.5);
+            padding: 5px 8px;
+            border-radius: 8px;
+            background: rgba(20, 18, 35, 0.6);
+            text-align: center;
         }
         .split-pct.majority {
             color: #fbbf24;
-            background: rgba(251, 191, 36, 0.15);
+            background: linear-gradient(135deg, rgba(251, 191, 36, 0.2) 0%, rgba(245, 158, 11, 0.15) 100%);
+            border: 1px solid rgba(251, 191, 36, 0.3);
         }
         .split-pct.sharp {
             color: #50C878;
@@ -2668,34 +2695,27 @@
                     </div>
                     {% endif %}
                     
-                    <div class="splits-row">
-                        <div class="split-box">
-                            <div class="split-label">Tickets %</div>
-                            <div class="split-values">
-                                <div class="split-team">
-                                    <div class="split-team-name">{{ game.away_team[:8] }}</div>
-                                    {# RLM: Highlight the UNDERDOG (sharp side) with golden glow #}
-                                    <div class="split-pct {% if (game.vsin_tickets_away or 0) > (game.vsin_tickets_home or 0) %}majority{% endif %} {% if rlm_detected and rlm_sharp_side == 'away' %}rlm-highlight{% endif %}">{{ game.vsin_tickets_away }}%</div>
-                                </div>
-                                <div class="split-team">
-                                    <div class="split-team-name">{{ game.home_team[:8] }}</div>
-                                    <div class="split-pct {% if (game.vsin_tickets_home or 0) > (game.vsin_tickets_away or 0) %}majority{% endif %} {% if rlm_detected and rlm_sharp_side == 'home' %}rlm-highlight{% endif %}">{{ game.vsin_tickets_home }}%</div>
-                                </div>
-                            </div>
+                    <div class="betting-splits-container">
+                        <div class="betting-splits-header">
+                            <span class="splits-header-label"></span>
+                            <span class="splits-header-col">TICKETS</span>
+                            <span class="splits-header-col">MONEY</span>
                         </div>
-                        <div class="split-box">
-                            <div class="split-label">Money %</div>
-                            <div class="split-values">
-                                <div class="split-team">
-                                    <div class="split-team-name">{{ game.away_team[:8] }}</div>
-                                    {# RLM: Fade the FAVORITE money (majority money side) #}
-                                    <div class="split-pct {% if (game.vsin_money_away or 0) > (game.vsin_money_home or 0) %}majority{% endif %} {% if rlm_detected and rlm_sharp_side != 'away' %}rlm-fade{% elif away_sharp_diff >= 15 %}sharp{% endif %}">{{ game.vsin_money_away }}%</div>
-                                </div>
-                                <div class="split-team">
-                                    <div class="split-team-name">{{ game.home_team[:8] }}</div>
-                                    <div class="split-pct {% if (game.vsin_money_home or 0) > (game.vsin_money_away or 0) %}majority{% endif %} {% if rlm_detected and rlm_sharp_side != 'home' %}rlm-fade{% elif home_sharp_diff >= 15 %}sharp{% endif %}">{{ game.vsin_money_home }}%</div>
-                                </div>
+                        <div class="betting-splits-row away-row">
+                            <div class="splits-team-info">
+                                <span class="splits-team-tag">AWAY</span>
+                                <span class="splits-team-name">{{ game.away_team }}</span>
                             </div>
+                            <div class="split-pct {% if (game.vsin_tickets_away or 0) > (game.vsin_tickets_home or 0) %}majority{% endif %} {% if rlm_detected and rlm_sharp_side == 'away' %}rlm-highlight{% endif %}">{{ game.vsin_tickets_away }}%</div>
+                            <div class="split-pct {% if (game.vsin_money_away or 0) > (game.vsin_money_home or 0) %}majority{% endif %} {% if rlm_detected and rlm_sharp_side != 'away' %}rlm-fade{% elif away_sharp_diff >= 15 %}sharp-highlight{% endif %}">{{ game.vsin_money_away }}%</div>
+                        </div>
+                        <div class="betting-splits-row home-row">
+                            <div class="splits-team-info">
+                                <span class="splits-team-tag">HOME</span>
+                                <span class="splits-team-name">{{ game.home_team }}</span>
+                            </div>
+                            <div class="split-pct {% if (game.vsin_tickets_home or 0) > (game.vsin_tickets_away or 0) %}majority{% endif %} {% if rlm_detected and rlm_sharp_side == 'home' %}rlm-highlight{% endif %}">{{ game.vsin_tickets_home }}%</div>
+                            <div class="split-pct {% if (game.vsin_money_home or 0) > (game.vsin_money_away or 0) %}majority{% endif %} {% if rlm_detected and rlm_sharp_side != 'home' %}rlm-fade{% elif home_sharp_diff >= 15 %}sharp-highlight{% endif %}">{{ game.vsin_money_home }}%</div>
                         </div>
                     </div>
                     
