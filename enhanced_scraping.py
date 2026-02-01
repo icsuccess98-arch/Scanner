@@ -896,6 +896,30 @@ CBB_TEAM_NAME_ALIASES = {
     'TAMU': 'Texas A&M',
     'ARIZ ST': 'Arizona St.',
     
+    # Illinois - Big Ten
+    'Illinois Fighting Illini': 'Illinois',
+    'ILL': 'Illinois',
+    'ILLI': 'Illinois',
+    'ILLIN': 'Illinois',
+    'Illini': 'Illinois',
+    'U of I': 'Illinois',
+    
+    # Saint Peter's - MAAC
+    "Saint Peter's": "Saint Peter's",
+    "St. Peter's": "Saint Peter's",
+    "St Peter's": "Saint Peter's",
+    "Saint Peters": "Saint Peter's",
+    "St. Peters": "Saint Peter's",
+    "St Peters": "Saint Peter's",
+    'SPU': "Saint Peter's",
+    'STPET': "Saint Peter's",
+    "Saint Peter's Peacocks": "Saint Peter's",
+    
+    # Rider - MAAC
+    'Rider Broncs': 'Rider',
+    'RIDE': 'Rider',
+    'RID': 'Rider',
+    
     # ============================================================
     # ADDITIONAL ESPN shortDisplayName -> KenPom mappings
     # ============================================================
@@ -1461,9 +1485,14 @@ def get_covers_matchup_stats(league: str = 'NBA') -> Dict:
         'GASO': 'GA Southern', 'ULM': 'UL Monroe', 'KENT': 'Kent State', 'AKR': 'Akron',
         'PRIN': 'Princeton', 'COR': 'Cornell', 'SIE': 'Siena', 'NIAG': 'Niagara',
         'IUPU': 'IU Indy', 'YSU': 'Youngstown St', 'PENN': 'Penn', 'COLUM': 'Columbia',
-        'MSM': 'Mount St Marys', 'SPU': "Saint Peter's", 'LOYCH': 'Loyola Chicago',
+        'MSM': 'Mount St Marys', 'SPU': "Saint Peter's", 'STPET': "Saint Peter's", 
+        "Saint Peter's": "Saint Peter's", "St. Peter's": "Saint Peter's", "St Peters": "Saint Peter's",
+        'RIDE': 'Rider', 'Rider': 'Rider',
+        'LOYCH': 'Loyola Chicago',
         'VCU': 'VCU', 'HARV': 'Harvard', 'BRWN': 'Brown', 'MAR': 'Marist', 'CAN': 'Canisius',
         'DUKE': 'Duke', 'UNC': 'North Carolina', 'UK': 'Kentucky', 'KU': 'Kansas',
+        'ILL': 'Illinois', 'ILLI': 'Illinois', 'ILLIN': 'Illinois', 'Illinois': 'Illinois',
+        'NEB': 'Nebraska', 'NEBR': 'Nebraska', 'Nebraska': 'Nebraska',
         'GONZ': 'Gonzaga', 'PURD': 'Purdue', 'ARIZ': 'Arizona', 'TENN': 'Tennessee',
         'HOU': 'Houston', 'BAMA': 'Alabama', 'CONN': 'UConn', 'TXAM': 'Texas A&M',
         'MARQ': 'Marquette', 'ISU': 'Iowa State', 'CREI': 'Creighton', 'MICH': 'Michigan',

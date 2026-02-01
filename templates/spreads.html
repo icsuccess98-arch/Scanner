@@ -2574,7 +2574,8 @@
                 {% endif %}
                 
                 {# For display/highlighting purposes #}
-                {% set line_movement = open_spread_num - current_spread_num %}
+                {# Use magnitude to determine direction: DOWN = spread decreased, UP = spread increased #}
+                {% set line_movement = current_magnitude - open_magnitude %}
                 {% set money_side = 'away' if (game.vsin_money_away or 0) > (game.vsin_money_home or 0) else 'home' %}
                 {% set favorite_side = 'away' if away_is_favorite else 'home' %}
                 {% else %}
