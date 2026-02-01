@@ -2419,8 +2419,11 @@
     </section>
     
     <div class="league-tabs">
-        <div class="league-tab qualified-tab active" data-league="qualified" style="background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%); color: white;">
-            🎯 Qualified Picks <span class="count qualified-count">0</span>
+        <div class="league-tab all-tab" data-league="all" onclick="showAllGames()">
+            📋 All <span class="count all-count">{{ total_games }}</span>
+        </div>
+        <div class="league-tab qualified-tab active" data-league="qualified" onclick="showQualifiedGamesOnly()" style="background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%); color: white;">
+            🎯 Qualified <span class="count qualified-count">0</span>
         </div>
     </div>
     
@@ -4544,7 +4547,35 @@
         }
         sortAllGames();
         
+        function showAllGames() {
+            document.querySelectorAll('.league-tab').forEach(t => t.classList.remove('active'));
+            document.querySelector('.all-tab').classList.add('active');
+            document.querySelector('.qualified-tab').style.background = '';
+            document.querySelector('.all-tab').style.background = 'linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)';
+            document.querySelector('.all-tab').style.color = 'white';
+            document.querySelector('.qualified-tab').style.color = '';
+            
+            document.querySelectorAll('.league-section').forEach(section => {
+                section.classList.remove('hidden');
+                const container = section.querySelector('.league-games') || section;
+                const allCards = Array.from(container.querySelectorAll('.game-card'));
+                allCards.forEach(card => card.style.display = '');
+                sortGameCards(allCards);
+                allCards.forEach(card => container.appendChild(card));
+            });
+            
+            const slateSection = document.getElementById('slate-section');
+            if (slateSection) slateSection.style.display = 'block';
+        }
+        
         function showQualifiedGamesOnly() {
+            document.querySelectorAll('.league-tab').forEach(t => t.classList.remove('active'));
+            document.querySelector('.qualified-tab').classList.add('active');
+            document.querySelector('.qualified-tab').style.background = 'linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)';
+            document.querySelector('.qualified-tab').style.color = 'white';
+            document.querySelector('.all-tab').style.background = '';
+            document.querySelector('.all-tab').style.color = '';
+            
             document.querySelectorAll('.league-section').forEach(section => {
                 section.classList.remove('hidden');
             });
