@@ -1802,92 +1802,90 @@
         </div>
         {% endif %}
 
-        <div class="edge-analysis-premium">
-            <div class="edge-header-row">
-                <div class="edge-title">
-                    <i class="bi bi-graph-up-arrow"></i>
-                    <span>Edge Analysis</span>
-                </div>
+        <div class="analytics-section">
+            <div class="analytics-header">
+                <div class="analytics-title"><i class="bi bi-graph-up-arrow"></i> Edge Analysis</div>
                 <form action="/clear_games" method="post" class="d-inline">
-                    <button type="submit" class="btn-reset-premium" onclick="return confirm('Clear all games?')">
-                        <i class="bi bi-trash3"></i> Reset
+                    <button type="submit" class="btn-clear" onclick="return confirm('Clear all games?')">
+                        <i class="bi bi-trash"></i> Reset
                     </button>
                 </form>
             </div>
             
-            <div class="edge-stats-row">
-                <div class="edge-stat-card avg">
-                    <div class="edge-stat-value">{{ "%.1f"|format(analytics.avg_edge) if analytics.avg_edge else '0.0' }}</div>
-                    <div class="edge-stat-label">AVG EDGE</div>
+            <div class="analytics-grid" style="grid-template-columns: 1fr 1fr;">
+                <div class="analytics-card">
+                    <div class="analytics-card-value" style="color: var(--green);">{{ "%.1f"|format(analytics.avg_edge) if analytics.avg_edge else '0.0' }}</div>
+                    <div class="analytics-card-label">Avg Edge</div>
                 </div>
-                <div class="edge-stat-card best">
-                    <div class="edge-stat-value">{{ "%.1f"|format(analytics.best_edge) if analytics.best_edge else '0.0' }}</div>
-                    <div class="edge-stat-label">BEST EDGE</div>
+                <div class="analytics-card">
+                    <div class="analytics-card-value" style="color: var(--gold);">{{ "%.1f"|format(analytics.best_edge) if analytics.best_edge else '0.0' }}</div>
+                    <div class="analytics-card-label">Best Edge</div>
                 </div>
             </div>
             
-            <div class="edge-content-grid">
-                <div class="league-breakdown-card">
-                    <div class="breakdown-title">LEAGUE BREAKDOWN</div>
-                    <div class="league-bars">
-                    {% for league in ['NBA', 'CBB', 'NHL'] %}
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <div class="mb-2" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">LEAGUE BREAKDOWN</div>
+                    {% for league in ['NBA', 'CBB', 'NFL', 'CFB', 'NHL'] %}
                     {% set data = analytics.league_breakdown.get(league, {'total': 0, 'qualified': 0}) %}
                     {% if data.total > 0 %}
-                    <div class="league-row">
-                        <div class="league-info">
-                            <span class="league-name">{{ league }}</span>
-                            <span class="league-count">{{ data.qualified }}/{{ data.total }} qualified</span>
+                    <div class="league-bar-container">
+                        <div class="league-bar-header">
+                            <span class="league-bar-name">{{ league }}</span>
+                            <span class="league-bar-count">{{ data.qualified }}/{{ data.total }} qualified</span>
                         </div>
-                        <div class="league-progress">
-                            <div class="league-progress-fill {{ league|lower }}" style="width: {{ (data.qualified / data.total * 100) if data.total > 0 else 0 }}%"></div>
+                        <div class="league-bar">
+                            <div class="league-bar-fill {{ league|lower }}" style="width: {{ (data.qualified / data.total * 100) if data.total > 0 else 0 }}%"></div>
                         </div>
                     </div>
                     {% endif %}
                     {% endfor %}
-                    </div>
                     {% if total_games == 0 %}
-                    <div class="no-data">No games loaded yet</div>
+                    <div class="text-muted" style="font-size: 0.8rem;">No games loaded yet</div>
                     {% endif %}
                 </div>
-                
-                <div class="top-picks-card">
-                    <div class="breakdown-title">TOP 5 PICKS</div>
-                    <div class="top-picks-list">
+                <div class="col-md-6">
+                    <div class="mb-2" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">TOP 5 PICKS</div>
+                    <div class="top5-container" style="display: flex; flex-direction: column; gap: 0.5rem;">
                     {% for pick in analytics.top_picks %}
-                    <div class="top-pick-item">
-                        <div class="pick-league-badge {{ pick.game.league|lower }}">{{ pick.game.league }}</div>
-                        <div class="pick-details">
-                            <div class="pick-matchup">{{ pick.game.away_team }} @ {{ pick.game.home_team }}</div>
-                            <div class="pick-badges">
-                                {% if pick.ou_l5 %}<span class="pick-badge history">📊 {{ pick.ou_l5 }} | {{ pick.ou_l10 }} | {{ pick.ou_l20 }}</span>{% endif %}
+                    <div class="top-pick-row" style="display: grid; grid-template-columns: 36px 1fr; gap: 0.5rem; padding: 0.6rem 0.75rem; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border);">
+                        <span class="badge" style="font-size: 0.6rem; background: var(--bg-input); color: var(--text-muted); padding: 0.2rem 0.4rem; text-align: center; align-self: start; margin-top: 2px;">{{ pick.game.league }}</span>
+                        <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                                <span style="font-size: 0.8rem; font-weight: 600; color: var(--text);">{{ pick.game.away_team }} @ {{ pick.game.home_team }}</span>
+                                {% if pick.ou_l5 %}<span class="badge" style="background: rgba(0, 230, 118, 0.2); color: {% if pick.ou_hit_rate_qualified %}#00E676{% else %}#888{% endif %}; font-size: 0.5rem; padding: 0.1rem 0.3rem;">📊 {{ pick.ou_l5 }} | {{ pick.ou_l10 }} | {{ pick.ou_l20 }}</span>{% endif %}
+                                {% if pick.is_away_favorite %}<span class="badge" style="background: rgba(255, 165, 0, 0.2); color: #FFA500; font-size: 0.5rem; padding: 0.1rem 0.3rem;">⭐ AWAY FAV</span>{% endif %}
+                                {% if pick.def_mismatch %}<span class="badge" style="background: rgba(0, 191, 255, 0.2); color: #00BFFF; font-size: 0.5rem; padding: 0.1rem 0.3rem;">🛡️ DEF EDGE</span>{% endif %}
                             </div>
-                        </div>
-                        <div class="pick-stats">
-                            <div class="pick-line {% if pick.direction == 'O' %}over{% else %}under{% endif %}">{{ pick.direction }}{{ "%.1f"|format(pick.alt_line if pick.alt_line else pick.line) }} ({{ pick.game.alt_total_odds if pick.game.alt_total_odds else '-180' }})</div>
-                            <div class="pick-edge">+{{ "%.1f"|format(pick.edge) }}</div>
-                            <div class="pick-edge-bar">
-                                {% set edge_pct = [[(pick.edge / 20 * 100), 100]|min, 0]|max %}
-                                <div class="edge-fill" style="width: {{ edge_pct }}%"></div>
-                            </div>
-                            <div class="pick-stars">
-                                {% set stars = 5 if pick.edge >= 12 else (4 if pick.edge >= 10 else (3 if pick.edge >= 8 else 2)) %}
-                                {% for i in range(5) %}<span class="{% if i < stars %}filled{% endif %}">★</span>{% endfor %}
+                            <div style="display: grid; grid-template-columns: 90px 75px 50px 60px; align-items: center; gap: 0.5rem;">
+                                <span class="direction-chip {% if pick.direction == 'O' %}over{% else %}under{% endif %}" style="font-size: 0.7rem; padding: 0.2rem 0.4rem; font-weight: 600; text-align: center;">
+                                    {{ pick.direction }}{{ "%.1f"|format(pick.alt_line if pick.alt_line else pick.line) }} ({{ pick.game.alt_total_odds if pick.game.alt_total_odds else '-110' }})
+                                </span>
+                                <span style="color: var(--green); font-weight: 700; font-size: 0.75rem;">+{{ "%.1f"|format(pick.edge) }}</span>
+                                <div class="edge-bar" title="Edge: {{ '%.1f'|format(pick.edge) }}" style="width: 40px; height: 6px; background: var(--bg-input); border-radius: 3px; overflow: hidden;">
+                                    {% set edge_pct = [[(pick.edge / 15 * 100), 100]|min, 0]|max %}
+                                    {% set edge_class = 'elite' if pick.edge >= 12 else ('high' if pick.edge >= 10 else ('medium' if pick.edge >= 8 else 'low')) %}
+                                    <div class="edge-bar-fill {{ edge_class }}" style="width: {{ edge_pct }}%; height: 100%;"></div>
+                                </div>
+                                <span class="confidence-stars" style="font-size: 0.7rem;">
+                                    {% set stars = 5 if pick.edge >= 12 else (4 if pick.edge >= 10 else (3 if pick.edge >= 8 else 2)) %}
+                                    {% for i in range(5) %}<span class="star {% if i < stars %}filled{% else %}empty{% endif %}">★</span>{% endfor %}
+                                </span>
                             </div>
                         </div>
                     </div>
                     {% endfor %}
                     </div>
                     {% if not analytics.top_picks %}
-                    <div class="no-data">No qualified picks yet</div>
+                    <div class="text-muted" style="font-size: 0.8rem;">No qualified picks yet</div>
                     {% endif %}
                 </div>
             </div>
         </div>
 
-        <div class="qualified-section-header">
-            <div class="qualified-title">
-                <i class="bi bi-trophy-fill"></i>
-                <span>All Qualified Picks</span>
+        <div class="section-header">
+            <div class="d-flex align-items-center gap-3">
+                <h5 class="mb-0"><i class="bi bi-trophy-fill" style="color: var(--gold);"></i> All Qualified Picks</h5>
             </div>
         </div>
 
@@ -1898,14 +1896,12 @@
             {% set league_games = all_league_games|selectattr('is_qualified')|list %}
             {% if league_games|length > 0 %}
             <div class="league-section league-{{ league|lower }}">
-                <div class="league-header-premium">
+                <div class="league-header">
                     {% set logo_paths = {'NBA': '/i/teamlogos/leagues/500/nba.png', 'CBB': '/i/espn/misc_logos/500/ncaa.png', 'NFL': '/i/teamlogos/leagues/500/nfl.png', 'CFB': '/i/espn/misc_logos/500/ncaa.png', 'NHL': '/i/teamlogos/leagues/500/nhl.png'} %}
-                    <div class="league-logo-wrap {{ league|lower }}">
-                        <img src="https://a.espncdn.com/combiner/i?img={{ logo_paths[league] }}&w=100" class="league-logo" alt="{{ league }}">
-                    </div>
-                    <div class="league-info-wrap">
-                        <div class="league-title-premium">{{ {'NBA': 'NBA Basketball', 'CBB': 'College Basketball', 'NFL': 'NFL Football', 'CFB': 'College Football', 'NHL': 'NHL Hockey'}[league] }}</div>
-                        <div class="league-count-premium">{{ league_games|length }} qualified pick{% if league_games|length != 1 %}s{% endif %}</div>
+                    <img src="https://a.espncdn.com/combiner/i?img={{ logo_paths[league] }}&w=100" class="league-logo" alt="{{ league }}">
+                    <div>
+                        <div class="league-title">{{ {'NBA': 'NBA Basketball', 'CBB': 'College Basketball', 'NFL': 'NFL Football', 'CFB': 'College Football', 'NHL': 'NHL Hockey'}[league] }}</div>
+                        <div class="league-count">{{ league_games|length }} qualified pick{% if league_games|length != 1 %}s{% endif %}</div>
                     </div>
                 </div>
                 
