@@ -12511,9 +12511,14 @@ def spreads():
                 def find_covers_stats(team_name, stats_dict):
                     """Try to find Covers stats using various name normalizations."""
                     import unicodedata
+                    import re
                     
                     def strip_accents(text):
                         return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
+                    
+                    def strip_ranking(text):
+                        """Remove ranking numbers like (9) or (12) from team names."""
+                        return re.sub(r'\s*\(\d+\)\s*', '', text).strip()
                     
                     # Direct lookup
                     if team_name in stats_dict:
@@ -12533,7 +12538,7 @@ def spreads():
                     # Stricter fuzzy match - normalize both sides and compare tokens
                     def normalize_for_match(name):
                         """Normalize team name for matching: strip accents, lowercase, expand abbreviations."""
-                        n = strip_accents(name).lower()
+                        n = strip_accents(strip_ranking(name)).lower()
                         # Expand common abbreviations
                         n = n.replace(' st.', ' state').replace(' st ', ' state ')
                         if n.endswith(' st'):
@@ -12541,20 +12546,36 @@ def spreads():
                         return n.strip()
                     
                     team_normalized = normalize_for_match(ascii_name)
+                    team_lower = team_name.lower()
+                    
                     for key in stats_dict:
+                        key_clean = strip_ranking(key)
                         key_normalized = normalize_for_match(key)
+                        key_lower = key_clean.lower()
+                        
                         # Exact match after normalization
                         if team_normalized == key_normalized:
                             return stats_dict[key]
+                        
+                        # Partial match - team name starts the key (e.g., "Illinois" matches "Illinois Fighting")
+                        if key_lower.startswith(team_lower) or team_lower.startswith(key_lower):
+                            return stats_dict[key]
+                        
+                        # Check if key is an abbreviation that maps to our team
+                        key_upper = key_clean.upper()
+                        if key_upper in CBB_TEAM_NAME_ALIASES:
+                            alias_target = CBB_TEAM_NAME_ALIASES[key_upper]
+                            if alias_target == normalized or alias_target == ascii_normalized or alias_target.lower() == team_lower:
+                                return stats_dict[key]
                     
                     # Reverse alias lookup - check if any Covers key normalizes to our target
-                    # E.g., if stats_dict has "SJSU" and we want "San Jose State"
                     for covers_key in stats_dict:
-                        covers_normalized = normalize_cbb_team_name(covers_key)
+                        covers_clean = strip_ranking(covers_key)
+                        covers_normalized = normalize_cbb_team_name(covers_clean)
                         if covers_normalized == normalized or covers_normalized == ascii_normalized:
                             return stats_dict[covers_key]
                         # Also check if covers key uppercase matches an alias
-                        covers_upper = covers_key.upper()
+                        covers_upper = covers_clean.upper()
                         if covers_upper in CBB_TEAM_NAME_ALIASES:
                             if CBB_TEAM_NAME_ALIASES[covers_upper] == normalized or CBB_TEAM_NAME_ALIASES[covers_upper] == ascii_normalized:
                                 return stats_dict[covers_key]
