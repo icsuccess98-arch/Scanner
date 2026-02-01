@@ -2360,15 +2360,8 @@
     
     <div class="league-tabs">
         <div class="league-tab qualified-tab active" data-league="qualified" style="background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%); color: white;">
-            🎯 Qualified <span class="count qualified-count">0</span>
+            🎯 Qualified Picks <span class="count qualified-count">0</span>
         </div>
-        <div class="league-tab" data-league="all">All <span class="count">{{ total_games }}</span></div>
-        {% if games_by_league.get('CBB', [])|length > 0 %}
-        <div class="league-tab" data-league="CBB">CBB <span class="count">{{ games_by_league.get('CBB', [])|length }}</span></div>
-        {% endif %}
-        {% if games_by_league.get('NBA', [])|length > 0 %}
-        <div class="league-tab" data-league="NBA">NBA <span class="count">{{ games_by_league.get('NBA', [])|length }}</span></div>
-        {% endif %}
     </div>
     
     <div class="games-container">
