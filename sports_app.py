@@ -1689,7 +1689,7 @@ class MatchupIntelligence:
                 except Exception:
                     pass
 
-            # Merge Four Factors into result
+            # Merge Four Factors into result (MatchupIntelligence cache uses off_efg, def_efg format)
             if ff:
                 result.update({
                     'off_efg': ff.get('off_efg', 0),
@@ -5824,8 +5824,18 @@ def normalize_team_name(name: str) -> str:
 
 
 def normalize_cbb_team_name(name: str) -> str:
-    """Normalize CBB team name for matching with Covers data."""
-    return normalize_team_name(name)
+    """Normalize CBB team name for matching with KenPom/Covers data.
+    First applies CBB_TEAM_NAME_MAP for aliased names, then normalizes.
+    """
+    # First normalize basic characters
+    base_normalized = normalize_team_name(name)
+    
+    # Apply CBB_TEAM_NAME_MAP to convert aliases (e.g., "ut martin" -> "tennessee martin")
+    mapped = CBB_TEAM_NAME_MAP.get(base_normalized)
+    if mapped:
+        return mapped
+    
+    return base_normalized
 
 
 MASCOTS = {
@@ -8843,24 +8853,29 @@ def fetch_kenpom_four_factors() -> dict:
             team_name = team.get('TeamName', '').lower()
             if team_name:
                 cache[team_name] = {
-                    # Offensive Four Factors
-                    'o_efg': team.get('eFGPct', 0),           # Offensive eFG%
-                    'o_efg_rank': team.get('RankeFGPct', 0),
-                    'o_to': team.get('TOPct', 0),             # Offensive TO%
-                    'o_to_rank': team.get('RankTOPct', 0),
-                    'o_or': team.get('ORPct', 0),             # Offensive Rebound %
-                    'o_or_rank': team.get('RankORPct', 0),
-                    'o_ft_rate': team.get('FTRate', 0),       # FT Rate (FTA/FGA)
-                    'o_ft_rate_rank': team.get('RankFTRate', 0),
+                    # Offensive Four Factors (API uses underscores: eFG_Pct, RankeFG_Pct)
+                    'o_efg': team.get('eFG_Pct', 0),           # Offensive eFG%
+                    'o_efg_rank': team.get('RankeFG_Pct', 0),
+                    'o_to': team.get('TO_Pct', 0),             # Offensive TO%
+                    'o_to_rank': team.get('RankTO_Pct', 0),
+                    'o_or': team.get('OR_Pct', 0),             # Offensive Rebound %
+                    'o_or_rank': team.get('RankOR_Pct', 0),
+                    'o_ft_rate': team.get('FT_Rate', 0),       # FT Rate (FTA/FGA)
+                    'o_ft_rate_rank': team.get('RankFT_Rate', 0),
                     # Defensive Four Factors
-                    'd_efg': team.get('DeFGPct', 0),          # Defensive eFG% allowed
-                    'd_efg_rank': team.get('RankDeFGPct', 0),
-                    'd_to': team.get('DTOPct', 0),            # Forced TO%
-                    'd_to_rank': team.get('RankDTOPct', 0),
-                    'd_or': team.get('DORPct', 0),            # DRB% (100 - opponent ORB%)
-                    'd_or_rank': team.get('RankDORPct', 0),
-                    'd_ft_rate': team.get('DFTRate', 0),      # Opponent FT Rate
-                    'd_ft_rate_rank': team.get('RankDFTRate', 0),
+                    'd_efg': team.get('DeFG_Pct', 0),          # Defensive eFG% allowed
+                    'd_efg_rank': team.get('RankDeFG_Pct', 0),
+                    'd_to': team.get('DTO_Pct', 0),            # Forced TO%
+                    'd_to_rank': team.get('RankDTO_Pct', 0),
+                    'd_or': team.get('DOR_Pct', 0),            # DRB% (100 - opponent ORB%)
+                    'd_or_rank': team.get('RankDOR_Pct', 0),
+                    'd_ft_rate': team.get('DFT_Rate', 0),      # Opponent FT Rate
+                    'd_ft_rate_rank': team.get('RankDFT_Rate', 0),
+                    # Efficiency metrics from Four Factors API
+                    'adj_o': team.get('AdjOE', 0),
+                    'adj_o_rank': team.get('RankAdjOE', 0),
+                    'adj_d': team.get('AdjDE', 0),
+                    'adj_d_rank': team.get('RankAdjDE', 0),
                 }
         except Exception:
             continue
@@ -9771,6 +9786,7 @@ CBB_TEAM_NAME_MAP = {
     'byu': 'byu', 'brigham young': 'byu',
     'mtsu': 'middle tennessee', 'middle tennessee': 'middle tennessee', 'middle tenn': 'middle tennessee',
     'etsu': 'east tennessee st.', 'east tennessee': 'east tennessee st.', 'east tennessee state': 'east tennessee st.',
+    'ut martin': 'tennessee martin', 'utm': 'tennessee martin', 'tennessee martin': 'tennessee martin', 'tenn martin': 'tennessee martin',
     # Regional directionals
     'western kentucky': 'western kentucky', 'wku': 'western kentucky', 'western ky': 'western kentucky',
     'eastern kentucky': 'eastern kentucky', 'eku': 'eastern kentucky', 'eastern ky': 'eastern kentucky', 'e kentucky': 'eastern kentucky',
