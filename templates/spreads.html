@@ -828,6 +828,22 @@
             font-weight: 500;
             color: #9ca3af;
         }
+        .pikkit-team-spread {
+            font-size: 14px;
+            font-weight: 700;
+            margin-top: 2px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+        .pikkit-team-spread.spread-favorite {
+            color: #f59e0b;
+            background: rgba(245, 158, 11, 0.15);
+        }
+        .pikkit-team-spread.spread-underdog {
+            color: #9ca3af;
+            background: rgba(156, 163, 175, 0.1);
+        }
         .pikkit-team-standing {
             font-size: 10px;
             color: #6b7280;
@@ -2511,6 +2527,12 @@
                         <div class="pikkit-team-placeholder" style="display:none; width:56px; height:56px; background:rgba(139,92,246,0.2); border-radius:50%; align-items:center; justify-content:center; font-size:16px; font-weight:600; color:#8B5CF6;">{{ game.away_team[:3] }}</div>
                         <div class="pikkit-team-name">{{ game.away_team }}</div>
                         <div class="pikkit-team-record">{{ game.away_record or '--' }}</div>
+                        {% if game.vsin_current_spread is not none %}
+                        {% set away_line = game.vsin_current_spread|float %}
+                        <div class="pikkit-team-spread {% if away_line < 0 %}spread-favorite{% else %}spread-underdog{% endif %}">
+                            {{ '%+.1f'|format(away_line) if away_line != 0 else 'PK' }}
+                        </div>
+                        {% endif %}
                         {% if game.away_standing %}<div class="pikkit-team-standing">{{ game.away_standing }}</div>{% endif %}
                     </div>
                     <div class="pikkit-center" id="pikkit-center-{{ game.id }}">
@@ -2544,6 +2566,12 @@
                         <div class="pikkit-team-placeholder" style="display:none; width:56px; height:56px; background:rgba(139,92,246,0.2); border-radius:50%; align-items:center; justify-content:center; font-size:16px; font-weight:600; color:#8B5CF6;">{{ game.home_team[:3] }}</div>
                         <div class="pikkit-team-name">{{ game.home_team }}</div>
                         <div class="pikkit-team-record">{{ game.home_record or '--' }}</div>
+                        {% if game.vsin_current_spread is not none %}
+                        {% set home_line = -1 * game.vsin_current_spread|float %}
+                        <div class="pikkit-team-spread {% if home_line < 0 %}spread-favorite{% else %}spread-underdog{% endif %}">
+                            {{ '%+.1f'|format(home_line) if home_line != 0 else 'PK' }}
+                        </div>
+                        {% endif %}
                         {% if game.home_standing %}<div class="pikkit-team-standing">{{ game.home_standing }}</div>{% endif %}
                     </div>
                 </div>
