@@ -1,0 +1,87 @@
+from typing import List, Dict, Optional
+from team_identity import normalize_team_name
+
+def batch_resolve_teams(
+    rows: List[Dict],
+    league: str
+) -> Dict[str, List[Dict]]:
+    """
+    rows = [
+        {
+            "kenpom_name": "...",
+            "vsin_name": "...",
+            "covers_name": "...",
+            "covers_abbrev": "...",
+            "covers_logo_key": "..."
+        }
+    ]
+    """
+
+    # -----------------------------
+    # STEP 1: NORMALIZATION CACHE
+    # -----------------------------
+    normalization_cache: Dict[str, str] = {}
+
+    def cached_normalize(name: Optional[str]) -> Optional[str]:
+        if not name:
+            return None
+        if name not in normalization_cache:
+            normalization_cache[name] = normalize_team_name(name)
+        return normalization_cache[name]
+
+    # -----------------------------
+    # STEP 2: RESOLUTION
+    # -----------------------------
+    verified = []
+    failed = []
+
+    for row in rows:
+        normalized_keys = set()
+
+        for source in ("kenpom_name", "vsin_name", "covers_name"):
+            key = cached_normalize(row.get(source))
+            if key:
+                normalized_keys.add(key)
+
+        # ❌ Ambiguous or missing identity
+        if len(normalized_keys) != 1:
+            failed.append({
+                **row,
+                "canonical_key": None,
+                "league": league,
+                "resolution_status": "FAILED",
+                "failure_reason": f"Key mismatch: {normalized_keys}"
+            })
+            continue
+
+        canonical_key = normalized_keys.pop()
+
+        # ❌ Covers enforcement (UI depends on it)
+        if not row.get("covers_abbrev") or not row.get("covers_logo_key"):
+            failed.append({
+                **row,
+                "canonical_key": canonical_key,
+                "league": league,
+                "resolution_status": "FAILED",
+                "failure_reason": "Missing Covers abbreviation or logo"
+            })
+            continue
+
+        verified.append({
+            **row,
+            "canonical_key": canonical_key,
+            "league": league,
+            "resolution_status": "VERIFIED",
+            "failure_reason": ""
+        })
+
+    return {
+        "verified": verified,
+        "failed": failed,
+        "stats": {
+            "total_rows": len(rows),
+            "verified": len(verified),
+            "failed": len(failed),
+            "unique_names_normalized": len(normalization_cache)
+        }
+    }
