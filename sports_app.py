@@ -2581,25 +2581,30 @@ class MatchupIntelligence:
                 'Toronto': 'Raptors', 'Utah': 'Jazz', 'Atlanta': 'Hawks'
             }
             
-            def normalize_team_name(name):
-                """Convert city name or full name to Bovada-style nickname."""
+            def normalize_team_name(name, is_nba=False):
+                """Convert city name or full name to Bovada-style nickname. Only for NBA."""
                 if not name:
+                    return name
+                # Only apply NBA city-to-nickname normalization for NBA games
+                # CBB teams like "Miami OH" or "Indiana" should NOT be converted to NBA nicknames
+                if not is_nba:
                     return name
                 # Already a nickname
                 if name in city_to_nickname.values():
                     return name
-                # City name lookup
+                # City name lookup (exact match only)
                 if name in city_to_nickname:
                     return city_to_nickname[name]
-                # Try partial match
+                # Try partial match (only for NBA)
                 for city, nickname in city_to_nickname.items():
                     if city.lower() in name.lower() or name.lower() in city.lower():
                         return nickname
                 return name
             
+            is_nba_league = (league == 'NBA')
             for key, data in vsin_data.items():
-                away_team = normalize_team_name(data.get('away_team', ''))
-                home_team = normalize_team_name(data.get('home_team', ''))
+                away_team = normalize_team_name(data.get('away_team', ''), is_nba=is_nba_league)
+                home_team = normalize_team_name(data.get('home_team', ''), is_nba=is_nba_league)
                 
                 # VSIN terminology: tickets = bets %, money = handle %
                 away_bet_pct = data.get('tickets_away') or 50
@@ -2727,9 +2732,9 @@ class MatchupIntelligence:
                 # Get favorite tracking data from WagerTalk
                 favorite_is_away = data.get('favorite_is_away')
                 open_favorite = data.get('open_favorite')
-                # Normalize the open_favorite team name 
+                # Normalize the open_favorite team name (only for NBA)
                 if open_favorite:
-                    open_favorite = normalize_team_name(open_favorite)
+                    open_favorite = normalize_team_name(open_favorite, is_nba=is_nba_league)
                 
                 # Format line movement for display
                 if line_movement_value is not None:
