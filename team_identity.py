@@ -754,7 +754,7 @@ def get_kenpom_slug(canonical_key: str) -> Optional[str]:
 def batch_resolve_teams(
     rows: List[Dict],
     league: str
-) -> Dict[str, any]:
+) -> Dict:
     """
     Batch resolve team identities across KenPom, VSIN, and Covers.com.
     Optimized for 10k+ teams with caching.
@@ -776,7 +776,7 @@ def batch_resolve_teams(
         }
     """
     
-    normalization_cache: Dict[str, str] = {}
+    normalization_cache: Dict[str, Optional[str]] = {}
 
     def cached_normalize(name: Optional[str]) -> Optional[str]:
         if not name:

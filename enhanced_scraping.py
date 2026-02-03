@@ -1515,6 +1515,24 @@ def get_covers_matchup_stats(league: str = 'NBA') -> Dict:
         'DAV': 'Davidson', 'RICH': 'Richmond', 'GMAS': 'George Mason', 'FORD': 'Fordham',
         'SLU': 'Saint Louis', 'MASS': 'UMass', 'URI': 'Rhode Island', 'LAS': 'La Salle',
         'DUQ': 'Duquesne', 'SBU': 'St. Bonaventure', 'ZONA': 'Arizona',
+        # Directional schools - key abbreviations from Covers.com
+        'W MI': 'Western Michigan', 'WMU': 'Western Michigan', 'W MICH': 'Western Michigan',
+        'E MI': 'Eastern Michigan', 'EMU': 'Eastern Michigan', 'E MICH': 'Eastern Michigan',
+        'C MI': 'Central Michigan', 'CMU': 'Central Michigan', 'C MICH': 'Central Michigan',
+        'S IL': 'Southern Illinois', 'SIU': 'Southern Illinois', 'S ILL': 'Southern Illinois',
+        'N IL': 'Northern Illinois', 'NIU': 'Northern Illinois', 'N ILL': 'Northern Illinois',
+        'W IL': 'Western Illinois', 'WIU': 'Western Illinois',
+        'E IL': 'Eastern Illinois', 'EIU': 'Eastern Illinois',
+        'ILL ST': 'Illinois State', 'ILST': 'Illinois State',
+        'ST J': "St. John's", 'STJO': "St. John's", "ST JOHN'S": "St. John's",
+        'AKRO': 'Akron', 'AKRON': 'Akron',
+        'OHIO': 'Ohio', 'OH': 'Ohio',
+        'LITT': 'Little Rock', 'LR': 'Little Rock', 'UALR': 'Little Rock',
+        'UT M': 'UT Martin', 'UTM': 'UT Martin', 'UTMT': 'UT Martin',
+        'UMAS': 'UMass', 'UMASS': 'UMass',
+        # Philadelphia 76ers for NBA
+        'PHI': 'Sixers', '76ERS': 'Sixers', 'SIXERS': 'Sixers',
+        'GSW': 'Warriors', 'GS': 'Warriors',
     }
     
     # NHL Team abbreviation to nickname mapping
