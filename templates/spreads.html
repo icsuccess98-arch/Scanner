@@ -2706,16 +2706,18 @@
                     </div>
                     {% endif %}
                     
+                    {% set away_spread_val = game.vsin_current_spread|float if game.vsin_current_spread is not none else 0 %}
+                    {% set home_spread_val = -1 * away_spread_val %}
                     <div class="splits-row">
                         <div class="split-box">
                             <div class="split-label">Tickets %</div>
                             <div class="split-values">
                                 <div class="split-team">
-                                    <div class="split-team-name">{{ game.away_team[:4] }}</div>
+                                    <div class="split-team-name">{{ game.away_team }} <span class="split-spread {% if away_spread_val < 0 %}fav{% endif %}">{{ '%+.1f'|format(away_spread_val) if away_spread_val != 0 else 'PK' }}</span></div>
                                     <div class="split-pct {% if (game.vsin_tickets_away or 0) > (game.vsin_tickets_home or 0) %}tickets-majority{% endif %}">{{ game.vsin_tickets_away }}%</div>
                                 </div>
                                 <div class="split-team">
-                                    <div class="split-team-name">{{ game.home_team[:4] }}</div>
+                                    <div class="split-team-name">{{ game.home_team }} <span class="split-spread {% if home_spread_val < 0 %}fav{% endif %}">{{ '%+.1f'|format(home_spread_val) if home_spread_val != 0 else 'PK' }}</span></div>
                                     <div class="split-pct {% if (game.vsin_tickets_home or 0) > (game.vsin_tickets_away or 0) %}tickets-majority{% endif %}">{{ game.vsin_tickets_home }}%</div>
                                 </div>
                             </div>
@@ -2724,11 +2726,11 @@
                             <div class="split-label">Money %</div>
                             <div class="split-values">
                                 <div class="split-team">
-                                    <div class="split-team-name">{{ game.away_team[:4] }}</div>
+                                    <div class="split-team-name">{{ game.away_team }} <span class="split-spread {% if away_spread_val < 0 %}fav{% endif %}">{{ '%+.1f'|format(away_spread_val) if away_spread_val != 0 else 'PK' }}</span></div>
                                     <div class="split-pct {% if (game.vsin_money_away or 0) > (game.vsin_money_home or 0) %}money-majority{% endif %}">{{ game.vsin_money_away }}%</div>
                                 </div>
                                 <div class="split-team">
-                                    <div class="split-team-name">{{ game.home_team[:4] }}</div>
+                                    <div class="split-team-name">{{ game.home_team }} <span class="split-spread {% if home_spread_val < 0 %}fav{% endif %}">{{ '%+.1f'|format(home_spread_val) if home_spread_val != 0 else 'PK' }}</span></div>
                                     <div class="split-pct {% if (game.vsin_money_home or 0) > (game.vsin_money_away or 0) %}money-majority{% endif %}">{{ game.vsin_money_home }}%</div>
                                 </div>
                             </div>
