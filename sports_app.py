@@ -890,17 +890,25 @@ class MatchupIntelligence:
     # L5 stats cache - stores team L5 data with TTL
     _l5_cache = {}
     _l5_cache_ttl = 1800  # 30 minute TTL
+    _l5_cache_date = None  # Date-based invalidation for daily refresh
     
     @staticmethod
     def get_team_last5_stats(team_name: str, league: str = 'NBA') -> dict:
         """
         Fetch last 5 games stats from NBA.com API for trend analysis.
         Returns dict with L5 averages for key metrics.
-        Uses in-memory cache with 30-minute TTL to avoid rate limiting.
+        Uses date-based cache (daily refresh) + 30-minute TTL within the same day.
         """
         import time
         
-        # Check cache first
+        # Date-based cache invalidation - clear cache at midnight
+        today = date.today()
+        if MatchupIntelligence._l5_cache_date != today:
+            MatchupIntelligence._l5_cache = {}
+            MatchupIntelligence._l5_cache_date = today
+            logger.info("L5 stats cache cleared for new day")
+        
+        # Check cache first (30 min TTL within same day)
         cache_key = f"{team_name}_{league}"
         if cache_key in MatchupIntelligence._l5_cache:
             cached_data, cached_time = MatchupIntelligence._l5_cache[cache_key]
@@ -1445,17 +1453,25 @@ class MatchupIntelligence:
     
     # CTG cache: team_name -> {data: dict, timestamp: float}
     _ctg_cache = {}
+    _ctg_cache_date = None  # Date-based invalidation for daily refresh
     
     @staticmethod
     def fetch_ctg_four_factors(team_name: str) -> dict:
         """
         Fetch Four Factors data from Cleaning the Glass with bulletproof caching and retry.
         Returns eFG%, TOV%, ORB%, FT Rate for offense and defense.
-        Uses 4-hour cache to minimize requests and handle timeouts gracefully.
+        Uses date-based cache (daily refresh) + 4-hour TTL within the same day.
         """
         import time
         
-        # Check cache first (4 hour TTL)
+        # Date-based cache invalidation - clear cache at midnight
+        today = date.today()
+        if MatchupIntelligence._ctg_cache_date != today:
+            MatchupIntelligence._ctg_cache = {}
+            MatchupIntelligence._ctg_cache_date = today
+            logger.info("CTG cache cleared for new day")
+        
+        # Check cache first (4 hour TTL within same day)
         cache_key = team_name.lower()
         cached = MatchupIntelligence._ctg_cache.get(cache_key)
         if cached and time.time() - cached.get('timestamp', 0) < GameConstants.CACHE_TTL_CTG:
@@ -2017,6 +2033,7 @@ class MatchupIntelligence:
     # Cache for Covers Last 10 data - short cache for fast refresh
     _covers_last10_cache = {}
     _covers_last10_cache_time = {}
+    _covers_cache_date = None  # Date-based invalidation for daily refresh
     _matchup_id_cache = {}
     
     @staticmethod
@@ -2454,8 +2471,17 @@ class MatchupIntelligence:
         """
         Fetch Last 10 games for each team + H2H history from Covers.com.
         Returns data for tabs: Away Team L10, Home Team L10, H2H Last 10.
+        Uses date-based cache (daily refresh) + 5-minute TTL within the same day.
         """
         import time as time_module
+        
+        # Date-based cache invalidation - clear cache at midnight
+        today = date.today()
+        if MatchupIntelligence._covers_cache_date != today:
+            MatchupIntelligence._covers_last10_cache = {}
+            MatchupIntelligence._covers_last10_cache_time = {}
+            MatchupIntelligence._covers_cache_date = today
+            logger.info("Covers cache cleared for new day")
         
         cache_key = f"last10_{away_team}_{home_team}_{league}"
         cache_time = MatchupIntelligence._covers_last10_cache_time.get(cache_key, 0)
