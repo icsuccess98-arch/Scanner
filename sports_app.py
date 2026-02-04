@@ -13836,6 +13836,18 @@ def get_matchup_data(game_id):
                     'st marys': 'saint marys', "st mary's": 'saint marys', 'st. marys': 'saint marys',
                     "saint peter's": 'st peters', 'saint peters': 'st peters', "st. peter's": 'st peters',
                     'st peters': 'st peters',
+                    # App State / Appalachian State
+                    'app state': 'appalachian', 'appalachian st': 'appalachian', 'appalachian state': 'appalachian',
+                    # South Alabama / USA
+                    'south alabama': 's alabama', 'so alabama': 's alabama', 'usa': 's alabama',
+                    # More Sun Belt teams
+                    'texas state': 'texas st', 'texas st.': 'texas st',
+                    'georgia state': 'georgia st', 'georgia st.': 'georgia st',
+                    'coastal carolina': 'coastal', 'ccu': 'coastal',
+                    # E Texas A&M / East Texas A&M
+                    'e texas a&m': 'east texas a&m', 'etamu': 'east texas a&m',
+                    # N'Western St / Northwestern State
+                    "n'western st": 'nw state', 'northwestern st': 'nw state', 'northwestern state': 'nw state',
                 }
                 
                 def normalize_for_vsin_match(name: str) -> set:
