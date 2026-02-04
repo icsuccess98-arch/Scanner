@@ -4220,46 +4220,7 @@
                         </tfoot>
                     </table>
                 </div>
-
-                <!-- CONFERENCE-ONLY STATS - Only for CBB games in same conference -->
-                ${(data.league === 'CBB' && data.is_conference_game && (data.away_conf_only || data.home_conf_only)) ? (() => {
-                    const awayConf = data.away_conf_only || {};
-                    const homeConf = data.home_conf_only || {};
-                    const confName = data.conference || 'Conference';
-
-                    return `
-                    <div class="analytics-table-section" style="margin-top: 16px;">
-                        <div class="table-header" style="background: linear-gradient(90deg, rgba(34, 197, 94, 0.2), rgba(34, 197, 94, 0.05));">
-                            <span style="color: #22c55e;">📊</span> ${confName} CONFERENCE-ONLY STATS
-                        </div>
-                        <p style="font-size: 11px; color: #9ca3af; margin: 4px 0 8px 0; padding: 0 8px;">
-                            Stats from conference games only — more relevant for conference matchups
-                        </p>
-                        <table class="stats-table">
-                            <thead>
-                                <tr>
-                                    <th>Metric</th>
-                                    <th class="team-col">${awayTeam}</th>
-                                    <th class="team-col">${homeTeam}</th>
-                                    <th>Edge</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${statRow('Conf Adj O', awayConf['Adj O'], homeConf['Adj O'], 'num', true)}
-                                ${statRow('Conf Adj D', awayConf['Adj D'], homeConf['Adj D'], 'num', false)}
-                                ${statRow('Conf Tempo', awayConf['Tempo'], homeConf['Tempo'], 'num', true)}
-                                ${statRow('Conf eFG%', awayConf['eFG%'], homeConf['eFG%'], 'pct', true, awayConf['eFG% Rank'], homeConf['eFG% Rank'])}
-                                ${statRow('Conf Opp eFG%', awayConf['Opp eFG%'], homeConf['Opp eFG%'], 'pct', false, awayConf['Opp eFG% Rank'], homeConf['Opp eFG% Rank'])}
-                                ${statRow('Conf TOV%', awayConf['TOV%'], homeConf['TOV%'], 'pct', false, awayConf['TOV% Rank'], homeConf['TOV% Rank'])}
-                                ${statRow('Conf F-TOV%', awayConf['Opp TOV%'], homeConf['Opp TOV%'], 'pct', true, awayConf['F-TOV% Rank'], homeConf['F-TOV% Rank'])}
-                                ${statRow('Conf ORB%', awayConf['ORB%'], homeConf['ORB%'], 'pct', true, awayConf['ORB% Rank'], homeConf['ORB% Rank'])}
-                                ${statRow('Conf DRB%', awayConf['DRB%'], homeConf['DRB%'], 'pct', true, awayConf['DRB% Rank'], homeConf['DRB% Rank'])}
-                                ${statRow('Conf FT Rate', awayConf['FTA/FGA'], homeConf['FTA/FGA'], 'num', true, awayConf['FT Rate Rank'], homeConf['FT Rate Rank'])}
-                            </tbody>
-                        </table>
-                    </div>`;
-                })() : ''}
-
+                
                 <!-- BETTING ACTION - COMPACT -->
                 ${data.rlm ? (() => {
                     const awayBetPct = parseInt(data.rlm.away_bet_pct) ?? 50;
