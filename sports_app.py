@@ -14908,6 +14908,26 @@ ON CONFLICT DO NOTHING;"""
 
 with app.app_context():
     db.create_all()
+    
+    # On startup, check and load games for today
+    et = pytz.timezone('America/New_York')
+    today = datetime.now(et).date()
+    
+    # Clear old games from previous days
+    old_games_count = Game.query.filter(Game.date < today).count()
+    if old_games_count > 0:
+        logger.info(f"Startup cleanup: Removing {old_games_count} old games from previous days")
+        old_game_ids = [g.id for g in Game.query.filter(Game.date < today).all()]
+        if old_game_ids:
+            Pick.query.filter(Pick.game_id.in_(old_game_ids)).update({Pick.game_id: None}, synchronize_session=False)
+            Game.query.filter(Game.id.in_(old_game_ids)).delete(synchronize_session=False)
+            db.session.commit()
+            logger.info(f"Startup cleanup: Removed {len(old_game_ids)} old games")
+    
+    # Check if we have games for today
+    today_games_count = Game.query.filter_by(date=today).count()
+    if today_games_count == 0:
+        logger.info("No games for today - will auto-load on first page visit")
 
 # Initialize automatic game loading system
 auto_loader = setup_automatic_loading(app, db)
