@@ -1580,7 +1580,104 @@ class MatchupIntelligence:
     # Cache for KenPom Four Factors stats (daily)
     _kenpom_ff_cache = {}
     _kenpom_ff_cache_date = None
-    
+
+    # Cache for KenPom Conference-Only Four Factors stats (daily)
+    _kenpom_ff_conf_only_cache = {}
+    _kenpom_ff_conf_only_cache_date = None
+
+    @staticmethod
+    def fetch_kenpom_four_factors_conf_only():
+        """Fetch Conference-Only Four Factors data from KenPom API. Cached daily.
+        Returns conf-only stats when teams are in the same conference."""
+        today = date.today()
+        if MatchupIntelligence._kenpom_ff_conf_only_cache_date == today and MatchupIntelligence._kenpom_ff_conf_only_cache:
+            return MatchupIntelligence._kenpom_ff_conf_only_cache
+
+        api_key = os.environ.get('CBB_API_KEY', '')
+        if not api_key:
+            return {}
+
+        try:
+            url = "https://kenpom.com/api.php?endpoint=four-factors&y=2026&conf_only=true"
+            headers = {
+                'Authorization': f'Bearer {api_key}',
+                'User-Agent': 'Mozilla/5.0 (compatible; SportsApp/1.0)'
+            }
+
+            resp = requests.get(url, headers=headers, timeout=30)
+            if resp.status_code == 200:
+                data = resp.json()
+                cache = {}
+                for team in data:
+                    team_name = team.get('TeamName', team.get('Team', team.get('team', ''))).lower()
+                    if team_name:
+                        cache[team_name] = {
+                            # Offensive Four Factors (Conference Only)
+                            'off_efg': team.get('eFG_Pct', 0),
+                            'off_efg_rank': team.get('RankeFG_Pct', 999),
+                            'off_tov': team.get('TO_Pct', 0),
+                            'off_tov_rank': team.get('RankTO_Pct', 999),
+                            'off_orb': team.get('OR_Pct', 0),
+                            'off_orb_rank': team.get('RankOR_Pct', 999),
+                            'off_ft_rate': team.get('FT_Rate', 0),
+                            'off_ft_rank': team.get('RankFT_Rate', 999),
+                            # Defensive Four Factors (Conference Only)
+                            'def_efg': team.get('DeFG_Pct', 0),
+                            'def_efg_rank': team.get('RankDeFG_Pct', 999),
+                            'def_tov': team.get('DTO_Pct', 0),
+                            'def_tov_rank': team.get('RankDTO_Pct', 999),
+                            'def_orb': team.get('DOR_Pct', 0),
+                            'def_orb_rank': team.get('RankDOR_Pct', 999),
+                            'def_ft_rate': team.get('DFT_Rate', 0),
+                            'def_ft_rank': team.get('RankDFT_Rate', 999),
+                            # Efficiency metrics (Conference Only)
+                            'adj_o': team.get('AdjOE', team.get('OE', 0)),
+                            'adj_d': team.get('AdjDE', team.get('DE', 0)),
+                            'tempo': team.get('AdjTempo', team.get('Tempo', 0))
+                        }
+
+                if cache:
+                    MatchupIntelligence._kenpom_ff_conf_only_cache = cache
+                    MatchupIntelligence._kenpom_ff_conf_only_cache_date = today
+                    logger.info(f"KenPom Conference-Only Four Factors loaded: {len(cache)} teams")
+                return cache
+            else:
+                logger.warning(f"KenPom Conference-Only Four Factors API returned {resp.status_code}")
+                return MatchupIntelligence._kenpom_ff_conf_only_cache
+        except Exception as e:
+            logger.warning(f"KenPom Conference-Only Four Factors fetch error: {e}")
+            return MatchupIntelligence._kenpom_ff_conf_only_cache
+
+    @staticmethod
+    def get_conf_only_stats(team_name: str) -> dict:
+        """Get conference-only stats for a team."""
+        conf_cache = MatchupIntelligence.fetch_kenpom_four_factors_conf_only()
+        if not conf_cache:
+            return {}
+
+        # Try exact match
+        team_key = team_name.lower().strip()
+        ff = conf_cache.get(team_key)
+
+        # Try normalized name
+        if not ff:
+            normalized = normalize_cbb_team_name(team_name).lower().strip()
+            ff = conf_cache.get(normalized)
+
+        # Try aliases
+        if not ff:
+            try:
+                all_aliases = get_all_team_aliases(normalize_cbb_team_name(team_name))
+                for alias in all_aliases:
+                    alias_lower = alias.lower().strip()
+                    if alias_lower in conf_cache:
+                        ff = conf_cache[alias_lower]
+                        break
+            except Exception:
+                pass
+
+        return ff or {}
+
     @staticmethod
     def fetch_kenpom_four_factors():
         """Fetch Four Factors data from KenPom API. Cached daily."""
@@ -10905,11 +11002,40 @@ def fetch_odds_internal() -> dict:
                                         game.true_edge = qual_result.true_edge
                                         
                                         # Qualify if: edge meets threshold + direction set
-                                        game.is_qualified = (edge >= threshold and 
+                                        game.is_qualified = (edge >= threshold and
                                                             game.direction is not None)
-                                        
+
                                     lines_updated += 1
-        
+
+                        # Process SPREADS - populate spread_line field
+                        if "spreads" in bovada_markets:
+                            spreads_market = bovada_markets["spreads"]
+                            outcomes = spreads_market.get("outcomes", [])
+
+                            # Find away and home spread outcomes
+                            # The API returns outcomes with team names, we need to match them
+                            away_outcome = None
+                            home_outcome = None
+                            for o in outcomes:
+                                outcome_name = o.get("name", "")
+                                if teams_match(outcome_name, away_team) or teams_match(outcome_name, game.away_team):
+                                    away_outcome = o
+                                elif teams_match(outcome_name, home_team) or teams_match(outcome_name, game.home_team):
+                                    home_outcome = o
+
+                            if away_outcome:
+                                # spread_line from away team's perspective
+                                # Negative = away favorite, Positive = away underdog
+                                spread_point = away_outcome.get("point")
+                                if spread_point is not None:
+                                    game.spread_line = float(spread_point)
+                                    game.current_spread = float(spread_point)
+                                    game.bovada_spread_odds = away_outcome.get("price", -110)
+                                    # Store opening spread if not already set
+                                    if game.opening_spread is None:
+                                        game.opening_spread = float(spread_point)
+                                    logger.debug(f"Spread set for {game.away_team} @ {game.home_team}: {spread_point}")
+
         # STEP 4: Commit the atomic transaction
         db.session.commit()
         logger.info(f"Odds update successful: {lines_updated} totals")
@@ -14351,7 +14477,71 @@ def get_matchup_data(game_id):
                     result['home_season']['Opp 3PT% Rank'] = home_ctg.get('def_3pt_rank') or result['home_season'].get('Opp 3PT% Rank', 0)
                 
                 logging.info(f"KenPom data merged into season stats for {game.away_team} (#{away_ctg.get('rank')}) vs {game.home_team} (#{home_ctg.get('rank')})")
-            
+
+                # Check if teams are in the same conference - if so, add conference-only stats
+                away_conf = away_ctg.get('conf', '').upper() if away_ctg else ''
+                home_conf = home_ctg.get('conf', '').upper() if home_ctg else ''
+                is_conference_game = away_conf and home_conf and away_conf == home_conf
+
+                if is_conference_game:
+                    result['is_conference_game'] = True
+                    result['conference'] = away_conf
+                    logging.info(f"Conference game detected: {away_conf} - loading conf-only stats")
+
+                    # Fetch conference-only Four Factors
+                    away_conf_stats = MatchupIntelligence.get_conf_only_stats(game.away_team)
+                    home_conf_stats = MatchupIntelligence.get_conf_only_stats(game.home_team)
+
+                    if away_conf_stats or home_conf_stats:
+                        # Add conference-only stats as separate sections
+                        result['away_conf_only'] = {
+                            'eFG%': away_conf_stats.get('off_efg', 0),
+                            'eFG% Rank': away_conf_stats.get('off_efg_rank', 999),
+                            'Opp eFG%': away_conf_stats.get('def_efg', 0),
+                            'Opp eFG% Rank': away_conf_stats.get('def_efg_rank', 999),
+                            'TOV%': away_conf_stats.get('off_tov', 0),
+                            'TOV% Rank': away_conf_stats.get('off_tov_rank', 999),
+                            'Opp TOV%': away_conf_stats.get('def_tov', 0),
+                            'F-TOV% Rank': away_conf_stats.get('def_tov_rank', 999),
+                            'ORB%': away_conf_stats.get('off_orb', 0),
+                            'ORB% Rank': away_conf_stats.get('off_orb_rank', 999),
+                            'DRB%': away_conf_stats.get('def_orb', 0),
+                            'DRB% Rank': away_conf_stats.get('def_orb_rank', 999),
+                            'FTA/FGA': away_conf_stats.get('off_ft_rate', 0),
+                            'FT Rate Rank': away_conf_stats.get('off_ft_rank', 999),
+                            'Opp FTA/FGA': away_conf_stats.get('def_ft_rate', 0),
+                            'Opp FT Rate Rank': away_conf_stats.get('def_ft_rank', 999),
+                            'Adj O': away_conf_stats.get('adj_o', 0),
+                            'Adj D': away_conf_stats.get('adj_d', 0),
+                            'Tempo': away_conf_stats.get('tempo', 0)
+                        } if away_conf_stats else {}
+
+                        result['home_conf_only'] = {
+                            'eFG%': home_conf_stats.get('off_efg', 0),
+                            'eFG% Rank': home_conf_stats.get('off_efg_rank', 999),
+                            'Opp eFG%': home_conf_stats.get('def_efg', 0),
+                            'Opp eFG% Rank': home_conf_stats.get('def_efg_rank', 999),
+                            'TOV%': home_conf_stats.get('off_tov', 0),
+                            'TOV% Rank': home_conf_stats.get('off_tov_rank', 999),
+                            'Opp TOV%': home_conf_stats.get('def_tov', 0),
+                            'F-TOV% Rank': home_conf_stats.get('def_tov_rank', 999),
+                            'ORB%': home_conf_stats.get('off_orb', 0),
+                            'ORB% Rank': home_conf_stats.get('off_orb_rank', 999),
+                            'DRB%': home_conf_stats.get('def_orb', 0),
+                            'DRB% Rank': home_conf_stats.get('def_orb_rank', 999),
+                            'FTA/FGA': home_conf_stats.get('off_ft_rate', 0),
+                            'FT Rate Rank': home_conf_stats.get('off_ft_rank', 999),
+                            'Opp FTA/FGA': home_conf_stats.get('def_ft_rate', 0),
+                            'Opp FT Rate Rank': home_conf_stats.get('def_ft_rank', 999),
+                            'Adj O': home_conf_stats.get('adj_o', 0),
+                            'Adj D': home_conf_stats.get('adj_d', 0),
+                            'Tempo': home_conf_stats.get('tempo', 0)
+                        } if home_conf_stats else {}
+
+                        logging.info(f"Conference-only stats added: away={bool(away_conf_stats)}, home={bool(home_conf_stats)}")
+                else:
+                    result['is_conference_game'] = False
+
             # Last 3 Games - use season stats as fallback since L3 may not be available from all pages
             result['away_l3'] = {
                 'PPG': find_stat(away_l3, 'points/game', 'PPG', 'PPP') or result['away_season']['PPG'],
