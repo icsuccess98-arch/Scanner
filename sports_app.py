@@ -13724,6 +13724,33 @@ def get_matchup_data(game_id):
             if away_ctg or home_ctg:
                 logging.info(f"CTG data: away={away_ctg}, home={home_ctg}")
             
+            # MERGE KenPom/CTG stats into raw away_season/home_season BEFORE building result
+            # This ensures find_stat can access KenPom data like Adj O, 3PT%, etc.
+            if away_ctg:
+                away_season['Adj O'] = away_ctg.get('adj_o') or away_ctg.get('off_ppp') or away_season.get('Adj O', 0)
+                away_season['Adj D'] = away_ctg.get('adj_d') or away_ctg.get('def_ppp') or away_season.get('Adj D', 0)
+                away_season['eFG%'] = away_ctg.get('off_efg') or away_season.get('eFG%', 0)
+                away_season['Opp eFG%'] = away_ctg.get('def_efg') or away_season.get('Opp eFG%', 0)
+                away_season['3PT%'] = away_ctg.get('off_3pt') or away_season.get('3PT%', 0)
+                away_season['Opp 3PT%'] = away_ctg.get('def_3pt') or away_season.get('Opp 3PT%', 0)
+                away_season['TOV%'] = away_ctg.get('off_tov') or away_season.get('TOV%', 0)
+                away_season['ORB%'] = away_ctg.get('off_orb') or away_season.get('ORB%', 0)
+                away_season['DRB%'] = away_ctg.get('def_orb') or away_season.get('DRB%', 0)
+                away_season['FTA/FGA'] = away_ctg.get('off_ft_rate') or away_season.get('FTA/FGA', 0)
+                away_season['Tempo'] = away_ctg.get('tempo') or away_season.get('Tempo', 0)
+            if home_ctg:
+                home_season['Adj O'] = home_ctg.get('adj_o') or home_ctg.get('off_ppp') or home_season.get('Adj O', 0)
+                home_season['Adj D'] = home_ctg.get('adj_d') or home_ctg.get('def_ppp') or home_season.get('Adj D', 0)
+                home_season['eFG%'] = home_ctg.get('off_efg') or home_season.get('eFG%', 0)
+                home_season['Opp eFG%'] = home_ctg.get('def_efg') or home_season.get('Opp eFG%', 0)
+                home_season['3PT%'] = home_ctg.get('off_3pt') or home_season.get('3PT%', 0)
+                home_season['Opp 3PT%'] = home_ctg.get('def_3pt') or home_season.get('Opp 3PT%', 0)
+                home_season['TOV%'] = home_ctg.get('off_tov') or home_season.get('TOV%', 0)
+                home_season['ORB%'] = home_ctg.get('off_orb') or home_season.get('ORB%', 0)
+                home_season['DRB%'] = home_ctg.get('def_orb') or home_season.get('DRB%', 0)
+                home_season['FTA/FGA'] = home_ctg.get('off_ft_rate') or home_season.get('FTA/FGA', 0)
+                home_season['Tempo'] = home_ctg.get('tempo') or home_season.get('Tempo', 0)
+            
             # Add H2H, ATS and records to result
             result['h2h_record'] = h2h_data.get('h2h_record', 'N/A')
             result['h2h_leader'] = h2h_data.get('h2h_leader', 'Even')
@@ -13993,8 +14020,8 @@ def get_matchup_data(game_id):
                 'Opp PPG': find_stat(away_season, 'opp points/game', 'Opp PPG', 'Opp PPP') or away_adj_d,
                 'FG%': find_stat(away_season, 'shooting %', 'FG%', 'FG2Pct'),
                 'Opp FG%': find_stat(away_season, 'opp shooting %', 'Opp FG%', 'OppFG2Pct'),
-                '3PT%': find_stat(away_season, 'three point %', '3PT%', 'FG3Pct'),
-                'Opp 3PT%': find_stat(away_season, 'opp three point %', 'Opp 3PT%', 'OppFG3Pct'),
+                '3P%': find_stat(away_season, 'three point %', '3PT%', 'FG3Pct', '3P%'),
+                'Opp 3P%': find_stat(away_season, 'opp three point %', 'Opp 3PT%', 'OppFG3Pct', 'Opp 3P%'),
                 'FT%': find_stat(away_season, 'free throw %', 'FT%', 'FTPct'),
                 'Opp FT%': find_stat(away_season, 'opp free throw %', 'Opp FT%', 'OppFTPct'),
                 'PACE': find_stat(away_season, 'possessions/gm', 'PACE', 'Tempo'),
@@ -14042,8 +14069,8 @@ def get_matchup_data(game_id):
                 'Opp PPG': find_stat(home_season, 'opp points/game', 'Opp PPG', 'Opp PPP') or home_adj_d,
                 'FG%': find_stat(home_season, 'shooting %', 'FG%', 'FG2Pct'),
                 'Opp FG%': find_stat(home_season, 'opp shooting %', 'Opp FG%', 'OppFG2Pct'),
-                '3PT%': find_stat(home_season, 'three point %', '3PT%', 'FG3Pct'),
-                'Opp 3PT%': find_stat(home_season, 'opp three point %', 'Opp 3PT%', 'OppFG3Pct'),
+                '3P%': find_stat(home_season, 'three point %', '3PT%', 'FG3Pct', '3P%'),
+                'Opp 3P%': find_stat(home_season, 'opp three point %', 'Opp 3PT%', 'OppFG3Pct', 'Opp 3P%'),
                 'FT%': find_stat(home_season, 'free throw %', 'FT%', 'FTPct'),
                 'Opp FT%': find_stat(home_season, 'opp free throw %', 'Opp FT%', 'OppFTPct'),
                 'PACE': find_stat(home_season, 'possessions/gm', 'PACE', 'Tempo'),
@@ -14173,8 +14200,8 @@ def get_matchup_data(game_id):
                 'Opp PPG': find_stat(away_l3, 'opp points/game', 'Opp PPG', 'Opp PPP') or result['away_season']['Opp PPG'],
                 'FG%': find_stat(away_l3, 'shooting %', 'FG%', 'FG2Pct') or result['away_season']['FG%'],
                 'Opp FG%': find_stat(away_l3, 'opp shooting %', 'Opp FG%', 'OppFG2Pct') or result['away_season']['Opp FG%'],
-                '3PT%': find_stat(away_l3, 'three point %', '3PT%', 'FG3Pct') or result['away_season']['3PT%'],
-                'Opp 3PT%': find_stat(away_l3, 'opp three point %', 'Opp 3PT%', 'OppFG3Pct') or result['away_season']['Opp 3PT%'],
+                '3P%': find_stat(away_l3, 'three point %', '3PT%', 'FG3Pct', '3P%') or result['away_season'].get('3P%', 0),
+                'Opp 3P%': find_stat(away_l3, 'opp three point %', 'Opp 3PT%', 'OppFG3Pct', 'Opp 3P%') or result['away_season'].get('Opp 3P%', 0),
                 'FT%': find_stat(away_l3, 'free throw %', 'FT%', 'FTPct') or result['away_season']['FT%'],
                 'PACE': find_stat(away_l3, 'possessions/game', 'PACE', 'Tempo') or result['away_season']['PACE'],
                 'Assists/TO': find_stat(away_l3, 'assists/turnover', 'Assists/TO', 'ARate') or result['away_season']['Assists/TO'],
@@ -14191,8 +14218,8 @@ def get_matchup_data(game_id):
                 'Opp PPG': find_stat(home_l3, 'opp points/game', 'Opp PPG', 'Opp PPP') or result['home_season']['Opp PPG'],
                 'FG%': find_stat(home_l3, 'shooting %', 'FG%', 'FG2Pct') or result['home_season']['FG%'],
                 'Opp FG%': find_stat(home_l3, 'opp shooting %', 'Opp FG%', 'OppFG2Pct') or result['home_season']['Opp FG%'],
-                '3PT%': find_stat(home_l3, 'three point %', '3PT%', 'FG3Pct') or result['home_season']['3PT%'],
-                'Opp 3PT%': find_stat(home_l3, 'opp three point %', 'Opp 3PT%', 'OppFG3Pct') or result['home_season']['Opp 3PT%'],
+                '3P%': find_stat(home_l3, 'three point %', '3PT%', 'FG3Pct', '3P%') or result['home_season'].get('3P%', 0),
+                'Opp 3P%': find_stat(home_l3, 'opp three point %', 'Opp 3PT%', 'OppFG3Pct', 'Opp 3P%') or result['home_season'].get('Opp 3P%', 0),
                 'FT%': find_stat(home_l3, 'free throw %', 'FT%', 'FTPct') or result['home_season']['FT%'],
                 'PACE': find_stat(home_l3, 'possessions/game', 'PACE', 'Tempo') or result['home_season']['PACE'],
                 'Assists/TO': find_stat(home_l3, 'assists/turnover', 'Assists/TO', 'ARate') or result['home_season']['Assists/TO'],
