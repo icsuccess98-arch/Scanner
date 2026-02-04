@@ -4623,12 +4623,32 @@
         
         // Initial sort on page load
         function sortAllGames() {
+            // First sort games within each section
             document.querySelectorAll('.league-section').forEach(section => {
                 const container = section.querySelector('.league-games') || section;
                 const allCards = Array.from(container.querySelectorAll('.game-card'));
                 sortGameCards(allCards);
                 allCards.forEach(card => container.appendChild(card));
             });
+            
+            // Then sort league sections by RLM priority (sections with RLM games come first)
+            const leagueSections = Array.from(document.querySelectorAll('.league-section'));
+            const container = leagueSections[0]?.parentElement;
+            if (container && leagueSections.length > 1) {
+                leagueSections.sort((a, b) => {
+                    const aHasRlm = a.querySelector('.betting-action.rlm-alert') !== null;
+                    const bHasRlm = b.querySelector('.betting-action.rlm-alert') !== null;
+                    const aRlmCount = a.querySelectorAll('.betting-action.rlm-alert').length;
+                    const bRlmCount = b.querySelectorAll('.betting-action.rlm-alert').length;
+                    
+                    // Sections with RLM come first, then by count
+                    if (aHasRlm && !bHasRlm) return -1;
+                    if (!aHasRlm && bHasRlm) return 1;
+                    if (aHasRlm && bHasRlm) return bRlmCount - aRlmCount; // More RLM games first
+                    return 0;
+                });
+                leagueSections.forEach(section => container.appendChild(section));
+            }
         }
         sortAllGames();
         
@@ -4648,6 +4668,18 @@
                 sortGameCards(allCards);
                 allCards.forEach(card => container.appendChild(card));
             });
+            
+            // Re-sort league sections by RLM priority
+            const leagueSections = Array.from(document.querySelectorAll('.league-section'));
+            const sectionsContainer = leagueSections[0]?.parentElement;
+            if (sectionsContainer && leagueSections.length > 1) {
+                leagueSections.sort((a, b) => {
+                    const aRlmCount = a.querySelectorAll('.betting-action.rlm-alert').length;
+                    const bRlmCount = b.querySelectorAll('.betting-action.rlm-alert').length;
+                    return bRlmCount - aRlmCount; // More RLM games first
+                });
+                leagueSections.forEach(section => sectionsContainer.appendChild(section));
+            }
             
             const slateSection = document.getElementById('slate-section');
             if (slateSection) slateSection.style.display = 'block';
