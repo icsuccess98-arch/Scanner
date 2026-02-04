@@ -4707,7 +4707,14 @@
                     const hasRlm = bettingAction && bettingAction.classList.contains('rlm-alert');
                     const isSpreadQualified = card.dataset.spreadQualified === 'true';
                     
-                    if (hasRlm && isSpreadQualified) {
+                    // Filter out games with 10+ point spreads
+                    const openSpread = parseFloat(card.dataset.vsinOpenSpread);
+                    const currentSpread = parseFloat(card.dataset.vsinCurrentSpread);
+                    const spreadValue = !isNaN(openSpread) ? openSpread : (!isNaN(currentSpread) ? currentSpread : 0);
+                    const spreadUnder10 = Math.abs(spreadValue) < 10;
+                    
+                    // Qualified = RLM + spread qualified + under 10 points
+                    if (hasRlm && isSpreadQualified && spreadUnder10) {
                         card.style.display = '';
                         visibleCards.push(card);
                     } else {
