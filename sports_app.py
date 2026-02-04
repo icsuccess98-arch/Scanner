@@ -12244,12 +12244,25 @@ def spreads():
         'pitt': 'pittsburgh', 'umass': 'massachusetts', 'unlv': 'nevada las vegas',
         'usc': 'southern california', 'ucf': 'central florida', 'smu': 'southern methodist',
         'tcu': 'texas christian', 'byu': 'brigham young', 'vcu': 'virginia commonwealth',
-        'mtsu': 'middle tennessee', 'utep': 'texas el paso', 'utsa': 'texas san antonio',
+        'mtsu': 'middle tennessee', 'middle tenn': 'middle tennessee', 'mid tenn': 'middle tennessee',
+        'utep': 'texas el paso', 'utsa': 'texas san antonio',
         'fiu': 'florida international', 'fau': 'florida atlantic', 'fgcu': 'florida gulf coast',
         'gcu': 'grand canyon', 'lmu': 'loyola marymount', 'siu': 'southern illinois',
         'niu': 'northern illinois', 'wku': 'western kentucky', 'wmu': 'western michigan',
         'emu': 'eastern michigan', 'cmu': 'central michigan', 'bgsu': 'bowling green',
         'siue': 'siu edwardsville', 'uic': 'illinois chicago', 'iupui': 'iupui',
+        # SWAC / Smaller conference teams
+        'e texas a&m': 'east texas am', 'east texas a&m': 'east texas am', 'etamu': 'east texas am',
+        'c arkansas': 'central arkansas', 'uca': 'central arkansas', 'cent arkansas': 'central arkansas',
+        'ar-pine bluff': 'arkansas pine bluff', 'arkansas-pine bluff': 'arkansas pine bluff', 
+        'uapb': 'arkansas pine bluff', 'ark pine bluff': 'arkansas pine bluff',
+        'grambling': 'grambling state', 'gram': 'grambling state', 'grambling st': 'grambling state',
+        's dakota st': 'south dakota state', 'south dakota st': 'south dakota state', 
+        's dakota state': 'south dakota state', 'sdsu': 'south dakota state',
+        'st thomas': 'st thomas mn', 'st thomas (mn)': 'st thomas mn', 'saint thomas': 'st thomas mn',
+        'gardner-webb': 'gardner webb', 'gwu': 'gardner webb', 'gardner webb': 'gardner webb',
+        'longwood': 'longwood lancers', 'long wood': 'longwood',
+        'n alabama': 'north alabama', 'una': 'north alabama', 'north ala': 'north alabama',
         # State school abbreviations
         'purdue fw': 'purdue fort wayne', 'pfw': 'purdue fort wayne', 'fort wayne': 'purdue fort wayne',
         'c connecticut': 'central connecticut', 'ccsu': 'central connecticut', 'cent conn': 'central connecticut',
@@ -13820,7 +13833,7 @@ def get_matchup_data(game_id):
                     'smu': 'southern methodist', 'smoo': 'southern methodist',
                     'ucf': 'central florida',
                     'usf': 'south florida',
-                    'fiu': 'florida international', 'fla intl': 'florida international',
+                    'fiu': 'florida international', 'fla intl': 'florida international', 'florida intl': 'florida international',
                     'utep': 'texas el paso',
                     'unlv': 'nevada las vegas',
                     'lsu': 'louisiana state',
@@ -13844,21 +13857,48 @@ def get_matchup_data(game_id):
                     'texas state': 'texas st', 'texas st.': 'texas st',
                     'georgia state': 'georgia st', 'georgia st.': 'georgia st',
                     'coastal carolina': 'coastal', 'ccu': 'coastal',
-                    # E Texas A&M / East Texas A&M
-                    'e texas a&m': 'east texas a&m', 'etamu': 'east texas a&m',
-                    # N'Western St / Northwestern State
-                    "n'western st": 'nw state', 'northwestern st': 'nw state', 'northwestern state': 'nw state',
+                    # E Texas A&M / East Texas A&M (SWAC)
+                    'e texas a&m': 'east texas', 'etamu': 'east texas', 'east texas a&m': 'east texas',
+                    # N'Western St / Northwestern State (Southland)
+                    "n'western st": 'northwestern', 'northwestern st': 'northwestern', 'northwestern state': 'northwestern', 'nwst': 'northwestern',
                     # Youngstown St @ Purdue FW
-                    'youngstown st': 'youngstown', 'youngstown state': 'youngstown',
-                    'purdue fw': 'purdue ft wayne', 'purdue fort wayne': 'purdue ft wayne', 'pfw': 'purdue ft wayne', 'ipfw': 'purdue ft wayne',
-                    # Furman @ ETSU
+                    'youngstown st': 'youngstown', 'youngstown state': 'youngstown', 'ysu': 'youngstown',
+                    'purdue fw': 'purdue fort wayne', 'purdue fort wayne': 'purdue fort wayne', 'pfw': 'purdue fort wayne', 'ipfw': 'purdue fort wayne', 'ft wayne': 'purdue fort wayne',
+                    # Furman @ ETSU (SoCon)
                     'etsu': 'east tennessee', 'east tennessee st': 'east tennessee', 'east tennessee state': 'east tennessee', 'e tennessee st': 'east tennessee',
-                    # Louisiana @ James Madison
-                    'louisiana': 'louisiana lafayette', 'ul lafayette': 'louisiana lafayette', 'louisiana-lafayette': 'louisiana lafayette',
-                    'james madison': 'jmu', 'jm': 'jmu',
-                    # South Dakota @ Kansas City
+                    'furman': 'furman', 'fur': 'furman',
+                    # Louisiana @ James Madison (Sun Belt)
+                    'louisiana': 'louisiana lafayette', 'ul lafayette': 'louisiana lafayette', 'louisiana-lafayette': 'louisiana lafayette', 'ull': 'louisiana lafayette',
+                    'james madison': 'jmu', 'jm': 'jmu', 'j madison': 'jmu',
+                    # South Dakota @ Kansas City (Summit)
                     'south dakota': 's dakota', 'so dakota': 's dakota', 'sd': 's dakota',
-                    'kansas city': 'umkc', 'missouri kansas city': 'umkc', 'mo kansas city': 'umkc',
+                    'kansas city': 'umkc', 'missouri kansas city': 'umkc', 'mo kansas city': 'umkc', 'missouri-kansas city': 'umkc',
+                    # Central Arkansas (ASUN)
+                    'c arkansas': 'central arkansas', 'uca': 'central arkansas', 'cent arkansas': 'central arkansas',
+                    # Arkansas-Pine Bluff (SWAC)
+                    'ar-pine bluff': 'arkansas pine bluff', 'arkansas-pine bluff': 'arkansas pine bluff', 'uapb': 'arkansas pine bluff', 'ark pine bluff': 'arkansas pine bluff',
+                    # North Alabama (ASUN)
+                    'n alabama': 'north alabama', 'una': 'north alabama', 'north ala': 'north alabama',
+                    # Grambling State (SWAC)
+                    'grambling': 'grambling', 'grambling st': 'grambling', 'gram': 'grambling',
+                    # Middle Tennessee (C-USA)
+                    'mtsu': 'middle tennessee', 'middle tenn': 'middle tennessee', 'mid tenn': 'middle tennessee',
+                    # South Dakota State (Summit)
+                    's dakota st': 'south dakota state', 'south dakota st': 'south dakota state', 'sdsu': 'south dakota state',
+                    # St. Thomas Minnesota (Summit)
+                    'st thomas': 'st thomas mn', 'st thomas (mn)': 'st thomas mn', 'saint thomas': 'st thomas mn',
+                    # Gardner-Webb (Big South)
+                    'gardner-webb': 'gardner webb', 'gwu': 'gardner webb',
+                    # Longwood (Big South)
+                    'longwood': 'longwood', 'long wood': 'longwood',
+                    # SC State (MEAC)
+                    'sc state': 'south carolina state', 'sc st': 'south carolina state',
+                    # Maryland Eastern Shore (MEAC)
+                    'md eastern': 'maryland eastern shore', 'umes': 'maryland eastern shore',
+                    # George Washington (A-10)
+                    'g washington': 'george washington', 'gw': 'george washington', 'geo washington': 'george washington',
+                    # Saint Joseph's (A-10)
+                    "saint joseph's": 'st josephs', "st joseph's": 'st josephs', 'st josephs': 'st josephs', 'sju': 'st josephs',
                 }
                 
                 def normalize_for_vsin_match(name: str) -> set:
@@ -14080,6 +14120,18 @@ def get_matchup_data(game_id):
                 'current_favorite': current_favorite,
                 'line_moved_toward': line_moved_toward
             }
+            
+            # Also add top-level VSIN fields for direct API access
+            result['open_spread'] = open_spread
+            result['current_spread'] = current_spread
+            result['open_total'] = open_total
+            result['current_total'] = current_total
+            result['away_bet_pct'] = away_bet
+            result['home_bet_pct'] = home_bet
+            result['away_money_pct'] = away_money
+            result['home_money_pct'] = home_money
+            result['has_rlm'] = spread_rlm_detected
+            result['has_vsin_data'] = bool(rlm_data)
             
             # Convert to display format - Season Stats using exact TeamRankings AND KenPom stat names
             # Use TeamRankings first, KenPom as fallback, CTG as final fallback

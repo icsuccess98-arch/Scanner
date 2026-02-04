@@ -1106,6 +1106,78 @@ CBB_TEAM_NAME_ALIASES = {
     'Furman': 'Furman',
     'FUR': 'Furman',
     'Furman Paladins': 'Furman',
+    
+    # East Texas A&M - SWAC
+    'E Texas A&M': 'East Texas A&M',
+    'East Texas A&M': 'East Texas A&M',
+    'ETAMU': 'East Texas A&M',
+    'E Texas AM': 'East Texas A&M',
+    
+    # Northwestern State - Southland
+    "N'Western St": 'Northwestern St.',
+    'NW State': 'Northwestern St.',
+    'NWST': 'Northwestern St.',
+    'Northwestern State': 'Northwestern St.',
+    
+    # Central Arkansas - ASUN
+    'C Arkansas': 'Central Arkansas',
+    'UCA': 'Central Arkansas',
+    'Cent Arkansas': 'Central Arkansas',
+    
+    # Arkansas-Pine Bluff - SWAC
+    'AR-Pine Bluff': 'Arkansas-Pine Bluff',
+    'Arkansas-Pine Bluff': 'Arkansas-Pine Bluff',
+    'UAPB': 'Arkansas-Pine Bluff',
+    'Ark Pine Bluff': 'Arkansas-Pine Bluff',
+    
+    # Grambling State - SWAC
+    'Grambling': 'Grambling St.',
+    'GRAM': 'Grambling St.',
+    
+    # Middle Tennessee - C-USA
+    'Middle Tenn': 'Middle Tennessee',
+    'Mid Tenn': 'Middle Tennessee',
+    'MTSU': 'Middle Tennessee',
+    
+    # South Dakota State - Summit
+    'S Dakota St': 'South Dakota St.',
+    'South Dakota St': 'South Dakota St.',
+    'SDSU': 'South Dakota St.',
+    
+    # St. Thomas Minnesota - Summit
+    'St Thomas': 'St. Thomas (MN)',
+    'St Thomas (MN)': 'St. Thomas (MN)',
+    'Saint Thomas': 'St. Thomas (MN)',
+    'St Thomas MN': 'St. Thomas (MN)',
+    
+    # Gardner-Webb - Big South
+    'Gardner-Webb': 'Gardner-Webb',
+    'GWU': 'Gardner-Webb',
+    'Gardner Webb': 'Gardner-Webb',
+    
+    # Longwood - Big South
+    'Longwood': 'Longwood',
+    'Long Wood': 'Longwood',
+    
+    # North Alabama - ASUN
+    'N Alabama': 'North Alabama',
+    'UNA': 'North Alabama',
+    'North Ala': 'North Alabama',
+    
+    # FIU - AAC
+    'FIU': 'FIU',
+    'Florida Intl': 'FIU',
+    'Florida International': 'FIU',
+    
+    # SC State - MEAC
+    'SC State': 'SC State',
+    'SC St': 'SC State',
+    'South Carolina State': 'SC State',
+    
+    # Maryland Eastern Shore - MEAC
+    'MD Eastern': 'Maryland Eastern Shore',
+    'UMES': 'Maryland Eastern Shore',
+    'Md Eastern Shore': 'Maryland Eastern Shore',
 }
 
 def strip_accents(text: str) -> str:
