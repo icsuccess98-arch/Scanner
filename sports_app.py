@@ -7979,8 +7979,21 @@ def dashboard():
             g.away_standing = away_stand.get('standing', '')
             g.home_standing = home_stand.get('standing', '')
         elif g.league == 'CBB':
-            g.away_logo = get_transparent_cbb_logo(g.away_team) or get_cbb_logo(g.away_team) or 'https://a.espncdn.com/i/teamlogos/leagues/500-dark/nba.png'
-            g.home_logo = get_transparent_cbb_logo(g.home_team) or get_cbb_logo(g.home_team) or 'https://a.espncdn.com/i/teamlogos/leagues/500-dark/nba.png'
+            # Use CBB logo lookup with proper fallback
+            def get_cbb_logo_fallback(team_name):
+                """Get CBB logo with proper ESPN fallback."""
+                logo = get_transparent_cbb_logo(team_name) or get_cbb_logo(team_name)
+                if logo:
+                    return logo
+                # Try normalized name variations
+                for name_variant in [team_name, team_name.replace("'", ""), team_name.replace("'", "")]:
+                    logo = get_transparent_cbb_logo(name_variant) or get_cbb_logo(name_variant)
+                    if logo:
+                        return logo
+                # Ultimate fallback - NCAA generic logo (not NBA!)
+                return 'https://a.espncdn.com/i/teamlogos/ncaa/500-dark/ncaa.png'
+            g.away_logo = get_cbb_logo_fallback(g.away_team)
+            g.home_logo = get_cbb_logo_fallback(g.home_team)
             # Use fuzzy matching for CBB team records
             g.away_record = get_cbb_team_record(g.away_team, cbb_standings)
             g.home_record = get_cbb_team_record(g.home_team, cbb_standings)
@@ -10020,6 +10033,28 @@ CBB_TEAM_NAME_MAP = {
     'winthrop': 'winthrop', 'eagles': 'winthrop',
     'citadel': 'the citadel', 'the citadel': 'the citadel',
     'maine': 'maine', 'black bears': 'maine',
+    # ESPN abbreviation mappings for mid-major teams
+    'sc upstate': 'usc upstate', 'south carolina upstate': 'usc upstate', 'usc upstate': 'usc upstate',
+    'gardner-webb': 'gardner webb', 'gardner webb': 'gardner webb',
+    "n'western st": 'northwestern st.', 'northwestern st': 'northwestern st.', 'northwestern state': 'northwestern st.',
+    'north alabama': 'north alabama', 'una': 'north alabama',
+    'md eastern': 'maryland eastern shore', 'md eastern shore': 'maryland eastern shore', 'umes': 'maryland eastern shore',
+    'south dakota': 'south dakota', 'usd': 'south dakota', 'south dakota st': 'south dakota st.',
+    'kansas city': 'kansas city', 'umkc': 'kansas city',
+    'high point': 'high point', 'hpu': 'high point',
+    'lipscomb': 'lipscomb', 'bisons': 'lipscomb',
+    'austin peay': 'austin peay', 'apsu': 'austin peay', 'governors': 'austin peay',
+    'purdue fw': 'purdue fort wayne', 'purdue fort wayne': 'purdue fort wayne', 'pfw': 'purdue fort wayne', 'fort wayne': 'purdue fort wayne',
+    'charleston so': 'charleston southern', 'charleston southern': 'charleston southern', 'chas southern': 'charleston southern',
+    'longwood': 'longwood', 'lancers': 'longwood',
+    'tulsa': 'tulsa', 'golden hurricane': 'tulsa',
+    'e texas a&m': 'e. texas a&m', 'east texas a&m': 'e. texas a&m', 'e texas am': 'e. texas a&m', 'east texas am': 'e. texas a&m', 'etamu': 'e. texas a&m',
+    'ar-pine bluff': 'arkansas pine bluff', 'ar pine bluff': 'arkansas pine bluff', 'uapb': 'arkansas pine bluff',
+    'grambling': 'grambling', 'grambling st': 'grambling', 'grambling state': 'grambling',
+    'c arkansas': 'central arkansas', 'central arkansas': 'central arkansas', 'uca': 'central arkansas',
+    'mtsu': 'middle tennessee', 'middle tennessee': 'middle tennessee', 'middle tenn': 'middle tennessee', 'mid tennessee': 'middle tennessee',
+    'fiu': 'fiu', 'florida international': 'fiu', 'fla intl': 'fiu',
+    'sc state': 'south carolina st.', 'south carolina state': 'south carolina st.',
 }
 
 def get_torvik_team(team_name: str) -> Optional[dict]:
@@ -12616,8 +12651,21 @@ def spreads():
                 g.away_l10_ats = away_covers.get('l10_ats') or g.pregame_away_l10_ats or away_espn.get('last_10_ats', '--')
                 g.home_l10_ats = home_covers.get('l10_ats') or g.pregame_home_l10_ats or home_espn.get('last_10_ats', '--')
             elif g.league == 'CBB':
-                g.away_logo = get_transparent_cbb_logo(g.away_team) or get_cbb_logo(g.away_team) or 'https://a.espncdn.com/i/teamlogos/leagues/500-dark/nba.png'
-                g.home_logo = get_transparent_cbb_logo(g.home_team) or get_cbb_logo(g.home_team) or 'https://a.espncdn.com/i/teamlogos/leagues/500-dark/nba.png'
+                # Use CBB logo lookup with proper fallback
+                def get_cbb_logo_with_fallback(team_name):
+                    """Get CBB logo with proper ESPN fallback."""
+                    logo = get_transparent_cbb_logo(team_name) or get_cbb_logo(team_name)
+                    if logo:
+                        return logo
+                    # Try normalized name variations
+                    for name_variant in [team_name, team_name.replace("'", ""), team_name.replace("'", "")]:
+                        logo = get_transparent_cbb_logo(name_variant) or get_cbb_logo(name_variant)
+                        if logo:
+                            return logo
+                    # Ultimate fallback - NCAA generic logo (not NBA!)
+                    return 'https://a.espncdn.com/i/teamlogos/ncaa/500-dark/ncaa.png'
+                g.away_logo = get_cbb_logo_with_fallback(g.away_team)
+                g.home_logo = get_cbb_logo_with_fallback(g.home_team)
                 # Use fuzzy matching for CBB team records
                 g.away_record = get_cbb_team_record(g.away_team, cbb_standings)
                 g.home_record = get_cbb_team_record(g.home_team, cbb_standings)

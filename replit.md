@@ -126,6 +126,12 @@ Universal team name matching for KenPom and Covers.com:
 - CBB_TEAM_NAME_ALIASES covers 100+ variations (UNCA, WIN, CIT, STON, NCST, WAKE, etc.)
 - KENPOM_TEAM_SLUGS maps team names to KenPom API slugs
 
+### CBB Stats & Logo Fixes (Feb 2026)
+- **KenPom Stats Merge**: Fixed missing PPG/3P%/eFG% by merging CTG data into season dicts BEFORE building result
+- **Logo Fallback**: Updated CBB logo lookup to use NCAA generic logo fallback instead of NBA logo
+- **3P% Key Update**: Changed 3PT% to 3P% to match KenPom naming convention
+- **Adj O/D as PPG**: For CBB, PPG now displays Adj O (offensive efficiency) when traditional PPG unavailable
+
 -   **Stocks Data**:
     -   yfinance (Yahoo Finance)
 -   **Communication**:
