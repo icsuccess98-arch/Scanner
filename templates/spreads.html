@@ -4567,7 +4567,6 @@
             document.querySelectorAll('.game-card').forEach(card => {
                 const bettingAction = card.querySelector('.betting-action');
                 const hasRlm = bettingAction && bettingAction.classList.contains('rlm-alert');
-                const isSpreadQualified = card.dataset.spreadQualified === 'true';
                 
                 // Filter out games with 10+ point spreads - use current spread as fallback
                 const openSpread = parseFloat(card.dataset.vsinOpenSpread);
@@ -4575,7 +4574,8 @@
                 const spreadValue = !isNaN(openSpread) ? openSpread : (!isNaN(currentSpread) ? currentSpread : 0);
                 const spreadUnder10 = Math.abs(spreadValue) < 10;
                 
-                if (hasRlm && isSpreadQualified && spreadUnder10) {
+                // Qualified = RLM games with spreads under 10 points (all leagues)
+                if (hasRlm && spreadUnder10) {
                     card.dataset.qualified = 'true';
                     qualifiedCount++;
                 } else {
@@ -4716,7 +4716,6 @@
                         allCards.forEach(card => {
                             const bettingAction = card.querySelector('.betting-action');
                             const hasRlm = bettingAction && bettingAction.classList.contains('rlm-alert');
-                            const isSpreadQualified = card.dataset.spreadQualified === 'true';
                             
                             // Filter out games with 10+ point spreads - use current spread as fallback
                             const openSpread = parseFloat(card.dataset.vsinOpenSpread);
@@ -4724,7 +4723,8 @@
                             const spreadValue = !isNaN(openSpread) ? openSpread : (!isNaN(currentSpread) ? currentSpread : 0);
                             const spreadUnder10 = Math.abs(spreadValue) < 10;
                             
-                            if (hasRlm && isSpreadQualified && spreadUnder10) {
+                            // Qualified = RLM games with spreads under 10 points (all leagues)
+                            if (hasRlm && spreadUnder10) {
                                 card.style.display = '';
                                 visibleCards.push(card);
                             } else {
