@@ -14020,8 +14020,8 @@ def get_matchup_data(game_id):
                 'Opp PPG': find_stat(away_season, 'opp points/game', 'Opp PPG', 'Opp PPP') or away_adj_d,
                 'FG%': find_stat(away_season, 'shooting %', 'FG%', 'FG2Pct'),
                 'Opp FG%': find_stat(away_season, 'opp shooting %', 'Opp FG%', 'OppFG2Pct'),
-                '3P%': find_stat(away_season, 'three point %', '3PT%', 'FG3Pct', '3P%'),
-                'Opp 3P%': find_stat(away_season, 'opp three point %', 'Opp 3PT%', 'OppFG3Pct', 'Opp 3P%'),
+                '3PT%': find_stat(away_season, 'three point %', '3PT%', 'FG3Pct', '3P%'),
+                'Opp 3PT%': find_stat(away_season, 'opp three point %', 'Opp 3PT%', 'OppFG3Pct', 'Opp 3P%'),
                 'FT%': find_stat(away_season, 'free throw %', 'FT%', 'FTPct'),
                 'Opp FT%': find_stat(away_season, 'opp free throw %', 'Opp FT%', 'OppFTPct'),
                 'PACE': find_stat(away_season, 'possessions/gm', 'PACE', 'Tempo'),
@@ -14048,10 +14048,10 @@ def get_matchup_data(game_id):
                 'Opp TOV%': find_stat(away_season, 'opp turnovers/play'),
                 'Opp 3PM/Game': find_stat(away_season, 'opp 3pm/game'),
                 'Opp FTA/FGA': away_ctg.get('def_ft_rate') or find_stat(away_season, 'opp fta/fga'),
-                # RANKS: Use TeamRankings first, CTG as fallback
-                'PPP': find_stat(away_season, 'PPP') or away_ctg.get('off_ppp'),
+                # RANKS and PPP: Use TeamRankings first, CTG as fallback, Adj O/D as final fallback
+                'PPP': find_stat(away_season, 'PPP') or away_ctg.get('off_ppp') or away_adj_o,
                 'PPP Rank': find_stat(away_season, 'PPP Rank') or away_ctg.get('off_ppp_rank'),
-                'Opp PPP': find_stat(away_season, 'Opp PPP') or away_ctg.get('def_ppp'),
+                'Opp PPP': find_stat(away_season, 'Opp PPP') or away_ctg.get('def_ppp') or away_adj_d,
                 'Opp PPP Rank': find_stat(away_season, 'Opp PPP Rank') or away_ctg.get('def_ppp_rank'),
                 'eFG% Rank': find_stat(away_season, 'eFG% Rank') or away_ctg.get('off_efg_rank'),
                 'Opp eFG% Rank': find_stat(away_season, 'Opp eFG% Rank') or away_ctg.get('def_efg_rank'),
@@ -14060,7 +14060,9 @@ def get_matchup_data(game_id):
                 'ORB% Rank': find_stat(away_season, 'ORB% Rank') or away_ctg.get('off_orb_rank'),
                 'DRB% Rank': find_stat(away_season, 'DRB% Rank') or away_ctg.get('def_orb_rank'),
                 'FT Rate Rank': find_stat(away_season, 'FT Rate Rank') or away_ctg.get('off_ft_rank'),
-                'Opp FT Rate Rank': find_stat(away_season, 'Opp FT Rate Rank') or away_ctg.get('def_ft_rank')
+                'Opp FT Rate Rank': find_stat(away_season, 'Opp FT Rate Rank') or away_ctg.get('def_ft_rank'),
+                'Opp 3PT% Rank': find_stat(away_season, 'Opp 3PT% Rank') or away_ctg.get('def_3pt_rank'),
+                '3PT% Rank': find_stat(away_season, '3PT% Rank') or away_ctg.get('off_3pt_rank')
             }
             home_adj_o = find_stat(home_season, 'Adj O', 'AdjOE', 'AdjO')
             home_adj_d = find_stat(home_season, 'Adj D', 'AdjDE', 'AdjD')
@@ -14069,8 +14071,8 @@ def get_matchup_data(game_id):
                 'Opp PPG': find_stat(home_season, 'opp points/game', 'Opp PPG', 'Opp PPP') or home_adj_d,
                 'FG%': find_stat(home_season, 'shooting %', 'FG%', 'FG2Pct'),
                 'Opp FG%': find_stat(home_season, 'opp shooting %', 'Opp FG%', 'OppFG2Pct'),
-                '3P%': find_stat(home_season, 'three point %', '3PT%', 'FG3Pct', '3P%'),
-                'Opp 3P%': find_stat(home_season, 'opp three point %', 'Opp 3PT%', 'OppFG3Pct', 'Opp 3P%'),
+                '3PT%': find_stat(home_season, 'three point %', '3PT%', 'FG3Pct', '3P%'),
+                'Opp 3PT%': find_stat(home_season, 'opp three point %', 'Opp 3PT%', 'OppFG3Pct', 'Opp 3P%'),
                 'FT%': find_stat(home_season, 'free throw %', 'FT%', 'FTPct'),
                 'Opp FT%': find_stat(home_season, 'opp free throw %', 'Opp FT%', 'OppFTPct'),
                 'PACE': find_stat(home_season, 'possessions/gm', 'PACE', 'Tempo'),
@@ -14097,10 +14099,10 @@ def get_matchup_data(game_id):
                 'Opp TOV%': find_stat(home_season, 'opp turnovers/play'),
                 'Opp 3PM/Game': find_stat(home_season, 'opp 3pm/game'),
                 'Opp FTA/FGA': home_ctg.get('def_ft_rate') or find_stat(home_season, 'opp fta/fga'),
-                # RANKS: Use TeamRankings first, CTG as fallback
-                'PPP': find_stat(home_season, 'PPP') or home_ctg.get('off_ppp'),
+                # RANKS and PPP: Use TeamRankings first, CTG as fallback, Adj O/D as final fallback
+                'PPP': find_stat(home_season, 'PPP') or home_ctg.get('off_ppp') or home_adj_o,
                 'PPP Rank': find_stat(home_season, 'PPP Rank') or home_ctg.get('off_ppp_rank'),
-                'Opp PPP': find_stat(home_season, 'Opp PPP') or home_ctg.get('def_ppp'),
+                'Opp PPP': find_stat(home_season, 'Opp PPP') or home_ctg.get('def_ppp') or home_adj_d,
                 'Opp PPP Rank': find_stat(home_season, 'Opp PPP Rank') or home_ctg.get('def_ppp_rank'),
                 'eFG% Rank': find_stat(home_season, 'eFG% Rank') or home_ctg.get('off_efg_rank'),
                 'Opp eFG% Rank': find_stat(home_season, 'Opp eFG% Rank') or home_ctg.get('def_efg_rank'),
@@ -14109,7 +14111,9 @@ def get_matchup_data(game_id):
                 'ORB% Rank': find_stat(home_season, 'ORB% Rank') or home_ctg.get('off_orb_rank'),
                 'DRB% Rank': find_stat(home_season, 'DRB% Rank') or home_ctg.get('def_orb_rank'),
                 'FT Rate Rank': find_stat(home_season, 'FT Rate Rank') or home_ctg.get('off_ft_rank'),
-                'Opp FT Rate Rank': find_stat(home_season, 'Opp FT Rate Rank') or home_ctg.get('def_ft_rank')
+                'Opp FT Rate Rank': find_stat(home_season, 'Opp FT Rate Rank') or home_ctg.get('def_ft_rank'),
+                'Opp 3PT% Rank': find_stat(home_season, 'Opp 3PT% Rank') or home_ctg.get('def_3pt_rank'),
+                '3PT% Rank': find_stat(home_season, '3PT% Rank') or home_ctg.get('off_3pt_rank')
             }
             
             # SOS Rank comes from the power-ratings page scraper
