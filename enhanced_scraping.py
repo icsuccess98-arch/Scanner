@@ -1062,12 +1062,50 @@ CBB_TEAM_NAME_ALIASES = {
     # Purdue Fort Wayne
     'Purdue FW': 'Purdue Fort Wayne',
     'PFW': 'Purdue Fort Wayne',
+    'IPFW': 'Purdue Fort Wayne',
+    'Purdue-Fort Wayne': 'Purdue Fort Wayne',
+    'Ft Wayne': 'Purdue Fort Wayne',
     
     # Utah State  
     'Utah State': 'Utah St.',
     
     # LIU / Long Island
     'Long Island': 'LIU',
+    
+    # Louisiana (Ragin' Cajuns) - Sun Belt
+    'Louisiana': 'Louisiana',
+    'UL Lafayette': 'Louisiana',
+    'Louisiana-Lafayette': 'Louisiana',
+    'La. Lafayette': 'Louisiana',
+    'LA Lafayette': 'Louisiana',
+    'LA-Lafayette': 'Louisiana',
+    'ULL': 'Louisiana',
+    'Ragin Cajuns': 'Louisiana',
+    "Ragin' Cajuns": 'Louisiana',
+    
+    # James Madison - Sun Belt
+    'James Madison': 'James Madison',
+    'JMU': 'James Madison',
+    'J Madison': 'James Madison',
+    'Jas Madison': 'James Madison',
+    
+    # South Dakota - Summit League
+    'South Dakota': 'South Dakota',
+    'S Dakota': 'South Dakota',
+    'So Dakota': 'South Dakota',
+    'SD': 'South Dakota',
+    
+    # Kansas City (UMKC) - Summit League
+    'Kansas City': 'UMKC',
+    'Mo Kansas City': 'UMKC',
+    'Missouri-Kansas City': 'UMKC',
+    'Missouri KC': 'UMKC',
+    'KC Roos': 'UMKC',
+    
+    # Furman - SoCon
+    'Furman': 'Furman',
+    'FUR': 'Furman',
+    'Furman Paladins': 'Furman',
 }
 
 def strip_accents(text: str) -> str:

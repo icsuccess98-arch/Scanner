@@ -13848,6 +13848,17 @@ def get_matchup_data(game_id):
                     'e texas a&m': 'east texas a&m', 'etamu': 'east texas a&m',
                     # N'Western St / Northwestern State
                     "n'western st": 'nw state', 'northwestern st': 'nw state', 'northwestern state': 'nw state',
+                    # Youngstown St @ Purdue FW
+                    'youngstown st': 'youngstown', 'youngstown state': 'youngstown',
+                    'purdue fw': 'purdue ft wayne', 'purdue fort wayne': 'purdue ft wayne', 'pfw': 'purdue ft wayne', 'ipfw': 'purdue ft wayne',
+                    # Furman @ ETSU
+                    'etsu': 'east tennessee', 'east tennessee st': 'east tennessee', 'east tennessee state': 'east tennessee', 'e tennessee st': 'east tennessee',
+                    # Louisiana @ James Madison
+                    'louisiana': 'louisiana lafayette', 'ul lafayette': 'louisiana lafayette', 'louisiana-lafayette': 'louisiana lafayette',
+                    'james madison': 'jmu', 'jm': 'jmu',
+                    # South Dakota @ Kansas City
+                    'south dakota': 's dakota', 'so dakota': 's dakota', 'sd': 's dakota',
+                    'kansas city': 'umkc', 'missouri kansas city': 'umkc', 'mo kansas city': 'umkc',
                 }
                 
                 def normalize_for_vsin_match(name: str) -> set:
