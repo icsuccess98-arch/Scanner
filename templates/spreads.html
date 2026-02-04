@@ -4521,7 +4521,11 @@
                 const hasRlm = bettingAction && bettingAction.classList.contains('rlm-alert');
                 const isSpreadQualified = card.dataset.spreadQualified === 'true';
                 
-                if (hasRlm && isSpreadQualified) {
+                // Also filter out games with 10+ point spreads
+                const openSpread = parseFloat(card.dataset.vsinOpenSpread) || 0;
+                const spreadUnder10 = Math.abs(openSpread) < 10;
+                
+                if (hasRlm && isSpreadQualified && spreadUnder10) {
                     card.dataset.qualified = 'true';
                     qualifiedCount++;
                 } else {
@@ -4664,7 +4668,11 @@
                             const hasRlm = bettingAction && bettingAction.classList.contains('rlm-alert');
                             const isSpreadQualified = card.dataset.spreadQualified === 'true';
                             
-                            if (hasRlm && isSpreadQualified) {
+                            // Also filter out games with 10+ point spreads
+                            const openSpread = parseFloat(card.dataset.vsinOpenSpread) || 0;
+                            const spreadUnder10 = Math.abs(openSpread) < 10;
+                            
+                            if (hasRlm && isSpreadQualified && spreadUnder10) {
                                 card.style.display = '';
                                 visibleCards.push(card);
                             } else {
