@@ -12871,11 +12871,36 @@ def spreads():
                 g.vsin_open_odds = vsin_match.get('open_away_odds') or '-110'
                 g.vsin_current_odds = vsin_match.get('current_away_odds') or '-110'
                 g.vsin_has_data = True
+                
+                # Detect RLM: Line moves toward underdog while money is on favorite
+                open_spread = vsin_match.get('open_away_spread')
+                current_spread = vsin_match.get('current_away_spread')
+                money_away = vsin_match.get('money_away') or 50
+                money_home = vsin_match.get('money_home') or 50
+                
+                g.rlm_detected = False
+                if open_spread is not None and current_spread is not None:
+                    try:
+                        open_num = float(open_spread)
+                        current_num = float(current_spread)
+                        # Away favorite = negative spread
+                        away_is_fav = open_num < 0
+                        # Line moved toward underdog = magnitude decreased
+                        magnitude_change = abs(open_num) - abs(current_num)
+                        line_moved_toward_underdog = magnitude_change > 0.4
+                        # Check if favorite has majority money (>55%)
+                        money_on_fav = (away_is_fav and money_away > 55) or (not away_is_fav and money_home > 55)
+                        
+                        if line_moved_toward_underdog and money_on_fav:
+                            g.rlm_detected = True
+                    except (ValueError, TypeError):
+                        pass
             else:
                 g.vsin_tickets_away = 50
                 g.vsin_tickets_home = 50
                 g.vsin_money_away = 50
                 g.vsin_money_home = 50
+                g.rlm_detected = False
                 g.vsin_open_spread = ''
                 g.vsin_current_spread = ''
                 g.vsin_open_odds = '-110'
@@ -13502,22 +13527,28 @@ def spreads():
         # Sort games for this league
         games_by_league[league] = sorted(games_by_league[league], key=game_sort_key)
     
-    # Reorder games_by_league to prioritize CBB
-    ordered_games_by_league = {
-        'CBB': games_by_league.get('CBB', []),
-        'NBA': games_by_league.get('NBA', []),
-        'NFL': games_by_league.get('NFL', []),
-        'CFB': games_by_league.get('CFB', []),
-        'NHL': games_by_league.get('NHL', [])
-    }
+    # Count RLM games per league for ordering
+    league_rlm_counts = {}
+    for league in ['CBB', 'NBA', 'NFL', 'CFB', 'NHL']:
+        rlm_count = sum(1 for g in games_by_league.get(league, []) if getattr(g, 'rlm_detected', False))
+        league_rlm_counts[league] = rlm_count
     
-    # Reorder all_games to show CBB first, with live games at top and final games at bottom
-    cbb_games = [g for g in basketball_games if g.league == 'CBB']
-    other_games = [g for g in basketball_games if g.league != 'CBB']
-    # Sort each group: live first, upcoming middle, final last (using same logic as game_sort_key)
-    cbb_games = sorted(cbb_games, key=game_sort_key)
-    other_games = sorted(other_games, key=game_sort_key)
-    cbb_first_games = cbb_games + other_games
+    # Sort leagues: most RLM games first, then by original order (CBB, NBA, NFL, CFB, NHL)
+    default_order = ['CBB', 'NBA', 'NFL', 'CFB', 'NHL']
+    sorted_leagues = sorted(default_order, key=lambda l: (-league_rlm_counts.get(l, 0), default_order.index(l)))
+    
+    # Build ordered dict with leagues having RLM games first
+    ordered_games_by_league = {}
+    for league in sorted_leagues:
+        ordered_games_by_league[league] = games_by_league.get(league, [])
+    
+    # Reorder all_games to show leagues with RLM games first, with live games at top and final games at bottom
+    # Group by league, then sort games within each league
+    all_sorted_games = []
+    for league in sorted_leagues:
+        league_games = sorted(games_by_league.get(league, []), key=game_sort_key)
+        all_sorted_games.extend(league_games)
+    cbb_first_games = all_sorted_games
     
     return render_template('spreads.html', 
                            games_by_league=ordered_games_by_league,
