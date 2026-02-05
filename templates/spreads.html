@@ -4575,8 +4575,8 @@
                 const spreadValue = !isNaN(openSpread) ? openSpread : (!isNaN(currentSpread) ? currentSpread : 0);
                 const spreadUnder10 = Math.abs(spreadValue) < 10;
                 
-                // Qualified = RLM + spread qualified + under 10 points
-                if (hasRlm && isSpreadQualified && spreadUnder10) {
+                // Qualified = RLM + under 10 points (no spread_qualified requirement)
+                if (hasRlm && spreadUnder10) {
                     card.dataset.qualified = 'true';
                     qualifiedCount++;
                 } else {
@@ -4713,8 +4713,8 @@
                     const spreadValue = !isNaN(openSpread) ? openSpread : (!isNaN(currentSpread) ? currentSpread : 0);
                     const spreadUnder10 = Math.abs(spreadValue) < 10;
                     
-                    // Qualified = RLM + spread qualified + under 10 points
-                    if (hasRlm && isSpreadQualified && spreadUnder10) {
+                    // Qualified = RLM + under 10 points (no spread_qualified requirement)
+                    if (hasRlm && spreadUnder10) {
                         card.style.display = '';
                         visibleCards.push(card);
                     } else {
@@ -4729,6 +4729,28 @@
                     section.classList.add('hidden');
                 }
             });
+            
+            // Sort league sections - NBA first if it has RLM, then by RLM count
+            const leagueSections = Array.from(document.querySelectorAll('.league-section:not(.hidden)'));
+            const sectionsContainer = leagueSections[0]?.parentElement;
+            if (sectionsContainer && leagueSections.length > 1) {
+                leagueSections.sort((a, b) => {
+                    const aLeague = a.dataset.league;
+                    const bLeague = b.dataset.league;
+                    const aHasRlm = a.querySelector('.betting-action.rlm-alert:not([style*="display: none"])') !== null;
+                    const bHasRlm = b.querySelector('.betting-action.rlm-alert:not([style*="display: none"])') !== null;
+                    
+                    // NBA with RLM always first
+                    if (aLeague === 'nba' && aHasRlm && !(bLeague === 'nba')) return -1;
+                    if (bLeague === 'nba' && bHasRlm && !(aLeague === 'nba')) return 1;
+                    
+                    // Then by RLM count
+                    const aRlmCount = a.querySelectorAll('.game-card[style=""] .betting-action.rlm-alert, .game-card:not([style]) .betting-action.rlm-alert').length;
+                    const bRlmCount = b.querySelectorAll('.game-card[style=""] .betting-action.rlm-alert, .game-card:not([style]) .betting-action.rlm-alert').length;
+                    return bRlmCount - aRlmCount;
+                });
+                leagueSections.forEach(section => sectionsContainer.appendChild(section));
+            }
             
             const slateSection = document.getElementById('slate-section');
             if (slateSection) slateSection.style.display = 'none';
@@ -4764,8 +4786,8 @@
                             const spreadValue = !isNaN(openSpread) ? openSpread : (!isNaN(currentSpread) ? currentSpread : 0);
                             const spreadUnder10 = Math.abs(spreadValue) < 10;
                             
-                            // Qualified = RLM + spread qualified + under 10 points
-                            if (hasRlm && isSpreadQualified && spreadUnder10) {
+                            // Qualified = RLM + under 10 points (no spread_qualified requirement)
+                            if (hasRlm && spreadUnder10) {
                                 card.style.display = '';
                                 visibleCards.push(card);
                             } else {
@@ -4781,6 +4803,28 @@
                             section.classList.add('hidden');
                         }
                     });
+                    
+                    // Sort league sections - NBA first if it has RLM, then by RLM count
+                    const leagueSections = Array.from(document.querySelectorAll('.league-section:not(.hidden)'));
+                    const sectionsContainer = leagueSections[0]?.parentElement;
+                    if (sectionsContainer && leagueSections.length > 1) {
+                        leagueSections.sort((a, b) => {
+                            const aLeague = a.dataset.league;
+                            const bLeague = b.dataset.league;
+                            const aHasRlm = a.querySelector('.betting-action.rlm-alert:not([style*="display: none"])') !== null;
+                            const bHasRlm = b.querySelector('.betting-action.rlm-alert:not([style*="display: none"])') !== null;
+                            
+                            // NBA with RLM always first
+                            if (aLeague === 'nba' && aHasRlm && !(bLeague === 'nba')) return -1;
+                            if (bLeague === 'nba' && bHasRlm && !(aLeague === 'nba')) return 1;
+                            
+                            // Then by RLM count
+                            const aRlmCount = a.querySelectorAll('.game-card[style=""] .betting-action.rlm-alert, .game-card:not([style]) .betting-action.rlm-alert').length;
+                            const bRlmCount = b.querySelectorAll('.game-card[style=""] .betting-action.rlm-alert, .game-card:not([style]) .betting-action.rlm-alert').length;
+                            return bRlmCount - aRlmCount;
+                        });
+                        leagueSections.forEach(section => sectionsContainer.appendChild(section));
+                    }
                     
                     const slateSection = document.getElementById('slate-section');
                     if (slateSection) slateSection.style.display = 'none';
