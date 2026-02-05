@@ -8803,6 +8803,11 @@ kenpom_fanmatch_cache = {}
 kenpom_teams_cache = {}
 kenpom_cache_date = None
 
+# Conference-only KenPom caches (for same-conference matchups)
+kenpom_conf_only_cache = {}
+kenpom_conf_only_cache_date = None
+team_conference_lookup = {}  # Maps team_name.lower() -> conference abbreviation
+
 # D1 CBB Averages for comparison (2024-25 season baselines)
 CBB_D1_AVERAGES = {
     'eFG_pct': 50.0,          # Effective FG%
@@ -8848,6 +8853,183 @@ def fetch_kenpom_api(endpoint: str, year: int = 2026) -> Optional[list]:
     except Exception as e:
         logger.error(f"KenPom {endpoint} fetch error: {e}")
         return None
+
+
+def fetch_kenpom_api_conf_only(endpoint: str, year: int = 2026) -> Optional[list]:
+    """Fetch KenPom API with ConfOnly=True for conference-only stats."""
+    api_key = os.environ.get('CBB_API_KEY', '')
+    if not api_key:
+        return None
+    
+    try:
+        # KenPom API supports ConfOnly parameter for conference-only stats
+        url = f"https://kenpom.com/api.php?endpoint={endpoint}&y={year}&ConfOnly=true"
+        headers = {
+            'Authorization': f'Bearer {api_key}',
+            'User-Agent': 'Mozilla/5.0 (compatible; SportsApp/1.0)'
+        }
+        resp = requests.get(url, headers=headers, timeout=30)
+        
+        if resp.status_code != 200:
+            logger.warning(f"KenPom API {endpoint} (ConfOnly) failed: {resp.status_code}")
+            return None
+        
+        return resp.json()
+    except Exception as e:
+        logger.error(f"KenPom {endpoint} (ConfOnly) fetch error: {e}")
+        return None
+
+
+def get_team_conference(team_name: str) -> Optional[str]:
+    """Get conference abbreviation for a team. Returns None if not found."""
+    global team_conference_lookup
+    
+    # Build lookup from ratings cache if not yet populated
+    if not team_conference_lookup:
+        if torvik_cache:
+            for name, data in torvik_cache.items():
+                conf = data.get('conf', '')
+                if conf:
+                    # Store by original name and normalized
+                    team_conference_lookup[name.lower()] = conf
+                    # Also store team field if different
+                    team_field = data.get('team', '')
+                    if team_field:
+                        team_conference_lookup[team_field.lower()] = conf
+        
+        # Also check KenPom teams cache
+        if kenpom_teams_cache:
+            for name, data in kenpom_teams_cache.items():
+                conf = data.get('conf', data.get('ConfShort', ''))
+                if conf:
+                    team_conference_lookup[name.lower()] = conf
+    
+    team_lower = team_name.lower()
+    
+    # Try exact match first
+    if team_lower in team_conference_lookup:
+        return team_conference_lookup[team_lower]
+    
+    # Try normalized variations
+    normalized = normalize_team_name(team_name).lower()
+    if normalized in team_conference_lookup:
+        return team_conference_lookup[normalized]
+    
+    # Try partial matching - find any entry containing this team name
+    for cached_name, conf in team_conference_lookup.items():
+        if team_lower in cached_name or cached_name in team_lower:
+            return conf
+    
+    # Direct lookup in torvik_cache as fallback
+    if torvik_cache:
+        for name, data in torvik_cache.items():
+            team_field = data.get('team', name).lower()
+            if team_lower in team_field or team_field in team_lower:
+                conf = data.get('conf', '')
+                if conf:
+                    team_conference_lookup[team_lower] = conf
+                    return conf
+    
+    return None
+
+
+def are_teams_same_conference(team1: str, team2: str) -> bool:
+    """Check if two teams are in the same conference."""
+    conf1 = get_team_conference(team1)
+    conf2 = get_team_conference(team2)
+    
+    if conf1 and conf2 and conf1 == conf2:
+        logger.info(f"Same conference detected: {team1} and {team2} both in {conf1}")
+        return True
+    return False
+
+
+def fetch_kenpom_conf_only_stats() -> dict:
+    """
+    Fetch conference-only KenPom stats for all teams.
+    Returns dict keyed by team_name.lower() with conf-only Four Factors.
+    """
+    global kenpom_conf_only_cache, kenpom_conf_only_cache_date
+    today = date.today()
+    
+    # Use cached if available from today
+    if kenpom_conf_only_cache_date == today and kenpom_conf_only_cache:
+        return kenpom_conf_only_cache
+    
+    # Fetch conference-only four factors
+    data = fetch_kenpom_api_conf_only('four-factors')
+    if not data:
+        logger.warning("KenPom conf-only four-factors fetch failed, falling back to overall stats")
+        return {}
+    
+    cache = {}
+    for team in data:
+        try:
+            team_name = team.get('TeamName', '').lower()
+            conf = team.get('ConfShort', '')
+            if team_name:
+                cache[team_name] = {
+                    'conf': conf,
+                    'conf_only': True,
+                    # Offensive Four Factors
+                    'off_efg': team.get('eFG_Pct') or team.get('AdjOE'),
+                    'off_tov': team.get('TO_Pct'),
+                    'off_orb': team.get('OR_Pct'),
+                    'off_ft_rate': team.get('FT_Rate'),
+                    # Defensive Four Factors
+                    'def_efg': team.get('OppeFG_Pct') or team.get('AdjDE'),
+                    'def_tov': team.get('OppTO_Pct'),
+                    'def_orb': team.get('OppOR_Pct'),
+                    'def_ft_rate': team.get('OppFT_Rate'),
+                    # Adjusted efficiency
+                    'adj_o': team.get('AdjOE') or team.get('AdjO'),
+                    'adj_d': team.get('AdjDE') or team.get('AdjD'),
+                    'adj_em': team.get('AdjEM'),
+                    'tempo': team.get('AdjTempo') or team.get('Tempo'),
+                }
+                # Also store conference for lookup
+                if conf:
+                    team_conference_lookup[team_name] = conf
+        except Exception as e:
+            logger.error(f"Error parsing conf-only team {team}: {e}")
+    
+    if cache:
+        kenpom_conf_only_cache = cache
+        kenpom_conf_only_cache_date = today
+        logger.info(f"KenPom conf-only stats loaded: {len(cache)} teams")
+    
+    return cache
+
+
+def get_kenpom_conf_only_stats(team_name: str) -> dict:
+    """Get conference-only KenPom stats for a specific team."""
+    cache = fetch_kenpom_conf_only_stats()
+    
+    if not cache:
+        return {}
+    
+    team_lower = team_name.lower()
+    
+    # Try exact match first
+    if team_lower in cache:
+        return cache[team_lower]
+    
+    # Try normalized name
+    normalized = normalize_team_name(team_name).lower()
+    if normalized in cache:
+        return cache[normalized]
+    
+    # Try partial matching for common variations
+    for cached_name, stats in cache.items():
+        # Check if team name is a substring match
+        if team_lower in cached_name or cached_name in team_lower:
+            return stats
+        # Also check the 'team' field in stats if available
+        team_field = stats.get('team', '').lower() if isinstance(stats, dict) else ''
+        if team_field and (team_lower in team_field or team_field in team_lower):
+            return stats
+    
+    return {}
 
 
 def fetch_kenpom_four_factors() -> dict:
@@ -13762,10 +13944,21 @@ def get_matchup_data(game_id):
             h2h_data = {}
             rlm_data = {}
             
+            # Will check for same-conference after CTG data is fetched (CBB only)
+            is_same_conference = False
+            conference_name = None
+            
             def fetch_ctg_away():
                 if game.league == 'NBA':
                     return MatchupIntelligence.fetch_ctg_four_factors(game.away_team)
                 elif game.league == 'CBB':
+                    # Use conference-only stats for same-conference matchups
+                    if is_same_conference:
+                        conf_stats = get_kenpom_conf_only_stats(game.away_team)
+                        if conf_stats:
+                            logging.info(f"Using CONF-ONLY stats for {game.away_team}")
+                            return conf_stats
+                    # Fall back to overall stats
                     return MatchupIntelligence.fetch_kenpom_stats(game.away_team)
                 return {}
             
@@ -13773,6 +13966,13 @@ def get_matchup_data(game_id):
                 if game.league == 'NBA':
                     return MatchupIntelligence.fetch_ctg_four_factors(game.home_team)
                 elif game.league == 'CBB':
+                    # Use conference-only stats for same-conference matchups
+                    if is_same_conference:
+                        conf_stats = get_kenpom_conf_only_stats(game.home_team)
+                        if conf_stats:
+                            logging.info(f"Using CONF-ONLY stats for {game.home_team}")
+                            return conf_stats
+                    # Fall back to overall stats
                     return MatchupIntelligence.fetch_kenpom_stats(game.home_team)
                 return {}
             
@@ -13816,6 +14016,36 @@ def get_matchup_data(game_id):
             
             if away_ctg or home_ctg:
                 logging.info(f"CTG data: away={away_ctg}, home={home_ctg}")
+            
+            # Check for same-conference matchup AFTER CTG data is fetched (CBB only)
+            # If same conference, fetch and use conference-only stats
+            if game.league == 'CBB' and away_ctg and home_ctg:
+                away_conf = away_ctg.get('conf', '')
+                home_conf = home_ctg.get('conf', '')
+                if away_conf and home_conf and away_conf == home_conf:
+                    is_same_conference = True
+                    conference_name = away_conf
+                    logging.info(f"SAME CONFERENCE MATCHUP: {game.away_team} vs {game.home_team} ({conference_name}) - Fetching conf-only stats")
+                    
+                    # Fetch conference-only stats for both teams
+                    away_conf_stats = get_kenpom_conf_only_stats(game.away_team)
+                    home_conf_stats = get_kenpom_conf_only_stats(game.home_team)
+                    
+                    # If conf-only stats available, replace the CTG data with conf-only version
+                    if away_conf_stats:
+                        logging.info(f"Using CONF-ONLY stats for {game.away_team} in {conference_name}")
+                        # Merge conf-only stats over regular stats (preserve rank/team from original)
+                        for key, val in away_conf_stats.items():
+                            if key not in ['rank', 'team', 'record'] and val is not None:
+                                away_ctg[key] = val
+                        away_ctg['conf_only'] = True
+                    
+                    if home_conf_stats:
+                        logging.info(f"Using CONF-ONLY stats for {game.home_team} in {conference_name}")
+                        for key, val in home_conf_stats.items():
+                            if key not in ['rank', 'team', 'record'] and val is not None:
+                                home_ctg[key] = val
+                        home_ctg['conf_only'] = True
             
             # MERGE KenPom/CTG stats into raw away_season/home_season BEFORE building result
             # This ensures find_stat can access KenPom data like Adj O, 3PT%, etc.
@@ -14352,6 +14582,14 @@ def get_matchup_data(game_id):
                     result['home_season']['Opp 3PT% Rank'] = home_ctg.get('def_3pt_rank') or result['home_season'].get('Opp 3PT% Rank', 0)
                 
                 logging.info(f"KenPom data merged into season stats for {game.away_team} (#{away_ctg.get('rank')}) vs {game.home_team} (#{home_ctg.get('rank')})")
+            
+            # Add conference info to result
+            result['is_same_conference'] = is_same_conference
+            result['conference_name'] = conference_name if is_same_conference else None
+            result['using_conf_only_stats'] = is_same_conference and (away_ctg.get('conf_only', False) or home_ctg.get('conf_only', False))
+            
+            if result['using_conf_only_stats']:
+                logging.info(f"CONF-ONLY STATS APPLIED for {game.away_team} vs {game.home_team} ({conference_name})")
             
             # Last 3 Games - use season stats as fallback since L3 may not be available from all pages
             result['away_l3'] = {
