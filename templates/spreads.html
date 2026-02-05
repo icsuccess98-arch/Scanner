@@ -2698,19 +2698,10 @@
                 {% set money_on_away = (game.vsin_money_away or 0) > 55 %}
                 {% set money_on_home = (game.vsin_money_home or 0) > 55 %}
                 
-                {# RLM = FAVORITE has majority money BUT line moved TOWARD UNDERDOG #}
-                {# Sharp side is the UNDERDOG (team line moved toward) #}
-                {% set rlm_detected = false %}
-                {% set rlm_sharp_side = none %}
-                {% if away_is_favorite and money_on_away and line_moved_toward_underdog %}
-                    {# Away is favorite with money, but line moved toward home (underdog) = RLM #}
-                    {% set rlm_detected = true %}
-                    {% set rlm_sharp_side = 'home' %}
-                {% elif home_is_favorite and money_on_home and line_moved_toward_underdog %}
-                    {# Home is favorite with money, but line moved toward away (underdog) = RLM #}
-                    {% set rlm_detected = true %}
-                    {% set rlm_sharp_side = 'away' %}
-                {% endif %}
+                {# RLM detection: Use backend-calculated value (single source of truth) #}
+                {# Backend uses VSIN data to properly detect RLM across NBA, CBB, NHL #}
+                {% set rlm_detected = game.rlm_detected if game.rlm_detected is defined else false %}
+                {% set rlm_sharp_side = game.rlm_sharp_side if game.rlm_sharp_side is defined else none %}
                 
                 {# For display/highlighting purposes #}
                 {# Use magnitude to determine direction: DOWN = spread decreased, UP = spread increased #}
@@ -2718,8 +2709,9 @@
                 {% set money_side = 'away' if (game.vsin_money_away or 0) > (game.vsin_money_home or 0) else 'home' %}
                 {% set favorite_side = 'away' if away_is_favorite else 'home' %}
                 {% else %}
-                {% set rlm_detected = false %}
-                {% set rlm_sharp_side = none %}
+                {# No VSIN spread data - still use backend RLM detection if available #}
+                {% set rlm_detected = game.rlm_detected if game.rlm_detected is defined else false %}
+                {% set rlm_sharp_side = game.rlm_sharp_side if game.rlm_sharp_side is defined else none %}
                 {% set line_movement = 0 %}
                 {% set money_side = 'home' %}
                 {% set favorite_side = 'home' %}
@@ -4735,14 +4727,14 @@
             const sectionsContainer = leagueSections[0]?.parentElement;
             if (sectionsContainer && leagueSections.length > 1) {
                 leagueSections.sort((a, b) => {
-                    const aLeague = a.dataset.league;
-                    const bLeague = b.dataset.league;
+                    const aLeague = (a.dataset.league || '').toUpperCase();
+                    const bLeague = (b.dataset.league || '').toUpperCase();
                     const aHasRlm = a.querySelector('.betting-action.rlm-alert:not([style*="display: none"])') !== null;
                     const bHasRlm = b.querySelector('.betting-action.rlm-alert:not([style*="display: none"])') !== null;
                     
                     // NBA with RLM always first
-                    if (aLeague === 'nba' && aHasRlm && !(bLeague === 'nba')) return -1;
-                    if (bLeague === 'nba' && bHasRlm && !(aLeague === 'nba')) return 1;
+                    if (aLeague === 'NBA' && aHasRlm && !(bLeague === 'NBA')) return -1;
+                    if (bLeague === 'NBA' && bHasRlm && !(aLeague === 'NBA')) return 1;
                     
                     // Then by RLM count
                     const aRlmCount = a.querySelectorAll('.game-card[style=""] .betting-action.rlm-alert, .game-card:not([style]) .betting-action.rlm-alert').length;

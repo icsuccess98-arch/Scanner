@@ -12860,6 +12860,9 @@ def spreads():
             # Attach VSIN data to each game
             vsin_match = match_vsin_data(g.away_team, g.home_team, g.league)
             if vsin_match:
+                # Debug: Log RLM status for NBA games
+                if g.league == 'NBA':
+                    logger.info(f"VSIN match for {g.away_team} @ {g.home_team}: RLM={vsin_match.get('spread_rlm_detected', 'MISSING')}, sharp={vsin_match.get('spread_rlm_sharp_side', 'MISSING')}")
                 # Get betting splits and lines from VSIN
                 g.vsin_tickets_away = vsin_match.get('tickets_away') or 50
                 g.vsin_tickets_home = vsin_match.get('tickets_home') or 50
@@ -12872,29 +12875,10 @@ def spreads():
                 g.vsin_current_odds = vsin_match.get('current_away_odds') or '-110'
                 g.vsin_has_data = True
                 
-                # Detect RLM: Line moves toward underdog while money is on favorite
-                open_spread = vsin_match.get('open_away_spread')
-                current_spread = vsin_match.get('current_away_spread')
-                money_away = vsin_match.get('money_away') or 50
-                money_home = vsin_match.get('money_home') or 50
-                
-                g.rlm_detected = False
-                if open_spread is not None and current_spread is not None:
-                    try:
-                        open_num = float(open_spread)
-                        current_num = float(current_spread)
-                        # Away favorite = negative spread
-                        away_is_fav = open_num < 0
-                        # Line moved toward underdog = magnitude decreased
-                        magnitude_change = abs(open_num) - abs(current_num)
-                        line_moved_toward_underdog = magnitude_change > 0.4
-                        # Check if favorite has majority money (>55%)
-                        money_on_fav = (away_is_fav and money_away > 55) or (not away_is_fav and money_home > 55)
-                        
-                        if line_moved_toward_underdog and money_on_fav:
-                            g.rlm_detected = True
-                    except (ValueError, TypeError):
-                        pass
+                # Use RLM detection from VSIN fetch (single source of truth)
+                # spread_rlm_detected is calculated in fetch_rlm_data with proper logic
+                g.rlm_detected = vsin_match.get('spread_rlm_detected', False)
+                g.rlm_sharp_side = vsin_match.get('spread_rlm_sharp_side', '')
             else:
                 g.vsin_tickets_away = 50
                 g.vsin_tickets_home = 50
