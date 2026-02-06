@@ -14231,6 +14231,18 @@ def get_matchup_data(game_id):
                     'g washington': 'george washington', 'gw': 'george washington', 'geo washington': 'george washington',
                     # Saint Joseph's (A-10)
                     "saint joseph's": 'st josephs', "st joseph's": 'st josephs', 'st josephs': 'st josephs', 'sju': 'st josephs',
+                    # UIC / Illinois-Chicago (Horizon)
+                    'uic': 'illinois chicago', 'illinois-chicago': 'illinois chicago', 'illinois chicago': 'illinois chicago', 'uic flames': 'illinois chicago',
+                    # SIUE / SIU Edwardsville (OVC)
+                    'siue': 'siu edwardsville', 'siu edwardsville': 'siu edwardsville',
+                    # S Illinois / Southern Illinois (MVC)
+                    's illinois': 'southern illinois', 'so illinois': 'southern illinois', 'siu': 'southern illinois', 'southern ill': 'southern illinois',
+                    # N Iowa / Northern Iowa (MVC)
+                    'n iowa': 'northern iowa', 'uni': 'northern iowa', 'northern iowa': 'northern iowa',
+                    # Loyola Chicago (A-10)
+                    'loyola chicago': 'loyola chi', 'loyola-chicago': 'loyola chi', 'luc': 'loyola chi',
+                    # Murray St / Murray State (MVC)
+                    'murray st': 'murray state', 'murray state': 'murray state',
                 }
                 
                 def normalize_for_vsin_match(name: str) -> set:
