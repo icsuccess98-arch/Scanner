@@ -4567,8 +4567,8 @@
                 const spreadValue = !isNaN(openSpread) ? openSpread : (!isNaN(currentSpread) ? currentSpread : 0);
                 const spreadUnder10 = Math.abs(spreadValue) < 10;
                 
-                // Qualified = RLM + under 10 points (no spread_qualified requirement)
-                if (hasRlm && spreadUnder10) {
+                // Qualified = RLM + spread qualification + under 10 points
+                if (hasRlm && isSpreadQualified && spreadUnder10) {
                     card.dataset.qualified = 'true';
                     qualifiedCount++;
                 } else {
@@ -4705,8 +4705,8 @@
                     const spreadValue = !isNaN(openSpread) ? openSpread : (!isNaN(currentSpread) ? currentSpread : 0);
                     const spreadUnder10 = Math.abs(spreadValue) < 10;
                     
-                    // Qualified = RLM + under 10 points (no spread_qualified requirement)
-                    if (hasRlm && spreadUnder10) {
+                    // Qualified = RLM + spread qualification + under 10 points
+                    if (hasRlm && isSpreadQualified && spreadUnder10) {
                         card.style.display = '';
                         visibleCards.push(card);
                     } else {
@@ -4778,8 +4778,8 @@
                             const spreadValue = !isNaN(openSpread) ? openSpread : (!isNaN(currentSpread) ? currentSpread : 0);
                             const spreadUnder10 = Math.abs(spreadValue) < 10;
                             
-                            // Qualified = RLM + under 10 points (no spread_qualified requirement)
-                            if (hasRlm && spreadUnder10) {
+                            // Qualified = RLM + spread qualification + under 10 points
+                            if (hasRlm && isSpreadQualified && spreadUnder10) {
                                 card.style.display = '';
                                 visibleCards.push(card);
                             } else {
