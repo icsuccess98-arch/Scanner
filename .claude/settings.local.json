@@ -10,7 +10,11 @@
       "Bash(pgrep:*)",
       "Bash(wc:*)",
       "Bash(pip install nba-api)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "WebFetch(domain:www.teamrankings.com)",
+      "WebFetch(domain:cleaningtheglass.com)",
+      "WebFetch(domain:www.basketball-reference.com)",
+      "WebFetch(domain:www.nba.com)"
     ]
   }
 }

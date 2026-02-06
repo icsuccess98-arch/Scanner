@@ -1434,6 +1434,211 @@ class MatchupIntelligence:
             logger.warning(f"Error fetching TeamRankings matchup: {e}")
             return {'away_season': {}, 'home_season': {}, 'away_l3': {}, 'home_l3': {}}
     
+    # Basketball-Reference abbreviations for NBA teams
+    BBALL_REF_ABBREVS = {
+        'hawks': 'ATL', 'atlanta': 'ATL', 'celtics': 'BOS', 'boston': 'BOS',
+        'nets': 'BKN', 'brooklyn': 'BKN', 'hornets': 'CHA', 'charlotte': 'CHA',
+        'bulls': 'CHI', 'chicago': 'CHI', 'cavaliers': 'CLE', 'cavs': 'CLE', 'cleveland': 'CLE',
+        'mavericks': 'DAL', 'mavs': 'DAL', 'dallas': 'DAL',
+        'nuggets': 'DEN', 'denver': 'DEN', 'pistons': 'DET', 'detroit': 'DET',
+        'warriors': 'GSW', 'golden state': 'GSW', 'rockets': 'HOU', 'houston': 'HOU',
+        'pacers': 'IND', 'indiana': 'IND', 'clippers': 'LAC', 'l.a. clippers': 'LAC',
+        'lakers': 'LAL', 'l.a. lakers': 'LAL', 'los angeles lakers': 'LAL',
+        'grizzlies': 'MEM', 'memphis': 'MEM', 'heat': 'MIA', 'miami': 'MIA',
+        'bucks': 'MIL', 'milwaukee': 'MIL', 'timberwolves': 'MIN', 'wolves': 'MIN', 'minnesota': 'MIN',
+        'pelicans': 'NOP', 'new orleans': 'NOP', 'knicks': 'NYK', 'new york': 'NYK',
+        'thunder': 'OKC', 'oklahoma city': 'OKC', 'okc': 'OKC',
+        'magic': 'ORL', 'orlando': 'ORL', '76ers': 'PHI', 'sixers': 'PHI', 'philadelphia': 'PHI',
+        'suns': 'PHO', 'phoenix': 'PHO', 'trail blazers': 'POR', 'blazers': 'POR', 'portland': 'POR',
+        'kings': 'SAC', 'sacramento': 'SAC', 'spurs': 'SAS', 'san antonio': 'SAS',
+        'raptors': 'TOR', 'toronto': 'TOR', 'jazz': 'UTA', 'utah': 'UTA',
+        'wizards': 'WAS', 'washington': 'WAS'
+    }
+
+    # Cache for basketball-reference stats
+    _bball_ref_cache = {}
+    _bball_ref_cache_date = None
+
+    @staticmethod
+    def fetch_bball_ref_team_stats(team_name: str) -> dict:
+        """
+        Fetch team stats from basketball-reference.com as fallback for TeamRankings.
+        Returns dict with PPG, Opp PPG, Off/Def Rtg, Pace, eFG%, and other metrics.
+        Basketball-reference serves static HTML so this works reliably.
+        """
+        import time as _time
+
+        # Daily cache
+        today = date.today()
+        if MatchupIntelligence._bball_ref_cache_date != today:
+            MatchupIntelligence._bball_ref_cache = {}
+            MatchupIntelligence._bball_ref_cache_date = today
+
+        cache_key = team_name.lower()
+        cached = MatchupIntelligence._bball_ref_cache.get(cache_key)
+        if cached and _time.time() - cached.get('timestamp', 0) < GameConstants.CACHE_TTL_CTG:
+            return cached.get('data', {})
+
+        try:
+            import requests
+            from bs4 import BeautifulSoup
+            import re
+
+            # Find abbreviation
+            abbrev = None
+            for name, abbr in MatchupIntelligence.BBALL_REF_ABBREVS.items():
+                if name in team_name.lower():
+                    abbrev = abbr
+                    break
+
+            if not abbrev:
+                return {}
+
+            # Current NBA season year (e.g., 2025-26 season = 2026)
+            season_year = today.year if today.month >= 10 else today.year
+            url = f"https://www.basketball-reference.com/teams/{abbrev}/{season_year}.html"
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            }
+
+            resp = requests.get(url, headers=headers, timeout=15)
+            if resp.status_code != 200:
+                logger.warning(f"BBall-Ref returned {resp.status_code} for {team_name}")
+                MatchupIntelligence._bball_ref_cache[cache_key] = {'data': {}, 'timestamp': _time.time()}
+                return {}
+
+            result = {}
+            page_text = resp.text
+
+            # Basketball-reference puts some stats in HTML comments - uncomment them
+            # Tables like team_and_opponent are often inside <!-- ... --> comments
+            page_text = page_text.replace('<!--', '').replace('-->', '')
+            soup = BeautifulSoup(page_text, 'html.parser')
+
+            # 1. Extract summary stats from the page header (static text)
+            # Look for "Record: X-Y" and key stats in the info section
+            for p_tag in soup.find_all('p'):
+                text = p_tag.get_text()
+                # Extract PTS/G, Opp PTS/G, Off Rtg, Def Rtg, Pace
+                pts_match = re.search(r'PTS/G:\s*([\d.]+)', text)
+                if pts_match:
+                    result['points/game'] = float(pts_match.group(1))
+                opp_pts_match = re.search(r'Opp PTS/G:\s*([\d.]+)', text)
+                if opp_pts_match:
+                    result['opp points/game'] = float(opp_pts_match.group(1))
+                ortg_match = re.search(r'Off Rtg:\s*([\d.]+)', text)
+                if ortg_match:
+                    result['O Eff'] = float(ortg_match.group(1))
+                drtg_match = re.search(r'Def Rtg:\s*([\d.]+)', text)
+                if drtg_match:
+                    result['D Eff'] = float(drtg_match.group(1))
+                pace_match = re.search(r'Pace:\s*([\d.]+)', text)
+                if pace_match:
+                    result['Tempo'] = float(pace_match.group(1))
+                srs_match = re.search(r'SRS:\s*([+-]?[\d.]+)', text)
+                if srs_match:
+                    result['SRS'] = float(srs_match.group(1))
+
+            # 2. Parse team_and_opponent table for detailed stats
+            team_opp_table = soup.find('table', {'id': 'team_and_opponent'})
+            if team_opp_table:
+                rows = team_opp_table.find_all('tr')
+                headers_row = None
+                team_row = None
+                opp_row = None
+
+                for row in rows:
+                    th = row.find('th')
+                    if th:
+                        th_text = th.get_text(strip=True)
+                        if th_text == '' or 'Stat' in th_text:
+                            headers_row = row
+                        elif th_text == 'Team' or 'Team' in th_text:
+                            team_row = row
+                        elif th_text == 'Opponent' or 'Opp' in th_text:
+                            opp_row = row
+
+                if headers_row:
+                    cols = [c.get_text(strip=True) for c in headers_row.find_all(['th', 'td'])]
+
+                    def extract_row_stats(row, prefix=''):
+                        stats = {}
+                        if not row:
+                            return stats
+                        cells = row.find_all('td')
+                        cell_data = [c.get_text(strip=True) for c in cells]
+                        for i, val in enumerate(cell_data):
+                            if i + 1 < len(cols):
+                                col_name = cols[i + 1]  # +1 because first col is the header th
+                                try:
+                                    stats[f'{prefix}{col_name}'] = float(val)
+                                except (ValueError, TypeError):
+                                    pass
+                        return stats
+
+                    team_stats = extract_row_stats(team_row)
+                    opp_stats = extract_row_stats(opp_row, 'Opp ')
+
+                    # Map to our standard stat names
+                    if 'eFG%' in team_stats:
+                        result['eFG%'] = team_stats['eFG%']
+                    if 'Opp eFG%' in opp_stats:
+                        result['Opp eFG%'] = opp_stats['Opp eFG%']
+                    if 'TOV%' in team_stats:
+                        result['TOV%'] = team_stats['TOV%']
+                    if 'Opp TOV%' in opp_stats:
+                        result['Opp TOV%'] = opp_stats['Opp TOV%']
+                    if 'ORB%' in team_stats:
+                        result['ORB%'] = team_stats['ORB%']
+                    if 'Opp ORB%' in opp_stats:
+                        result['DRB%'] = opp_stats['Opp ORB%']
+                    if 'FT/FGA' in team_stats:
+                        result['FTA/FGA'] = team_stats['FT/FGA']
+                    if 'Opp FT/FGA' in opp_stats:
+                        result['Opp FTA/FGA'] = opp_stats['Opp FT/FGA']
+                    if '3P%' in team_stats:
+                        result['3PT%'] = team_stats['3P%']
+                    if 'Opp 3P%' in opp_stats:
+                        result['Opp 3PT%'] = opp_stats['Opp 3P%']
+                    if 'FG%' in team_stats:
+                        result['shooting %'] = team_stats['FG%']
+                    if 'Opp FG%' in opp_stats:
+                        result['opp shooting %'] = opp_stats['Opp FG%']
+                    if 'FT%' in team_stats:
+                        result['free throw %'] = team_stats['FT%']
+                    if 'Opp FT%' in opp_stats:
+                        result['opp free throw %'] = opp_stats['Opp FT%']
+                    if 'AST' in team_stats:
+                        result['assists/game'] = team_stats['AST']
+                    if 'STL' in team_stats:
+                        result['steals/game'] = team_stats['STL']
+                    if 'BLK' in team_stats:
+                        result['blocks/game'] = team_stats['BLK']
+                    if 'TOV' in team_stats:
+                        result['turnovers/game'] = team_stats['TOV']
+                    if 'Opp TOV' in opp_stats:
+                        result['opp turnovers/game'] = opp_stats['Opp TOV']
+                    if 'ORB' in team_stats:
+                        result['off rebounds/gm'] = team_stats['ORB']
+                    if 'DRB' in team_stats:
+                        result['def rebounds/gm'] = team_stats['DRB']
+                    if 'PF' in team_stats:
+                        result['personal fouls/gm'] = team_stats['PF']
+
+            if result:
+                logger.info(f"BBall-Ref stats for {team_name}: {list(result.keys())[:8]}...")
+            else:
+                logger.warning(f"BBall-Ref: No stats parsed for {team_name}")
+
+            MatchupIntelligence._bball_ref_cache[cache_key] = {'data': result, 'timestamp': _time.time()}
+            return result
+
+        except Exception as e:
+            logger.warning(f"Error fetching BBall-Ref stats for {team_name}: {e}")
+            MatchupIntelligence._bball_ref_cache[cache_key] = {'data': {}, 'timestamp': _time.time()}
+            return {}
+
     # Cleaning the Glass team IDs (NBA only)
     CTG_TEAM_IDS = {
         'hawks': 1, 'atlanta': 1, 'celtics': 2, 'boston': 2, 'nets': 3, 'brooklyn': 3,
@@ -1529,43 +1734,116 @@ class MatchupIntelligence:
                 return {}
             
             soup = BeautifulSoup(resp.text, 'html.parser')
+
+            # Try multiple selectors - CTG page structure varies
             table = soup.find('table', {'id': 'team_stats_four_factors'})
-            
             if not table:
+                # Try sortable table inside stat_table_container
+                container = soup.find('div', class_='stat_table_container')
+                if container:
+                    table = container.find('table')
+            if not table:
+                # Try any sortable table with efficiency/four factors data
+                for t in soup.find_all('table', class_='sortable'):
+                    header_text = t.get_text()
+                    if 'eFG' in header_text or 'Pts/Poss' in header_text or 'TOV' in header_text:
+                        table = t
+                        break
+            if not table:
+                # Last resort: find first table with enough data columns
+                for t in soup.find_all('table'):
+                    first_row = t.find('tr')
+                    if first_row:
+                        cells = first_row.find_all(['td', 'th'])
+                        if len(cells) >= 10:
+                            table = t
+                            break
+
+            if not table:
+                logger.warning(f"CTG: No data table found for {team_name} (team_id={team_id})")
                 MatchupIntelligence._ctg_cache[cache_key] = {'data': {}, 'timestamp': time.time()}
                 return {}
-            
+
             result = {}
+            # Find data rows - try tbody first, then all tr
             tbody = table.find('tbody')
-            if tbody:
-                rows = tbody.find_all('tr')
-                if rows:
-                    cells = rows[0].find_all('td')
-                    data = [c.get_text(strip=True) for c in cells]
-                    
-                    if len(data) >= 31:
-                        result['off_ppp'] = data[11]
-                        result['off_ppp_rank'] = data[10]
-                        result['off_efg'] = data[13].replace('%', '') if '%' in data[13] else data[13]
-                        result['off_efg_rank'] = data[12]
-                        result['off_tov'] = data[15].replace('%', '') if '%' in data[15] else data[15]
-                        result['off_tov_rank'] = data[14]
-                        result['off_orb'] = data[17].replace('%', '') if '%' in data[17] else data[17]
-                        result['off_orb_rank'] = data[16]
-                        result['off_ft_rate'] = data[19]
-                        result['off_ft_rank'] = data[18]
-                        result['def_ppp'] = data[22]
-                        result['def_ppp_rank'] = data[21]
-                        result['def_efg'] = data[24].replace('%', '') if '%' in data[24] else data[24]
-                        result['def_efg_rank'] = data[23]
-                        result['def_tov'] = data[26].replace('%', '') if '%' in data[26] else data[26]
-                        result['def_tov_rank'] = data[25]
-                        result['def_orb'] = data[28].replace('%', '') if '%' in data[28] else data[28]
-                        result['def_orb_rank'] = data[27]
-                        result['def_ft_rate'] = data[30]
-                        result['def_ft_rank'] = data[29]
-                        
-                        logger.info(f"CTG Four Factors for {team_name}: PPP={result.get('off_ppp')} (#{result.get('off_ppp_rank')})")
+            rows = tbody.find_all('tr') if tbody else table.find_all('tr')
+
+            # Skip header rows - find the first row with the current season data
+            data_row = None
+            current_year = str(date.today().year % 100)  # e.g., "26" for 2026
+            prev_year = str((date.today().year - 1) % 100)  # e.g., "25"
+            season_tag = f"{prev_year}-{current_year}"  # e.g., "25-26"
+
+            for row in rows:
+                cells = row.find_all('td')
+                if len(cells) >= 10:
+                    row_text = cells[0].get_text(strip=True) if cells else ''
+                    # Current season row (e.g., "25-26") or just first data row
+                    if season_tag in row_text or (not data_row and len(cells) >= 10):
+                        data_row = row
+                        if season_tag in row_text:
+                            break  # Found exact season match
+
+            if data_row:
+                cells = data_row.find_all('td')
+                data = [c.get_text(strip=True) for c in cells]
+
+                if len(data) >= 31:
+                    # Original wide table format (rank + value pairs)
+                    result['off_ppp'] = data[11]
+                    result['off_ppp_rank'] = data[10]
+                    result['off_efg'] = data[13].replace('%', '') if '%' in data[13] else data[13]
+                    result['off_efg_rank'] = data[12]
+                    result['off_tov'] = data[15].replace('%', '') if '%' in data[15] else data[15]
+                    result['off_tov_rank'] = data[14]
+                    result['off_orb'] = data[17].replace('%', '') if '%' in data[17] else data[17]
+                    result['off_orb_rank'] = data[16]
+                    result['off_ft_rate'] = data[19]
+                    result['off_ft_rank'] = data[18]
+                    result['def_ppp'] = data[22]
+                    result['def_ppp_rank'] = data[21]
+                    result['def_efg'] = data[24].replace('%', '') if '%' in data[24] else data[24]
+                    result['def_efg_rank'] = data[23]
+                    result['def_tov'] = data[26].replace('%', '') if '%' in data[26] else data[26]
+                    result['def_tov_rank'] = data[25]
+                    result['def_orb'] = data[28].replace('%', '') if '%' in data[28] else data[28]
+                    result['def_orb_rank'] = data[27]
+                    result['def_ft_rate'] = data[30]
+                    result['def_ft_rank'] = data[29]
+
+                    logger.info(f"CTG Four Factors for {team_name}: PPP={result.get('off_ppp')} (#{result.get('off_ppp_rank')})")
+                elif len(data) >= 17:
+                    # Compact table: values only (no separate rank cells)
+                    # Columns: Year, metadata..., Off Pts/Poss, Off eFG%, Off TOV%, Off ORB%, Off FT Rate,
+                    #          Def Pts/Poss, Def eFG%, Def TOV%, Def ORB%, Def FT Rate
+                    # Find the offense/defense boundary by looking for patterns
+                    numeric_vals = []
+                    for i, d in enumerate(data):
+                        clean = d.replace('%', '').replace('+', '').replace('-', '', 1).strip()
+                        try:
+                            float(clean)
+                            numeric_vals.append((i, d))
+                        except ValueError:
+                            pass
+
+                    # CTG compact: typically offset varies, but the last 10 numeric values
+                    # are Off(PPP, eFG, TOV, ORB, FT) + Def(PPP, eFG, TOV, ORB, FT)
+                    if len(numeric_vals) >= 10:
+                        # Take last 10 numeric values as the four factors
+                        ff_vals = numeric_vals[-10:]
+                        result['off_ppp'] = ff_vals[0][1]
+                        result['off_efg'] = ff_vals[1][1].replace('%', '')
+                        result['off_tov'] = ff_vals[2][1].replace('%', '')
+                        result['off_orb'] = ff_vals[3][1].replace('%', '')
+                        result['off_ft_rate'] = ff_vals[4][1]
+                        result['def_ppp'] = ff_vals[5][1]
+                        result['def_efg'] = ff_vals[6][1].replace('%', '')
+                        result['def_tov'] = ff_vals[7][1].replace('%', '')
+                        result['def_orb'] = ff_vals[8][1].replace('%', '')
+                        result['def_ft_rate'] = ff_vals[9][1]
+
+                        logger.info(f"CTG Four Factors (compact) for {team_name}: Off PPP={result.get('off_ppp')}, Def PPP={result.get('def_ppp')}")
             
             # Cache the result
             MatchupIntelligence._ctg_cache[cache_key] = {'data': result, 'timestamp': time.time()}
@@ -2004,8 +2282,8 @@ class MatchupIntelligence:
                             break
                     
                     # Parse team records - look for W-L patterns near team names
-                    away_record = re.search(rf'{away_abbrev}[^\d]*(\d+-\d+)', text, re.IGNORECASE)
-                    home_record = re.search(rf'{home_abbrev}[^\d]*(\d+-\d+)', text, re.IGNORECASE)
+                    away_record = re.search(rf'{re.escape(away_team[:3])}[^\d]*(\d+-\d+)', text, re.IGNORECASE)
+                    home_record = re.search(rf'{re.escape(home_team[:3])}[^\d]*(\d+-\d+)', text, re.IGNORECASE)
                     
                     # Alternative: Look for record pattern like "(24-20)"
                     records = re.findall(r'\((\d+-\d+)\)', text)
@@ -13756,23 +14034,41 @@ def get_matchup_data(game_id):
             home_season = matchup_data.get('home_season', {})
             away_l3 = matchup_data.get('away_l3', {})
             home_l3 = matchup_data.get('home_l3', {})
-            
+
             # Log what stats we got for debugging
             logging.info(f"TeamRankings stats for {game.away_team} vs {game.home_team}: {list(away_season.keys())[:10]}...")
-            
+
+            # If TeamRankings returned empty (JS-rendered site), use basketball-reference as fallback
+            if game.league == 'NBA' and len(away_season) < 3:
+                logging.info(f"TeamRankings empty for {game.away_team} vs {game.home_team}, trying basketball-reference...")
+                try:
+                    with ThreadPoolExecutor(max_workers=2) as bref_executor:
+                        away_bref_future = bref_executor.submit(MatchupIntelligence.fetch_bball_ref_team_stats, game.away_team)
+                        home_bref_future = bref_executor.submit(MatchupIntelligence.fetch_bball_ref_team_stats, game.home_team)
+                        away_bref = away_bref_future.result(timeout=20) or {}
+                        home_bref = home_bref_future.result(timeout=20) or {}
+                    if away_bref:
+                        away_season.update(away_bref)
+                        logging.info(f"BBall-Ref away stats loaded: {list(away_bref.keys())[:8]}")
+                    if home_bref:
+                        home_season.update(home_bref)
+                        logging.info(f"BBall-Ref home stats loaded: {list(home_bref.keys())[:8]}")
+                except Exception as e:
+                    logging.warning(f"BBall-Ref fallback error: {e}")
+
             # Fetch external data in PARALLEL for faster loading
             away_ctg = {}
             home_ctg = {}
             h2h_data = {}
             rlm_data = {}
-            
+
             def fetch_ctg_away():
                 if game.league == 'NBA':
                     return MatchupIntelligence.fetch_ctg_four_factors(game.away_team)
                 elif game.league == 'CBB':
                     return MatchupIntelligence.fetch_kenpom_stats(game.away_team)
                 return {}
-            
+
             def fetch_ctg_home():
                 if game.league == 'NBA':
                     return MatchupIntelligence.fetch_ctg_four_factors(game.home_team)
@@ -14026,8 +14322,18 @@ def get_matchup_data(game_id):
             db_opening_total = game.opening_total if hasattr(game, 'opening_total') else None
             
             # Prefer VSIN lines (most up-to-date)
-            open_spread = vsin_open_spread if vsin_open_spread else db_opening_spread
-            current_spread = vsin_current_spread if vsin_current_spread else db_spread
+            # Filter out 'N/A' and non-numeric strings
+            def safe_numeric(val):
+                if val is None or val == '' or val == 'N/A':
+                    return None
+                try:
+                    float(val)
+                    return val
+                except (ValueError, TypeError):
+                    return None
+            
+            open_spread = safe_numeric(vsin_open_spread) or safe_numeric(db_opening_spread)
+            current_spread = safe_numeric(vsin_current_spread) or safe_numeric(db_spread)
             open_total = vsin_open_total if vsin_open_total else db_opening_total
             current_total = vsin_current_total if vsin_current_total else db_total
             
@@ -14151,7 +14457,7 @@ def get_matchup_data(game_id):
                 'sharp_detected': spread_sharp_detected,
                 'sharp_side': spread_sharp_side,
                 # Favorite tracking - calculated from spread data
-                'favorite_is_away': open_spread is not None and float(open_spread) < 0 if open_spread else None,
+                'favorite_is_away': (lambda s: s is not None and s not in ('N/A', '') and float(s) < 0)(open_spread) if open_spread and open_spread not in ('N/A', '') else None,
                 'open_favorite': open_favorite,
                 'current_favorite': current_favorite,
                 'line_moved_toward': line_moved_toward
