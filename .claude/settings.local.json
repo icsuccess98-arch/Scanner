@@ -9,7 +9,8 @@
       "Bash(curl:*)",
       "Bash(pgrep:*)",
       "Bash(wc:*)",
-      "Bash(pip install nba-api)"
+      "Bash(pip install nba-api)",
+      "Bash(find:*)"
     ]
   }
 }

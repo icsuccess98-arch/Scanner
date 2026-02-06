@@ -141,7 +141,7 @@ CBB_CANONICAL_ALIASES: Dict[str, str] = {
     
     # H
     "hampton": "hampton", "hamp": "hampton",
-    "hartford": "hartford", "hart": "hartford",
+    # Hartford reclassified to D3 in 2024 - removed from D1
     "harvard": "harvard", "harv": "harvard",
     "hawaii": "hawaii", "haw": "hawaii", "hawai'i": "hawaii",
     "high point": "high_point", "hpu": "high_point",
@@ -162,7 +162,7 @@ CBB_CANONICAL_ALIASES: Dict[str, str] = {
     "iona": "iona",
     "iowa": "iowa", "iow": "iowa",
     "iowa state": "iowa_state", "iast": "iowa_state", "iowa st": "iowa_state",
-    "iupui": "iupui",
+    "iu indianapolis": "iu_indianapolis", "iupui": "iu_indianapolis", "iu indy": "iu_indianapolis",
     
     # J
     "jackson state": "jackson_state", "jkst": "jackson_state", "jackson st": "jackson_state",
@@ -181,6 +181,7 @@ CBB_CANONICAL_ALIASES: Dict[str, str] = {
     "la salle": "la_salle", "las": "la_salle", "lasalle": "la_salle",
     "lafayette": "lafayette", "laf": "lafayette",
     "lamar": "lamar", "lam": "lamar",
+    "le moyne": "le_moyne", "lemoyne": "le_moyne", "le moyne dolphins": "le_moyne",
     "lehigh": "lehigh", "leh": "lehigh",
     "liberty": "liberty", "lib": "liberty",
     "lindenwood": "lindenwood", "lind": "lindenwood",
@@ -210,6 +211,7 @@ CBB_CANONICAL_ALIASES: Dict[str, str] = {
     "mcneese": "mcneese", "mcn": "mcneese", "mcneese state": "mcneese", "mcneese st": "mcneese",
     "memphis": "memphis", "mem": "memphis",
     "mercer": "mercer", "merc": "mercer",
+    "mercyhurst": "mercyhurst", "mercy": "mercyhurst", "mercyhurst lakers": "mercyhurst",
     "merrimack": "merrimack", "merr": "merrimack",
     "miami fl": "miami_fl", "miami": "miami_fl", "mia": "miami_fl", "miami florida": "miami_fl",
     "miami oh": "miami_oh", "mioh": "miami_oh", "miami ohio": "miami_oh",
@@ -343,6 +345,7 @@ CBB_CANONICAL_ALIASES: Dict[str, str] = {
     "stanford": "stanford", "stan": "stanford",
     "stephen f austin": "stephen_f_austin", "sfa": "stephen_f_austin",
     "stetson": "stetson", "stet": "stetson",
+    "stonehill": "stonehill", "shill": "stonehill", "stonehill skyhawks": "stonehill",
     "stony brook": "stony_brook", "ston": "stony_brook",
     "syracuse": "syracuse", "syr": "syracuse", "cuse": "syracuse",
     
@@ -407,6 +410,7 @@ CBB_CANONICAL_ALIASES: Dict[str, str] = {
     "washington": "washington", "wash": "washington", "uw": "washington",
     "washington state": "washington_state", "wsu": "washington_state", "wash st": "washington_state", "washington st": "washington_state",
     "weber state": "weber_state", "web": "weber_state", "weber st": "weber_state",
+    "west georgia": "west_georgia", "uwg": "west_georgia", "west ga": "west_georgia",
     "west virginia": "west_virginia", "wvu": "west_virginia", "wv": "west_virginia",
     "western carolina": "western_carolina", "wcu": "western_carolina", "w carolina": "western_carolina",
     "western illinois": "western_illinois", "wiu": "western_illinois", "w illinois": "western_illinois",
