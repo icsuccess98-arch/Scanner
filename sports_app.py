@@ -9383,9 +9383,7 @@ def fetch_kenpom_conference_ratings() -> dict:
 
 def fetch_kenpom_fanmatch() -> dict:
     """
-    Fetch KenPom Fanmatch (predictions) data for today's games.
-    Returns game-level predictions with predicted scores, spreads, and win probabilities.
-    API: GET /api.php?endpoint=fanmatch&d=YYYY-MM-DD
+    Fetch KenPom Fanmatch data - fan interest/engagement metrics.
     """
     global kenpom_fanmatch_cache, kenpom_cache_date
     today = date.today()
@@ -9393,151 +9391,26 @@ def fetch_kenpom_fanmatch() -> dict:
     if kenpom_cache_date == today and kenpom_fanmatch_cache:
         return kenpom_fanmatch_cache
 
-    # Fanmatch uses date param (d=) not year param (y=), so call API directly
-    api_key = os.environ.get('CBB_API_KEY', '')
-    if not api_key:
-        logger.warning("CBB_API_KEY not set, skipping KenPom fanmatch fetch")
-        return kenpom_fanmatch_cache
-
-    try:
-        today_str = today.strftime('%Y-%m-%d')
-        url = f"https://kenpom.com/api.php?endpoint=fanmatch&d={today_str}"
-        headers = {
-            'Authorization': f'Bearer {api_key}',
-            'User-Agent': 'Mozilla/5.0 (compatible; SportsApp/1.0)'
-        }
-        resp = requests.get(url, headers=headers, timeout=30)
-
-        if resp.status_code == 401:
-            logger.warning("KenPom API unauthorized for fanmatch")
-            return kenpom_fanmatch_cache
-        if resp.status_code != 200:
-            logger.warning(f"KenPom fanmatch API failed: {resp.status_code}")
-            return kenpom_fanmatch_cache
-
-        data = resp.json()
-    except Exception as e:
-        logger.error(f"KenPom fanmatch fetch error: {e}")
-        return kenpom_fanmatch_cache
-
+    data = fetch_kenpom_api('fanmatch')
     if not data:
         return kenpom_fanmatch_cache
 
     cache = {}
-    for game in data:
+    for team in data:
         try:
-            visitor = game.get('Visitor', '')
-            home = game.get('Home', '')
-            if not visitor or not home:
-                continue
-
-            home_pred = float(game.get('HomePred', 0) or 0)
-            visitor_pred = float(game.get('VisitorPred', 0) or 0)
-            home_wp = float(game.get('HomeWP', 0) or 0)
-            pred_tempo = float(game.get('PredTempo', 0) or 0)
-
-            # KenPom spread in away perspective: negative = away favored, positive = home favored
-            kenpom_spread = round(home_pred - visitor_pred, 1)
-
-            # Cache key uses lowercase team names
-            cache_key = f"{visitor.lower().strip()}_vs_{home.lower().strip()}"
-            cache[cache_key] = {
-                'visitor': visitor,
-                'home': home,
-                'visitor_lower': visitor.lower().strip(),
-                'home_lower': home.lower().strip(),
-                'home_pred': round(home_pred, 1),
-                'visitor_pred': round(visitor_pred, 1),
-                'home_wp': round(home_wp, 3),
-                'pred_tempo': round(pred_tempo, 1),
-                'kenpom_spread': kenpom_spread,
-            }
-        except Exception as e:
-            logger.debug(f"Error parsing KenPom fanmatch game: {e}")
+            team_name = team.get('TeamName', '').lower()
+            if team_name:
+                cache[team_name] = {
+                    'fanmatch': team.get('Fanmatch', 0),
+                    'fanmatch_rank': team.get('RankFanmatch', 0),
+                }
+        except Exception:
             continue
 
     if cache:
         kenpom_fanmatch_cache = cache
-        logger.info(f"KenPom Fanmatch predictions loaded: {len(cache)} games for {today_str}")
+        logger.info(f"KenPom Fanmatch loaded: {len(cache)} teams")
     return kenpom_fanmatch_cache
-
-
-def get_kenpom_prediction(away_team: str, home_team: str) -> Optional[dict]:
-    """
-    Look up KenPom fanmatch prediction for a specific game.
-    Uses fuzzy name matching to find the game in the fanmatch cache.
-    Returns prediction dict or None.
-    """
-    if not kenpom_fanmatch_cache:
-        fetch_kenpom_fanmatch()
-    if not kenpom_fanmatch_cache:
-        return None
-
-    # Normalize team names for matching
-    away_lower = away_team.lower().strip()
-    home_lower = home_team.lower().strip()
-
-    # Try direct match first
-    direct_key = f"{away_lower}_vs_{home_lower}"
-    if direct_key in kenpom_fanmatch_cache:
-        return kenpom_fanmatch_cache[direct_key]
-
-    # Try normalized CBB names
-    away_norm = normalize_cbb_team_name(away_team).lower().strip()
-    home_norm = normalize_cbb_team_name(home_team).lower().strip()
-    norm_key = f"{away_norm}_vs_{home_norm}"
-    if norm_key in kenpom_fanmatch_cache:
-        return kenpom_fanmatch_cache[norm_key]
-
-    # Fuzzy match against all cached games
-    # Build normalized lookup sets for each cached game
-    for cache_key, pred in kenpom_fanmatch_cache.items():
-        kp_visitor = pred['visitor_lower']
-        kp_home = pred['home_lower']
-
-        # Try matching each team with aliases
-        away_matches = _kenpom_team_matches(away_lower, kp_visitor)
-        home_matches = _kenpom_team_matches(home_lower, kp_home)
-
-        if away_matches and home_matches:
-            return pred
-
-    return None
-
-
-def _kenpom_team_matches(game_name: str, kenpom_name: str) -> bool:
-    """Check if a game team name matches a KenPom team name using aliases."""
-    if game_name == kenpom_name:
-        return True
-
-    # Normalize both through CBB name mapping
-    game_norm = normalize_cbb_team_name(game_name).lower().strip()
-    kp_norm = normalize_cbb_team_name(kenpom_name).lower().strip()
-
-    if game_norm == kp_norm:
-        return True
-
-    # Try VSIN aliases (defined later in code, access via CBB_TEAM_NAME_ALIASES)
-    try:
-        game_aliases = get_all_team_aliases(game_norm)
-        kp_aliases = get_all_team_aliases(kp_norm)
-        if game_aliases & kp_aliases:
-            return True
-    except Exception:
-        pass
-
-    # Try CBB_TEAM_NAME_MAP
-    game_mapped = CBB_TEAM_NAME_MAP.get(game_name, game_name)
-    kp_mapped = CBB_TEAM_NAME_MAP.get(kenpom_name, kenpom_name)
-    if game_mapped == kp_mapped:
-        return True
-
-    # Substring matching for partial names (e.g., "Saint Mary's" vs "saint mary's (ca)")
-    if len(game_norm) >= 5 and len(kp_norm) >= 5:
-        if game_norm in kp_norm or kp_norm in game_norm:
-            return True
-
-    return False
 
 
 def fetch_kenpom_teams() -> dict:
@@ -9659,32 +9532,30 @@ def get_kenpom_team_full(team_name: str) -> Optional[dict]:
     if not torvik_cache:
         fetch_all_kenpom_data()
 
+    name_lower = team_name.lower().strip()
+
     # Get base ratings data (using existing fuzzy matching)
     base_data = get_torvik_team(team_name)
     if not base_data:
         return None
 
-    # Use the matched KenPom team name for all sub-cache lookups
-    # base_data['team'] contains the original KenPom TeamName
-    matched_name = base_data.get('team', team_name).lower().strip()
-
     # Merge in Four Factors
-    ff_data = kenpom_four_factors_cache.get(matched_name, {})
+    ff_data = kenpom_four_factors_cache.get(name_lower, {})
 
     # Merge in Point Distribution
-    pd_data = kenpom_point_distribution_cache.get(matched_name, {})
+    pd_data = kenpom_point_distribution_cache.get(name_lower, {})
 
     # Merge in Height
-    ht_data = kenpom_height_cache.get(matched_name, {})
+    ht_data = kenpom_height_cache.get(name_lower, {})
 
     # Merge in Misc
-    misc_data = kenpom_misc_cache.get(matched_name, {})
+    misc_data = kenpom_misc_cache.get(name_lower, {})
 
     # Merge in Fanmatch
-    fm_data = kenpom_fanmatch_cache.get(matched_name, {})
+    fm_data = kenpom_fanmatch_cache.get(name_lower, {})
 
     # Merge in Team info
-    team_info = kenpom_teams_cache.get(matched_name, {})
+    team_info = kenpom_teams_cache.get(name_lower, {})
 
     # Get conference data
     conf_abbrev = base_data.get('conf', '').lower()
@@ -10251,7 +10122,7 @@ CBB_TEAM_NAME_MAP = {
     'uc santa barbara': 'uc santa barbara', 'ucsb': 'uc santa barbara', 'santa barbara': 'uc santa barbara',
     'cal poly': 'cal poly', 'cal poly slo': 'cal poly',
     'cal state fullerton': 'cal st. fullerton', 'fullerton': 'cal st. fullerton', 'csuf': 'cal st. fullerton',
-    'cal state northridge': 'csun', 'northridge': 'csun', 'csu northridge': 'csun', 'csun': 'csun',
+    'cal state northridge': 'cal st. northridge', 'northridge': 'cal st. northridge', 'csu northridge': 'cal st. northridge', 'csun': 'cal st. northridge',
     'cal state bakersfield': 'cal st. bakersfield', 'bakersfield': 'cal st. bakersfield', 'csub': 'cal st. bakersfield',
     'long beach state': 'long beach st.', 'long beach st': 'long beach st.', 'lbsu': 'long beach st.',
     # UMass variations
@@ -10303,14 +10174,14 @@ CBB_TEAM_NAME_MAP = {
     # HBCU and smaller schools
     'howard': 'howard', 'hampton': 'hampton', 'delaware': 'delaware',
     'bethune': 'bethune cookman', 'bethune cookman': 'bethune cookman', 'bccu': 'bethune cookman', 'b cookman': 'bethune cookman',
-    'north carolina at': 'north carolina a&t', 'nc at': 'north carolina a&t', 'nc a&t': 'north carolina a&t', 'n.c. a&t': 'north carolina a&t',
+    'north carolina at': 'n.c. a&t', 'nc at': 'n.c. a&t', 'nc a&t': 'n.c. a&t', 'n.c. a&t': 'n.c. a&t',
     'florida am': 'florida a&m', 'florida a&m': 'florida a&m', 'famu': 'florida a&m',
     # Additional variations
     'siu edwardsville': 'siu edwardsville', 'siue': 'siu edwardsville',
-    'southeast missouri': 'southeast missouri', 'se missouri': 'southeast missouri', 'semo': 'southeast missouri',
+    'southeast missouri': 'southeast missouri st.', 'se missouri': 'southeast missouri st.', 'semo': 'southeast missouri st.',
     'ut arlington': 'ut arlington', 'uta': 'ut arlington', 'texas arlington': 'ut arlington',
     'ut rio grande': 'ut rio grande valley', 'utrgv': 'ut rio grande valley', 'rio grande valley': 'ut rio grande valley',
-    'texas am cc': 'texas a&m corpus chris', 'texas a&m corpus christi': 'texas a&m corpus chris', 'tamucc': 'texas a&m corpus chris', 'texas a&m-cc': 'texas a&m corpus chris',
+    'texas am cc': 'texas a&m corpus chris', 'texas a&m corpus christi': 'texas a&m corpus chris', 'tamucc': 'texas a&m corpus chris',
     'lamar': 'lamar', 'mcneese': 'mcneese', 'nicholls': 'nicholls', 'nicholls state': 'nicholls',
     'houston christian': 'houston christian', 'hcu': 'houston christian',
     'incarnate word': 'incarnate word', 'uiw': 'incarnate word',
@@ -10319,13 +10190,13 @@ CBB_TEAM_NAME_MAP = {
     'ar pine bluff': 'arkansas pine bluff', 'arkansas pine bluff': 'arkansas pine bluff', 'uapb': 'arkansas pine bluff',
     'central connecticut': 'central connecticut', 'c connecticut': 'central connecticut', 'ccsu': 'central connecticut',
     'fairleigh dickinson': 'fairleigh dickinson', 'fdu': 'fairleigh dickinson',
-    'long island': 'liu', 'liu': 'liu',
+    'long island': 'long island', 'liu': 'long island',
     'detroit mercy': 'detroit mercy', 'detroit': 'detroit mercy', 'udm': 'detroit mercy',
     'chicago state': 'chicago st.', 'chicago st': 'chicago st.', 'csu': 'chicago st.',
     'southern indiana': 'southern indiana', 'so indiana': 'southern indiana', 'usi': 'southern indiana',
     'bellarmine': 'bellarmine', 'queens': 'queens',
     'lindenwood': 'lindenwood', 'mercyhurst': 'mercyhurst',
-    "hawaii": "hawaii", "hawai'i": "hawaii", 'hawaii': "hawaii",
+    "hawaii": "hawai'i", "hawai'i": "hawai'i", 'hawaii': "hawai'i",
     'texas am': 'e. texas a&m', 'e texas am': 'e. texas a&m', 'east texas am': 'e. texas a&m', 'e texas a&m': 'e. texas a&m',
     'miss valley st': 'mississippi valley st.', 'mississippi valley': 'mississippi valley st.', 'mvsu': 'mississippi valley st.',
     # Southern Utah
@@ -10459,65 +10330,13 @@ CBB_TEAM_NAME_MAP = {
     'charleston so': 'charleston southern', 'charleston southern': 'charleston southern', 'chas southern': 'charleston southern',
     'longwood': 'longwood', 'lancers': 'longwood',
     'tulsa': 'tulsa', 'golden hurricane': 'tulsa',
-    'e texas a&m': 'east texas a&m', 'east texas a&m': 'east texas a&m', 'e texas am': 'east texas a&m', 'east texas am': 'east texas a&m', 'etamu': 'east texas a&m',
+    'e texas a&m': 'e. texas a&m', 'east texas a&m': 'e. texas a&m', 'e texas am': 'e. texas a&m', 'east texas am': 'e. texas a&m', 'etamu': 'e. texas a&m',
     'ar-pine bluff': 'arkansas pine bluff', 'ar pine bluff': 'arkansas pine bluff', 'uapb': 'arkansas pine bluff',
-    'grambling': 'grambling st.', 'grambling st': 'grambling st.', 'grambling state': 'grambling st.',
+    'grambling': 'grambling', 'grambling st': 'grambling', 'grambling state': 'grambling',
     'c arkansas': 'central arkansas', 'central arkansas': 'central arkansas', 'uca': 'central arkansas',
     'mtsu': 'middle tennessee', 'middle tennessee': 'middle tennessee', 'middle tenn': 'middle tennessee', 'mid tennessee': 'middle tennessee',
     'fiu': 'fiu', 'florida international': 'fiu', 'fla intl': 'fiu',
     'sc state': 'south carolina st.', 'south carolina state': 'south carolina st.',
-    # Covers abbreviations missing from original map
-    'ca baptist': 'cal baptist', 'cal baptist': 'cal baptist', 'cbu': 'cal baptist',
-    'fgcu': 'florida gulf coast', 'florida gulf coast': 'florida gulf coast', 'gulf coast': 'florida gulf coast',
-    "hawai'i": 'hawaii', 'hawaii': 'hawaii', 'uh': 'hawaii',
-    'hou christian': 'houston christian', 'houston christian': 'houston christian', 'hcu': 'houston christian',
-    'mount st marys': "mount st. mary's", 'mt st marys': "mount st. mary's",
-    'n dakota st': 'north dakota st.', 'north dakota st': 'north dakota st.', 'ndsu': 'north dakota st.', 'north dakota state': 'north dakota st.',
-    'nc central': 'north carolina central', 'north carolina central': 'north carolina central', 'nccu': 'north carolina central',
-    's dakota st': 'south dakota st.', 'south dakota state': 'south dakota st.', 'sdsu': 'south dakota st.',
-    'sf austin': 'stephen f. austin', 'stephen f austin': 'stephen f. austin', 'sfa': 'stephen f. austin', 'stephen f. austin': 'stephen f. austin',
-    "san josé st": 'san jose st.', 'san jose st': 'san jose st.', 'san jose state': 'san jose st.', 'sjsu': 'san jose st.',
-    'st thomas (mn)': 'st. thomas', 'st thomas': 'st. thomas', 'saint thomas': 'st. thomas',
-    'ul monroe': 'louisiana monroe', 'louisiana monroe': 'louisiana monroe', 'ulm': 'louisiana monroe',
-    'w carolina': 'western carolina', 'western carolina': 'western carolina', 'wcu': 'western carolina',
-    'coastal': 'coastal carolina', 'coastal carolina': 'coastal carolina', 'ccu': 'coastal carolina',
-    'miami': 'miami fl', 'miami hurricanes': 'miami fl',
-    'omaha': 'nebraska omaha', 'nebraska omaha': 'nebraska omaha', 'uno': 'nebraska omaha',
-    'se louisiana': 'southeastern louisiana', 'southeastern louisiana': 'southeastern louisiana', 'sela': 'southeastern louisiana',
-    'seattle u': 'seattle', 'seattle': 'seattle', 'seattle university': 'seattle',
-    'ualbany': 'albany', 'u albany': 'albany', 'albany': 'albany',
-    'new haven': 'new haven',
-    'miss valley st': 'mississippi valley st.', 'mississippi valley': 'mississippi valley st.', 'mississippi valley st': 'mississippi valley st.', 'mvsu': 'mississippi valley st.',
-    'iu indy': 'iu indy',
-    'tennessee st': 'tennessee st.', 'tennessee state': 'tennessee st.', 'tsu': 'tennessee st.',
-    'north florida': 'north florida', 'unf': 'north florida',
-    'west georgia': 'west georgia', 'uwg': 'west georgia',
-    'jax state': 'jacksonville st.', 'jax st': 'jacksonville st.',
-    'e kentucky': 'eastern kentucky', 'e ky': 'eastern kentucky',
-    'western ky': 'western kentucky',
-    'green bay': 'green bay', 'uw green bay': 'green bay',
-    'new orleans': 'new orleans', 'uno': 'new orleans',
-    'ut rio grande': 'ut rio grande valley', 'utrgv': 'ut rio grande valley', 'rio grande valley': 'ut rio grande valley',
-    'boston u': 'boston university', 'boston university': 'boston university', 'bu': 'boston university',
-    'tennessee tech': 'tennessee tech', 'ttu': 'tennessee tech', 'tn tech': 'tennessee tech',
-    'e illinois': 'eastern illinois', 'eiu': 'eastern illinois',
-    'e michigan': 'eastern michigan', 'emu': 'eastern michigan',
-    'e washington': 'eastern washington', 'ewu': 'eastern washington',
-    'w illinois': 'western illinois', 'wiu': 'western illinois',
-    'w michigan': 'western michigan', 'wmu': 'western michigan',
-    'c michigan': 'central michigan', 'cmu': 'central michigan',
-    'c arkansas': 'central arkansas', 'uca': 'central arkansas',
-    'c connecticut': 'central connecticut', 'ccsu': 'central connecticut',
-    'n illinois': 'northern illinois', 'niu': 'northern illinois',
-    'n arizona': 'northern arizona', 'nau': 'northern arizona',
-    'n colorado': 'northern colorado', 'unc': 'northern colorado',
-    'n kentucky': 'northern kentucky', 'nku': 'northern kentucky',
-    'app state': 'appalachian st.', 'appalachian st': 'appalachian st.', 'appalachian state': 'appalachian st.',
-    'le moyne': 'le moyne',
-    'saint francis': 'saint francis', 'st francis': 'saint francis',
-    'stonehill': 'stonehill',
-    'mercyhurst': 'mercyhurst',
-    'sacred heart': 'sacred heart',
 }
 
 def get_torvik_team(team_name: str) -> Optional[dict]:
@@ -10527,15 +10346,14 @@ def get_torvik_team(team_name: str) -> Optional[dict]:
     if not torvik_cache:
         return None
 
-    # Normalize smart quotes/apostrophes to standard ASCII
-    name_lower = team_name.lower().strip().replace('\u2019', "'").replace('\u2018', "'").replace('\u201c', '"').replace('\u201d', '"')
+    name_lower = team_name.lower().strip()
 
     # Direct cache lookup
     if name_lower in torvik_cache:
         return torvik_cache[name_lower]
 
     # Try normalized name
-    normalized = normalize_cbb_team_name(team_name).lower().strip().replace('\u2019', "'").replace('\u2018', "'")
+    normalized = normalize_cbb_team_name(team_name).lower().strip()
     if normalized in torvik_cache:
         return torvik_cache[normalized]
 
@@ -10567,30 +10385,17 @@ def get_torvik_team(team_name: str) -> Optional[dict]:
         if key.replace('.', '') == name_no_periods:
             return torvik_cache[key]
 
-    # Safe fuzzy matching - only match if the name is an exact substring at word boundaries
-    # and the match is unambiguous (no shorter key also matches)
-    best_match = None
-    best_key_len = 999
+    # Fuzzy substring matching
     for key, data in torvik_cache.items():
-        # Only match if one name fully contains the other AND they share a significant word
-        if name_lower == key:
+        if name_lower in key or key in name_lower:
             return data
-        # Check if input is a prefix/suffix of a cache key (e.g., "coastal" in "coastal carolina")
-        # But require the input to be at least 60% of the key length to avoid "la" matching "alabama"
-        if name_lower in key and len(name_lower) >= len(key) * 0.6:
-            if len(key) < best_key_len:
-                best_match = data
-                best_key_len = len(key)
-        elif key in name_lower and len(key) >= len(name_lower) * 0.6:
-            if len(key) < best_key_len:
-                best_match = data
-                best_key_len = len(key)
+        # Check if key contains significant matching words
+        key_parts = key.split()
+        name_parts = name_lower.split()
+        matching_parts = sum(1 for p in key_parts if p in name_parts and len(p) > 3)
+        if matching_parts >= 1 and len(key_parts) <= 3:
+            return data
 
-    if best_match:
-        logger.debug(f"Torvik fuzzy match: {team_name} -> {best_match.get('team', '?')}")
-        return best_match
-
-    logger.warning(f"Torvik lookup failed for: {team_name}")
     return None
 
 def calculate_torvik_projection(away_team: str, home_team: str) -> Optional[dict]:
@@ -12712,10 +12517,6 @@ def spreads():
     vsin_nhl_data = MatchupIntelligence.fetch_rlm_data('NHL')
     vsin_all_data = {'NBA': vsin_nba_data, 'CBB': vsin_cbb_data, 'NHL': vsin_nhl_data}
     logging.info(f"VSIN data loaded: NBA={len(vsin_nba_data)}, CBB={len(vsin_cbb_data)}, NHL={len(vsin_nhl_data)} games")
-
-    # Fetch KenPom fanmatch predictions for today's CBB games
-    kenpom_predictions = fetch_kenpom_fanmatch()
-    logging.info(f"KenPom predictions loaded: {len(kenpom_predictions)} CBB games")
     
     # Helper function to match VSIN data to a game
     # Team name aliases for VSIN matching
@@ -13231,60 +13032,37 @@ def spreads():
                             if key_canonical == ascii_canonical:
                                 return stats_dict[key]
                     
-                    # Normalize helper for Covers matching - strips accents, apostrophes,
-                    # ampersands, rankings, and expands St to State
+                    # Stricter fuzzy match for remaining cases
                     def normalize_for_match(name):
                         n = strip_accents(strip_ranking(name)).lower()
-                        # Handle apostrophe-s: "'s" -> " s" to match Covers format (Saint Joseph S)
-                        n = n.replace("'s", " s").replace('\u2019s', " s")
-                        n = n.replace("'", "").replace('\u2019', "")
-                        n = n.replace("&", " ").replace("  ", " ")
+                        n = n.replace("'", "").replace("  ", " ")
                         n = n.replace(' st.', ' state').replace(' st ', ' state ')
                         if n.endswith(' st'):
                             n = n[:-3] + ' state'
                         return n.strip()
-
-                    # Try CBB_TEAM_NAME_MAP: map our team name to KenPom name, then check if
-                    # any Covers key starts with that mapped name (handles Covers mascot fragments
-                    # like "Middle Tennessee Blue" matching "middle tennessee")
-                    team_lower = team_name.lower().strip().replace('\u2019', "'").replace('\u2018', "'")
-                    mapped_name = CBB_TEAM_NAME_MAP.get(team_lower, '')
-                    if mapped_name:
-                        mapped_norm = normalize_for_match(mapped_name)
-                        for key in stats_dict:
-                            key_norm = normalize_for_match(key)
-                            # Only match: exact OR Covers key starts with our name (mascot appended)
-                            if key_norm == mapped_norm or key_norm.startswith(mapped_norm + ' '):
-                                return stats_dict[key]
-
+                    
                     team_normalized = normalize_for_match(ascii_name)
-
+                    team_lower = team_name.lower()
+                    
                     for key in stats_dict:
                         key_clean = strip_ranking(key)
                         key_normalized = normalize_for_match(key)
                         key_lower = key_clean.lower()
-
+                        
                         if team_normalized == key_normalized:
                             return stats_dict[key]
-
-                        # Check if the normalized key starts with our normalized team name
-                        # This handles Covers mascot fragments: "middle tennessee blue" startswith "middle tennessee"
-                        if key_normalized.startswith(team_normalized + ' ') and len(team_normalized) >= 6:
+                        
+                        # Partial match
+                        if key_lower.startswith(team_lower) or team_lower.startswith(key_lower):
                             return stats_dict[key]
-
-                        # Partial match - only if names are very close in length to avoid
-                        # confusing e.g. "Delaware" with "Delaware State"
-                        if (key_lower.startswith(team_lower) or team_lower.startswith(key_lower)) and \
-                           abs(len(key_lower) - len(team_lower)) <= 3:
-                            return stats_dict[key]
-
+                        
                         # CBB_TEAM_NAME_ALIASES fallback
                         key_upper = key_clean.upper()
                         if key_upper in CBB_TEAM_NAME_ALIASES:
                             alias_target = CBB_TEAM_NAME_ALIASES[key_upper]
                             if alias_target == normalized or alias_target == ascii_normalized or alias_target.lower() == team_lower:
                                 return stats_dict[key]
-
+                    
                     return {}
                 
                 away_covers = find_covers_stats(g.away_team, covers_cbb_stats)
@@ -13412,30 +13190,7 @@ def spreads():
                 g.vsin_current_odds = '-110'
                 g.vsin_has_data = False
                 logger.warning(f"No VSIN match for {g.league}: {g.away_team} @ {g.home_team}")
-
-            # Attach KenPom predictions for CBB games
-            if g.league == 'CBB':
-                kp = get_kenpom_prediction(g.away_team, g.home_team)
-                if kp:
-                    g.kenpom_spread = kp['kenpom_spread']  # Away perspective
-                    g.kenpom_favorite = kp['home'] if kp['kenpom_spread'] > 0 else kp['visitor']
-                    g.kenpom_home_pred = kp['home_pred']
-                    g.kenpom_away_pred = kp['visitor_pred']
-                    g.kenpom_win_prob = kp['home_wp']
-                    g.has_kenpom_pred = True
-                    logger.debug(f"KenPom pred: {g.away_team} @ {g.home_team} -> spread {kp['kenpom_spread']:+.1f}, fav={g.kenpom_favorite}")
-                else:
-                    g.has_kenpom_pred = False
-                    g.kenpom_spread = None
-                    g.kenpom_favorite = ''
-                    g.kenpom_home_pred = None
-                    g.kenpom_away_pred = None
-                    g.kenpom_win_prob = None
-            else:
-                g.has_kenpom_pred = False
-                g.kenpom_spread = None
-                g.kenpom_favorite = ''
-
+            
             games_by_league[g.league].append(g)
     
     # Set up basic attributes for all games (data fetched on-demand via API)
@@ -13456,13 +13211,9 @@ def spreads():
     }
     
     for g in all_games:
-        # Mark away team as favorite - use KenPom prediction for CBB, market spread for others
-        if g.league == 'CBB' and getattr(g, 'has_kenpom_pred', False) and g.kenpom_spread is not None:
-            g.away_is_favorite = g.kenpom_spread < 0
-            g.home_is_favorite = g.kenpom_spread > 0
-        else:
-            g.away_is_favorite = g.spread_line is not None and g.spread_line < 0
-            g.home_is_favorite = g.spread_line is not None and g.spread_line > 0
+        # Mark away team as favorite if spread is negative
+        g.away_is_favorite = g.spread_line is not None and g.spread_line < 0
+        g.home_is_favorite = g.spread_line is not None and g.spread_line > 0
         
         # Format spread display
         if g.spread_line is not None:
@@ -14721,16 +14472,9 @@ def get_matchup_data(game_id):
                 'favorite_is_away': (lambda s: s is not None and s not in ('N/A', '') and float(s) < 0)(open_spread) if open_spread and open_spread not in ('N/A', '') else None,
                 'open_favorite': open_favorite,
                 'current_favorite': current_favorite,
-                'line_moved_toward': line_moved_toward,
-                # KenPom prediction data (CBB only)
-                'kenpom_spread': getattr(game, 'kenpom_spread', None),
-                'kenpom_favorite': getattr(game, 'kenpom_favorite', ''),
-                'kenpom_home_pred': getattr(game, 'kenpom_home_pred', None),
-                'kenpom_away_pred': getattr(game, 'kenpom_away_pred', None),
-                'kenpom_win_prob': getattr(game, 'kenpom_win_prob', None),
-                'has_kenpom_pred': getattr(game, 'has_kenpom_pred', False),
+                'line_moved_toward': line_moved_toward
             }
-
+            
             # Also add top-level VSIN fields for direct API access
             result['open_spread'] = open_spread
             result['current_spread'] = current_spread
