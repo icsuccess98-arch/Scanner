@@ -1053,6 +1053,54 @@
             letter-spacing: 0.8px;
             border: 1px solid rgba(251, 191, 36, 0.3);
         }
+        .kenpom-line-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+            padding: 8px 12px;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(37, 99, 235, 0.1) 100%);
+            border-radius: 8px;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+        .kenpom-badge {
+            font-size: 9px;
+            font-weight: 800;
+            color: #60a5fa;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.25) 0%, rgba(37, 99, 235, 0.2) 100%);
+            padding: 3px 8px;
+            border-radius: 6px;
+            letter-spacing: 0.8px;
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            flex-shrink: 0;
+        }
+        .kenpom-pred {
+            font-size: 13px;
+            font-weight: 700;
+            color: #e2e8f0;
+        }
+        .kenpom-score {
+            font-size: 11px;
+            color: #94a3b8;
+            font-weight: 600;
+        }
+        .kenpom-edge {
+            font-size: 10px;
+            font-weight: 800;
+            padding: 2px 8px;
+            border-radius: 6px;
+            margin-left: auto;
+        }
+        .kenpom-edge.edge-positive {
+            color: #34d399;
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        .kenpom-edge.edge-negative {
+            color: #f87171;
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
         .line-movement-row {
             display: flex;
             align-items: center;
@@ -2726,6 +2774,22 @@
                         </div>
                     </div>
                     
+                    {% if game.has_kenpom_pred and game.kenpom_spread is not none %}
+                    {% set kp_spread_val = game.kenpom_spread %}
+                    {% set kp_fav_name = game.away_team if kp_spread_val < 0 else game.home_team %}
+                    {% set kp_fav_line = kp_spread_val|abs %}
+                    {% set current_mkt_line = game.vsin_current_spread|float|abs if game.vsin_current_spread is not none and game.vsin_current_spread != '' else 0 %}
+                    {% set kp_edge = kp_fav_line - current_mkt_line %}
+                    <div class="kenpom-line-row">
+                        <span class="kenpom-badge">KP</span>
+                        <span class="kenpom-pred">{{ kp_fav_name[:8] }} -{{ '%.1f'|format(kp_fav_line) }}</span>
+                        <span class="kenpom-score">{{ game.kenpom_away_pred }} - {{ game.kenpom_home_pred }}</span>
+                        {% if current_mkt_line > 0 and kp_edge|abs >= 0.5 %}
+                        <span class="kenpom-edge {% if kp_edge > 0 %}edge-positive{% else %}edge-negative{% endif %}">{{ '%+.1f'|format(kp_edge) }}pt edge</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
                     {% if game.vsin_open_spread is not none and game.vsin_current_spread is not none %}
                     {% set open_fav_name = game.away_team if open_spread_num < 0 else game.home_team %}
                     {% set open_fav_line = open_spread_num|abs %}
