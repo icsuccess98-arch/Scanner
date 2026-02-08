@@ -4565,9 +4565,7 @@
                 const spreadValue = !isNaN(openSpread) ? openSpread : (!isNaN(currentSpread) ? currentSpread : 0);
                 const spreadUnder10 = Math.abs(spreadValue) < 10;
                 
-                const spreadQualified = card.dataset.spreadQualified === 'true';
-                
-                if (hasRlm && spreadUnder10 && spreadQualified) {
+                if (hasRlm && spreadUnder10) {
                     card.dataset.qualified = 'true';
                     qualifiedCount++;
                 } else {
@@ -4702,9 +4700,7 @@
                     const spreadValue = !isNaN(openSpread) ? openSpread : (!isNaN(currentSpread) ? currentSpread : 0);
                     const spreadUnder10 = Math.abs(spreadValue) < 10;
                     
-                    const spreadQualified = card.dataset.spreadQualified === 'true';
-                    
-                    if (hasRlm && spreadUnder10 && spreadQualified) {
+                    if (hasRlm && spreadUnder10) {
                         card.style.display = '';
                         visibleCards.push(card);
                     } else {
@@ -4774,9 +4770,7 @@
                             const spreadValue = !isNaN(openSpread) ? openSpread : (!isNaN(currentSpread) ? currentSpread : 0);
                             const spreadUnder10 = Math.abs(spreadValue) < 10;
                             
-                            const spreadQualified = card.dataset.spreadQualified === 'true';
-                            
-                            if (hasRlm && spreadUnder10 && spreadQualified) {
+                            if (hasRlm && spreadUnder10) {
                                 card.style.display = '';
                                 visibleCards.push(card);
                             } else {
