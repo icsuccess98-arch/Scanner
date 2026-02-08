@@ -14216,7 +14216,7 @@ def get_matchup_data(game_id):
                     # Middle Tennessee (C-USA)
                     'mtsu': 'middle tennessee', 'middle tenn': 'middle tennessee', 'mid tenn': 'middle tennessee',
                     # South Dakota State (Summit)
-                    's dakota st': 'south dakota state', 'south dakota st': 'south dakota state', 'sdsu': 'south dakota state',
+                    's dakota st': 'south dakota state', 'south dakota st': 'south dakota state',
                     # St. Thomas Minnesota (Summit)
                     'st thomas': 'st thomas mn', 'st thomas (mn)': 'st thomas mn', 'saint thomas': 'st thomas mn',
                     # Gardner-Webb (Big South)
@@ -14231,6 +14231,8 @@ def get_matchup_data(game_id):
                     'g washington': 'george washington', 'gw': 'george washington', 'geo washington': 'george washington',
                     # Saint Joseph's (A-10)
                     "saint joseph's": 'st josephs', "st joseph's": 'st josephs', 'st josephs': 'st josephs', 'sju': 'st josephs',
+                    # San Diego State (MWC) - SDSU abbreviation
+                    'sdsu': 'san diego state', 'san diego st': 'san diego state', 'san diego st.': 'san diego state',
                     # UIC / Illinois-Chicago (Horizon)
                     'uic': 'illinois chicago', 'illinois-chicago': 'illinois chicago', 'illinois chicago': 'illinois chicago', 'uic flames': 'illinois chicago',
                     # SIUE / SIU Edwardsville (OVC)
