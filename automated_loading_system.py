@@ -1351,6 +1351,86 @@ class AutomaticGameLoader:
         self.last_load_date = None
         self.elimination_filter = EliminationFilterSystem(db.session)
     
+    def _capture_covers_pregame_stats(self, today):
+        try:
+            from enhanced_scraping import get_covers_matchup_stats
+            from sports_app import Game
+            from team_identity import normalize as identity_normalize
+            
+            games = Game.query.filter_by(date=today).all()
+            if not games:
+                return
+            
+            covers_data = {}
+            for league in ['NBA', 'CBB', 'NHL']:
+                try:
+                    stats = get_covers_matchup_stats(league)
+                    if stats:
+                        covers_data[league] = stats
+                        logger.info(f"Covers pregame capture: {len(stats)} entries for {league}")
+                except Exception as e:
+                    logger.warning(f"Failed to fetch Covers {league}: {e}")
+            
+            saved_count = 0
+            for g in games:
+                if g.pregame_stats_captured:
+                    continue
+                    
+                league_stats = covers_data.get(g.league, {})
+                if not league_stats:
+                    continue
+                
+                def find_team_in_covers(team_name, stats_dict):
+                    if team_name in stats_dict:
+                        return stats_dict[team_name]
+                    team_lower = team_name.lower()
+                    for key in stats_dict:
+                        if key.lower() == team_lower or key.lower().startswith(team_lower) or team_lower.startswith(key.lower()):
+                            return stats_dict[key]
+                    try:
+                        team_canonical = identity_normalize(team_name, g.league)
+                        if team_canonical:
+                            for key in stats_dict:
+                                key_canonical = identity_normalize(key, g.league)
+                                if key_canonical == team_canonical:
+                                    return stats_dict[key]
+                    except:
+                        pass
+                    return {}
+                
+                away_covers = find_team_in_covers(g.away_team, league_stats)
+                home_covers = find_team_in_covers(g.home_team, league_stats)
+                
+                save_needed = False
+                if away_covers:
+                    g.pregame_away_ats = away_covers.get('ats', '--')
+                    g.pregame_away_ats_road = away_covers.get('ats_road', '--')
+                    g.pregame_away_l10 = away_covers.get('l10', '--')
+                    g.pregame_away_l10_ats = away_covers.get('l10_ats', '--')
+                    g.pregame_away_road_record = away_covers.get('road_record', '--')
+                    save_needed = True
+                if home_covers:
+                    g.pregame_home_ats = home_covers.get('ats', '--')
+                    g.pregame_home_ats_home = home_covers.get('ats_home', '--')
+                    g.pregame_home_l10 = home_covers.get('l10', '--')
+                    g.pregame_home_l10_ats = home_covers.get('l10_ats', '--')
+                    g.pregame_home_home_record = home_covers.get('home_record', '--')
+                    save_needed = True
+                if save_needed:
+                    if away_covers and home_covers:
+                        g.pregame_stats_captured = True
+                    saved_count += 1
+            
+            if saved_count > 0:
+                try:
+                    self.db.session.commit()
+                    logger.info(f"Covers pregame capture: saved stats for {saved_count} games")
+                except Exception as e:
+                    logger.warning(f"Failed to commit Covers pregame stats: {e}")
+                    self.db.session.rollback()
+        except Exception as e:
+            logger.error(f"Error in Covers pregame capture: {e}")
+    
     def check_and_load_if_new_day(self):
         """
         Check if it's a new day and load games automatically.
@@ -1370,6 +1450,7 @@ class AutomaticGameLoader:
         
         if existing_games > 0:
             logger.info(f"Found {existing_games} existing games for {today}")
+            self._capture_covers_pregame_stats(today)
             self.last_load_date = today
             return {"status": "games_exist", "count": existing_games}
         
@@ -1383,9 +1464,10 @@ class AutomaticGameLoader:
             result = fetch_odds_internal()
             
             if result.get('success'):
-                # Run elimination filters
                 nba_filter_result = self.elimination_filter.run_complete_filter('NBA', today)
                 cbb_filter_result = self.elimination_filter.run_complete_filter('CBB', today)
+                
+                self._capture_covers_pregame_stats(today)
                 
                 self.last_load_date = today
                 

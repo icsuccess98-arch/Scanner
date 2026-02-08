@@ -12929,27 +12929,32 @@ def spreads():
                 away_espn = nba_team_stats.get(g.away_team, {})
                 home_espn = nba_team_stats.get(g.home_team, {})
                 
-                # If Covers has data AND we haven't captured pre-game stats yet, save to DB
-                if away_covers and home_covers and not g.pregame_stats_captured:
-                    g.pregame_away_ats = away_covers.get('ats', '--')
-                    g.pregame_home_ats = home_covers.get('ats', '--')
-                    g.pregame_away_ats_road = away_covers.get('ats_road', '--')
-                    g.pregame_home_ats_home = home_covers.get('ats_home', '--')
-                    g.pregame_away_l10 = away_covers.get('l10', '--')
-                    g.pregame_home_l10 = home_covers.get('l10', '--')
-                    g.pregame_away_l10_ats = away_covers.get('l10_ats', '--')
-                    g.pregame_home_l10_ats = home_covers.get('l10_ats', '--')
-                    g.pregame_away_road_record = away_covers.get('road_record', '--')
-                    g.pregame_home_home_record = home_covers.get('home_record', '--')
-                    g.pregame_stats_captured = True
-                    try:
-                        db.session.commit()
-                        logging.info(f"Saved pre-game stats for {g.away_team} @ {g.home_team}")
-                    except Exception as e:
-                        logging.warning(f"Failed to save pre-game stats: {e}")
-                        db.session.rollback()
+                if not g.pregame_stats_captured and (away_covers or home_covers):
+                    save_needed = False
+                    if away_covers:
+                        g.pregame_away_ats = away_covers.get('ats', '--')
+                        g.pregame_away_ats_road = away_covers.get('ats_road', '--')
+                        g.pregame_away_l10 = away_covers.get('l10', '--')
+                        g.pregame_away_l10_ats = away_covers.get('l10_ats', '--')
+                        g.pregame_away_road_record = away_covers.get('road_record', '--')
+                        save_needed = True
+                    if home_covers:
+                        g.pregame_home_ats = home_covers.get('ats', '--')
+                        g.pregame_home_ats_home = home_covers.get('ats_home', '--')
+                        g.pregame_home_l10 = home_covers.get('l10', '--')
+                        g.pregame_home_l10_ats = home_covers.get('l10_ats', '--')
+                        g.pregame_home_home_record = home_covers.get('home_record', '--')
+                        save_needed = True
+                    if save_needed:
+                        if away_covers and home_covers:
+                            g.pregame_stats_captured = True
+                        try:
+                            db.session.commit()
+                            logging.info(f"Saved pre-game stats for {g.away_team} @ {g.home_team} (away={'Y' if away_covers else 'N'}, home={'Y' if home_covers else 'N'})")
+                        except Exception as e:
+                            logging.warning(f"Failed to save pre-game stats: {e}")
+                            db.session.rollback()
                 
-                # Use data priority: Covers (live) -> DB Pre-game -> ESPN fallback
                 g.away_overall = away_covers.get('record') or away_espn.get('overall_record', g.away_record)
                 g.home_overall = home_covers.get('record') or home_espn.get('overall_record', g.home_record)
                 g.away_road_record = away_covers.get('road_record') or g.pregame_away_road_record or away_espn.get('road_record', '--')
@@ -13068,27 +13073,32 @@ def spreads():
                 away_covers = find_covers_stats(g.away_team, covers_cbb_stats)
                 home_covers = find_covers_stats(g.home_team, covers_cbb_stats)
                 
-                # If Covers has data AND we haven't captured pre-game stats yet, save to DB
-                if away_covers and home_covers and not g.pregame_stats_captured:
-                    g.pregame_away_ats = away_covers.get('ats', '--')
-                    g.pregame_home_ats = home_covers.get('ats', '--')
-                    g.pregame_away_ats_road = away_covers.get('ats_road', '--')
-                    g.pregame_home_ats_home = home_covers.get('ats_home', '--')
-                    g.pregame_away_l10 = away_covers.get('l10', '--')
-                    g.pregame_home_l10 = home_covers.get('l10', '--')
-                    g.pregame_away_l10_ats = away_covers.get('l10_ats', '--')
-                    g.pregame_home_l10_ats = home_covers.get('l10_ats', '--')
-                    g.pregame_away_road_record = away_covers.get('road_record', '--')
-                    g.pregame_home_home_record = home_covers.get('home_record', '--')
-                    g.pregame_stats_captured = True
-                    try:
-                        db.session.commit()
-                        logging.info(f"Saved CBB pre-game stats for {g.away_team} @ {g.home_team}")
-                    except Exception as e:
-                        logging.warning(f"Failed to save CBB pre-game stats: {e}")
-                        db.session.rollback()
+                if not g.pregame_stats_captured and (away_covers or home_covers):
+                    save_needed = False
+                    if away_covers:
+                        g.pregame_away_ats = away_covers.get('ats', '--')
+                        g.pregame_away_ats_road = away_covers.get('ats_road', '--')
+                        g.pregame_away_l10 = away_covers.get('l10', '--')
+                        g.pregame_away_l10_ats = away_covers.get('l10_ats', '--')
+                        g.pregame_away_road_record = away_covers.get('road_record', '--')
+                        save_needed = True
+                    if home_covers:
+                        g.pregame_home_ats = home_covers.get('ats', '--')
+                        g.pregame_home_ats_home = home_covers.get('ats_home', '--')
+                        g.pregame_home_l10 = home_covers.get('l10', '--')
+                        g.pregame_home_l10_ats = home_covers.get('l10_ats', '--')
+                        g.pregame_home_home_record = home_covers.get('home_record', '--')
+                        save_needed = True
+                    if save_needed:
+                        if away_covers and home_covers:
+                            g.pregame_stats_captured = True
+                        try:
+                            db.session.commit()
+                            logging.info(f"Saved CBB pre-game stats for {g.away_team} @ {g.home_team} (away={'Y' if away_covers else 'N'}, home={'Y' if home_covers else 'N'})")
+                        except Exception as e:
+                            logging.warning(f"Failed to save CBB pre-game stats: {e}")
+                            db.session.rollback()
                 
-                # Use data priority: Covers (live) -> DB Pre-game
                 g.away_overall = away_covers.get('record', g.away_record)
                 g.home_overall = home_covers.get('record', g.home_record)
                 g.away_road_record = away_covers.get('road_record') or g.pregame_away_road_record or '--'
@@ -13115,27 +13125,32 @@ def spreads():
                 away_covers = covers_nhl_stats.get(g.away_team, {})
                 home_covers = covers_nhl_stats.get(g.home_team, {})
                 
-                # If Covers has data AND we haven't captured pre-game stats yet, save to DB
-                if away_covers and home_covers and not g.pregame_stats_captured:
-                    g.pregame_away_ats = away_covers.get('ats', '--')
-                    g.pregame_home_ats = home_covers.get('ats', '--')
-                    g.pregame_away_ats_road = away_covers.get('ats_road', '--')
-                    g.pregame_home_ats_home = home_covers.get('ats_home', '--')
-                    g.pregame_away_l10 = away_covers.get('l10', '--')
-                    g.pregame_home_l10 = home_covers.get('l10', '--')
-                    g.pregame_away_l10_ats = away_covers.get('l10_ats', '--')
-                    g.pregame_home_l10_ats = home_covers.get('l10_ats', '--')
-                    g.pregame_away_road_record = away_covers.get('road_record', '--')
-                    g.pregame_home_home_record = home_covers.get('home_record', '--')
-                    g.pregame_stats_captured = True
-                    try:
-                        db.session.commit()
-                        logging.info(f"Saved NHL pre-game stats for {g.away_team} @ {g.home_team}")
-                    except Exception as e:
-                        logging.warning(f"Failed to save NHL pre-game stats: {e}")
-                        db.session.rollback()
+                if not g.pregame_stats_captured and (away_covers or home_covers):
+                    save_needed = False
+                    if away_covers:
+                        g.pregame_away_ats = away_covers.get('ats', '--')
+                        g.pregame_away_ats_road = away_covers.get('ats_road', '--')
+                        g.pregame_away_l10 = away_covers.get('l10', '--')
+                        g.pregame_away_l10_ats = away_covers.get('l10_ats', '--')
+                        g.pregame_away_road_record = away_covers.get('road_record', '--')
+                        save_needed = True
+                    if home_covers:
+                        g.pregame_home_ats = home_covers.get('ats', '--')
+                        g.pregame_home_ats_home = home_covers.get('ats_home', '--')
+                        g.pregame_home_l10 = home_covers.get('l10', '--')
+                        g.pregame_home_l10_ats = home_covers.get('l10_ats', '--')
+                        g.pregame_home_home_record = home_covers.get('home_record', '--')
+                        save_needed = True
+                    if save_needed:
+                        if away_covers and home_covers:
+                            g.pregame_stats_captured = True
+                        try:
+                            db.session.commit()
+                            logging.info(f"Saved NHL pre-game stats for {g.away_team} @ {g.home_team} (away={'Y' if away_covers else 'N'}, home={'Y' if home_covers else 'N'})")
+                        except Exception as e:
+                            logging.warning(f"Failed to save NHL pre-game stats: {e}")
+                            db.session.rollback()
                 
-                # Use data priority: Covers (live) -> DB Pre-game
                 g.away_overall = away_covers.get('record', g.away_record)
                 g.home_overall = home_covers.get('record', g.home_record)
                 g.away_road_record = away_covers.get('road_record') or g.pregame_away_road_record or '--'
