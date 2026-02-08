@@ -9381,9 +9381,19 @@ def fetch_kenpom_conference_ratings() -> dict:
     return kenpom_conference_ratings_cache
 
 
-def fetch_kenpom_fanmatch() -> dict:
+def fetch_kenpom_fanmatch(target_date: str = None) -> dict:
     """
-    Fetch KenPom Fanmatch data - fan interest/engagement metrics.
+    Fetch KenPom Fanmatch predictions - per-game predicted scores and spreads.
+    The fanmatch API requires a date parameter and returns game-level predictions.
+    
+    Returns dict keyed by 'visitor_vs_home' (lowercased) with:
+        - visitor, home team names
+        - visitor_pred, home_pred (predicted scores)
+        - kenpom_spread (positive = visitor favored, negative = home favored, from visitor perspective)
+        - home_wp (home win probability %)
+        - pred_tempo
+        - thrill_score
+        - home_rank, visitor_rank
     """
     global kenpom_fanmatch_cache, kenpom_cache_date
     today = date.today()
@@ -9391,26 +9401,135 @@ def fetch_kenpom_fanmatch() -> dict:
     if kenpom_cache_date == today and kenpom_fanmatch_cache:
         return kenpom_fanmatch_cache
 
-    data = fetch_kenpom_api('fanmatch')
-    if not data:
+    if not target_date:
+        target_date = today.strftime('%Y-%m-%d')
+
+    api_key = os.environ.get('CBB_API_KEY', '')
+    if not api_key:
+        logger.warning("CBB_API_KEY not set, skipping KenPom fanmatch fetch")
         return kenpom_fanmatch_cache
 
-    cache = {}
-    for team in data:
-        try:
-            team_name = team.get('TeamName', '').lower()
-            if team_name:
-                cache[team_name] = {
-                    'fanmatch': team.get('Fanmatch', 0),
-                    'fanmatch_rank': team.get('RankFanmatch', 0),
-                }
-        except Exception:
-            continue
+    try:
+        url = f"https://kenpom.com/api.php?endpoint=fanmatch&d={target_date}"
+        headers = {
+            'Authorization': f'Bearer {api_key}',
+            'User-Agent': 'Mozilla/5.0 (compatible; SportsApp/1.0)'
+        }
+        resp = requests.get(url, headers=headers, timeout=30)
+        if resp.status_code != 200:
+            logger.warning(f"KenPom fanmatch API returned {resp.status_code}: {resp.text[:200]}")
+            return kenpom_fanmatch_cache
 
-    if cache:
-        kenpom_fanmatch_cache = cache
-        logger.info(f"KenPom Fanmatch loaded: {len(cache)} teams")
-    return kenpom_fanmatch_cache
+        data = resp.json()
+        if not isinstance(data, list):
+            return kenpom_fanmatch_cache
+
+        cache = {}
+        for game in data:
+            try:
+                visitor = game.get('Visitor', '')
+                home = game.get('Home', '')
+                if not visitor or not home:
+                    continue
+
+                visitor_pred = game.get('VisitorPred', 0)
+                home_pred = game.get('HomePred', 0)
+                kenpom_spread = visitor_pred - home_pred
+
+                key = f"{visitor.lower()}_vs_{home.lower()}"
+                cache[key] = {
+                    'visitor': visitor,
+                    'home': home,
+                    'visitor_pred': visitor_pred,
+                    'home_pred': home_pred,
+                    'kenpom_spread': round(kenpom_spread, 1),
+                    'home_wp': game.get('HomeWP', 50),
+                    'pred_tempo': game.get('PredTempo', 68),
+                    'thrill_score': game.get('ThrillScore', 0),
+                    'home_rank': game.get('HomeRank', 999),
+                    'visitor_rank': game.get('VisitorRank', 999),
+                }
+            except Exception:
+                continue
+
+        if cache:
+            kenpom_fanmatch_cache = cache
+            logger.info(f"KenPom Fanmatch predictions loaded: {len(cache)} games")
+        return kenpom_fanmatch_cache
+    except Exception as e:
+        logger.warning(f"KenPom fanmatch fetch error: {e}")
+        return kenpom_fanmatch_cache
+
+
+def get_kenpom_prediction(away_team: str, home_team: str) -> dict:
+    """
+    Look up KenPom fanmatch prediction for a specific game.
+    Handles team name normalization/matching.
+    Returns dict with kenpom_spread, predicted scores, etc. or empty dict if not found.
+    """
+    cache = fetch_kenpom_fanmatch()
+    if not cache:
+        return {}
+
+    away_lower = away_team.lower().strip()
+    home_lower = home_team.lower().strip()
+
+    direct_key = f"{away_lower}_vs_{home_lower}"
+    if direct_key in cache:
+        return cache[direct_key]
+
+    away_normalized = normalize_cbb_team_for_kenpom(away_lower)
+    home_normalized = normalize_cbb_team_for_kenpom(home_lower)
+
+    norm_key = f"{away_normalized}_vs_{home_normalized}"
+    if norm_key in cache:
+        return cache[norm_key]
+
+    for key, val in cache.items():
+        cached_visitor = val['visitor'].lower()
+        cached_home = val['home'].lower()
+
+        if (fuzzy_team_match(away_lower, cached_visitor) and
+            fuzzy_team_match(home_lower, cached_home)):
+            return val
+
+    return {}
+
+
+def normalize_cbb_team_for_kenpom(name: str) -> str:
+    """Normalize team name to match KenPom naming conventions."""
+    kenpom_aliases = {
+        'uic': 'illinois chicago', 'illinois-chicago': 'illinois chicago',
+        'uconn': 'connecticut', 'ole miss': 'mississippi',
+        'siue': 'siu edwardsville', 'etsu': 'east tennessee st.',
+        'fau': 'florida atlantic', 'ucf': 'central florida',
+        'usf': 'south florida', 'smu': 'smu',
+        'byu': 'brigham young', 'lsu': 'louisiana st.',
+        'unlv': 'nevada las vegas', 'utep': 'texas el paso',
+        'vcu': 'virginia commonwealth', 'wvu': 'west virginia',
+        'tcu': 'tcu', 'umass': 'massachusetts',
+        'usc': 'southern california', 'ucla': 'ucla',
+        'n iowa': 'northern iowa', 'uni': 'northern iowa',
+        's illinois': 'southern illinois', 'siu': 'southern illinois',
+        'murray st': 'murray st.', 'loyola chicago': 'loyola chicago',
+    }
+    return kenpom_aliases.get(name, name)
+
+
+def fuzzy_team_match(name1: str, name2: str) -> bool:
+    """Fuzzy match two team names, handling St./State, abbreviations, etc."""
+    if name1 == name2:
+        return True
+    n1 = name1.replace('.', '').replace('-', ' ').replace("'", '').strip()
+    n2 = name2.replace('.', '').replace('-', ' ').replace("'", '').strip()
+    if n1 == n2:
+        return True
+    if n1.replace(' st', ' state') == n2 or n2.replace(' st', ' state') == n1:
+        return True
+    if n1 in n2 or n2 in n1:
+        if len(n1) >= 4 and len(n2) >= 4:
+            return True
+    return False
 
 
 def fetch_kenpom_teams() -> dict:
