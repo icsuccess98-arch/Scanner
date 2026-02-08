@@ -9102,7 +9102,12 @@ def fetch_kenpom_api(endpoint: str, year: int = 2026) -> Optional[list]:
         return None
 
     try:
-        url = f"https://kenpom.com/api.php?endpoint={endpoint}&y={year}"
+        # Fanmatch endpoint uses d=YYYY-MM-DD param instead of y=year
+        if endpoint == 'fanmatch':
+            today_str = date.today().strftime('%Y-%m-%d')
+            url = f"https://kenpom.com/api.php?endpoint={endpoint}&d={today_str}"
+        else:
+            url = f"https://kenpom.com/api.php?endpoint={endpoint}&y={year}"
         headers = {
             'Authorization': f'Bearer {api_key}',
             'User-Agent': 'Mozilla/5.0 (compatible; SportsApp/1.0)'
@@ -9383,7 +9388,8 @@ def fetch_kenpom_conference_ratings() -> dict:
 
 def fetch_kenpom_fanmatch() -> dict:
     """
-    Fetch KenPom Fanmatch data - fan interest/engagement metrics.
+    Fetch KenPom Fanmatch data - game-level predictions.
+    Returns dict keyed by "visitor_lower|home_lower" with predicted scores and win probability.
     """
     global kenpom_fanmatch_cache, kenpom_cache_date
     today = date.today()
@@ -9396,21 +9402,93 @@ def fetch_kenpom_fanmatch() -> dict:
         return kenpom_fanmatch_cache
 
     cache = {}
-    for team in data:
+    for game in data:
         try:
-            team_name = team.get('TeamName', '').lower()
-            if team_name:
-                cache[team_name] = {
-                    'fanmatch': team.get('Fanmatch', 0),
-                    'fanmatch_rank': team.get('RankFanmatch', 0),
+            visitor = game.get('Visitor', '').strip()
+            home = game.get('Home', '').strip()
+            if visitor and home:
+                key = f"{visitor.lower()}|{home.lower()}"
+                cache[key] = {
+                    'visitor': visitor,
+                    'home': home,
+                    'visitor_pred': game.get('VisitorPred', 0),
+                    'home_pred': game.get('HomePred', 0),
+                    'home_wp': game.get('HomeWP', 0.5),
+                    'pred_tempo': game.get('PredTempo', 0),
                 }
         except Exception:
             continue
 
     if cache:
         kenpom_fanmatch_cache = cache
-        logger.info(f"KenPom Fanmatch loaded: {len(cache)} teams")
+        logger.info(f"KenPom Fanmatch loaded: {len(cache)} game predictions")
     return kenpom_fanmatch_cache
+
+
+def get_kenpom_prediction(away_team: str, home_team: str) -> Optional[dict]:
+    """
+    Look up KenPom fanmatch prediction for a specific game.
+    Returns dict with predicted scores and spread, or None if not found.
+    """
+    if not kenpom_fanmatch_cache:
+        return None
+
+    away_lower = away_team.lower().strip()
+    home_lower = home_team.lower().strip()
+
+    # Direct key lookup
+    key = f"{away_lower}|{home_lower}"
+    if key in kenpom_fanmatch_cache:
+        data = kenpom_fanmatch_cache[key]
+        away_pred = data['visitor_pred']
+        home_pred = data['home_pred']
+        predicted_spread = away_pred - home_pred  # Away perspective: negative = away favored
+        return {
+            'away_pred': away_pred,
+            'home_pred': home_pred,
+            'predicted_spread': round(predicted_spread, 1),
+            'home_wp': data['home_wp'],
+            'pred_tempo': data['pred_tempo'],
+        }
+
+    # Fuzzy matching using team name normalization
+    for cache_key, data in kenpom_fanmatch_cache.items():
+        cache_away, cache_home = cache_key.split('|')
+        if (_kenpom_team_matches(away_lower, cache_away) and
+            _kenpom_team_matches(home_lower, cache_home)):
+            away_pred = data['visitor_pred']
+            home_pred = data['home_pred']
+            predicted_spread = away_pred - home_pred
+            return {
+                'away_pred': away_pred,
+                'home_pred': home_pred,
+                'predicted_spread': round(predicted_spread, 1),
+                'home_wp': data['home_wp'],
+                'pred_tempo': data['pred_tempo'],
+            }
+
+    return None
+
+
+def _kenpom_team_matches(team1: str, team2: str) -> bool:
+    """Check if two team names likely refer to the same team."""
+    if team1 == team2:
+        return True
+    # Try CBB aliases
+    t1_norm = normalize_cbb_team_name(team1)
+    t2_norm = normalize_cbb_team_name(team2)
+    if t1_norm == t2_norm:
+        return True
+    # Check if one contains the other (for partial matches)
+    if len(team1) >= 4 and len(team2) >= 4:
+        if team1 in team2 or team2 in team1:
+            return True
+    # Token overlap
+    t1_tokens = {w for w in team1.split() if len(w) >= 4}
+    t2_tokens = {w for w in team2.split() if len(w) >= 4}
+    if t1_tokens and t2_tokens and t1_tokens & t2_tokens:
+        return True
+    return False
 
 
 def fetch_kenpom_teams() -> dict:
@@ -11027,16 +11105,17 @@ def fetch_odds_internal() -> dict:
                         bookmakers = event.get("bookmakers", [])
                         bovada_book = next((b for b in bookmakers if b.get("key") == "bovada"), None)
                         pinnacle_book = next((b for b in bookmakers if b.get("key") == "pinnacle"), None)
-                        if not bovada_book:
-                            continue  # Skip games not on Bovada
-                        
-                        # Extract Bovada markets
-                        bovada_markets = {m.get("key"): m for m in bovada_book.get("markets", [])}
+                        if not bovada_book and not pinnacle_book:
+                            continue  # Skip games with no supported books
+
+                        # Use Bovada as primary, Pinnacle as fallback
+                        primary_book = bovada_book or pinnacle_book
+                        primary_markets = {m.get("key"): m for m in primary_book.get("markets", [])}
                         pinnacle_markets = {m.get("key"): m for m in pinnacle_book.get("markets", [])} if pinnacle_book else {}
                         
                         # Process TOTALS with SHARP qualification
-                        if "totals" in bovada_markets:
-                            totals_market = bovada_markets["totals"]
+                        if "totals" in primary_markets:
+                            totals_market = primary_markets["totals"]
                             outcomes = totals_market.get("outcomes", [])
                             over_outcome = next((o for o in outcomes if o.get("name") == "Over"), None)
                             under_outcome = next((o for o in outcomes if o.get("name") == "Under"), None)
@@ -11191,11 +11270,93 @@ def fetch_odds_internal() -> dict:
                                                             game.direction is not None)
                                         
                                     lines_updated += 1
-        
-        # STEP 4: Commit the atomic transaction
+
+                        # Process SPREADS from odds API
+                        if "spreads" in primary_markets:
+                            spreads_market = primary_markets["spreads"]
+                            outcomes = spreads_market.get("outcomes", [])
+                            # Find the away team outcome for spread
+                            away_outcome = None
+                            home_outcome = None
+                            for o in outcomes:
+                                o_name = o.get("name", "")
+                                if teams_match(game.away_team, o_name):
+                                    away_outcome = o
+                                elif teams_match(game.home_team, o_name):
+                                    home_outcome = o
+
+                            if away_outcome:
+                                spread_val = away_outcome.get("point")
+                                spread_odds = away_outcome.get("price", -110)
+                                if spread_val is not None:
+                                    game.spread_line = spread_val  # Away perspective
+                                    game.bovada_spread_odds = spread_odds
+
+                                    # Get Pinnacle spread odds for EV calc
+                                    if pinnacle_markets.get("spreads"):
+                                        pinn_spread_outcomes = pinnacle_markets["spreads"].get("outcomes", [])
+                                        for po in pinn_spread_outcomes:
+                                            if teams_match(game.away_team, po.get("name", "")):
+                                                game.pinnacle_spread_odds = po.get("price")
+                                                break
+
+
+        # STEP 4: Attach KenPom data to ALL CBB games (not just ones with odds)
+        kenpom_attached = 0
+        cbb_games = [g for g in games_to_update if g.league == 'CBB']
+        for game in cbb_games:
+            if game.torvik_away_rank is not None:
+                continue  # Already has KenPom data from odds processing
+            torvik_proj = calculate_torvik_projection(game.away_team, game.home_team)
+            if torvik_proj:
+                game.torvik_tempo = torvik_proj.get('game_tempo')
+                game.torvik_away_adj_o = torvik_proj.get('away_adj_o')
+                game.torvik_away_adj_d = torvik_proj.get('away_adj_d')
+                game.torvik_home_adj_o = torvik_proj.get('home_adj_o')
+                game.torvik_home_adj_d = torvik_proj.get('home_adj_d')
+                game.torvik_away_rank = torvik_proj.get('away_rank')
+                game.torvik_home_rank = torvik_proj.get('home_rank')
+                game.kenpom_away_efg = torvik_proj.get('away_efg')
+                game.kenpom_home_efg = torvik_proj.get('home_efg')
+                game.kenpom_away_to = torvik_proj.get('away_to')
+                game.kenpom_home_to = torvik_proj.get('home_to')
+                game.kenpom_away_or = torvik_proj.get('away_or')
+                game.kenpom_home_or = torvik_proj.get('home_or')
+                game.kenpom_away_ft_rate = torvik_proj.get('away_ft_rate')
+                game.kenpom_home_ft_rate = torvik_proj.get('home_ft_rate')
+                game.kenpom_away_3pt = torvik_proj.get('away_3pt')
+                game.kenpom_home_3pt = torvik_proj.get('home_3pt')
+                game.kenpom_away_2pt = torvik_proj.get('away_2pt')
+                game.kenpom_home_2pt = torvik_proj.get('home_2pt')
+                game.kenpom_away_ft_pct = torvik_proj.get('away_ft_pct')
+                game.kenpom_home_ft_pct = torvik_proj.get('home_ft_pct')
+                game.kenpom_away_d_efg = torvik_proj.get('away_d_efg')
+                game.kenpom_home_d_efg = torvik_proj.get('home_d_efg')
+                game.kenpom_away_d_to = torvik_proj.get('away_d_to')
+                game.kenpom_home_d_to = torvik_proj.get('home_d_to')
+                game.kenpom_away_height = torvik_proj.get('away_height')
+                game.kenpom_home_height = torvik_proj.get('home_height')
+                game.kenpom_away_exp = torvik_proj.get('away_exp')
+                game.kenpom_home_exp = torvik_proj.get('home_exp')
+                game.kenpom_away_sos = torvik_proj.get('away_sos')
+                game.kenpom_home_sos = torvik_proj.get('home_sos')
+                game.kenpom_away_sos_rank = torvik_proj.get('away_sos_rank')
+                game.kenpom_home_sos_rank = torvik_proj.get('home_sos_rank')
+                game.kenpom_away_conf = torvik_proj.get('away_conf')
+                game.kenpom_home_conf = torvik_proj.get('home_conf')
+                # Also set projections if game has a total line but wasn't processed
+                if game.line is not None and game.projected_total is None:
+                    game.projected_total = torvik_proj['projected_total']
+                    game.expected_away = torvik_proj['away_points']
+                    game.expected_home = torvik_proj['home_points']
+                    game.projected_margin = torvik_proj['home_points'] - torvik_proj['away_points']
+                kenpom_attached += 1
+        logger.info(f"KenPom data attached to {kenpom_attached} additional CBB games")
+
+        # STEP 5: Commit the atomic transaction
         db.session.commit()
         logger.info(f"Odds update successful: {lines_updated} totals")
-        
+
     except Exception as e:
         # ROLLBACK on any failure - preserves existing lines
         db.session.rollback()
