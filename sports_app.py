@@ -584,7 +584,7 @@ def calculate_rlm(game) -> bool:
     if abs(movement) == 0:
         return False
     
-    if away_money < 54 and home_money < 54:
+    if away_money < 60 and home_money < 60:
         return False
     
     favorite_team = None
@@ -602,8 +602,8 @@ def calculate_rlm(game) -> bool:
     fav_money = away_money if fav_is_away else home_money
     dog_money = home_money if fav_is_away else away_money
     
-    money_on_favorite = fav_money >= 54
-    money_on_underdog = dog_money >= 54
+    money_on_favorite = fav_money >= 60
+    money_on_underdog = dog_money >= 60
     
     if fav_is_away:
         line_moved_up = movement < 0
@@ -2968,8 +2968,8 @@ class MatchupIntelligence:
                         fav_money_pct = away_money_pct if fav_is_away else home_money_pct
                         dog_money_pct = home_money_pct if fav_is_away else away_money_pct
                         
-                        money_on_favorite = fav_money_pct >= 54
-                        money_on_underdog = dog_money_pct >= 54
+                        money_on_favorite = fav_money_pct >= 60
+                        money_on_underdog = dog_money_pct >= 60
                         
                         if fav_is_away:
                             line_moved_up = movement < 0
