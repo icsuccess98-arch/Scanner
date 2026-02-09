@@ -606,11 +606,11 @@ def calculate_rlm(game) -> bool:
     money_on_underdog = dog_money >= 54
     
     if fav_is_away:
-        line_moved_up = movement < -0.4
-        line_moved_down = movement > 0.4
+        line_moved_up = movement < -1.4
+        line_moved_down = movement > 1.4
     else:
-        line_moved_up = movement > 0.4
-        line_moved_down = movement < -0.4
+        line_moved_up = movement > 1.4
+        line_moved_down = movement < -1.4
     
     rlm_detected = False
     sharp_team = None
@@ -2972,11 +2972,11 @@ class MatchupIntelligence:
                         money_on_underdog = dog_money_pct >= 54
                         
                         if fav_is_away:
-                            line_moved_up = movement < -0.4
-                            line_moved_down = movement > 0.4
+                            line_moved_up = movement < -1.4
+                            line_moved_down = movement > 1.4
                         else:
-                            line_moved_up = movement > 0.4
-                            line_moved_down = movement < -0.4
+                            line_moved_up = movement > 1.4
+                            line_moved_down = movement < -1.4
                         
                         if money_on_favorite and line_moved_down:
                             spread_rlm_detected = True
@@ -12827,10 +12827,16 @@ def spreads():
         def teams_match(vsin_team: str, game_team: str) -> bool:
             if not vsin_team or not game_team:
                 return False
-            vsin_lower = vsin_team.lower().strip()
-            game_lower = game_team.lower().strip()
+            import html as html_mod
+            vsin_lower = html_mod.unescape(vsin_team.lower().strip())
+            game_lower = html_mod.unescape(game_team.lower().strip())
             # Exact match (case-insensitive)
             if vsin_lower == game_lower:
+                return True
+            # Use team_identity canonical matching first
+            vsin_canonical = identity_normalize(vsin_lower, league)
+            game_canonical = identity_normalize(game_lower, league)
+            if vsin_canonical and game_canonical and vsin_canonical == game_canonical:
                 return True
             # Get all variants for both names
             vsin_variants = get_all_variants(vsin_team)
@@ -13110,6 +13116,7 @@ def spreads():
                     """Try to find Covers stats using team_identity canonical matching."""
                     import unicodedata
                     import re
+                    import html as html_module
                     
                     def strip_accents(text):
                         return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
@@ -13117,6 +13124,8 @@ def spreads():
                     def strip_ranking(text):
                         """Remove ranking numbers like (9) or (12) from team names."""
                         return re.sub(r'\s*\(\d+\)\s*', '', text).strip()
+                    
+                    team_name = html_module.unescape(team_name)
                     
                     # Direct lookup first
                     if team_name in stats_dict:

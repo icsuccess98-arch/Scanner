@@ -34,6 +34,7 @@ CBB_CANONICAL_ALIASES: Dict[str, str] = {
     "arkansas": "arkansas", "ark": "arkansas", "arky": "arkansas",
     "arkansas state": "arkansas_state", "arst": "arkansas_state", "ark st": "arkansas_state", "arkansas st": "arkansas_state",
     "arkansas pine bluff": "arkansas_pine_bluff", "uapb": "arkansas_pine_bluff", "ark pb": "arkansas_pine_bluff",
+    "ar-pine bluff": "arkansas_pine_bluff", "ar pine bluff": "arkansas_pine_bluff", "ark-pine bluff": "arkansas_pine_bluff",
     "army": "army", "army west point": "army",
     "auburn": "auburn", "aub": "auburn",
     
@@ -66,6 +67,7 @@ CBB_CANONICAL_ALIASES: Dict[str, str] = {
     "campbell": "campbell", "camp": "campbell",
     "canisius": "canisius", "can": "canisius",
     "central arkansas": "central_arkansas", "uca": "central_arkansas", "cent ark": "central_arkansas",
+    "c arkansas": "central_arkansas", "c ark": "central_arkansas",
     "central connecticut": "central_connecticut", "ccsu": "central_connecticut", "cent conn": "central_connecticut",
     "central florida": "ucf", "ucf": "ucf", "cf": "ucf",
     "central michigan": "central_michigan", "cmu": "central_michigan", "cent mich": "central_michigan",
@@ -149,6 +151,7 @@ CBB_CANONICAL_ALIASES: Dict[str, str] = {
     "holy cross": "holy_cross", "hc": "holy_cross",
     "houston": "houston", "hou": "houston", "uh": "houston",
     "houston baptist": "houston_christian", "hbu": "houston_christian", "houston christian": "houston_christian",
+    "hou christian": "houston_christian", "hou chris": "houston_christian", "hcu": "houston_christian",
     "howard": "howard", "how": "howard",
     
     # I
@@ -211,6 +214,8 @@ CBB_CANONICAL_ALIASES: Dict[str, str] = {
     "massachusetts": "massachusetts", "mass": "massachusetts", "umass": "massachusetts",
     "mcneese": "mcneese", "mcn": "mcneese", "mcneese state": "mcneese", "mcneese st": "mcneese",
     "memphis": "memphis", "mem": "memphis",
+    "mid-atlantic christian": "mid_atlantic_christian", "mid atlantic christian": "mid_atlantic_christian",
+    "mid atl chrstn": "mid_atlantic_christian", "macu": "mid_atlantic_christian",
     "mercer": "mercer", "merc": "mercer",
     "mercyhurst": "mercyhurst", "mercy": "mercyhurst", "mercyhurst lakers": "mercyhurst",
     "merrimack": "merrimack", "merr": "merrimack",
@@ -264,6 +269,7 @@ CBB_CANONICAL_ALIASES: Dict[str, str] = {
     "northern kentucky": "northern_kentucky", "nku": "northern_kentucky", "n kentucky": "northern_kentucky",
     "northwestern": "northwestern", "nw": "northwestern",
     "northwestern state": "northwestern_state", "nwst": "northwestern_state", "nw st": "northwestern_state", "northwestern st": "northwestern_state",
+    "n'western st": "northwestern_state", "nwestern st": "northwestern_state", "n western st": "northwestern_state",
     "notre dame": "notre_dame", "nd": "notre_dame",
     
     # O
@@ -346,6 +352,7 @@ CBB_CANONICAL_ALIASES: Dict[str, str] = {
     "st thomas": "st_thomas", "stmn": "st_thomas", "saint thomas": "st_thomas",
     "stanford": "stanford", "stan": "stanford",
     "stephen f austin": "stephen_f_austin", "sfa": "stephen_f_austin",
+    "sf austin": "stephen_f_austin", "s f austin": "stephen_f_austin", "stephen f. austin": "stephen_f_austin",
     "stetson": "stetson", "stet": "stetson",
     "stonehill": "stonehill", "shill": "stonehill", "stonehill skyhawks": "stonehill",
     "stony brook": "stony_brook", "ston": "stony_brook",
@@ -362,6 +369,7 @@ CBB_CANONICAL_ALIASES: Dict[str, str] = {
     "texas": "texas", "tex": "texas", "ut": "texas",
     "texas a&m": "texas_am", "tamu": "texas_am", "tex a&m": "texas_am",
     "texas a&m commerce": "texas_am_commerce", "tamc": "texas_am_commerce",
+    "e texas a&m": "texas_am_commerce", "east texas a&m": "texas_am_commerce", "etamu": "texas_am_commerce", "east texas am": "texas_am_commerce",
     "texas a&m corpus christi": "texas_am_cc", "amcc": "texas_am_cc", "tex a&m cc": "texas_am_cc",
     "texas southern": "texas_southern", "txso": "texas_southern", "tex so": "texas_southern",
     "texas state": "texas_state", "txst": "texas_state", "tex st": "texas_state", "texas st": "texas_state",
@@ -388,7 +396,7 @@ CBB_CANONICAL_ALIASES: Dict[str, str] = {
     "usc": "usc", "southern california": "usc", "southern cal": "usc",
     "usc upstate": "south_carolina_upstate",
     "ut arlington": "ut_arlington", "uta": "ut_arlington", "texas arlington": "ut_arlington",
-    "ut rio grande valley": "utrgv", "utrgv": "utrgv",
+    "ut rio grande valley": "utrgv", "utrgv": "utrgv", "ut rio grande": "utrgv",
     "utah": "utah", "uta": "utah",
     "utah state": "utah_state", "utst": "utah_state", "utah st": "utah_state",
     "utah tech": "utah_tech", "utch": "utah_tech",
@@ -659,6 +667,7 @@ CBB_COVERS_DISPLAY: Dict[str, Dict] = {
     "massachusetts": {"abbrev": "MASS", "logo_key": "massachusetts"},
     "mcneese": {"abbrev": "MCN", "logo_key": "mcneese"},
     "memphis": {"abbrev": "MEM", "logo_key": "memphis"},
+    "mid_atlantic_christian": {"abbrev": "MACU", "logo_key": "mid-atlantic-christian"},
     "mercer": {"abbrev": "MERC", "logo_key": "mercer"},
     "mercyhurst": {"abbrev": "MRCY", "logo_key": "mercyhurst"},
     "merrimack": {"abbrev": "MERR", "logo_key": "merrimack"},
