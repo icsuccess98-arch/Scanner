@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>730's Locks - Tennis</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#d4af37">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0a0a12;
+            --bg-card: #12101a;
+            --bg-input: #1a1825;
+            --border: #2d2640;
+            --text: #F8F8FF;
+            --text-muted: #9990B0;
+            --accent: #7B2CBF;
+            --emerald: #50C878;
+            --green: #50C878;
+            --amber: #FFD700;
+            --crimson: #DC143C;
+            --red: #DC143C;
+            --gold: #FFD700;
+            --gold-light: #FFEC8B;
+            --gold-dark: #DAA520;
+            --purple: #7B2CBF;
+            --purple-light: #9D4EDD;
+            --tennis-green: #2E7D32;
+            --tennis-atp: #0288D1;
+            --tennis-wta: #E91E63;
+        }
+        * { box-sizing: border-box; }
+        html, body { overflow-x: hidden; max-width: 100vw; }
+        body {
+            background: var(--bg-dark);
+            color: var(--text);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
+        }
+        .header {
+            background: linear-gradient(180deg, #16131f 0%, var(--bg-dark) 100%);
+            padding: 1.5rem 1rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+        .brand {
+            font-size: 2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 50%, var(--gold) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            white-space: nowrap;
+            text-decoration: none;
+        }
+        .brand i { -webkit-text-fill-color: var(--gold); filter: drop-shadow(0 0 12px rgba(255, 215, 0, 0.6)); font-size: 1.75rem; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 1rem; }
+
+        .page-title {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+        .page-title h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--gold);
+            margin-bottom: 0.25rem;
+        }
+        .page-title .subtitle {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .tour-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .tour-tab {
+            padding: 0.5rem 1.25rem;
+            border-radius: 25px;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .tour-tab:hover { border-color: var(--gold); color: var(--text); }
+        .tour-tab.active { background: linear-gradient(135deg, var(--gold-dark), var(--gold)); color: #000; border-color: var(--gold); }
+        .tour-tab .count { font-size: 0.7rem; opacity: 0.8; margin-left: 0.25rem; }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 0.75rem;
+            text-align: center;
+        }
+        .stat-card .value { font-size: 1.5rem; font-weight: 800; color: var(--gold); }
+        .stat-card .label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; }
+
+        .action-bar {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .btn-action {
+            padding: 0.6rem 1.25rem;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            color: var(--text);
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .btn-action:hover { border-color: var(--gold); background: rgba(255,215,0,0.1); }
+        .btn-action.primary { background: linear-gradient(135deg, var(--gold-dark), var(--gold)); color: #000; border-color: var(--gold); }
+        .btn-action.wta { background: linear-gradient(135deg, #880E4F, #E91E63); color: #fff; border-color: #E91E63; }
+        .btn-action:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .section-header h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin: 0;
+        }
+        .section-header .badge {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 10px;
+        }
+        .badge-atp { background: rgba(2,136,209,0.2); color: var(--tennis-atp); }
+        .badge-wta { background: rgba(233,30,99,0.2); color: var(--tennis-wta); }
+        .badge-live { background: rgba(220,20,60,0.2); color: var(--crimson); animation: pulse-badge 2s infinite; }
+        @keyframes pulse-badge { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+        .match-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .match-card:hover { border-color: var(--gold); transform: translateY(-1px); box-shadow: 0 4px 20px rgba(255,215,0,0.1); }
+        .match-card.analyzed { border-color: var(--emerald); }
+        .match-card .tournament-info {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .match-card .players {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        .match-card .player {
+            flex: 1;
+            text-align: center;
+        }
+        .match-card .player-name {
+            font-weight: 700;
+            font-size: 0.95rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 160px;
+            display: inline-block;
+        }
+        .match-card .player-info {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+        .match-card .vs {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            padding: 0 0.5rem;
+            font-weight: 600;
+        }
+        .match-card .score-display {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        .match-card .set-score {
+            background: var(--bg-input);
+            border-radius: 6px;
+            padding: 0.2rem 0.5rem;
+            font-size: 0.8rem;
+            font-weight: 700;
+            min-width: 40px;
+            text-align: center;
+        }
+        .match-card .set-score.won { color: var(--emerald); }
+        .match-card .set-score.lost { color: var(--crimson); }
+        .match-card .set-total {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-align: center;
+        }
+        .match-card .status-badge {
+            font-size: 0.65rem;
+            padding: 0.15rem 0.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+        .status-scheduled { background: rgba(123,44,191,0.2); color: var(--purple-light); }
+        .status-live { background: rgba(220,20,60,0.2); color: var(--crimson); }
+        .status-final { background: rgba(80,200,120,0.15); color: var(--emerald); }
+
+        .match-card .rank-badge {
+            font-size: 0.65rem;
+            background: var(--bg-input);
+            border-radius: 4px;
+            padding: 0.1rem 0.35rem;
+            color: var(--gold);
+            font-weight: 700;
+        }
+        .match-card .seed-badge {
+            font-size: 0.65rem;
+            color: var(--amber);
+            font-weight: 600;
+        }
+        .match-card .country-flag {
+            width: 16px;
+            height: 12px;
+            border-radius: 2px;
+            vertical-align: middle;
+        }
+
+        .analyze-btn {
+            font-size: 0.7rem;
+            padding: 0.3rem 0.75rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-input);
+            color: var(--gold);
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            margin-top: 0.5rem;
+        }
+        .analyze-btn:hover { background: rgba(255,215,0,0.15); border-color: var(--gold); }
+
+        .analysis-panel {
+            display: none;
+            background: var(--bg-input);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-top: 0.75rem;
+            border: 1px solid var(--border);
+        }
+        .analysis-panel.show { display: block; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+        .l10-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            margin-top: 0.5rem;
+        }
+        .l10-player {
+            background: rgba(10,10,18,0.5);
+            border-radius: 10px;
+            padding: 0.75rem;
+        }
+        .l10-player .player-header {
+            font-weight: 700;
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .l10-player .form-display {
+            display: flex;
+            gap: 0.15rem;
+            margin-bottom: 0.5rem;
+        }
+        .form-dot {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.55rem;
+            font-weight: 800;
+        }
+        .form-dot.win { background: rgba(80,200,120,0.3); color: var(--emerald); }
+        .form-dot.loss { background: rgba(220,20,60,0.3); color: var(--crimson); }
+
+        .set-avg-bar {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.25rem;
+        }
+        .set-avg-bar .label { font-size: 0.65rem; color: var(--text-muted); min-width: 70px; }
+        .set-avg-bar .bar-track {
+            flex: 1;
+            height: 6px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 3px;
+            position: relative;
+        }
+        .set-avg-bar .bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.5s;
+        }
+        .bar-over { background: var(--crimson); }
+        .bar-under { background: var(--emerald); }
+        .set-avg-bar .value { font-size: 0.75rem; font-weight: 700; min-width: 30px; text-align: right; }
+
+        .recommendation-card {
+            background: rgba(10,10,18,0.5);
+            border-radius: 10px;
+            padding: 0.75rem;
+            margin-top: 0.5rem;
+            border-left: 3px solid var(--gold);
+        }
+        .recommendation-card .bet-label {
+            font-weight: 800;
+            font-size: 0.95rem;
+            color: var(--gold);
+            margin-bottom: 0.25rem;
+        }
+        .recommendation-card .confidence {
+            font-size: 0.75rem;
+            margin-bottom: 0.25rem;
+        }
+        .recommendation-card .reasoning {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+        .conf-high { color: var(--emerald); }
+        .conf-mid { color: var(--amber); }
+        .conf-low { color: var(--text-muted); }
+
+        .match-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.7rem;
+            padding: 0.3rem 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .match-list-item:last-child { border-bottom: none; }
+        .match-list-item .result-w { color: var(--emerald); font-weight: 700; }
+        .match-list-item .result-l { color: var(--crimson); font-weight: 700; }
+
+        .batch-results {
+            display: none;
+            margin-top: 1rem;
+        }
+        .batch-results.show { display: block; }
+
+        .loading-spinner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 2rem;
+            color: var(--text-muted);
+        }
+        .loading-spinner i { animation: spin 1s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--text-muted);
+        }
+        .empty-state i { font-size: 2.5rem; color: var(--border); margin-bottom: 0.5rem; }
+
+        .tournament-header {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--gold);
+            padding: 0.5rem 0;
+            margin-top: 0.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .mobile-bottom-nav {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(180deg, #1a1825 0%, #12101a 100%);
+            border-top: 1px solid var(--border);
+            padding: 0.5rem 0;
+            z-index: 1000;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+        }
+        .mobile-bottom-nav ul {
+            display: flex;
+            justify-content: space-around;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        .mobile-bottom-nav a {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: var(--text-muted);
+            text-decoration: none;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.6rem;
+            transition: all 0.2s;
+        }
+        .mobile-bottom-nav a i { font-size: 1.2rem; margin-bottom: 0.1rem; }
+        .mobile-bottom-nav a.active { color: var(--gold); }
+        .mobile-bottom-nav a.active i { filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.5)); }
+
+        @media (max-width: 768px) {
+            .mobile-bottom-nav {
+                display: block;
+                padding-bottom: env(safe-area-inset-bottom, 0px);
+            }
+            body { padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px)); }
+            .container { padding: 0.5rem; }
+            .brand { font-size: 1.25rem; }
+            .l10-grid { grid-template-columns: 1fr; }
+            .match-card .player-name { max-width: 120px; font-size: 0.85rem; }
+            .stats-row { grid-template-columns: repeat(2, 1fr); }
+            .action-bar { flex-direction: column; align-items: stretch; }
+            .btn-action { justify-content: center; }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <a href="/" class="brand">
+            <i class="bi bi-trophy-fill"></i>
+            730's Locks
+        </a>
+    </header>
+
+    <div class="container">
+        <div class="page-title">
+            <h2><i class="bi bi-circle-fill" style="color: var(--tennis-green); font-size: 0.75rem;"></i> Tennis Analysis</h2>
+            <div class="subtitle">{{ today }} &bull; Over/Under Set Totals Strategy</div>
+        </div>
+
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="value">{{ total_matches }}</div>
+                <div class="label">Total Matches</div>
+            </div>
+            <div class="stat-card">
+                <div class="value">{{ atp_scheduled|length }}</div>
+                <div class="label">ATP Upcoming</div>
+            </div>
+            <div class="stat-card">
+                <div class="value">{{ wta_scheduled|length }}</div>
+                <div class="label">WTA Upcoming</div>
+            </div>
+            <div class="stat-card">
+                <div class="value">{{ (atp_live|length) + (wta_live|length) }}</div>
+                <div class="label">Live Now</div>
+            </div>
+        </div>
+
+        <div class="action-bar">
+            <button class="btn-action primary" onclick="runBatchAnalysis(false)" id="btn-batch">
+                <i class="bi bi-lightning-charge-fill"></i> Run Full Slate Analysis
+            </button>
+            <button class="btn-action wta" onclick="runBatchAnalysis(true)" id="btn-wta-batch">
+                <i class="bi bi-gender-female"></i> WTA Under 10.5 Optimizer
+            </button>
+        </div>
+
+        <div id="batch-loading" class="loading-spinner" style="display:none;">
+            <i class="bi bi-arrow-repeat"></i> Analyzing matches... this may take a moment
+        </div>
+        <div id="batch-results" class="batch-results"></div>
+
+        <div class="tour-tabs">
+            <button class="tour-tab active" onclick="showTab('all')">All <span class="count">({{ total_matches }})</span></button>
+            <button class="tour-tab" onclick="showTab('atp')">ATP <span class="count">({{ atp_matches|length }})</span></button>
+            <button class="tour-tab" onclick="showTab('wta')">WTA <span class="count">({{ wta_matches|length }})</span></button>
+            <button class="tour-tab" onclick="showTab('scheduled')">Upcoming <span class="count">({{ (atp_scheduled|length) + (wta_scheduled|length) }})</span></button>
+            <button class="tour-tab" onclick="showTab('live')">Live <span class="count">({{ (atp_live|length) + (wta_live|length) }})</span></button>
+        </div>
+
+        <div id="matches-container">
+            {% set all_matches = [] %}
+            {% for tour_name, tour_matches, tour_class in [('ATP', atp_matches, 'atp'), ('WTA', wta_matches, 'wta')] %}
+            {% if tour_matches %}
+            {% set tournaments = {} %}
+            {% for m in tour_matches %}
+                {% set t = m.tournament %}
+                {% if t not in tournaments %}
+                    {% set _ = tournaments.update({t: []}) %}
+                {% endif %}
+                {% set _ = tournaments[t].append(m) %}
+            {% endfor %}
+
+            {% for tournament, t_matches in tournaments.items() %}
+            <div class="tournament-header match-filter" data-tour="{{ tour_class }}" data-status="all">
+                <span class="badge badge-{{ tour_class }}">{{ tour_name }}</span>
+                {{ tournament }}
+                <span style="margin-left: auto; font-size: 0.65rem; color: var(--text-muted);">{{ t_matches|length }} matches</span>
+            </div>
+
+            {% for m in t_matches %}
+            {% set match_status = 'live' if m.state == 'in' else ('scheduled' if m.state == 'pre' else 'completed') %}
+            <div class="match-card match-filter" data-tour="{{ tour_class }}" data-status="{{ match_status }}"
+                 data-p1="{{ m.player1.name }}" data-p2="{{ m.player2.name }}"
+                 data-p1id="{{ m.player1.id }}" data-p2id="{{ m.player2.id }}"
+                 data-tournament="{{ tournament }}" data-matchid="{{ loop.index }}">
+                <div class="tournament-info">
+                    <span class="badge badge-{{ tour_class }}">{{ tour_name }}</span>
+                    {% if m.court %}<span>{{ m.court }}</span>{% endif %}
+                    {% if m.round %}<span>{{ m.round }}</span>{% endif %}
+                    <span class="status-badge status-{% if m.state == 'in' %}live{% elif m.completed %}final{% else %}scheduled{% endif %}">
+                        {% if m.state == 'in' %}LIVE{% elif m.completed %}Final{% else %}Scheduled{% endif %}
+                    </span>
+                </div>
+
+                <div class="players">
+                    <div class="player" style="text-align: left;">
+                        {% if m.player1.seed %}<span class="seed-badge">({{ m.player1.seed }})</span>{% endif %}
+                        <span class="player-name">{{ m.player1.name }}</span>
+                        {% if m.player1.winner %}<i class="bi bi-check-circle-fill" style="color: var(--emerald); font-size: 0.75rem;"></i>{% endif %}
+                        <div class="player-info">
+                            {{ m.player1.country }}
+                        </div>
+                    </div>
+                    <div class="vs">VS</div>
+                    <div class="player" style="text-align: right;">
+                        {% if m.player2.seed %}<span class="seed-badge">({{ m.player2.seed }})</span>{% endif %}
+                        <span class="player-name">{{ m.player2.name }}</span>
+                        {% if m.player2.winner %}<i class="bi bi-check-circle-fill" style="color: var(--emerald); font-size: 0.75rem;"></i>{% endif %}
+                        <div class="player-info">
+                            {{ m.player2.country }}
+                        </div>
+                    </div>
+                </div>
+
+                {% if m.player1.sets %}
+                <div class="score-display">
+                    {% for i in range(m.player1.sets|length) %}
+                    <div>
+                        <div class="set-score {% if m.player1.sets[i] > m.player2.sets[i] %}won{% elif m.player1.sets[i] < m.player2.sets[i] %}lost{% endif %}">
+                            {{ m.player1.sets[i]|int }}-{{ m.player2.sets[i]|int }}
+                        </div>
+                        <div class="set-total">{{ m.set_totals[i] }} gms</div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                {% if m.state == 'pre' or not m.completed %}
+                <div style="text-align: center;">
+                    <button class="analyze-btn" onclick="event.stopPropagation(); analyzeMatch(this, '{{ m.player1.name }}', '{{ m.player2.name }}', '{{ m.player1.id }}', '{{ m.player2.id }}', '{{ tour_name }}', '{{ tournament }}')">
+                        <i class="bi bi-graph-up"></i> Analyze L10 & Set Totals
+                    </button>
+                </div>
+                {% endif %}
+
+                <div class="analysis-panel" id="analysis-{{ tour_class }}-{{ loop.index }}"></div>
+            </div>
+            {% endfor %}
+            {% endfor %}
+            {% endif %}
+            {% endfor %}
+
+            {% if total_matches == 0 %}
+            <div class="empty-state">
+                <i class="bi bi-trophy"></i>
+                <h5>No tennis matches found</h5>
+                <p>Check back later for today's tennis schedule.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <nav class="mobile-bottom-nav">
+        <ul>
+            <li><a href="/"><i class="bi bi-house-fill"></i>Home</a></li>
+            <li><a href="/spreads"><i class="bi bi-bar-chart-fill"></i>Spreads</a></li>
+            <li><a href="/tennis" class="active"><i class="bi bi-circle-fill"></i>Tennis</a></li>
+            <li><a href="/bankroll"><i class="bi bi-wallet2"></i>Bankroll</a></li>
+            <li><a href="/history"><i class="bi bi-clock-history"></i>History</a></li>
+        </ul>
+    </nav>
+
+    <script>
+        function showTab(tab) {
+            document.querySelectorAll('.tour-tab').forEach(t => t.classList.remove('active'));
+            event.target.closest('.tour-tab').classList.add('active');
+
+            document.querySelectorAll('.match-filter').forEach(el => {
+                const tour = el.dataset.tour;
+                const status = el.dataset.status;
+                let show = false;
+                if (tab === 'all') show = true;
+                else if (tab === 'atp') show = tour === 'atp';
+                else if (tab === 'wta') show = tour === 'wta';
+                else if (tab === 'scheduled') show = status === 'scheduled' || status === 'all';
+                else if (tab === 'live') show = status === 'live' || status === 'all';
+                el.style.display = show ? '' : 'none';
+            });
+        }
+
+        function analyzeMatch(btn, p1Name, p2Name, p1Id, p2Id, tour, tournament) {
+            const card = btn.closest('.match-card');
+            const panel = card.querySelector('.analysis-panel');
+
+            if (panel.classList.contains('show')) {
+                panel.classList.remove('show');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="bi bi-arrow-repeat" style="animation: spin 1s linear infinite;"></i> Analyzing...';
+
+            fetch('/api/tennis/analyze', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    player1_name: p1Name,
+                    player2_name: p2Name,
+                    player1_id: p1Id,
+                    player2_id: p2Id,
+                    tour: tour,
+                    tournament: tournament
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                panel.innerHTML = renderAnalysis(data);
+                panel.classList.add('show');
+                card.classList.add('analyzed');
+                btn.innerHTML = '<i class="bi bi-graph-up"></i> Hide Analysis';
+                btn.disabled = false;
+                btn.onclick = function(e) {
+                    e.stopPropagation();
+                    panel.classList.toggle('show');
+                };
+            })
+            .catch(err => {
+                panel.innerHTML = '<div style="color:var(--crimson);padding:0.5rem;font-size:0.8rem;">Error loading analysis. Try again.</div>';
+                panel.classList.add('show');
+                btn.innerHTML = '<i class="bi bi-graph-up"></i> Retry Analysis';
+                btn.disabled = false;
+            });
+        }
+
+        function renderAnalysis(data) {
+            let html = '<div class="l10-grid">';
+
+            if (data.player1_l10) {
+                html += renderL10Panel(data.player1_name, data.player1_l10, data.player1_rank);
+            } else {
+                html += `<div class="l10-player"><div class="player-header">${data.player1_name}</div><div style="color:var(--text-muted);font-size:0.75rem;">No L10 data available</div></div>`;
+            }
+
+            if (data.player2_l10) {
+                html += renderL10Panel(data.player2_name, data.player2_l10, data.player2_rank);
+            } else {
+                html += `<div class="l10-player"><div class="player-header">${data.player2_name}</div><div style="color:var(--text-muted);font-size:0.75rem;">No L10 data available</div></div>`;
+            }
+
+            html += '</div>';
+
+            if (data.combined_avg_first_set) {
+                html += `<div style="text-align:center;margin-top:0.75rem;padding:0.5rem;background:rgba(10,10,18,0.5);border-radius:8px;">
+                    <div style="font-size:0.7rem;color:var(--text-muted);">COMBINED AVERAGES</div>
+                    <div style="display:flex;justify-content:center;gap:2rem;margin-top:0.25rem;">
+                        <div><span style="font-size:1.1rem;font-weight:800;color:${data.combined_avg_first_set > 10.5 ? 'var(--crimson)' : 'var(--emerald)'};">${data.combined_avg_first_set}</span><br><span style="font-size:0.65rem;color:var(--text-muted);">1st Set Avg</span></div>
+                        <div><span style="font-size:1.1rem;font-weight:800;color:${data.combined_avg_second_set > 10.5 ? 'var(--crimson)' : 'var(--emerald)'};">${data.combined_avg_second_set}</span><br><span style="font-size:0.65rem;color:var(--text-muted);">2nd Set Avg</span></div>
+                    </div>
+                </div>`;
+            }
+
+            if (data.rank_diff !== undefined && data.rank_advantage) {
+                html += `<div style="text-align:center;margin-top:0.5rem;font-size:0.75rem;">
+                    <span style="color:var(--gold);">${data.rank_advantage}</span>
+                    <span style="color:var(--text-muted);"> ranked #${data.rank_advantage_value} (${data.rank_diff} positions apart)</span>
+                </div>`;
+            }
+
+            if (data.recommendations && data.recommendations.length > 0) {
+                data.recommendations.forEach(rec => {
+                    const confClass = rec.confidence >= 70 ? 'conf-high' : rec.confidence >= 50 ? 'conf-mid' : 'conf-low';
+                    const borderColor = rec.type === 'wta_under' ? 'var(--tennis-wta)' : rec.type === 'under' ? 'var(--emerald)' : rec.type === 'over' ? 'var(--crimson)' : 'var(--gold)';
+                    html += `<div class="recommendation-card" style="border-left-color:${borderColor};">
+                        <div class="bet-label">${rec.bet}</div>
+                        <div class="confidence ${confClass}">Confidence: ${rec.confidence}%</div>
+                        <div class="reasoning">${rec.reasoning}</div>
+                    </div>`;
+                });
+            }
+
+            return html;
+        }
+
+        function renderL10Panel(name, l10, rank) {
+            let html = `<div class="l10-player">`;
+            html += `<div class="player-header"><span>${name}</span>`;
+            if (rank) {
+                html += `<span class="rank-badge">#${rank.rank}</span>`;
+            }
+            html += `</div>`;
+            html += `<div style="font-size:0.75rem;margin-bottom:0.25rem;">Record: <strong>${l10.record}</strong></div>`;
+
+            html += `<div class="form-display">`;
+            for (let c of l10.form) {
+                html += `<span class="form-dot ${c === 'W' ? 'win' : 'loss'}">${c}</span>`;
+            }
+            html += `</div>`;
+
+            const s1Pct = Math.min(100, (l10.avg_first_set_total / 14) * 100);
+            const s1Color = l10.avg_first_set_total > 10.5 ? 'bar-over' : 'bar-under';
+            html += `<div class="set-avg-bar">
+                <span class="label">1st Set Avg</span>
+                <div class="bar-track"><div class="bar-fill ${s1Color}" style="width:${s1Pct}%"></div></div>
+                <span class="value" style="color:${l10.avg_first_set_total > 10.5 ? 'var(--crimson)' : 'var(--emerald)'};">${l10.avg_first_set_total}</span>
+            </div>`;
+
+            const s2Pct = Math.min(100, (l10.avg_second_set_total / 14) * 100);
+            const s2Color = l10.avg_second_set_total > 10.5 ? 'bar-over' : 'bar-under';
+            html += `<div class="set-avg-bar">
+                <span class="label">2nd Set Avg</span>
+                <div class="bar-track"><div class="bar-fill ${s2Color}" style="width:${s2Pct}%"></div></div>
+                <span class="value" style="color:${l10.avg_second_set_total > 10.5 ? 'var(--crimson)' : 'var(--emerald)'};">${l10.avg_second_set_total}</span>
+            </div>`;
+
+            html += `<div style="font-size:0.65rem;color:var(--text-muted);margin-top:0.4rem;">
+                O/U 10.5 1st: <strong style="color:var(--crimson);">${l10.first_set_over_105}O</strong> / <strong style="color:var(--emerald);">${l10.first_set_under_105}U</strong> &nbsp;|&nbsp;
+                O/U 9.5 1st: <strong style="color:var(--crimson);">${l10.first_set_over_95}O</strong> / <strong style="color:var(--emerald);">${l10.first_set_under_95}U</strong>
+            </div>`;
+
+            if (l10.matches && l10.matches.length > 0) {
+                html += `<div style="margin-top:0.5rem;"><div style="font-size:0.65rem;color:var(--text-muted);margin-bottom:0.25rem;">RECENT MATCHES</div>`;
+                l10.matches.forEach(m => {
+                    html += `<div class="match-list-item">
+                        <span class="result-${m.result.toLowerCase()}">${m.result}</span>
+                        <span style="flex:1;margin-left:0.4rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${m.opponent}</span>
+                        <span style="font-weight:600;">${m.score}</span>
+                        <span style="color:var(--gold);margin-left:0.3rem;">S1:${m.first_set_total}</span>
+                    </div>`;
+                });
+                html += `</div>`;
+            }
+
+            html += `</div>`;
+            return html;
+        }
+
+        function runBatchAnalysis(womenOnly) {
+            const btnId = womenOnly ? 'btn-wta-batch' : 'btn-batch';
+            const btn = document.getElementById(btnId);
+            const loading = document.getElementById('batch-loading');
+            const results = document.getElementById('batch-results');
+
+            btn.disabled = true;
+            btn.innerHTML = `<i class="bi bi-arrow-repeat" style="animation: spin 1s linear infinite;"></i> ${womenOnly ? 'Optimizing WTA...' : 'Analyzing Slate...'}`;
+            loading.style.display = 'flex';
+            results.classList.remove('show');
+
+            const endpoint = womenOnly ? '/api/tennis/wta_optimizer' : '/api/tennis/batch';
+            const body = womenOnly ? {} : {women_only: false};
+
+            fetch(endpoint, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body)
+            })
+            .then(r => r.json())
+            .then(data => {
+                loading.style.display = 'none';
+                if (womenOnly) {
+                    results.innerHTML = renderWtaOptimizer(data);
+                } else {
+                    results.innerHTML = renderBatchResults(data);
+                }
+                results.classList.add('show');
+                btn.disabled = false;
+                btn.innerHTML = womenOnly ?
+                    '<i class="bi bi-gender-female"></i> WTA Under 10.5 Optimizer' :
+                    '<i class="bi bi-lightning-charge-fill"></i> Run Full Slate Analysis';
+            })
+            .catch(err => {
+                loading.style.display = 'none';
+                results.innerHTML = '<div style="color:var(--crimson);padding:1rem;text-align:center;">Error running analysis. Please try again.</div>';
+                results.classList.add('show');
+                btn.disabled = false;
+                btn.innerHTML = womenOnly ?
+                    '<i class="bi bi-gender-female"></i> WTA Under 10.5 Optimizer' :
+                    '<i class="bi bi-lightning-charge-fill"></i> Run Full Slate Analysis';
+            });
+        }
+
+        function renderBatchResults(data) {
+            if (!data.analyses || data.analyses.length === 0) {
+                return `<div class="empty-state" style="padding:1.5rem;"><i class="bi bi-search"></i><h5>No analyzable matches</h5><p>No upcoming matches with sufficient data found.</p></div>`;
+            }
+
+            let html = `<div class="section-header"><h3><i class="bi bi-lightning-charge-fill" style="color:var(--gold);"></i> Batch Analysis Results</h3><span class="badge" style="background:rgba(255,215,0,0.15);color:var(--gold);">${data.analyzed} of ${data.total_matches} analyzed</span></div>`;
+
+            data.analyses.forEach(a => {
+                html += `<div class="match-card analyzed" style="cursor:default;">`;
+                html += `<div class="tournament-info"><span class="badge badge-${a.tour === 'WTA' ? 'wta' : 'atp'}">${a.tour}</span> ${a.tournament}</div>`;
+                html += `<div class="players"><div class="player" style="text-align:left;"><span class="player-name">${a.player1_name}</span>`;
+                if (a.player1_rank) html += `<div class="player-info">#${a.player1_rank.rank}</div>`;
+                html += `</div><div class="vs">VS</div><div class="player" style="text-align:right;"><span class="player-name">${a.player2_name}</span>`;
+                if (a.player2_rank) html += `<div class="player-info">#${a.player2_rank.rank}</div>`;
+                html += `</div></div>`;
+
+                if (a.combined_avg_first_set) {
+                    html += `<div style="text-align:center;margin:0.5rem 0;font-size:0.8rem;">Combined 1st Set Avg: <strong style="color:${a.combined_avg_first_set > 10.5 ? 'var(--crimson)' : 'var(--emerald)'};">${a.combined_avg_first_set}</strong></div>`;
+                }
+
+                if (a.recommendations) {
+                    a.recommendations.forEach(rec => {
+                        const confClass = rec.confidence >= 70 ? 'conf-high' : rec.confidence >= 50 ? 'conf-mid' : 'conf-low';
+                        html += `<div class="recommendation-card"><div class="bet-label">${rec.bet}</div><div class="confidence ${confClass}">Confidence: ${rec.confidence}%</div><div class="reasoning">${rec.reasoning}</div></div>`;
+                    });
+                }
+                html += `</div>`;
+            });
+
+            return html;
+        }
+
+        function renderWtaOptimizer(data) {
+            if (!data.picks || data.picks.length === 0) {
+                return `<div class="empty-state" style="padding:1.5rem;"><i class="bi bi-gender-female"></i><h5>No WTA Under 10.5 Picks</h5><p>No WTA matches met the optimizer criteria today.</p></div>`;
+            }
+
+            let html = `<div class="section-header"><h3><i class="bi bi-gender-female" style="color:var(--tennis-wta);"></i> WTA Under 10.5 Optimizer</h3><span class="badge" style="background:rgba(233,30,99,0.15);color:var(--tennis-wta);">${data.total} picks</span></div>`;
+
+            data.picks.forEach(pick => {
+                html += `<div class="match-card" style="border-color:var(--tennis-wta);cursor:default;">`;
+                html += `<div class="tournament-info"><span class="badge badge-wta">WTA</span> ${pick.tournament}</div>`;
+                html += `<div style="font-weight:700;font-size:0.95rem;margin-bottom:0.5rem;">${pick.match}</div>`;
+                html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;font-size:0.75rem;">
+                    <div>P1 Under Rate: <strong>${pick.p1_under_rate}</strong></div>
+                    <div>P2 Under Rate: <strong>${pick.p2_under_rate}</strong></div>
+                    <div>P1 Avg 1st Set: <strong>${pick.p1_avg_first}</strong></div>
+                    <div>P2 Avg 1st Set: <strong>${pick.p2_avg_first}</strong></div>
+                </div>`;
+                html += `<div class="recommendation-card" style="border-left-color:var(--tennis-wta);">
+                    <div class="bet-label">UNDER 10.5 1st Set</div>
+                    <div class="confidence conf-high">Score: ${pick.score}/7 | Confidence: ${pick.confidence}%</div>
+                    <div class="reasoning">Combined avg 1st set: ${pick.combined_avg} games</div>
+                </div>`;
+                html += `</div>`;
+            });
+
+            return html;
+        }
+    </script>
+</body>
+</html>

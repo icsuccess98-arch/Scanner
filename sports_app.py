@@ -28,6 +28,15 @@ from automated_loading_system import (
     TeamRankingsScraper,
     EliminationFilterSystem
 )
+from tennis_scraper import (
+    get_todays_matches as get_tennis_matches,
+    get_player_last10 as get_tennis_player_l10,
+    get_rankings as get_tennis_rankings,
+    get_player_ranking as get_tennis_player_ranking,
+    analyze_matchup as analyze_tennis_matchup,
+    run_batch_analysis as run_tennis_batch,
+    get_wta_under_optimizer,
+)
 
 # NBA team logo URLs from ESPN CDN (module-level for shared access)
 NBA_TEAM_COLORS = {
@@ -12604,6 +12613,102 @@ def get_nhl_standings():
     except Exception as e:
         logger.warning(f"Error fetching NHL standings: {e}")
     return standings
+
+@app.route('/tennis')
+def tennis_page():
+    """Tennis tab - Over/Under set totals strategy with L10, rankings, and batch analysis."""
+    et = pytz.timezone('America/New_York')
+    today = datetime.now(et)
+    
+    matches = get_tennis_matches()
+    
+    atp_matches = [m for m in matches if m.get('tour') == 'ATP']
+    wta_matches = [m for m in matches if m.get('tour') == 'WTA']
+    
+    atp_scheduled = [m for m in atp_matches if m.get('state') == 'pre']
+    wta_scheduled = [m for m in wta_matches if m.get('state') == 'pre']
+    atp_live = [m for m in atp_matches if m.get('state') == 'in']
+    wta_live = [m for m in wta_matches if m.get('state') == 'in']
+    atp_completed = [m for m in atp_matches if m.get('completed', False)]
+    wta_completed = [m for m in wta_matches if m.get('completed', False)]
+    
+    atp_tournaments = list(set(m.get('tournament', '') for m in atp_matches))
+    wta_tournaments = list(set(m.get('tournament', '') for m in wta_matches))
+    
+    atp_rankings = get_tennis_rankings('atp')
+    wta_rankings = get_tennis_rankings('wta')
+    
+    return render_template('tennis.html',
+        today=today.strftime('%A, %B %d, %Y'),
+        atp_matches=atp_matches,
+        wta_matches=wta_matches,
+        atp_scheduled=atp_scheduled,
+        wta_scheduled=wta_scheduled,
+        atp_live=atp_live,
+        wta_live=wta_live,
+        atp_completed=atp_completed,
+        wta_completed=wta_completed,
+        atp_tournaments=atp_tournaments,
+        wta_tournaments=wta_tournaments,
+        total_matches=len(matches),
+        atp_rankings=atp_rankings,
+        wta_rankings=wta_rankings,
+    )
+
+
+@app.route('/api/tennis/analyze', methods=['POST'])
+def tennis_analyze():
+    """Analyze a specific tennis matchup."""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    p1_name = data.get('player1_name', '')
+    p2_name = data.get('player2_name', '')
+    p1_id = data.get('player1_id', '')
+    p2_id = data.get('player2_id', '')
+    tour = data.get('tour', 'ATP')
+    tournament = data.get('tournament', '')
+    
+    match = {
+        'tour': tour,
+        'tournament': tournament,
+        'player1': {'name': p1_name, 'id': p1_id},
+        'player2': {'name': p2_name, 'id': p2_id},
+    }
+    
+    try:
+        analysis = analyze_tennis_matchup(match)
+        return jsonify(analysis)
+    except Exception as e:
+        logger.error(f"Tennis analysis error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/tennis/batch', methods=['POST'])
+def tennis_batch():
+    """Run batch analysis on the entire slate."""
+    data = request.get_json() or {}
+    women_only = data.get('women_only', False)
+    
+    try:
+        result = run_tennis_batch(women_only=women_only)
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Tennis batch analysis error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/tennis/wta_optimizer', methods=['POST'])
+def tennis_wta_optimizer():
+    """Run WTA Under 10.5 optimizer."""
+    try:
+        picks = get_wta_under_optimizer()
+        return jsonify({'picks': picks, 'total': len(picks)})
+    except Exception as e:
+        logger.error(f"WTA optimizer error: {e}")
+        return jsonify({'error': str(e)}), 500
+
 
 @app.route('/spreads')
 def spreads():
