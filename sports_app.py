@@ -13324,6 +13324,25 @@ def spreads():
             
             games_by_league[g.league].append(g)
     
+    # Filter CBB games: only show games with KenPom fanmatch predicted spread < 5 points
+    if 'CBB' in games_by_league and games_by_league['CBB']:
+        fanmatch_data = fetch_kenpom_fanmatch()
+        if fanmatch_data:
+            filtered_cbb = []
+            for g in games_by_league['CBB']:
+                prediction = get_kenpom_prediction(g.away_team, g.home_team)
+                if prediction:
+                    kp_spread = abs(prediction.get('kenpom_spread', 99))
+                    if kp_spread < 5:
+                        filtered_cbb.append(g)
+                    else:
+                        logger.debug(f"CBB filtered out: {g.away_team} @ {g.home_team} (KenPom spread: {kp_spread:.1f})")
+                else:
+                    filtered_cbb.append(g)
+                    logger.debug(f"CBB no fanmatch data: {g.away_team} @ {g.home_team} - keeping")
+            logger.info(f"CBB fanmatch filter: {len(games_by_league['CBB'])} -> {len(filtered_cbb)} games (< 5pt spread)")
+            games_by_league['CBB'] = filtered_cbb
+    
     # Set up basic attributes for all games (data fetched on-demand via API)
     # Elimination process for qualifying picks
     eliminated_large_spread = []
