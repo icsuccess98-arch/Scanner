@@ -553,87 +553,81 @@ def qualify_spread_game(away_team: str, home_team: str, market_spread: float, le
 
 def calculate_rlm(game) -> bool:
     """
-    CORRECTED RLM Detection - detects when line moves opposite to public money.
+    RLM Detection using Favorite/Underdog Decision Table.
     
-    Example: Bucks @ Wizards
-    - Opening: Bucks -3
-    - Current: Bucks -1.5 (moved 1.5 pts toward Wizards)
-    - Public: 68% money on Bucks
-    - Result: RLM detected, sharp money on Wizards
+    Money on Favorite + Line moves Down (toward underdog) = RLM, sharp = underdog
+    Money on Underdog + Line moves Up (toward favorite) = RLM, sharp = favorite
+    Money on Favorite + Line moves Up = NOT RLM (line confirming money)
+    Money on Underdog + Line moves Down = NOT RLM (line confirming money)
+    
+    Threshold: >=54% money to establish majority. Uses money %, not tickets.
     """
-    # Check if we have spread_line field (current spread)
     current_spread_field = 'spread_line' if hasattr(game, 'spread_line') else 'spread'
     
-    # Validate required data
     if not all([
         getattr(game, 'opening_spread', None) is not None,
         getattr(game, current_spread_field, None) is not None,
-        getattr(game, 'away_tickets_pct', None) is not None,
-        getattr(game, 'home_tickets_pct', None) is not None
     ]):
         return False
     
     try:
         opening_spread = float(game.opening_spread)
         current_spread = float(getattr(game, current_spread_field))
-        away_tickets = float(game.away_tickets_pct or 0)
-        home_tickets = float(game.home_tickets_pct or 0)
+        away_tickets = float(game.away_tickets_pct or 0) if getattr(game, 'away_tickets_pct', None) else 0
+        home_tickets = float(game.home_tickets_pct or 0) if getattr(game, 'home_tickets_pct', None) else 0
         away_money = float(getattr(game, 'away_money_pct', None) or away_tickets)
         home_money = float(getattr(game, 'home_money_pct', None) or home_tickets)
-        
     except (ValueError, TypeError):
         return False
     
-    # Calculate movement
     movement = current_spread - opening_spread
-    movement_abs = abs(movement)
-    
-    # Need at least 0.5 point movement
-    if movement_abs < 0.5:
+    if abs(movement) < 0.5:
         return False
     
-    # Determine which side public is on (use money % as it's more meaningful)
-    if away_money >= 55:
-        public_side = 'away'
-        public_team = game.away_team
-        public_pct = away_money
-    elif home_money >= 55:
-        public_side = 'home'
-        public_team = game.home_team
-        public_pct = home_money
-    else:
-        # Balanced action, no clear RLM
+    if away_money < 54 and home_money < 54:
         return False
     
-    # Determine which direction line moved
-    # Positive movement = line moved toward home
-    # Negative movement = line moved toward away
-    if movement > 0:
-        line_moved_toward = 'home'
-        sharp_team = game.home_team
+    favorite_team = None
+    underdog_team = None
+    if opening_spread < 0:
+        favorite_team = game.away_team
+        underdog_team = game.home_team
+    elif opening_spread > 0:
+        favorite_team = game.home_team
+        underdog_team = game.away_team
     else:
-        line_moved_toward = 'away'
-        sharp_team = game.away_team
+        return False
     
-    # RLM DETECTION: Did line move OPPOSITE to public?
+    fav_is_away = (favorite_team == game.away_team)
+    fav_money = away_money if fav_is_away else home_money
+    dog_money = home_money if fav_is_away else away_money
+    
+    money_on_favorite = fav_money >= 54
+    money_on_underdog = dog_money >= 54
+    
+    if fav_is_away:
+        line_moved_down = movement > 0.4
+        line_moved_up = movement < -0.4
+    else:
+        line_moved_down = movement < -0.4
+        line_moved_up = movement > 0.4
+    
     rlm_detected = False
+    sharp_team = None
     
-    if public_side == 'away' and line_moved_toward == 'home':
-        # Public on away, line moved toward home → RLM
+    if money_on_favorite and line_moved_down:
         rlm_detected = True
-        # Store details if game object supports it
-        if hasattr(game, 'rlm_sharp_side'):
-            game.rlm_sharp_side = sharp_team
-            game.rlm_explanation = f"RLM: {public_pct:.0f}% money on {public_team}, but line moved {movement_abs:.1f} pts toward {sharp_team}"
-            game.rlm_detected = True
+        sharp_team = underdog_team
+    elif money_on_underdog and line_moved_up:
+        rlm_detected = True
+        sharp_team = favorite_team
     
-    elif public_side == 'home' and line_moved_toward == 'away':
-        # Public on home, line moved toward away → RLM
-        rlm_detected = True
-        if hasattr(game, 'rlm_sharp_side'):
-            game.rlm_sharp_side = sharp_team
-            game.rlm_explanation = f"RLM: {public_pct:.0f}% money on {public_team}, but line moved {movement_abs:.1f} pts toward {sharp_team}"
-            game.rlm_detected = True
+    if rlm_detected and hasattr(game, 'rlm_sharp_side'):
+        majority_pct = fav_money if money_on_favorite else dog_money
+        majority_team = favorite_team if money_on_favorite else underdog_team
+        game.rlm_sharp_side = sharp_team
+        game.rlm_explanation = f"RLM: {majority_pct:.0f}% money on {majority_team}, but line moved {abs(movement):.1f} pts toward {sharp_team}"
+        game.rlm_detected = True
     
     return rlm_detected
 
@@ -2957,34 +2951,41 @@ class MatchupIntelligence:
                 
                 logger.debug(f"RLM setup: {away_team} vs {home_team} | Favorite: {favorite_team} (from open: '{open_favorite}')")
                 
-                # SPREAD RLM: Detect reverse line movement for spreads
-                # RLM = Public money on one side, but line moves the OTHER direction
-                # This signals sharp/professional money on the opposite side
+                # === SPREAD RLM DETECTION (Favorite/Underdog Decision Table) ===
+                # Money on Favorite + Line moves Down (toward underdog) = RLM, sharp = underdog
+                # Money on Underdog + Line moves Up (toward favorite) = RLM, sharp = favorite
+                # Money on Favorite + Line moves Up = NOT RLM (line confirming money)
+                # Money on Underdog + Line moves Down = NOT RLM (line confirming money)
+                # Threshold: >=54% money to establish majority
                 try:
-                    if spread_open_line is not None and spread_current_line is not None and away_team and home_team:
+                    if spread_open_line is not None and spread_current_line is not None and away_team and home_team and favorite_team and underdog_team:
                         open_spread = float(spread_open_line)
                         current_spread = float(spread_current_line)
                         
-                        # Line movement direction (from away team's perspective)
-                        # Positive movement = line moved toward HOME (more positive/less negative)
-                        # Negative movement = line moved toward AWAY (more negative/less positive)
                         movement = current_spread - open_spread
                         
-                        line_moved_toward_home = movement > 0.4
-                        line_moved_toward_away = movement < -0.4
+                        fav_is_away = (favorite_team == away_team)
+                        fav_money_pct = away_money_pct if fav_is_away else home_money_pct
+                        dog_money_pct = home_money_pct if fav_is_away else away_money_pct
                         
-                        money_on_away = away_money_pct > 55
-                        money_on_home = home_money_pct > 55
+                        money_on_favorite = fav_money_pct >= 54
+                        money_on_underdog = dog_money_pct >= 54
                         
-                        # RLM: Money on one side, line moves to the OTHER side
-                        if money_on_away and line_moved_toward_home:
+                        if fav_is_away:
+                            line_moved_down = movement > 0.4
+                            line_moved_up = movement < -0.4
+                        else:
+                            line_moved_down = movement < -0.4
+                            line_moved_up = movement > 0.4
+                        
+                        if money_on_favorite and line_moved_down:
                             spread_rlm_detected = True
-                            spread_rlm_sharp_side = home_team
-                            logger.info(f"RLM DETECTED: {away_team} has {away_money_pct}% money, but line moved toward {home_team} (open {open_spread:+.1f} → curr {current_spread:+.1f})")
-                        elif money_on_home and line_moved_toward_away:
+                            spread_rlm_sharp_side = underdog_team
+                            logger.info(f"RLM DETECTED: {fav_money_pct:.0f}% money on {favorite_team} (fav), but line moved DOWN toward {underdog_team} (open {open_spread:+.1f} → curr {current_spread:+.1f})")
+                        elif money_on_underdog and line_moved_up:
                             spread_rlm_detected = True
-                            spread_rlm_sharp_side = away_team
-                            logger.info(f"RLM DETECTED: {home_team} has {home_money_pct}% money, but line moved toward {away_team} (open {open_spread:+.1f} → curr {current_spread:+.1f})")
+                            spread_rlm_sharp_side = favorite_team
+                            logger.info(f"RLM DETECTED: {dog_money_pct:.0f}% money on {underdog_team} (dog), but line moved UP toward {favorite_team} (open {open_spread:+.1f} → curr {current_spread:+.1f})")
                 except Exception as e:
                     logger.warning(f"Error detecting spread RLM: {e}")
                 
