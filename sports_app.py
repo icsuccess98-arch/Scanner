@@ -13987,7 +13987,7 @@ def spreads():
                            games_by_league=ordered_games_by_league,
                            all_games=cbb_first_games,
                            today=today,
-                           total_games=len(basketball_games),
+                           total_games=sum(len(v) for v in ordered_games_by_league.values()),
                            eliminated_large_spread=eliminated_large_spread,
                            eliminated_bad_teams=eliminated_bad_teams,
                            eliminated_bad_defense=eliminated_bad_defense,
