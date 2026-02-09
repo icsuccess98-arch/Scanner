@@ -12631,14 +12631,11 @@ def spreads():
     # Get Bovada games for filtering (only show games Bovada has lines for)
     bovada_cbb_games = get_bovada_games('CBB')
     bovada_nba_games = get_bovada_games('NBA')
-    bovada_nhl_games = get_bovada_games('NHL')
-    
-    # Fetch VSIN betting splits and line tracker data for all leagues
+    # Fetch VSIN betting splits and line tracker data for NBA and CBB
     vsin_nba_data = MatchupIntelligence.fetch_rlm_data('NBA')
     vsin_cbb_data = MatchupIntelligence.fetch_rlm_data('CBB')
-    vsin_nhl_data = MatchupIntelligence.fetch_rlm_data('NHL')
-    vsin_all_data = {'NBA': vsin_nba_data, 'CBB': vsin_cbb_data, 'NHL': vsin_nhl_data}
-    logging.info(f"VSIN data loaded: NBA={len(vsin_nba_data)}, CBB={len(vsin_cbb_data)}, NHL={len(vsin_nhl_data)} games")
+    vsin_all_data = {'NBA': vsin_nba_data, 'CBB': vsin_cbb_data}
+    logging.info(f"VSIN data loaded: NBA={len(vsin_nba_data)}, CBB={len(vsin_cbb_data)} games")
     
     # Helper function to match VSIN data to a game
     # Team name aliases for VSIN matching
@@ -12902,9 +12899,6 @@ def spreads():
     games_by_league = {
         'NBA': [],
         'CBB': [],
-        'NFL': [],
-        'CFB': [],
-        'NHL': []
     }
     
     # Helper to check if game is currently live (fetch ESPN live games early)
@@ -13962,12 +13956,12 @@ def spreads():
     
     # Count RLM games per league for ordering
     league_rlm_counts = {}
-    for league in ['CBB', 'NBA', 'NFL', 'CFB', 'NHL']:
+    for league in ['CBB', 'NBA']:
         rlm_count = sum(1 for g in games_by_league.get(league, []) if getattr(g, 'rlm_detected', False))
         league_rlm_counts[league] = rlm_count
     
-    # Sort leagues: most RLM games first, then by original order (CBB, NBA, NFL, CFB, NHL)
-    default_order = ['CBB', 'NBA', 'NFL', 'CFB', 'NHL']
+    # Sort leagues: most RLM games first, then by original order (CBB, NBA)
+    default_order = ['CBB', 'NBA']
     sorted_leagues = sorted(default_order, key=lambda l: (-league_rlm_counts.get(l, 0), default_order.index(l)))
     
     # Build ordered dict with leagues having RLM games first
