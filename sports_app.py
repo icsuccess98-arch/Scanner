@@ -581,7 +581,7 @@ def calculate_rlm(game) -> bool:
         return False
     
     movement = current_spread - opening_spread
-    if abs(movement) < 0.5:
+    if abs(movement) == 0:
         return False
     
     if away_money < 54 and home_money < 54:
@@ -606,11 +606,11 @@ def calculate_rlm(game) -> bool:
     money_on_underdog = dog_money >= 54
     
     if fav_is_away:
-        line_moved_up = movement < -1.4
-        line_moved_down = movement > 1.4
+        line_moved_up = movement < 0
+        line_moved_down = movement > 0
     else:
-        line_moved_up = movement > 1.4
-        line_moved_down = movement < -1.4
+        line_moved_up = movement > 0
+        line_moved_down = movement < 0
     
     rlm_detected = False
     sharp_team = None
@@ -2972,11 +2972,11 @@ class MatchupIntelligence:
                         money_on_underdog = dog_money_pct >= 54
                         
                         if fav_is_away:
-                            line_moved_up = movement < -1.4
-                            line_moved_down = movement > 1.4
+                            line_moved_up = movement < 0
+                            line_moved_down = movement > 0
                         else:
-                            line_moved_up = movement > 1.4
-                            line_moved_down = movement < -1.4
+                            line_moved_up = movement > 0
+                            line_moved_down = movement < 0
                         
                         if money_on_favorite and line_moved_down:
                             spread_rlm_detected = True
