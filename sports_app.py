@@ -13287,6 +13287,35 @@ def spreads():
                 g.away_standing = ''
                 g.home_standing = ''
             
+            # Attach KenPom fanmatch prediction for CBB games
+            if g.league == 'CBB':
+                kp = get_kenpom_prediction(g.away_team, g.home_team)
+                if kp:
+                    kp_spread = kp.get('kenpom_spread', 0)
+                    g.kenpom_spread = kp_spread
+                    g.kenpom_visitor_pred = kp.get('visitor_pred', None)
+                    g.kenpom_home_pred = kp.get('home_pred', None)
+                    g.kenpom_home_wp = kp.get('home_wp', None)
+                    g.kenpom_visitor_rank = kp.get('visitor_rank', 999)
+                    g.kenpom_home_rank = kp.get('home_rank', 999)
+                    
+                    kp_fav_is_away = kp_spread > 0
+                    g.kenpom_fav_name = g.away_team if kp_fav_is_away else g.home_team
+                    g.kenpom_fav_line = abs(kp_spread)
+                    
+                    logger.info(f"KenPom matched: {g.away_team} @ {g.home_team} -> spread: {g.kenpom_spread}, fav: {g.kenpom_fav_name} -{g.kenpom_fav_line}")
+                else:
+                    g.kenpom_spread = None
+                    g.kenpom_visitor_pred = None
+                    g.kenpom_home_pred = None
+                    g.kenpom_home_wp = None
+                    g.kenpom_visitor_rank = None
+                    g.kenpom_home_rank = None
+                    g.kenpom_fav_name = None
+                    g.kenpom_fav_line = None
+            else:
+                g.kenpom_spread = None
+            
             # Attach VSIN data to each game
             vsin_match = match_vsin_data(g.away_team, g.home_team, g.league)
             if vsin_match:

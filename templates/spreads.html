@@ -2789,6 +2789,85 @@
                         ({{ sharp_diff }}% divergence)
                     </div>
                     {% endif %}
+                    
+                    {% if game.league == 'CBB' and game.kenpom_spread is not none %}
+                    {% set kp_fav_name = game.kenpom_fav_name %}
+                    {% set kp_fav_line = game.kenpom_fav_line|float %}
+                    {% set kp_pred_away = game.kenpom_visitor_pred|default(0)|float %}
+                    {% set kp_pred_home = game.kenpom_home_pred|default(0)|float %}
+                    {% set kp_fav_is_away = (game.kenpom_spread|float > 0) %}
+                    
+                    {% set has_open = game.vsin_open_spread is not none and game.vsin_open_spread != '' %}
+                    {% set open_abs = game.vsin_open_spread|float|abs if has_open else 0 %}
+                    {% set open_fav_is_away = (game.vsin_open_spread|float < 0) if has_open else false %}
+                    {% set open_fav_name = game.away_team if open_fav_is_away else game.home_team %}
+                    {% set same_fav = (kp_fav_is_away == open_fav_is_away) if has_open else false %}
+                    {% set line_diff = (kp_fav_line - open_abs) if same_fav else 0 %}
+                    
+                    {% set kp_rlm_signal = '' %}
+                    {% if rlm_detected and rlm_sharp_side and has_open %}
+                        {% if same_fav %}
+                            {% if kp_fav_line > open_abs %}
+                                {% set kp_rlm_signal = 'strong' %}
+                            {% else %}
+                                {% set kp_rlm_signal = 'moderate' %}
+                            {% endif %}
+                        {% else %}
+                            {% set kp_rlm_signal = 'conflict' %}
+                        {% endif %}
+                    {% endif %}
+                    
+                    <div class="kenpom-prediction" style="margin-top: 6px; padding: 8px 10px; background: linear-gradient(135deg, rgba(0, 150, 255, 0.15), rgba(139, 92, 246, 0.15)); border: 1px solid rgba(0, 150, 255, 0.3); border-radius: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                            <span style="font-size: 0.7rem; font-weight: 700; color: #00bfff; text-transform: uppercase; letter-spacing: 0.5px;">
+                                <i class="bi bi-graph-up"></i> KenPom Prediction
+                            </span>
+                            {% if kp_rlm_signal == 'strong' %}
+                            <span style="font-size: 0.6rem; background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 700;">STRONG PLAY</span>
+                            {% elif kp_rlm_signal == 'moderate' %}
+                            <span style="font-size: 0.6rem; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 700;">MODERATE</span>
+                            {% elif kp_rlm_signal == 'conflict' %}
+                            <span style="font-size: 0.6rem; background: linear-gradient(135deg, #ef4444, #dc2626); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 700;">CAUTION</span>
+                            {% endif %}
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                            <div style="text-align: center; flex: 1;">
+                                <div style="font-size: 0.6rem; color: var(--text-muted); margin-bottom: 2px;">KenPom Line</div>
+                                <div style="font-size: 0.85rem; font-weight: 700; color: #00bfff;">{{ kp_fav_name[:10] }} -{{ '%.1f'|format(kp_fav_line) }}</div>
+                            </div>
+                            <div style="text-align: center; flex: 1;">
+                                <div style="font-size: 0.6rem; color: var(--text-muted); margin-bottom: 2px;">Predicted Score</div>
+                                <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-primary);">{{ '%.0f'|format(kp_pred_away) }}-{{ '%.0f'|format(kp_pred_home) }}</div>
+                            </div>
+                            {% if has_open %}
+                            <div style="text-align: center; flex: 1;">
+                                <div style="font-size: 0.6rem; color: var(--text-muted); margin-bottom: 2px;">vs Open Line</div>
+                                <div style="font-size: 0.75rem; font-weight: 600; color: {% if same_fav and line_diff|abs > 1.5 %}#f59e0b{% elif not same_fav %}#ef4444{% else %}var(--text-primary){% endif %};">
+                                    {% if same_fav %}
+                                        {{ '%+.1f'|format(line_diff) }} pts
+                                    {% else %}
+                                        Diff Fav
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% if rlm_detected and rlm_sharp_side and has_open %}
+                        <div style="margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.65rem; color: var(--text-muted);">
+                            {% if kp_rlm_signal == 'strong' %}
+                            <i class="bi bi-check-circle-fill" style="color: #10b981;"></i>
+                            <span style="color: #10b981;">KenPom + RLM aligned:</span> KenPom has higher spread than open, sharps moving line toward {{ rlm_sharp_side }}
+                            {% elif kp_rlm_signal == 'moderate' %}
+                            <i class="bi bi-exclamation-circle-fill" style="color: #f59e0b;"></i>
+                            <span style="color: #f59e0b;">Moderate:</span> KenPom agrees on favorite but open line already matched/exceeded KenPom
+                            {% elif kp_rlm_signal == 'conflict' %}
+                            <i class="bi bi-x-circle-fill" style="color: #ef4444;"></i>
+                            <span style="color: #ef4444;">Caution:</span> KenPom and market disagree on the favorite
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
                 </div>
                 {% endif %}
                 
