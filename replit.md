@@ -94,18 +94,6 @@ The Sports Scanner fetches game data, stats, and odds for NBA, CBB, NFL, CFB, an
         - Sharp money detection based on tickets vs handle divergence
         - Cookies stored in `vsin_cookies.json` (expires March 2026)
     -   Covers.com (H2H, ATS records)
-    -   ESPN Tennis API (match schedules, scores, player results)
-    -   ATP/WTA Rankings (web scraping from live-tennis.eu)
-
-### Tennis Analysis Tab (Feb 2026)
-Over/Under Set Totals strategy with three core features:
-- **Match Cards**: Today's ATP/WTA matches from ESPN API with set scores, game counts, live status
-- **L10 Analysis**: Player last-10 singles match history with set-by-set breakdowns, form tracking (W/L streaks), avg first set totals, Over 9.5/Under 10.5 hit rates
-- **Recommendations Engine**: Combined player averages generate Over/Under picks with confidence scores, rank-based ML recommendations when significant gap exists (50+ positions)
-- **WTA Under 10.5 Optimizer**: Dedicated button that scans all WTA upcoming matches and scores them on multiple criteria (combined avg, under-10.5 rate, rank proximity, form alignment)
-- **Batch Analysis**: "Run Full Slate Analysis" processes all upcoming matches and returns sorted by confidence
-- Filters: All/ATP/WTA/Upcoming/Live with match counts
-- Navigation: Tennis tab added to mobile bottom nav across all pages
     
 ### Bovada Filtering (Jan 2026)
 Games are filtered to only show matchups available on Bovada via The Odds API:
