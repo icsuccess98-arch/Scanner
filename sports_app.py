@@ -9514,6 +9514,34 @@ def normalize_cbb_team_for_kenpom(name: str) -> str:
         'n iowa': 'northern iowa', 'uni': 'northern iowa',
         's illinois': 'southern illinois', 'siu': 'southern illinois',
         'murray st': 'murray st.', 'loyola chicago': 'loyola chicago',
+        'e texas a&m': 'east texas a&m', 'etamu': 'east texas a&m',
+        'texas a&m-cc': 'texas a&m corpus chris', 'tamucc': 'texas a&m corpus chris',
+        'ut rio grande': 'ut rio grande valley', 'utrgv': 'ut rio grande valley',
+        "n'western st": 'northwestern st.', 'nw st': 'northwestern st.', 'northwestern st': 'northwestern st.',
+        'mid atl chrstn': 'mid atlantic christian',
+        'c arkansas': 'central arkansas', 'uca': 'central arkansas',
+        'hou christian': 'houston christian', 'hcu': 'houston christian',
+        'sf austin': 'stephen f. austin', 'sfa': 'stephen f. austin',
+        'nc central': 'north carolina central', 'nccu': 'north carolina central',
+        'miss valley st': 'mississippi valley st.', 'mvsu': 'mississippi valley st.',
+        'alcorn st': 'alcorn st.', 'alabama a&m': 'alabama a&m',
+        'jackson st': 'jackson st.', 'grambling': 'grambling st.',
+        'grambling st': 'grambling st.',
+        'ar-pine bluff': 'arkansas pine bluff', 'uapb': 'arkansas pine bluff',
+        'n alabama': 'north alabama', 'una': 'north alabama',
+        'se louisiana': 'southeastern louisiana', 'sela': 'southeastern louisiana',
+        'tx southern': 'texas southern', 'txso': 'texas southern',
+        'bethune-cookman': 'bethune cookman', 'bethune cookman': 'bethune cookman',
+        'n.c. state': 'n.c. state', 'nc state': 'n.c. state', 'ncst': 'n.c. state',
+        'mcneese': 'mcneese', 'mcneese st': 'mcneese',
+        'chicago st': 'chicago st.', 'csu': 'chicago st.',
+        'saint francis': 'saint francis', 'st. francis': 'saint francis',
+        'st francis': 'saint francis',
+        'indiana st': 'indiana st.', 'illinois st': 'illinois st.',
+        'delaware st': 'delaware st.', 'alabama st': 'alabama st.',
+        'prairie view': 'prairie view a&m', 'pvamu': 'prairie view a&m',
+        'florida a&m': 'florida a&m', 'famu': 'florida a&m',
+        'unc wilmington': 'unc wilmington', 'uncw': 'unc wilmington',
     }
     return kenpom_aliases.get(name, name)
 
@@ -13332,8 +13360,7 @@ def spreads():
                     else:
                         logger.debug(f"CBB filtered out: {g.away_team} @ {g.home_team} (KenPom spread: {kp_spread:.1f})")
                 else:
-                    filtered_cbb.append(g)
-                    logger.debug(f"CBB no fanmatch data: {g.away_team} @ {g.home_team} - keeping")
+                    logger.info(f"CBB filtered out (no fanmatch): {g.away_team} @ {g.home_team}")
             logger.info(f"CBB fanmatch filter: {len(games_by_league['CBB'])} -> {len(filtered_cbb)} games (< 5pt spread)")
             games_by_league['CBB'] = filtered_cbb
     
