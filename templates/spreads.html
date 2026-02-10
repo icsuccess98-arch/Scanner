@@ -4212,39 +4212,7 @@
                         </tfoot>
                     </table>
                 </div>
-
-                <!-- LAST 3 GAMES -->
-                ${(awayL3 && homeL3 && Object.keys(awayL3).length > 0) ? `
-                <div class="analytics-table-section">
-                    <div class="table-header">LAST 3 GAMES</div>
-                    <table class="stats-table">
-                        <thead>
-                            <tr>
-                                <th>Metric</th>
-                                <th class="team-col">${awayTeam}</th>
-                                <th class="team-col">${homeTeam}</th>
-                                <th>Edge</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${statRow('PPG', awayL3['PPG'], homeL3['PPG'], 'num', true)}
-                            ${statRow('Opp PPG', awayL3['Opp PPG'], homeL3['Opp PPG'], 'num', false)}
-                            ${statRow('eFG%', awayL3['eFG%'], homeL3['eFG%'], 'pct', true)}
-                            ${statRow('3P%', awayL3['3P%'], homeL3['3P%'], 'pct', true)}
-                            ${statRow('FT%', awayL3['FT%'], homeL3['FT%'], 'pct', true)}
-                            ${statRow('PACE', awayL3['PACE'], homeL3['PACE'], 'num', true)}
-                            ${statRow('Ast/TO', awayL3['Assists/TO'], homeL3['Assists/TO'], 'num', true)}
-                            ${statRow('TOV', awayL3['TOV'], homeL3['TOV'], 'num', false)}
-                            ${statRow('ORB', awayL3['ORB'], homeL3['ORB'], 'num', true)}
-                            ${statRow('DRB', awayL3['DRB'], homeL3['DRB'], 'num', true)}
-                            ${statRow('Assists', awayL3['Assists'], homeL3['Assists'], 'num', true)}
-                            ${statRow('Blocks', awayL3['Blocks'], homeL3['Blocks'], 'num', true)}
-                            ${statRow('Steals', awayL3['Steals'], homeL3['Steals'], 'num', true)}
-                        </tbody>
-                    </table>
-                </div>
-                ` : ''}
-
+                
                 <!-- BETTING ACTION - COMPACT -->
                 ${data.rlm ? (() => {
                     const awayBetPct = parseInt(data.rlm.away_bet_pct) ?? 50;

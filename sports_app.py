@@ -772,10 +772,10 @@ class MatchupIntelligence:
             # Fetch advanced stats
             stats = teamdashboardbygeneralsplits.TeamDashboardByGeneralSplits(
                 team_id=team_id,
-                season=f"{date.today().year - 1}-{str(date.today().year)[2:]}" if date.today().month < 10 else f"{date.today().year}-{str(date.today().year + 1)[2:]}",
+                season='2024-25',
                 season_type_all_star='Regular Season'
             )
-
+            
             overall = stats.overall_team_dashboard.get_dict()
             if overall and overall.get('data'):
                 row = overall['data'][0]
@@ -833,7 +833,7 @@ class MatchupIntelligence:
             
             # Get league-wide stats for rankings
             team_stats = leaguedashteamstats.LeagueDashTeamStats(
-                season=f"{date.today().year - 1}-{str(date.today().year)[2:]}" if date.today().month < 10 else f"{date.today().year}-{str(date.today().year + 1)[2:]}",
+                season='2024-25',
                 season_type_all_star='Regular Season',
                 per_mode_detailed='PerGame'
             )
@@ -928,10 +928,10 @@ class MatchupIntelligence:
             # Fetch game log
             game_log = teamgamelog.TeamGameLog(
                 team_id=team_id,
-                season=f"{date.today().year - 1}-{str(date.today().year)[2:]}" if date.today().month < 10 else f"{date.today().year}-{str(date.today().year + 1)[2:]}",
+                season='2024-25',
                 season_type_all_star='Regular Season'
             )
-
+            
             data = game_log.team_game_log.get_dict()
             if data and data.get('data'):
                 headers = data['headers']
@@ -1218,19 +1218,6 @@ class MatchupIntelligence:
                     'opp fta/fga': 'Opp FTA/FGA', 'opp ft rate': 'Opp FTA/FGA',
                     'off efficiency': 'O Eff', 'offensive efficiency': 'O Eff',
                     'def efficiency': 'D Eff', 'defensive efficiency': 'D Eff',
-                    'possessions/gm': 'PACE', 'possessions per game': 'PACE',
-                    'avg score margin': 'Score Margin', 'average score margin': 'Score Margin',
-                    'three point rate': '3PT Rate', '3-point rate': '3PT Rate',
-                    'two point rate': '2PT Rate', '2-point rate': '2PT Rate',
-                    'two point %': '2PT%', '2-point %': '2PT%', '2-pt%': '2PT%',
-                    'opp two point %': 'Opp 2PT%', 'opp 2-point %': 'Opp 2PT%', 'opp 2-pt%': 'Opp 2PT%',
-                    'fta/play': 'FTA/Play',
-                    'steals/game': 'Steals', 'steals per game': 'Steals',
-                    'blocks/game': 'Blocks', 'blocks per game': 'Blocks',
-                    'personal fouls/gm': 'Fouls', 'personal fouls per game': 'Fouls',
-                    'assists/game': 'Assists', 'assists per game': 'Assists',
-                    'off rebounds/gm': 'ORB', 'offensive rebounds per game': 'ORB',
-                    'def rebounds/gm': 'DRB', 'defensive rebounds per game': 'DRB',
                 }
                 return mappings.get(stat_lower, stat)
             
@@ -1250,10 +1237,8 @@ class MatchupIntelligence:
                             continue
                         h0 = header[0].get_text(strip=True).upper()
                         h3 = header[3].get_text(strip=True).upper() if len(header) > 3 else ''
-                        away_abbrev = MatchupIntelligence.BBALL_REF_ABBREVS.get(away_team.lower(), away_team.upper()[:3])
-                        home_abbrev = MatchupIntelligence.BBALL_REF_ABBREVS.get(home_team.lower(), home_team.upper()[:3])
-                        is_away_table = away_abbrev in h0 or away_slug.upper()[:3] in h0
-                        is_home_table = home_abbrev in h0 or home_slug.upper()[:3] in h0
+                        is_away_table = away_team.upper()[:3] in h0 or 'CHI' in h0 or 'BOS' in h0 or away_slug.upper()[:3] in h0
+                        is_home_table = home_team.upper()[:3] in h0 or 'IND' in h0 or home_slug.upper()[:3] in h0
                         
                         for row in rows[1:]:
                             cells = row.find_all(['td', 'th'])
@@ -1274,24 +1259,33 @@ class MatchupIntelligence:
                             if 'subscribe' in stat1.lower() or not stat1:
                                 continue
                             
-                            # Each table shows one team's stats: col0=team stat, col1=value, col2=opp value, col3=opp stat
-                            # Both columns belong to the team named in the header (h0)
                             if is_away_table and not is_home_table:
-                                target = 'away_season'
-                            elif is_home_table and not is_away_table:
-                                target = 'home_season'
-                            else:
-                                target = None
-
-                            if target:
                                 if val1 is not None:
-                                    result[target][stat1] = val1
+                                    result['away_season'][stat1] = val1
                                     if rank1:
-                                        result[target][f'{stat1} Rank'] = rank1
+                                        result['away_season'][f'{stat1} Rank'] = rank1
                                 if val2 is not None:
-                                    result[target][stat2] = val2
+                                    result['home_season'][stat2] = val2
                                     if rank2:
-                                        result[target][f'{stat2} Rank'] = rank2
+                                        result['home_season'][f'{stat2} Rank'] = rank2
+                            elif is_home_table and not is_away_table:
+                                if val1 is not None:
+                                    result['home_season'][stat1] = val1
+                                    if rank1:
+                                        result['home_season'][f'{stat1} Rank'] = rank1
+                                if val2 is not None:
+                                    result['away_season'][stat2] = val2
+                                    if rank2:
+                                        result['away_season'][f'{stat2} Rank'] = rank2
+                            else:
+                                if val1 is not None:
+                                    result['away_season'][stat1] = val1
+                                    if rank1:
+                                        result['away_season'][f'{stat1} Rank'] = rank1
+                                if val2 is not None:
+                                    result['home_season'][stat2] = val2
+                                    if rank2:
+                                        result['home_season'][f'{stat2} Rank'] = rank2
                     
                     logger.info(f"Stats page: away={len(result['away_season'])}, home={len(result['home_season'])}")
             except Exception as e:
@@ -1354,25 +1348,23 @@ class MatchupIntelligence:
                             cells = row.find_all(['td', 'th'])
                             if len(cells) < 7:
                                 continue
-                            stat_name_raw = cells[0].get_text(strip=True)
-                            stat_name_lower = stat_name_raw.lower().strip()
-                            if not stat_name_lower or 'stat' in stat_name_lower or 'subscribe' in stat_name_lower:
+                            stat_name = cells[0].get_text(strip=True).lower()
+                            if not stat_name or 'stat' in stat_name or 'subscribe' in stat_name:
                                 continue
-                            stat_name = normalize_stat_name(stat_name_raw)
-
-                            away_season_val = parse_value(cells[1].get_text(strip=True))
-                            home_season_val = parse_value(cells[3].get_text(strip=True))
-                            away_l3_val = parse_value(cells[4].get_text(strip=True))
-                            home_l3_val = parse_value(cells[6].get_text(strip=True))
-
-                            if away_season_val is not None:
-                                result['away_season'][stat_name] = away_season_val
-                            if home_season_val is not None:
-                                result['home_season'][stat_name] = home_season_val
-                            if away_l3_val is not None:
-                                result['away_l3'][stat_name] = away_l3_val
-                            if home_l3_val is not None:
-                                result['home_l3'][stat_name] = home_l3_val
+                            
+                            away_season = parse_value(cells[1].get_text(strip=True))
+                            home_season = parse_value(cells[3].get_text(strip=True))
+                            away_l3 = parse_value(cells[4].get_text(strip=True))
+                            home_l3 = parse_value(cells[6].get_text(strip=True))
+                            
+                            if away_season is not None:
+                                result['away_season'][stat_name] = away_season
+                            if home_season is not None:
+                                result['home_season'][stat_name] = home_season
+                            if away_l3 is not None:
+                                result['away_l3'][stat_name] = away_l3
+                            if home_l3 is not None:
+                                result['home_l3'][stat_name] = home_l3
                     
                     logger.info(f"Splits page: L3 away={len(result['away_l3'])}, home={len(result['home_l3'])}")
             except Exception as e:
@@ -1386,33 +1378,16 @@ class MatchupIntelligence:
                     tables = soup.find_all('table')
                     sos_found = False
                     
-                    for tidx, table in enumerate(tables):
+                    for table in tables:
                         rows = table.find_all('tr')
                         for row in rows:
                             cells = row.find_all(['td', 'th'])
-
-                            # Detail tables (Tables 1=away, 2=home): format [StatName, Value, #Rank, ConfRank]
-                            if not sos_found and len(cells) >= 3 and tidx in (1, 2):
-                                stat_name_detail = cells[0].get_text(strip=True).lower()
-                                if 'strength of schedule' in stat_name_detail:
-                                    rank_text = cells[2].get_text(strip=True) if len(cells) > 2 else ''
-                                    rank_val = extract_rank(rank_text)
-                                    if rank_val:
-                                        if tidx == 1:
-                                            result['away_season']['sos rank'] = rank_val
-                                        else:
-                                            result['home_season']['sos rank'] = rank_val
-                                        if 'sos rank' in result['away_season'] and 'sos rank' in result['home_season']:
-                                            sos_found = True
-                                            logger.info(f"SOS Rank (detail): away=#{result['away_season']['sos rank']}, home=#{result['home_season']['sos rank']}")
-
-                            # Comparison table (Table 0): format [StatName, AwayVal(#rank), adv, HomeVal(#rank)]
                             if len(cells) >= 4:
                                 stat_name = cells[0].get_text(strip=True).lower()
                                 cell1_text = cells[1].get_text(strip=True)
                                 cell3_text = cells[3].get_text(strip=True)
-
-                                if not sos_found and ('strength of schedule' in stat_name or 'schedule strength' in stat_name):
+                                
+                                if not sos_found and 'schedule strength (past)' in stat_name:
                                     away_rank = extract_rank(cell1_text)
                                     home_rank = extract_rank(cell3_text)
                                     if away_rank and home_rank:
@@ -1420,7 +1395,7 @@ class MatchupIntelligence:
                                         result['home_season']['sos rank'] = home_rank
                                         sos_found = True
                                         logger.info(f"SOS Rank: away=#{away_rank}, home=#{home_rank}")
-
+                                
                                 if 'predictive' in stat_name and 'predictive rating' not in result['away_season']:
                                     away_val = parse_value(cell1_text)
                                     home_val = parse_value(cell3_text)
@@ -1428,7 +1403,7 @@ class MatchupIntelligence:
                                         result['away_season']['predictive rating'] = away_val
                                     if home_val is not None:
                                         result['home_season']['predictive rating'] = home_val
-
+                                
                                 if 'last 10' in stat_name and 'last 10 rating' not in result['away_season']:
                                     away_val = parse_value(cell1_text)
                                     home_val = parse_value(cell3_text)
@@ -1436,7 +1411,7 @@ class MatchupIntelligence:
                                         result['away_season']['last 10 rating'] = away_val
                                     if home_val is not None:
                                         result['home_season']['last 10 rating'] = home_val
-
+                                
                                 if 'luck' in stat_name and 'luck rating' not in result['away_season']:
                                     away_val = parse_value(cell1_text)
                                     home_val = parse_value(cell3_text)
@@ -14246,6 +14221,24 @@ def get_matchup_data(game_id):
 
             # Log what stats we got for debugging
             logging.info(f"TeamRankings stats for {game.away_team} vs {game.home_team}: {list(away_season.keys())[:10]}...")
+
+            # If TeamRankings returned empty (JS-rendered site), use basketball-reference as fallback
+            if game.league == 'NBA' and len(away_season) < 3:
+                logging.info(f"TeamRankings empty for {game.away_team} vs {game.home_team}, trying basketball-reference...")
+                try:
+                    with ThreadPoolExecutor(max_workers=2) as bref_executor:
+                        away_bref_future = bref_executor.submit(MatchupIntelligence.fetch_bball_ref_team_stats, game.away_team)
+                        home_bref_future = bref_executor.submit(MatchupIntelligence.fetch_bball_ref_team_stats, game.home_team)
+                        away_bref = away_bref_future.result(timeout=20) or {}
+                        home_bref = home_bref_future.result(timeout=20) or {}
+                    if away_bref:
+                        away_season.update(away_bref)
+                        logging.info(f"BBall-Ref away stats loaded: {list(away_bref.keys())[:8]}")
+                    if home_bref:
+                        home_season.update(home_bref)
+                        logging.info(f"BBall-Ref home stats loaded: {list(home_bref.keys())[:8]}")
+                except Exception as e:
+                    logging.warning(f"BBall-Ref fallback error: {e}")
 
             # Fetch external data in PARALLEL for faster loading
             away_ctg = {}
