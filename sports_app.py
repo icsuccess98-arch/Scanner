@@ -9411,15 +9411,27 @@ def fetch_kenpom_fanmatch(target_date: str = None) -> dict:
         logger.warning("CBB_API_KEY not set, skipping KenPom fanmatch fetch")
         return kenpom_fanmatch_cache
 
+    dates_to_try = [target_date]
+    yesterday = (today - timedelta(days=1)).strftime('%Y-%m-%d')
+    if yesterday not in dates_to_try:
+        dates_to_try.append(yesterday)
+
     try:
-        url = f"https://kenpom.com/api.php?endpoint=fanmatch&d={target_date}"
-        headers = {
-            'Authorization': f'Bearer {api_key}',
-            'User-Agent': 'Mozilla/5.0 (compatible; SportsApp/1.0)'
-        }
-        resp = requests.get(url, headers=headers, timeout=30)
-        if resp.status_code != 200:
-            logger.warning(f"KenPom fanmatch API returned {resp.status_code}: {resp.text[:200]}")
+        resp = None
+        for try_date in dates_to_try:
+            url = f"https://kenpom.com/api.php?endpoint=fanmatch&d={try_date}"
+            headers = {
+                'Authorization': f'Bearer {api_key}',
+                'User-Agent': 'Mozilla/5.0 (compatible; SportsApp/1.0)'
+            }
+            resp = requests.get(url, headers=headers, timeout=30)
+            if resp.status_code == 200:
+                logger.info(f"KenPom fanmatch loaded for date: {try_date}")
+                break
+            else:
+                logger.warning(f"KenPom fanmatch API returned {resp.status_code} for {try_date}: {resp.text[:200]}")
+        if not resp or resp.status_code != 200:
+            logger.warning(f"KenPom fanmatch unavailable for all dates tried: {dates_to_try}")
             return kenpom_fanmatch_cache
 
         data = resp.json()
@@ -9456,6 +9468,7 @@ def fetch_kenpom_fanmatch(target_date: str = None) -> dict:
 
         if cache:
             kenpom_fanmatch_cache = cache
+            kenpom_cache_date = today
             logger.info(f"KenPom Fanmatch predictions loaded: {len(cache)} games")
         return kenpom_fanmatch_cache
     except Exception as e:
