@@ -9074,6 +9074,7 @@ kenpom_misc_cache = {}
 kenpom_conference_ratings_cache = {}
 kenpom_conferences_cache = {}
 kenpom_fanmatch_cache = {}
+kenpom_fanmatch_cache_date = None
 kenpom_teams_cache = {}
 kenpom_cache_date = None
 
@@ -9397,10 +9398,10 @@ def fetch_kenpom_fanmatch(target_date: str = None) -> dict:
         - thrill_score
         - home_rank, visitor_rank
     """
-    global kenpom_fanmatch_cache, kenpom_cache_date
+    global kenpom_fanmatch_cache, kenpom_fanmatch_cache_date
     today = date.today()
 
-    if kenpom_cache_date == today and kenpom_fanmatch_cache:
+    if kenpom_fanmatch_cache_date == today and kenpom_fanmatch_cache:
         return kenpom_fanmatch_cache
 
     if not target_date:
@@ -9468,7 +9469,7 @@ def fetch_kenpom_fanmatch(target_date: str = None) -> dict:
 
         if cache:
             kenpom_fanmatch_cache = cache
-            kenpom_cache_date = today
+            kenpom_fanmatch_cache_date = today
             logger.info(f"KenPom Fanmatch predictions loaded: {len(cache)} games")
         return kenpom_fanmatch_cache
     except Exception as e:
