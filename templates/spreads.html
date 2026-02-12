@@ -2539,7 +2539,7 @@
         {% endif %}
         
         {% for league, games in games_by_league.items() %}
-        {% if games|length > 0 %}
+        {% if games|length > 0 and league != 'NHL' %}
         <div class="league-section" data-league="{{ league }}">
             <div class="league-header">
                 {% if league == 'NBA' %}
