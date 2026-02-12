@@ -632,32 +632,6 @@ def calculate_rlm(game) -> bool:
     return rlm_detected
 
 
-def calculate_sharp_side(game) -> str:
-    """
-    Determine sharp side based on money vs tickets %.
-    Sharp = Money % significantly higher than Tickets %
-    """
-    if not all([
-        getattr(game, 'away_tickets_pct', None),
-        getattr(game, 'home_tickets_pct', None),
-        getattr(game, 'away_money_pct', None),
-        getattr(game, 'home_money_pct', None)
-    ]):
-        return 'unknown'
-    
-    league = getattr(game, 'league', 'NBA')
-    sharp_threshold = EXTENDED_THRESHOLDS.get(league, {}).get('sharp_threshold', 10.0)
-    
-    away_sharp_diff = (game.away_money_pct or 0) - (game.away_tickets_pct or 0)
-    home_sharp_diff = (game.home_money_pct or 0) - (game.home_tickets_pct or 0)
-    
-    if away_sharp_diff >= sharp_threshold:
-        return 'away'
-    elif home_sharp_diff >= sharp_threshold:
-        return 'home'
-    return 'balanced'
-
-
 def get_nba_abbr(team_name: str) -> str:
     """Get NBA team abbreviation."""
     abbr_map = {
@@ -677,26 +651,6 @@ def get_nba_abbr(team_name: str) -> str:
         if key in team_lower:
             return abbr
     return ''
-
-
-def get_team_logo_bulletproof(team_name: str, league: str) -> str:
-    """
-    Get team logo with bulletproof fallback chain.
-    NEVER fails - always returns a valid URL.
-    """
-    team_lower = team_name.lower()
-    
-    if league == 'NBA':
-        abbr = get_nba_abbr(team_name)
-        if abbr:
-            return f'https://a.espncdn.com/i/teamlogos/nba/500/{abbr}.png'
-    elif league == 'CBB':
-        from automated_loading_system import ESPN_CBB_TEAM_IDS
-        team_id = ESPN_CBB_TEAM_IDS.get(team_name) or ESPN_CBB_TEAM_IDS.get(team_name.title())
-        if team_id:
-            return f'https://a.espncdn.com/i/teamlogos/ncaa/500-dark/{team_id}.png'
-    
-    return f'https://via.placeholder.com/64/667eea/ffffff?text={team_name[:3].upper()}'
 
 
 class MatchupIntelligence:
@@ -736,151 +690,6 @@ class MatchupIntelligence:
         'Trail Blazers': 1610612757, 'Kings': 1610612758, 'Spurs': 1610612759, 'Raptors': 1610612761,
         'Jazz': 1610612762, 'Wizards': 1610612764
     }
-    
-    @staticmethod
-    def get_team_advanced_stats(team_name: str, league: str = 'NBA') -> dict:
-        """
-        Fetch advanced team stats from NBA.com API.
-        Returns dict with shooting, rebounding, turnover, pace metrics.
-        """
-        try:
-            from nba_api.stats.endpoints import teamdashboardbygeneralsplits, leaguedashteamstats
-            from nba_api.stats.static import teams as nba_teams_static
-            import time
-            
-            # Find team ID
-            team_id = None
-            for abbr, tid in MatchupIntelligence.NBA_TEAM_IDS.items():
-                if abbr.lower() in team_name.lower() or team_name.lower() in abbr.lower():
-                    team_id = tid
-                    break
-            
-            if not team_id:
-                # Try to find by full name
-                all_teams = nba_teams_static.get_teams()
-                for t in all_teams:
-                    if team_name.lower() in t['full_name'].lower() or t['nickname'].lower() in team_name.lower():
-                        team_id = t['id']
-                        break
-            
-            if not team_id:
-                logger.warning(f"Could not find NBA team ID for: {team_name}")
-                return {}
-            
-            time.sleep(0.6)  # Rate limiting
-            
-            # Fetch advanced stats
-            stats = teamdashboardbygeneralsplits.TeamDashboardByGeneralSplits(
-                team_id=team_id,
-                season='2024-25',
-                season_type_all_star='Regular Season'
-            )
-            
-            overall = stats.overall_team_dashboard.get_dict()
-            if overall and overall.get('data'):
-                row = overall['data'][0]
-                headers = overall['headers']
-                stats_dict = dict(zip(headers, row))
-                
-                return {
-                    'fgm': stats_dict.get('FGM', 0),
-                    'fga': stats_dict.get('FGA', 0),
-                    'fg_pct': stats_dict.get('FG_PCT', 0) * 100,
-                    'fg3m': stats_dict.get('FG3M', 0),
-                    'fg3a': stats_dict.get('FG3A', 0),
-                    'fg3_pct': stats_dict.get('FG3_PCT', 0) * 100,
-                    'ftm': stats_dict.get('FTM', 0),
-                    'fta': stats_dict.get('FTA', 0),
-                    'ft_pct': stats_dict.get('FT_PCT', 0) * 100,
-                    'oreb': stats_dict.get('OREB', 0),
-                    'dreb': stats_dict.get('DREB', 0),
-                    'reb': stats_dict.get('REB', 0),
-                    'ast': stats_dict.get('AST', 0),
-                    'tov': stats_dict.get('TOV', 0),
-                    'stl': stats_dict.get('STL', 0),
-                    'blk': stats_dict.get('BLK', 0),
-                    'pts': stats_dict.get('PTS', 0),
-                    'plus_minus': stats_dict.get('PLUS_MINUS', 0),
-                    # Calculated metrics
-                    '2pt_pct': ((stats_dict.get('FGM', 0) - stats_dict.get('FG3M', 0)) / 
-                               max(1, stats_dict.get('FGA', 1) - stats_dict.get('FG3A', 0))) * 100 if stats_dict.get('FGA', 0) > 0 else 0,
-                    '3pt_rate': (stats_dict.get('FG3A', 0) / max(1, stats_dict.get('FGA', 1))) * 100 if stats_dict.get('FGA', 0) > 0 else 0,
-                    'efg_pct': ((stats_dict.get('FGM', 0) + 0.5 * stats_dict.get('FG3M', 0)) / 
-                               max(1, stats_dict.get('FGA', 1))) * 100 if stats_dict.get('FGA', 0) > 0 else 0,
-                    'tov_pct': (stats_dict.get('TOV', 0) / 
-                               max(1, stats_dict.get('FGA', 0) + 0.44 * stats_dict.get('FTA', 0) + stats_dict.get('TOV', 0))) * 100,
-                    'orb_pct': 0,  # Will need box score data
-                    'ft_rate': (stats_dict.get('FTA', 0) / max(1, stats_dict.get('FGA', 1))) * 100 if stats_dict.get('FGA', 0) > 0 else 0
-                }
-            
-            return {}
-            
-        except Exception as e:
-            logger.warning(f"Error fetching NBA.com stats for {team_name}: {e}")
-            return {}
-    
-    @staticmethod
-    def get_team_rankings(league: str = 'NBA') -> dict:
-        """
-        Fetch team power rankings and efficiency ratings.
-        Returns dict mapping team names to their rankings.
-        """
-        try:
-            from nba_api.stats.endpoints import leaguedashteamstats
-            import time
-            
-            time.sleep(0.6)
-            
-            # Get league-wide stats for rankings
-            team_stats = leaguedashteamstats.LeagueDashTeamStats(
-                season='2024-25',
-                season_type_all_star='Regular Season',
-                per_mode_detailed='PerGame'
-            )
-            
-            data = team_stats.league_dash_team_stats.get_dict()
-            if data and data.get('data'):
-                headers = data['headers']
-                rankings = {}
-                
-                # Sort teams by NET_RATING for power ranking
-                team_data = []
-                for row in data['data']:
-                    stats = dict(zip(headers, row))
-                    team_data.append({
-                        'team_id': stats.get('TEAM_ID'),
-                        'team_name': stats.get('TEAM_NAME'),
-                        'off_rating': stats.get('OFF_RATING', 0),
-                        'def_rating': stats.get('DEF_RATING', 0),
-                        'net_rating': stats.get('NET_RATING', 0),
-                        'pace': stats.get('PACE', 0),
-                        'wins': stats.get('W', 0),
-                        'losses': stats.get('L', 0)
-                    })
-                
-                # Sort by net rating for power ranking
-                team_data.sort(key=lambda x: x['net_rating'], reverse=True)
-                for i, team in enumerate(team_data, 1):
-                    team['power_rank'] = i
-                    rankings[team['team_name']] = team
-                
-                # Sort by offensive rating
-                team_data.sort(key=lambda x: x['off_rating'], reverse=True)
-                for i, team in enumerate(team_data, 1):
-                    rankings[team['team_name']]['off_rank'] = i
-                
-                # Sort by defensive rating (lower is better)
-                team_data.sort(key=lambda x: x['def_rating'])
-                for i, team in enumerate(team_data, 1):
-                    rankings[team['team_name']]['def_rank'] = i
-                
-                return rankings
-            
-            return {}
-            
-        except Exception as e:
-            logger.warning(f"Error fetching team rankings: {e}")
-            return {}
     
     # L5 stats cache - stores team L5 data with TTL
     _l5_cache = {}
@@ -979,163 +788,6 @@ class MatchupIntelligence:
         except Exception as e:
             logger.warning(f"Error fetching L5 stats for {team_name}: {e}")
             return {}
-    
-    # Cache for Last 5 games (in-memory, expires after 10 mins)
-    _last5_cache = {}
-    _last5_cache_time = {}
-    
-    @staticmethod
-    def get_team_last5_games(team_name: str, league: str = 'NBA') -> list:
-        """
-        Fetch last 5 game results with dates, opponents, scores from ESPN API.
-        Returns list of dicts: [{date, opp, opp_logo, location, result, score}, ...]
-        """
-        import requests
-        from datetime import datetime
-        import time as time_module
-        
-        # Check cache first (10 minute expiry)
-        cache_key = f"{team_name}_{league}"
-        cache_time = MatchupIntelligence._last5_cache_time.get(cache_key, 0)
-        if cache_key in MatchupIntelligence._last5_cache and (time_module.time() - cache_time) < 600:
-            return MatchupIntelligence._last5_cache[cache_key]
-        
-        # ESPN team ID mapping
-        ESPN_TEAM_IDS = {
-            'ATL': '1', 'BOS': '2', 'BKN': '17', 'CHA': '30', 'CHI': '4',
-            'CLE': '5', 'DAL': '6', 'DEN': '7', 'DET': '8', 'GSW': '9',
-            'HOU': '10', 'IND': '11', 'LAC': '12', 'LAL': '13', 'MEM': '29',
-            'MIA': '14', 'MIL': '15', 'MIN': '16', 'NOP': '3', 'NYK': '18',
-            'OKC': '25', 'ORL': '19', 'PHI': '20', 'PHX': '21', 'POR': '22',
-            'SAC': '23', 'SAS': '24', 'TOR': '28', 'UTA': '26', 'WAS': '27'
-        }
-        
-        try:
-            # Find team abbreviation
-            team_abbr = None
-            for abbr in ESPN_TEAM_IDS.keys():
-                if abbr.lower() in team_name.lower() or team_name.lower() in abbr.lower():
-                    team_abbr = abbr
-                    break
-            
-            # Try matching full names
-            if not team_abbr:
-                name_to_abbr = {
-                    'hawks': 'ATL', 'celtics': 'BOS', 'nets': 'BKN', 'hornets': 'CHA', 'bulls': 'CHI',
-                    'cavaliers': 'CLE', 'mavericks': 'DAL', 'nuggets': 'DEN', 'pistons': 'DET', 'warriors': 'GSW',
-                    'rockets': 'HOU', 'pacers': 'IND', 'clippers': 'LAC', 'lakers': 'LAL', 'grizzlies': 'MEM',
-                    'heat': 'MIA', 'bucks': 'MIL', 'timberwolves': 'MIN', 'pelicans': 'NOP', 'knicks': 'NYK',
-                    'thunder': 'OKC', 'magic': 'ORL', '76ers': 'PHI', 'sixers': 'PHI', 'suns': 'PHX',
-                    'blazers': 'POR', 'trail blazers': 'POR', 'kings': 'SAC', 'spurs': 'SAS', 'raptors': 'TOR',
-                    'jazz': 'UTA', 'wizards': 'WAS'
-                }
-                for name, abbr in name_to_abbr.items():
-                    if name in team_name.lower():
-                        team_abbr = abbr
-                        break
-            
-            if not team_abbr:
-                return []
-            
-            espn_id = ESPN_TEAM_IDS.get(team_abbr)
-            if not espn_id:
-                return []
-            
-            # Fetch from ESPN API
-            url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/{espn_id}/schedule"
-            resp = requests.get(url, timeout=10)
-            
-            if resp.status_code != 200:
-                return []
-            
-            data = resp.json()
-            events = data.get('events', [])
-            
-            # Filter completed games and get last 5
-            completed_games = []
-            for event in events:
-                status = event.get('competitions', [{}])[0].get('status', {}).get('type', {}).get('completed', False)
-                if status:
-                    completed_games.append(event)
-            
-            # Get most recent 5 games
-            recent_games = completed_games[-5:][::-1] if len(completed_games) >= 5 else completed_games[::-1]
-            
-            results = []
-            for event in recent_games:
-                try:
-                    competition = event.get('competitions', [{}])[0]
-                    competitors = competition.get('competitors', [])
-                    
-                    if len(competitors) < 2:
-                        continue
-                    
-                    # Find team and opponent
-                    team_data = None
-                    opp_data = None
-                    for comp in competitors:
-                        if comp.get('team', {}).get('abbreviation', '').upper() == team_abbr:
-                            team_data = comp
-                        else:
-                            opp_data = comp
-                    
-                    if not team_data or not opp_data:
-                        continue
-                    
-                    # Get scores
-                    team_score = int(team_data.get('score', 0))
-                    opp_score = int(opp_data.get('score', 0))
-                    is_home = team_data.get('homeAway') == 'home'
-                    is_winner = team_data.get('winner', False)
-                    
-                    # Get opponent info
-                    opp_abbr = opp_data.get('team', {}).get('abbreviation', 'N/A')
-                    opp_logo = opp_data.get('team', {}).get('logo', f"https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/scoreboard/{opp_abbr.lower()}.png")
-                    
-                    # Format date
-                    game_date = event.get('date', '')
-                    try:
-                        dt = datetime.fromisoformat(game_date.replace('Z', '+00:00'))
-                        formatted_date = dt.strftime('%b %d')
-                    except:
-                        formatted_date = game_date[:6] if game_date else 'N/A'
-                    
-                    results.append({
-                        'date': formatted_date,
-                        'opp': opp_abbr,
-                        'opp_logo': opp_logo,
-                        'location': 'vs' if is_home else '@',
-                        'result': 'W' if is_winner else 'L',
-                        'score': f"{team_score} - {opp_score}"
-                    })
-                except Exception as e:
-                    continue
-            
-            # Cache results
-            if results:
-                MatchupIntelligence._last5_cache[cache_key] = results
-                MatchupIntelligence._last5_cache_time[cache_key] = time_module.time()
-            
-            return results
-            
-        except Exception as e:
-            logger.warning(f"Error fetching L5 games for {team_name}: {e}")
-            return []
-    
-    @staticmethod
-    def get_team_full_name(abbr: str) -> str:
-        """Convert team abbreviation to full name."""
-        abbr_map = {
-            'ATL': 'Hawks', 'BOS': 'Celtics', 'BKN': 'Nets', 'CHA': 'Hornets',
-            'CHI': 'Bulls', 'CLE': 'Cavaliers', 'DAL': 'Mavericks', 'DEN': 'Nuggets',
-            'DET': 'Pistons', 'GSW': 'Warriors', 'HOU': 'Rockets', 'IND': 'Pacers',
-            'LAC': 'Clippers', 'LAL': 'Lakers', 'MEM': 'Grizzlies', 'MIA': 'Heat',
-            'MIL': 'Bucks', 'MIN': 'Timberwolves', 'NOP': 'Pelicans', 'NYK': 'Knicks',
-            'OKC': 'Thunder', 'ORL': 'Magic', 'PHI': '76ers', 'PHX': 'Suns',
-            'POR': 'Trail Blazers', 'SAC': 'Kings', 'SAS': 'Spurs', 'TOR': 'Raptors',
-            'UTA': 'Jazz', 'WAS': 'Wizards'
-        }
-        return abbr_map.get(abbr.upper(), abbr)
     
     @staticmethod
     def fetch_teamrankings_matchup(away_team: str, home_team: str, game_date: str, league: str = 'NBA') -> dict:
@@ -2026,114 +1678,6 @@ class MatchupIntelligence:
             return result
         except Exception as e:
             logger.warning(f"Error fetching KenPom stats for {team_name}: {e}")
-            return {}
-    
-    @staticmethod
-    def fetch_teamrankings_stats(team_name: str, league: str = 'NBA') -> dict:
-        """
-        Fetch comprehensive team stats from TeamRankings.com including rankings and SOS.
-        """
-        try:
-            import requests
-            from bs4 import BeautifulSoup
-            
-            # Team name to slug mapping
-            team_slugs = {
-                'bulls': 'chicago-bulls', 'pacers': 'indiana-pacers', 'celtics': 'boston-celtics',
-                'lakers': 'los-angeles-lakers', 'heat': 'miami-heat', 'bucks': 'milwaukee-bucks',
-                'nets': 'brooklyn-nets', '76ers': 'philadelphia-76ers', 'knicks': 'new-york-knicks',
-                'hawks': 'atlanta-hawks', 'hornets': 'charlotte-hornets', 'cavaliers': 'cleveland-cavaliers',
-                'pistons': 'detroit-pistons', 'magic': 'orlando-magic', 'wizards': 'washington-wizards',
-                'raptors': 'toronto-raptors', 'nuggets': 'denver-nuggets', 'clippers': 'los-angeles-clippers',
-                'suns': 'phoenix-suns', 'warriors': 'golden-state-warriors', 'grizzlies': 'memphis-grizzlies',
-                'mavericks': 'dallas-mavericks', 'rockets': 'houston-rockets', 'pelicans': 'new-orleans-pelicans',
-                'spurs': 'san-antonio-spurs', 'thunder': 'oklahoma-city-thunder', 'timberwolves': 'minnesota-timberwolves',
-                'trail blazers': 'portland-trail-blazers', 'blazers': 'portland-trail-blazers',
-                'jazz': 'utah-jazz', 'kings': 'sacramento-kings'
-            }
-            
-            team_slug = team_slugs.get(team_name.lower(), team_name.lower().replace(' ', '-'))
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-            
-            result = {}
-            
-            # Fetch schedule strength (SOS)
-            sos_url = f"https://www.teamrankings.com/nba/team/{team_slug}"
-            try:
-                resp = requests.get(sos_url, headers=headers, timeout=10)
-                if resp.status_code == 200:
-                    soup = BeautifulSoup(resp.text, 'html.parser')
-                    # Look for SOS in team profile
-                    for row in soup.find_all('tr'):
-                        cells = row.find_all('td')
-                        if len(cells) >= 2:
-                            label = cells[0].get_text(strip=True).lower()
-                            if 'sos' in label or 'schedule' in label:
-                                val = cells[1].get_text(strip=True)
-                                try:
-                                    result['sos'] = float(val)
-                                except:
-                                    result['sos_rank'] = val
-            except:
-                pass
-            
-            return result
-            
-        except Exception as e:
-            logger.warning(f"Error fetching TeamRankings stats for {team_name}: {e}")
-            return {}
-    
-    @staticmethod
-    def fetch_covers_trends(team_name: str, league: str = 'NBA') -> dict:
-        """
-        Fetch betting trends from Covers.com.
-        Returns dict with ATS, O/U records and trends.
-        """
-        try:
-            import requests
-            from bs4 import BeautifulSoup
-            
-            league_path = 'nba' if league == 'NBA' else 'ncaab'
-            team_slug = team_name.lower().replace(' ', '-').replace("'", "")
-            
-            url = f"https://www.covers.com/sport/{league_path}/teams/{team_slug}"
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-            
-            resp = requests.get(url, headers=headers, timeout=10)
-            if resp.status_code != 200:
-                return {}
-            
-            soup = BeautifulSoup(resp.text, 'html.parser')
-            
-            trends = {}
-            
-            # Look for ATS and O/U records
-            record_sections = soup.find_all(class_='covers-CoversRecords')
-            for section in record_sections:
-                text = section.get_text()
-                if 'ATS' in text:
-                    # Parse ATS record
-                    import re
-                    ats_match = re.search(r'(\d+)-(\d+)(?:-(\d+))?', text)
-                    if ats_match:
-                        wins, losses = int(ats_match.group(1)), int(ats_match.group(2))
-                        trends['ats_wins'] = wins
-                        trends['ats_losses'] = losses
-                        trends['ats_pct'] = wins / max(1, wins + losses) * 100
-                
-                if 'O/U' in text or 'Over' in text:
-                    import re
-                    ou_match = re.search(r'(\d+)-(\d+)(?:-(\d+))?', text)
-                    if ou_match:
-                        overs, unders = int(ou_match.group(1)), int(ou_match.group(2))
-                        trends['over_hits'] = overs
-                        trends['under_hits'] = unders
-                        trends['over_pct'] = overs / max(1, overs + unders) * 100
-            
-            return trends
-            
-        except Exception as e:
-            logger.warning(f"Error fetching Covers trends for {team_name}: {e}")
             return {}
     
     @staticmethod
@@ -3082,276 +2626,6 @@ class MatchupIntelligence:
                 logger.info(f"Returning cached RLM data after error for {league}")
                 return MatchupIntelligence._rlm_cache[cache_key]
             return result
-    
-    @staticmethod
-    def compute_ctg_metrics(team_stats: dict, league: str = 'NBA') -> dict:
-        """
-        Compute Cleaning-the-Glass style efficiency metrics.
-        Uses NBA.com data to calculate CTG-style advanced stats.
-        """
-        try:
-            if not team_stats:
-                return {}
-            
-            fga = team_stats.get('fga', 0) or 1
-            fta = team_stats.get('fta', 0) or 1
-            fg3a = team_stats.get('fg3a', 0) or 1
-            fgm = team_stats.get('fgm', 0)
-            fg3m = team_stats.get('fg3m', 0)
-            ftm = team_stats.get('ftm', 0)
-            tov = team_stats.get('tov', 0)
-            oreb = team_stats.get('oreb', 0)
-            dreb = team_stats.get('dreb', 0)
-            
-            # Possessions estimate
-            possessions = fga + 0.44 * fta + tov - oreb
-            possessions = max(possessions, 1)
-            
-            # CTG-style metrics
-            return {
-                'efg_pct': ((fgm + 0.5 * fg3m) / max(1, fga)) * 100,
-                'ts_pct': (team_stats.get('pts', 0) / max(1, 2 * (fga + 0.44 * fta))) * 100,
-                'tov_pct': (tov / possessions) * 100,
-                'orb_pct': (oreb / max(1, oreb + dreb)) * 100 if oreb + dreb > 0 else 0,
-                'drb_pct': (dreb / max(1, oreb + dreb)) * 100 if oreb + dreb > 0 else 0,
-                'ft_rate': (fta / max(1, fga)) * 100,
-                '3pt_rate': (fg3a / max(1, fga)) * 100,
-                'ast_rate': (team_stats.get('ast', 0) / max(1, fgm)) * 100,
-                'pace': possessions
-            }
-            
-        except Exception as e:
-            logger.warning(f"Error computing CTG metrics: {e}")
-            return {}
-    
-    @staticmethod
-    def compute_matchup_stats(away_team: str, home_team: str, away_stats: dict, home_stats: dict, 
-                             away_ppg: float, home_ppg: float, away_opp_ppg: float, home_opp_ppg: float,
-                             rankings: dict = None, league: str = 'NBA') -> dict:
-        """
-        Compute comprehensive matchup intelligence for a game.
-        Returns structured data for UI display including Season vs L5 comparisons.
-        """
-        result = {
-            'has_data': False,
-            'away_team': away_team,
-            'home_team': home_team
-        }
-        
-        # Get rankings data
-        away_rank_data = rankings.get(away_team, {}) if rankings else {}
-        home_rank_data = rankings.get(home_team, {}) if rankings else {}
-        
-        # Fetch L5 stats for both teams (NBA only for now)
-        away_l5 = {}
-        home_l5 = {}
-        if league == 'NBA':
-            try:
-                away_l5 = MatchupIntelligence.get_team_last5_stats(away_team, league)
-                home_l5 = MatchupIntelligence.get_team_last5_stats(home_team, league)
-            except Exception as e:
-                logger.warning(f"Failed to fetch L5 stats: {e}")
-        
-        # Store L5 data in result for template access
-        result['away_l5'] = away_l5
-        result['home_l5'] = home_l5
-        
-        # Power Rating section
-        away_power_rank = away_rank_data.get('power_rank', 0)
-        home_power_rank = home_rank_data.get('power_rank', 0)
-        
-        if away_power_rank and home_power_rank:
-            result['power_rating'] = {
-                'away': {
-                    'rank': away_power_rank,
-                    'percentile': round((30 - away_power_rank + 1) / 30 * 100),
-                    'label': f"Top {round((away_power_rank / 30) * 100)}%"
-                },
-                'home': {
-                    'rank': home_power_rank,
-                    'percentile': round((30 - home_power_rank + 1) / 30 * 100),
-                    'label': f"Top {round((home_power_rank / 30) * 100)}%"
-                },
-                'diff': home_power_rank - away_power_rank,
-                'edge': 'away' if away_power_rank < home_power_rank else ('home' if home_power_rank < away_power_rank else 'even')
-            }
-            result['has_data'] = True
-        
-        # Offensive Efficiency (pts/100 possessions)
-        away_off = away_rank_data.get('off_rating', away_ppg)
-        home_off = home_rank_data.get('off_rating', home_ppg)
-        away_off_rank = away_rank_data.get('off_rank', 0)
-        home_off_rank = home_rank_data.get('off_rank', 0)
-        
-        if away_off and home_off:
-            result['offensive_efficiency'] = {
-                'away': {
-                    'value': round(away_off, 1),
-                    'rank': away_off_rank,
-                    'percentile': round((30 - away_off_rank + 1) / 30 * 100) if away_off_rank else 0
-                },
-                'home': {
-                    'value': round(home_off, 1),
-                    'rank': home_off_rank,
-                    'percentile': round((30 - home_off_rank + 1) / 30 * 100) if home_off_rank else 0
-                },
-                'diff': round(away_off - home_off, 1),
-                'edge': 'away' if away_off > home_off else ('home' if home_off > away_off else 'even')
-            }
-            result['has_data'] = True
-        
-        # Defensive Efficiency (pts allowed/100 possessions)
-        away_def = away_rank_data.get('def_rating', away_opp_ppg)
-        home_def = home_rank_data.get('def_rating', home_opp_ppg)
-        away_def_rank = away_rank_data.get('def_rank', 0)
-        home_def_rank = home_rank_data.get('def_rank', 0)
-        
-        if away_def and home_def:
-            result['defensive_efficiency'] = {
-                'away': {
-                    'value': round(away_def, 1),
-                    'rank': away_def_rank,
-                    'percentile': round((30 - away_def_rank + 1) / 30 * 100) if away_def_rank else 0
-                },
-                'home': {
-                    'value': round(home_def, 1),
-                    'rank': home_def_rank,
-                    'percentile': round((30 - home_def_rank + 1) / 30 * 100) if home_def_rank else 0
-                },
-                'diff': round(home_def - away_def, 1),  # Lower is better for defense
-                'edge': 'away' if away_def < home_def else ('home' if home_def < away_def else 'even')
-            }
-            result['has_data'] = True
-        
-        # Efficiency Comparison (Offense vs Defense matchup)
-        if away_off and home_def:
-            result['efficiency_comparison'] = {
-                'away_off_vs_home_def': {
-                    'off_value': round(away_off, 1),
-                    'def_value': round(home_def, 1),
-                    'diff': round(away_off - home_def, 1),
-                    'insight': 'expect scoring' if away_off > home_def + 5 else ('defensive edge' if home_def < away_off - 5 else 'even matchup')
-                },
-                'home_off_vs_away_def': {
-                    'off_value': round(home_off, 1),
-                    'def_value': round(away_def, 1),
-                    'diff': round(home_off - away_def, 1),
-                    'insight': 'expect scoring' if home_off > away_def + 5 else ('defensive edge' if away_def < home_off - 5 else 'even matchup')
-                }
-            }
-        
-        # Shooting Profile with Season vs L5 comparison
-        if away_stats and home_stats:
-            result['shooting_profile'] = {
-                'efg_pct': {
-                    'away_season': round(away_stats.get('efg_pct', 0), 1),
-                    'home_season': round(home_stats.get('efg_pct', 0), 1),
-                    'away_l5': round(away_l5.get('l5_efg', 0), 1) if away_l5 else 0,
-                    'home_l5': round(home_l5.get('l5_efg', 0), 1) if home_l5 else 0,
-                    'd1_avg': MatchupIntelligence.D1_AVERAGES['eFG%']
-                },
-                '3pt_pct': {
-                    'away_season': round(away_stats.get('fg3_pct', 0), 1),
-                    'home_season': round(home_stats.get('fg3_pct', 0), 1),
-                    'away_l5': round(away_l5.get('l5_fg3_pct', 0), 1) if away_l5 else 0,
-                    'home_l5': round(home_l5.get('l5_fg3_pct', 0), 1) if home_l5 else 0,
-                    'd1_avg': MatchupIntelligence.D1_AVERAGES['3PT%']
-                },
-                '3pm_game': {
-                    'away_season': round(away_stats.get('fg3m', 0), 1),
-                    'home_season': round(home_stats.get('fg3m', 0), 1),
-                    'away_l5': round(away_l5.get('l5_fg3m', 0), 1) if away_l5 else 0,
-                    'home_l5': round(home_l5.get('l5_fg3m', 0), 1) if home_l5 else 0
-                }
-            }
-            result['has_data'] = True
-        
-        # Ball Control with Season vs L5 comparison
-        if away_stats and home_stats:
-            away_tov_pct = away_stats.get('tov_pct', 0)
-            home_tov_pct = home_stats.get('tov_pct', 0)
-            result['ball_control'] = {
-                'tov_pct': {
-                    'away_season': round(away_tov_pct, 1),
-                    'home_season': round(home_tov_pct, 1),
-                    'away_l5': round(away_l5.get('l5_tov_pct', 0), 1) if away_l5 else 0,
-                    'home_l5': round(home_l5.get('l5_tov_pct', 0), 1) if home_l5 else 0,
-                    'd1_avg': MatchupIntelligence.D1_AVERAGES['TOV%'],
-                    'away_protects': away_tov_pct < MatchupIntelligence.D1_AVERAGES['TOV%'],
-                    'home_protects': home_tov_pct < MatchupIntelligence.D1_AVERAGES['TOV%']
-                },
-                'forced_tov_pct': {
-                    'away_season': round(away_stats.get('forced_tov_pct', 0), 1),
-                    'home_season': round(home_stats.get('forced_tov_pct', 0), 1),
-                    'away_l5': 0,  # Would need opponent data for accurate L5
-                    'home_l5': 0
-                }
-            }
-        
-        # Rebounding with Season vs L5 comparison
-        if away_stats and home_stats:
-            away_orb_pct = away_stats.get('orb_pct', 0)
-            home_orb_pct = home_stats.get('orb_pct', 0)
-            away_drb_pct = away_stats.get('drb_pct', 0)
-            home_drb_pct = home_stats.get('drb_pct', 0)
-            result['rebounding'] = {
-                'orb_pct': {
-                    'away_season': round(away_orb_pct, 1),
-                    'home_season': round(home_orb_pct, 1),
-                    'away_l5': round(away_l5.get('l5_orb', 0), 1) if away_l5 else 0,
-                    'home_l5': round(home_l5.get('l5_orb', 0), 1) if home_l5 else 0,
-                    'd1_avg': MatchupIntelligence.D1_AVERAGES['ORB%'],
-                    'away_crashes': away_orb_pct > MatchupIntelligence.D1_AVERAGES['ORB%'] + 2,
-                    'home_crashes': home_orb_pct > MatchupIntelligence.D1_AVERAGES['ORB%'] + 2
-                },
-                'drb_pct': {
-                    'away_season': round(away_drb_pct, 1),
-                    'home_season': round(home_drb_pct, 1),
-                    'away_l5': round(away_l5.get('l5_drb', 0), 1) if away_l5 else 0,
-                    'home_l5': round(home_l5.get('l5_drb', 0), 1) if home_l5 else 0
-                }
-            }
-        
-        # Pace & Free Throws with Season vs L5 comparison
-        if away_stats and home_stats:
-            away_ft_rate = away_stats.get('ft_rate', 0)
-            home_ft_rate = home_stats.get('ft_rate', 0)
-            away_pace = away_rank_data.get('pace', 100)
-            home_pace = home_rank_data.get('pace', 100)
-            result['pace_ft'] = {
-                'ft_rate': {
-                    'away_season': round(away_ft_rate, 1),
-                    'home_season': round(home_ft_rate, 1),
-                    'away_l5': round(away_l5.get('l5_ft_rate', 0), 1) if away_l5 else 0,
-                    'home_l5': round(home_l5.get('l5_ft_rate', 0), 1) if home_l5 else 0,
-                    'd1_avg': MatchupIntelligence.D1_AVERAGES['FT_RATE'],
-                    'away_attacks': away_ft_rate > MatchupIntelligence.D1_AVERAGES['FT_RATE'] + 5,
-                    'home_attacks': home_ft_rate > MatchupIntelligence.D1_AVERAGES['FT_RATE'] + 5
-                },
-                'opp_ft_rate': {
-                    'away_season': round(away_stats.get('opp_ft_rate', 0), 1),
-                    'home_season': round(home_stats.get('opp_ft_rate', 0), 1),
-                    'away_l5': 0,  # Would need opponent data
-                    'home_l5': 0
-                },
-                'pace': {
-                    'away': round(away_pace, 1),
-                    'home': round(home_pace, 1),
-                    'expected': round((away_pace + home_pace) / 2, 1)
-                }
-            }
-        
-        # Analyst Insight based on overall comparison
-        if result.get('power_rating'):
-            power_diff = abs(result['power_rating']['diff'])
-            if power_diff <= 5:
-                result['analyst_insight'] = "Neither team has a clear advantage."
-            elif result['power_rating']['edge'] == 'away':
-                result['analyst_insight'] = f"{away_team} has the edge with better overall efficiency."
-            else:
-                result['analyst_insight'] = f"{home_team} has the edge with better overall efficiency."
-        
-        return result
 
 
 def get_display_spread(game, use_alt=True) -> tuple:
@@ -3445,103 +2719,6 @@ DOME_STADIUMS = {
     'Saints', 'Vikings', 'Raiders', 'Rams', 'Chargers'
 }
 
-def get_weather_for_game(home_team: str, league: str) -> dict:
-    """
-    Get weather data for NFL/CFB outdoor games.
-    Returns None for indoor stadiums.
-    """
-    if league not in ['NFL', 'CFB']:
-        return None
-    
-    # Skip dome teams
-    for dome_team in DOME_STADIUMS:
-        if dome_team.lower() in home_team.lower():
-            return {'indoor': True, 'impact': 0}
-    
-    cache_key = f"{home_team}_{league}_{date.today().isoformat()}"
-    cached = weather_cache.get(cache_key)
-    if cached:
-        return cached
-    
-    # NFL team city mapping for weather lookup
-    NFL_CITIES = {
-        'Bills': 'Buffalo,NY', 'Patriots': 'Foxborough,MA', 'Dolphins': 'Miami,FL',
-        'Jets': 'East Rutherford,NJ', 'Ravens': 'Baltimore,MD', 'Bengals': 'Cincinnati,OH',
-        'Browns': 'Cleveland,OH', 'Steelers': 'Pittsburgh,PA', 'Titans': 'Nashville,TN',
-        'Jaguars': 'Jacksonville,FL', 'Broncos': 'Denver,CO', 'Chiefs': 'Kansas City,MO',
-        'Packers': 'Green Bay,WI', 'Bears': 'Chicago,IL', 'Seahawks': 'Seattle,WA',
-        '49ers': 'Santa Clara,CA', 'Giants': 'East Rutherford,NJ', 'Eagles': 'Philadelphia,PA',
-        'Commanders': 'Landover,MD', 'Panthers': 'Charlotte,NC', 'Buccaneers': 'Tampa,FL'
-    }
-    
-    city = None
-    for team_name, team_city in NFL_CITIES.items():
-        if team_name.lower() in home_team.lower():
-            city = team_city
-            break
-    
-    if not city:
-        return {'indoor': False, 'impact': 0, 'data_available': False}
-    
-    try:
-        api_key = os.environ.get('OPENWEATHER_API_KEY')
-        if not api_key:
-            return {'indoor': False, 'impact': 0, 'no_api_key': True}
-        
-        url = f"https://api.openweathermap.org/data/2.5/weather?q={city},US&appid={api_key}&units=imperial"
-        resp = requests.get(url, timeout=10)
-        if resp.status_code != 200:
-            return {'indoor': False, 'impact': 0, 'api_error': True}
-        
-        data = resp.json()
-        temp = data.get('main', {}).get('temp', 60)
-        wind_speed = data.get('wind', {}).get('speed', 0)
-        weather_main = data.get('weather', [{}])[0].get('main', '')
-        
-        # Calculate weather impact on totals (negative = UNDER bias)
-        impact = 0
-        weather_warning = []
-        
-        if wind_speed >= 25:
-            impact -= 5.0
-            weather_warning.append(f"Extreme wind ({wind_speed:.0f} mph)")
-        elif wind_speed >= 15:
-            impact -= 2.5
-            weather_warning.append(f"High wind ({wind_speed:.0f} mph)")
-        
-        if temp <= 20:
-            impact -= 3.0
-            weather_warning.append(f"Extreme cold ({temp:.0f}°F)")
-        elif temp <= 35:
-            impact -= 1.5
-            weather_warning.append(f"Cold weather ({temp:.0f}°F)")
-        
-        if weather_main in ['Rain', 'Snow', 'Thunderstorm']:
-            impact -= 3.0
-            weather_warning.append(weather_main)
-        elif weather_main in ['Drizzle', 'Mist']:
-            impact -= 1.0
-            weather_warning.append(weather_main)
-        
-        result = {
-            'indoor': False,
-            'temp': temp,
-            'wind_speed': wind_speed,
-            'conditions': weather_main,
-            'impact': impact,
-            'warnings': weather_warning,
-            'disqualify_total': abs(impact) >= 5.0
-        }
-        
-        weather_cache.set(cache_key, result)
-        if impact != 0:
-            logger.info(f"Weather impact for {home_team}: {impact:.1f} pts ({', '.join(weather_warning)})")
-        return result
-        
-    except Exception as e:
-        logger.error(f"Weather API error for {home_team}: {e}")
-        return {'indoor': False, 'impact': 0, 'error': str(e)}
-
 import threading
 
 class RateLimiter:
@@ -3576,48 +2753,10 @@ class RateLimiter:
             self.tokens = 0
             return True
     
-    def record_failure(self):
-        with self.lock:
-            self.failure_count += 1
-            logger.warning(f"API failure recorded, backoff count: {self.failure_count}")
-    
-    def record_success(self):
-        with self.lock:
-            self.failure_count = max(0, self.failure_count - 1)
-
 espn_limiter = RateLimiter(requests_per_second=5)
 odds_api_limiter = RateLimiter(requests_per_second=2)
 espn_rate_limiter = espn_limiter
 odds_api_rate_limiter = odds_api_limiter
-
-def api_retry(max_attempts=3, base_delay=0.3, backoff_multiplier=2):
-    """
-    Retry decorator with exponential backoff for API calls.
-    """
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            last_exception = None
-            for attempt in range(max_attempts):
-                try:
-                    return func(*args, **kwargs)
-                except (requests.RequestException, requests.Timeout, requests.HTTPError) as e:
-                    last_exception = e
-                    if attempt < max_attempts - 1:
-                        delay = base_delay * (backoff_multiplier ** attempt)
-                        logger.warning(f"{func.__name__} attempt {attempt + 1} failed: {str(e)}. Retrying in {delay}s...")
-                        time.sleep(delay)
-                    else:
-                        logger.error(f"{func.__name__} failed after {max_attempts} attempts: {str(e)}")
-                except Exception as e:
-                    logger.error(f"{func.__name__} unexpected error: {str(e)}")
-                    raise
-            
-            if last_exception:
-                raise last_exception
-            return None
-        return wrapper
-    return decorator
 
 @dataclass
 class GameOdds:
@@ -3631,194 +2770,6 @@ class GameOdds:
     total: Optional[float] = None
     moneyline_home: Optional[int] = None
     moneyline_away: Optional[int] = None
-
-def get_headers():
-    """Standard headers for ESPN API requests."""
-    return {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'application/json'
-    }
-
-def calculate_trend_metrics(game_list: List[dict], team_name: str, metric_key: str) -> dict:
-    """
-    Calculate trend metrics with validation.
-    
-    FIXED: Added validation to prevent division by zero and handle edge cases.
-    """
-    if not game_list:
-        return {
-            'total_games': 0,
-            'hit_count': 0,
-            'hit_rate': 0.0,
-            'avg_value': 0.0
-        }
-    
-    hit_count = sum(1 for g in game_list if g.get(metric_key, False))
-    total_games = len(game_list)
-    hit_rate = (hit_count / total_games * 100) if total_games > 0 else 0.0
-    
-    values = [g.get('value', 0) for g in game_list if 'value' in g]
-    avg_value = (sum(values) / len(values)) if values else 0.0
-    
-    return {
-        'total_games': total_games,
-        'hit_count': hit_count,
-        'hit_rate': round(hit_rate, 1),
-        'avg_value': round(avg_value, 2)
-    }
-
-def calculate_over_under_edge(game: dict, odds: GameOdds) -> dict:
-    """
-    Calculate O/U edge with proper away favorite logic.
-    
-    Critical Features:
-    1. Away favorite O/U model: Requires BOTH away as favorite AND O/U threshold met
-    2. Normal O/U model: Separate validation
-    3. Proper favorite detection using moneyline
-    4. Enhanced logging for debugging
-    """
-    away_team = game.get('away_team', '')
-    home_team = game.get('home_team', '')
-    league = game.get('league', 'UNKNOWN')
-    
-    result = {
-        'total_edge': 0,
-        'total_direction': None,
-        'total_is_qualified': False,
-        'total_history_qualified': False,
-        'total_ev': 0,
-        'away_favorite_ou_qualified': False,
-        'away_is_favorite': False
-    }
-    
-    if not odds or odds.total is None:
-        logger.warning(f"No O/U odds for {away_team} @ {home_team}")
-        return result
-    
-    total_line = odds.total
-    
-    if odds.moneyline_away is not None and odds.moneyline_home is not None:
-        result['away_is_favorite'] = odds.moneyline_away < odds.moneyline_home
-        logger.info(f"Favorite check: {away_team} ({odds.moneyline_away}) vs {home_team} ({odds.moneyline_home}) - Away is favorite: {result['away_is_favorite']}")
-    
-    away_stats = game.get('away_stats', {})
-    home_stats = game.get('home_stats', {})
-    
-    away_ppg = away_stats.get('points_per_game', 0)
-    home_ppg = home_stats.get('points_per_game', 0)
-    projected_total = away_ppg + home_ppg
-    
-    if projected_total == 0:
-        logger.warning(f"No stats available for {away_team} @ {home_team}")
-        return result
-    
-    edge = abs(projected_total - total_line)
-    result['total_edge'] = round(edge, 1)
-    
-    if projected_total > total_line + 0.5:
-        result['total_direction'] = 'OVER'
-    elif projected_total < total_line - 0.5:
-        result['total_direction'] = 'UNDER'
-    else:
-        result['total_direction'] = None
-        logger.info(f"O/U edge too small for {away_team} @ {home_team}: {edge:.1f}")
-        return result
-    
-    threshold = GameConstants.EDGE_THRESHOLDS.get(league, 8.0)
-    edge_met = edge >= threshold
-    
-    if edge_met:
-        result['total_is_qualified'] = True
-        result['total_history_qualified'] = True
-        result['total_ev'] = round(edge * 0.5, 2)
-        logger.info(f"Normal O/U qualified: {away_team} @ {home_team} - Edge: {edge:.1f}, Direction: {result['total_direction']}")
-    
-    if result['away_is_favorite'] and edge_met:
-        result['away_favorite_ou_qualified'] = True
-        logger.info(f"AWAY FAVORITE O/U qualified: {away_team} @ {home_team} - Edge: {edge:.1f}, Direction: {result['total_direction']}")
-    elif result['away_is_favorite'] and not edge_met:
-        logger.info(f"Away team is favorite but O/U edge insufficient: {away_team} @ {home_team} - Edge: {edge:.1f} < {threshold}")
-    
-    return result
-
-def calculate_spread_edge(game: dict, odds: GameOdds) -> dict:
-    """
-    Calculate spread edge with proper model validation.
-    
-    Critical Features:
-    1. Proper spread calculation using team stats
-    2. Home/away percentage validation
-    3. Correct spread direction (home team perspective)
-    4. Enhanced logging
-    """
-    away_team = game.get('away_team', '')
-    home_team = game.get('home_team', '')
-    league = game.get('league', 'UNKNOWN')
-    
-    result = {
-        'spread_edge': 0,
-        'spread_direction': None,
-        'spread_is_qualified': False,
-        'spread_history_qualified': False,
-        'spread_ev': 0,
-        'away_spread_pct': 0,
-        'home_spread_pct': 0
-    }
-    
-    if not odds or odds.spread_home is None:
-        logger.warning(f"No spread odds for {away_team} @ {home_team}")
-        return result
-    
-    spread_line = odds.spread_home
-    
-    away_stats = game.get('away_stats', {})
-    home_stats = game.get('home_stats', {})
-    
-    away_ppg = away_stats.get('points_per_game', 0)
-    home_ppg = home_stats.get('points_per_game', 0)
-    away_opp = away_stats.get('opponent_ppg', 0)
-    home_opp = home_stats.get('opponent_ppg', 0)
-    
-    if away_ppg == 0 or home_ppg == 0:
-        logger.warning(f"No stats available for spread calculation: {away_team} @ {home_team}")
-        return result
-    
-    projected_margin = (home_ppg - away_opp) - (away_ppg - home_opp)
-    
-    edge = abs(projected_margin - spread_line)
-    result['spread_edge'] = round(edge, 1)
-    
-    # IMPROVED: Check threshold first, then determine direction
-    threshold = GameConstants.EDGE_THRESHOLDS.get(league, 8.0)
-    
-    if edge < threshold:
-        # Not enough edge to qualify
-        result['spread_direction'] = None
-        logger.info(f"Spread edge too small for {away_team} @ {home_team}: {edge:.1f} < {threshold}")
-        return result
-    
-    # Sufficient edge exists - determine direction based on projection vs line
-    if projected_margin > spread_line:
-        # Model favors HOME more than the line suggests
-        result['spread_direction'] = 'HOME'
-    elif projected_margin < spread_line:
-        # Model favors AWAY more than the line suggests  
-        result['spread_direction'] = 'AWAY'
-    else:
-        # Exactly on the line (rare)
-        result['spread_direction'] = None
-        logger.info(f"Spread exactly on projection for {away_team} @ {home_team}")
-        return result
-    
-    if edge >= threshold:
-        result['spread_is_qualified'] = True
-        result['spread_history_qualified'] = True
-        result['spread_ev'] = round(edge * 0.4, 2)
-        result['away_spread_pct'] = round(50 + (edge / 2), 1)
-        result['home_spread_pct'] = round(50 + (edge / 2), 1)
-        logger.info(f"Spread qualified: {away_team} @ {home_team} - Edge: {edge:.1f}, Direction: {result['spread_direction']}")
-    
-    return result
 
 class DataFetchError(Exception):
     """Custom exception for data fetch failures with context."""
@@ -3913,14 +2864,6 @@ VALID_LEAGUES = {'NBA', 'CBB', 'NFL', 'CFB', 'NHL'}
 TEAM_NAME_PATTERN = re.compile(r'^[A-Za-z0-9\s\-\'\.&]+$')
 MAX_TEAM_NAME_LENGTH = 100
 
-def validate_team_name(name: str) -> bool:
-    """Validate team name to prevent injection."""
-    if not name or len(name) > MAX_TEAM_NAME_LENGTH:
-        return False
-    if not TEAM_NAME_PATTERN.match(name):
-        return False
-    return True
-
 _normalize_pattern1 = re.compile(r"['\-.]")
 _normalize_pattern2 = re.compile(r"\s+")
 
@@ -3931,16 +2874,6 @@ def normalize_team_name_fast(name: str) -> str:
     normalized = _normalize_pattern1.sub("", name.lower())
     normalized = _normalize_pattern2.sub(" ", normalized).strip()
     return normalized
-
-def validate_numeric(value, field_name: str, allow_negative: bool = True) -> float:
-    """Validate numeric field."""
-    try:
-        num = float(value)
-        if not allow_negative and num < 0:
-            raise ValueError(f"{field_name} must be non-negative")
-        return num
-    except (ValueError, TypeError):
-        raise ValueError(f"Invalid {field_name}")
 
 class TeamNameMatcher:
     """Optimized team name matching with caching."""
@@ -4011,11 +2944,6 @@ class TeamNameMatcher:
         self.match_cache[cache_key] = result
         return result
     
-    def clear_cache(self):
-        """Clear caches to free memory."""
-        self.name_cache.clear()
-        self.match_cache.clear()
-
 team_matcher = TeamNameMatcher()
 
 from collections import defaultdict
@@ -4025,26 +2953,6 @@ class LineMovementTracker:
     
     def __init__(self):
         self.movements = defaultdict(list)
-    
-    def record_line(self, event_id: str, line: float, timestamp=None, source: str = 'bovada'):
-        """Record line observation."""
-        if timestamp is None:
-            timestamp = datetime.now(pytz.timezone('America/New_York'))
-        self.movements[event_id].append({
-            'line': line,
-            'timestamp': timestamp,
-            'source': source
-        })
-    
-    def get_opening_line(self, event_id: str) -> Optional[float]:
-        """Get first recorded line for event."""
-        movements = self.movements.get(event_id, [])
-        return movements[0]['line'] if movements else None
-    
-    def get_closing_line(self, event_id: str) -> Optional[float]:
-        """Get last recorded line for event."""
-        movements = self.movements.get(event_id, [])
-        return movements[-1]['line'] if movements else None
     
     def get_clv(self, event_id: str, bet_line: float) -> Optional[dict]:
         """
@@ -4070,17 +2978,6 @@ class LineMovementTracker:
             'beat_close': clv > 0
         }
     
-    def clear_old_events(self, max_age_hours: int = 24):
-        """Clear events older than max_age_hours."""
-        et = pytz.timezone('America/New_York')
-        cutoff = datetime.now(et) - timedelta(hours=max_age_hours)
-        keys_to_remove = []
-        for event_id, movements in self.movements.items():
-            if movements and movements[-1]['timestamp'] < cutoff:
-                keys_to_remove.append(event_id)
-        for key in keys_to_remove:
-            del self.movements[key]
-
 line_tracker = LineMovementTracker()
 
 def game_has_started(pick) -> bool:
@@ -4095,32 +2992,6 @@ def game_has_started(pick) -> bool:
         game_start = pick.game_start
     return now >= game_start
 
-def update_pick_clv():
-    """Update CLV for picks that have closed."""
-    pending = Pick.query.filter(Pick.closing_line == None, Pick.opening_line != None).all()
-    updated = 0
-    
-    for pick in pending:
-        if not game_has_started(pick):
-            continue
-        
-        clv_data = line_tracker.get_clv(
-            str(pick.game_id) if pick.game_id else str(pick.id),
-            pick.opening_line
-        )
-        
-        if clv_data:
-            pick.closing_line = clv_data['closing_line']
-            pick.clv = clv_data['clv']
-            pick.line_moved_favor = clv_data['beat_close']
-            updated += 1
-    
-    if updated > 0:
-        db.session.commit()
-        logger.info(f"Updated CLV for {updated} picks")
-    
-    return updated
-
 SCOREBOARD_URLS = {
     'NBA': "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={}",
     'CBB': "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates={}",
@@ -4128,107 +2999,6 @@ SCOREBOARD_URLS = {
     'CFB': "https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates={}",
     'NHL': "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard?dates={}"
 }
-
-def fetch_espn_scoreboard_safe(league: str, date_str: str, timeout: int = 15) -> dict:
-    """
-    BULLETPROOF: Fetch ESPN scoreboard with validation and retry logic.
-    
-    Features:
-    - Exponential backoff on failures
-    - Rate limit detection and handling
-    - Response structure validation
-    - Custom exception with context
-    """
-    max_retries = 3
-    backoff = 1
-    
-    if league not in SCOREBOARD_URLS:
-        raise DataFetchError(f"Unknown league: {league}", source="espn", retry_count=0)
-    
-    for attempt in range(max_retries):
-        try:
-            url = SCOREBOARD_URLS[league].format(date_str)
-            resp = fetch_with_rate_limit(url, espn_limiter, timeout=timeout)
-            
-            if resp.status_code == 429:
-                retry_after = int(resp.headers.get('Retry-After', 60))
-                logger.warning(f"ESPN rate limited for {league}, waiting {retry_after}s")
-                time.sleep(retry_after)
-                continue
-            
-            resp.raise_for_status()
-            data = resp.json()
-            
-            if 'events' not in data:
-                raise DataFetchError(f"Invalid response structure for {league} - missing 'events'", 
-                                    source="espn", retry_count=attempt)
-            
-            return data
-            
-        except requests.Timeout:
-            if attempt < max_retries - 1:
-                wait = backoff * (2 ** attempt)
-                logger.warning(f"ESPN timeout for {league}, retry {attempt+1}/{max_retries} in {wait}s")
-                time.sleep(wait)
-            else:
-                raise DataFetchError(f"ESPN timeout after {max_retries} attempts for {league}", 
-                                    source="espn", retry_count=max_retries)
-        
-        except requests.RequestException as e:
-            if attempt < max_retries - 1:
-                wait = backoff * (2 ** attempt)
-                logger.warning(f"ESPN request error for {league}: {e}, retry in {wait}s")
-                time.sleep(wait)
-            else:
-                raise DataFetchError(f"ESPN request failed for {league}: {e}", 
-                                    source="espn", retry_count=max_retries)
-    
-    raise DataFetchError(f"Max retries exceeded for {league}", source="espn", retry_count=max_retries)
-
-def fetch_odds_api_safe(url: str, params: dict, timeout: int = 30) -> dict:
-    """
-    BULLETPROOF: Fetch Odds API with validation and retry logic.
-    """
-    max_retries = 3
-    backoff = 1
-    
-    for attempt in range(max_retries):
-        try:
-            odds_api_limiter.acquire()
-            resp = requests.get(url, params=params, timeout=timeout)
-            
-            if resp.status_code == 429:
-                retry_after = int(resp.headers.get('Retry-After', 60))
-                logger.warning(f"Odds API rate limited, waiting {retry_after}s")
-                time.sleep(retry_after)
-                continue
-            
-            if resp.status_code == 401:
-                raise DataFetchError("Odds API authentication failed - check API key", 
-                                    source="odds_api", retry_count=attempt)
-            
-            resp.raise_for_status()
-            return resp.json()
-            
-        except requests.Timeout:
-            if attempt < max_retries - 1:
-                wait = backoff * (2 ** attempt)
-                logger.warning(f"Odds API timeout, retry {attempt+1}/{max_retries} in {wait}s")
-                time.sleep(wait)
-            else:
-                raise DataFetchError(f"Odds API timeout after {max_retries} attempts", 
-                                    source="odds_api", retry_count=max_retries)
-        
-        except requests.RequestException as e:
-            if attempt < max_retries - 1:
-                wait = backoff * (2 ** attempt)
-                logger.warning(f"Odds API error: {e}, retry in {wait}s")
-                time.sleep(wait)
-            else:
-                raise DataFetchError(f"Odds API request failed: {e}", 
-                                    source="odds_api", retry_count=max_retries)
-    
-    raise DataFetchError("Max retries exceeded for Odds API", source="odds_api", retry_count=max_retries)
 
 class VigCalculator:
     """Handles all vig removal calculations for true edge computation"""
@@ -4240,31 +3010,6 @@ class VigCalculator:
             return abs(odds) / (abs(odds) + 100)
         else:
             return 100 / (odds + 100)
-    
-    @staticmethod
-    def remove_vig_two_way(odds_a: float, odds_b: float) -> dict:
-        """
-        Remove vig from two-way market (spreads, totals)
-        Returns dict with true probabilities and vig percentage
-        """
-        prob_a_with_vig = VigCalculator.american_to_implied_probability(odds_a)
-        prob_b_with_vig = VigCalculator.american_to_implied_probability(odds_b)
-        
-        total = prob_a_with_vig + prob_b_with_vig
-        
-        true_prob_a = prob_a_with_vig / total if total > 0 else 0.5
-        true_prob_b = prob_b_with_vig / total if total > 0 else 0.5
-        
-        vig_pct = (total - 1.0) * 100 if total > 0 else 0
-        
-        return {
-            'true_prob_a': true_prob_a,
-            'true_prob_b': true_prob_b,
-            'prob_a_with_vig': prob_a_with_vig,
-            'prob_b_with_vig': prob_b_with_vig,
-            'vig_percentage': vig_pct,
-            'total_probability': total
-        }
     
     @staticmethod
     def calculate_vig_adjusted_edge(raw_edge: float, bovada_odds: int = -110) -> float:
@@ -4323,227 +3068,6 @@ LEAGUE_HISTORICAL_CONFIG = {
 }
 
 historical_lines_cache = TTLCache(maxsize=500, ttl=43200)
-
-class BulletproofCurrentLineCalculator:
-    """
-    BULLETPROOF Current Line Calculator
-    Uses current Vegas lines + ESPN results - NO PAID API NEEDED
-    
-    Logic:
-    1. Get current Vegas line for today's game
-    2. Look at team's last N ESPN game results
-    3. Apply current line to those past games
-    4. Calculate hypothetical performance with proper push handling
-    """
-    
-    def __init__(self):
-        self.min_games = {
-            'NBA': 15, 'CBB': 15, 'NFL': 8, 'CFB': 8, 'NHL': 15
-        }
-        self.thresholds = {
-            'qualify': 0.60,
-            'supermax': 0.70,
-            'high': 0.65,
-            'medium': 0.60
-        }
-    
-    def calculate_total_performance(self, games: list, current_total: float, direction: str, league: str) -> dict:
-        """
-        Calculate how team's games would have performed against CURRENT total line.
-        Properly excludes pushes from hit rate calculations.
-        """
-        min_games = self.min_games.get(league, 8)
-        
-        if not games or len(games) < 5:
-            return {
-                'hit_rate': None,
-                'qualified': False,
-                'sufficient_data': False,
-                'reason': f'Insufficient games: {len(games) if games else 0} (need {min_games})'
-            }
-        
-        overs = 0
-        unders = 0
-        pushes = 0
-        game_details = []
-        
-        for g in games:
-            actual_total = g.get('total', g.get('team_score', 0) + g.get('opp_score', 0))
-            diff = actual_total - current_total
-            
-            if abs(diff) < 0.5:
-                pushes += 1
-                result = 'PUSH'
-            elif diff > 0:
-                overs += 1
-                result = 'OVER'
-            else:
-                unders += 1
-                result = 'UNDER'
-            
-            game_details.append({
-                'actual_total': actual_total,
-                'current_line': current_total,
-                'margin': diff,
-                'result': result
-            })
-        
-        total_games = len(games)
-        non_push_games = total_games - pushes
-        
-        if non_push_games < min_games:
-            return {
-                'hit_rate': None,
-                'qualified': False,
-                'sufficient_data': False,
-                'overs': overs,
-                'unders': unders,
-                'pushes': pushes,
-                'total_games': total_games,
-                'reason': f'Only {non_push_games} decisive games (excluding {pushes} pushes), need {min_games}'
-            }
-        
-        if direction == 'O':
-            hits = overs
-            hit_rate = (overs / non_push_games) * 100
-        else:
-            hits = unders
-            hit_rate = (unders / non_push_games) * 100
-        
-        qualified = (hit_rate / 100) >= self.thresholds['qualify']
-        
-        confidence = None
-        if qualified:
-            rate_decimal = hit_rate / 100
-            if rate_decimal >= self.thresholds['supermax']:
-                confidence = 'SUPERMAX'
-            elif rate_decimal >= self.thresholds['high']:
-                confidence = 'HIGH'
-            elif rate_decimal >= self.thresholds['medium']:
-                confidence = 'MEDIUM'
-            else:
-                confidence = 'LOW'
-        
-        return {
-            'hit_rate': round(hit_rate, 1),
-            'hits': hits,
-            'total_games': non_push_games,
-            'overs': overs,
-            'unders': unders,
-            'pushes': pushes,
-            'all_games': total_games,
-            'direction': direction,
-            'qualified': qualified,
-            'confidence': confidence,
-            'threshold': self.thresholds['qualify'] * 100,
-            'current_line': current_total,
-            'sufficient_data': True,
-            'uses_current_line': True,
-            'record': f"{hits}-{non_push_games - hits}-{pushes}",
-            'game_details': game_details
-        }
-    
-    def calculate_spread_performance(self, games: list, current_spread: float, league: str) -> dict:
-        """
-        Calculate how team would have performed against CURRENT spread.
-        Uses correct ATS formula: spread_result = actual_margin + closing_spread
-        Properly excludes pushes from cover rate calculations.
-        """
-        min_games = self.min_games.get(league, 8)
-        
-        if not games or len(games) < 5:
-            return {
-                'cover_rate': None,
-                'qualified': False,
-                'sufficient_data': False,
-                'reason': f'Insufficient games: {len(games) if games else 0} (need {min_games})'
-            }
-        
-        covers = 0
-        losses = 0
-        pushes = 0
-        game_details = []
-        
-        for g in games:
-            actual_margin = g.get('margin', g.get('team_score', 0) - g.get('opp_score', 0))
-            
-            spread_result = actual_margin + current_spread
-            
-            if abs(spread_result) < 0.5:
-                pushes += 1
-                result = 'PUSH'
-            elif spread_result > 0:
-                covers += 1
-                result = 'COVER'
-            else:
-                losses += 1
-                result = 'NO_COVER'
-            
-            game_details.append({
-                'actual_margin': actual_margin,
-                'current_spread': current_spread,
-                'spread_result': spread_result,
-                'result': result
-            })
-        
-        total_games = len(games)
-        non_push_games = total_games - pushes
-        
-        if non_push_games < min_games:
-            return {
-                'cover_rate': None,
-                'qualified': False,
-                'sufficient_data': False,
-                'covers': covers,
-                'losses': losses,
-                'pushes': pushes,
-                'total_games': total_games,
-                'reason': f'Only {non_push_games} decisive games (excluding {pushes} pushes), need {min_games}'
-            }
-        
-        cover_rate = (covers / non_push_games) * 100
-        qualified = (cover_rate / 100) >= self.thresholds['qualify']
-        
-        confidence = None
-        if qualified:
-            rate_decimal = cover_rate / 100
-            if rate_decimal >= self.thresholds['supermax']:
-                confidence = 'SUPERMAX'
-            elif rate_decimal >= self.thresholds['high']:
-                confidence = 'HIGH'
-            elif rate_decimal >= self.thresholds['medium']:
-                confidence = 'MEDIUM'
-            else:
-                confidence = 'LOW'
-        
-        return {
-            'cover_rate': round(cover_rate, 1),
-            'covers': covers,
-            'losses': losses,
-            'pushes': pushes,
-            'total_games': non_push_games,
-            'all_games': total_games,
-            'qualified': qualified,
-            'confidence': confidence,
-            'threshold': self.thresholds['qualify'] * 100,
-            'current_spread': current_spread,
-            'sufficient_data': True,
-            'uses_current_line': True,
-            'record': f"{covers}-{losses}-{pushes}",
-            'game_details': game_details
-        }
-    
-    def get_confidence_tier(self, rate: float) -> str:
-        if rate >= 70:
-            return 'SUPERMAX'
-        elif rate >= 65:
-            return 'HIGH'
-        elif rate >= 60:
-            return 'MEDIUM'
-        else:
-            return 'LOW'
-
-bulletproof_calculator = BulletproofCurrentLineCalculator()
 
 class HistoricalBettingLinesService:
     def __init__(self):
@@ -4931,32 +3455,6 @@ def calculate_ou_hit_rate_espn(team_name: str, league: str, direction: str, curr
         'num_games': num_games
     }
 
-def api_request_with_retry(url: str, timeout: int = 30, max_retries: int = 2, **kwargs) -> requests.Response:
-    """Make API request with simple retry logic for transient failures.
-    Returns the response object or raises exception after all retries fail.
-    """
-    last_exception = None
-    for attempt in range(max_retries):
-        try:
-            resp = requests.get(url, timeout=timeout, **kwargs)
-            if resp.status_code == 200:
-                return resp
-            elif resp.status_code >= 500:  # Server error - retry
-                wait = (2 ** attempt) * 0.3
-                logger.debug(f"API server error {resp.status_code} for {url[:60]}, retrying in {wait}s")
-                time.sleep(wait)
-            else:  # Client error - don't retry
-                return resp
-        except requests.RequestException as e:
-            last_exception = e
-            wait = (2 ** attempt) * 0.3
-            logger.debug(f"API request error (attempt {attempt+1}/{max_retries}): {e}")
-            if attempt < max_retries - 1:
-                time.sleep(wait)
-    if last_exception:
-        raise last_exception
-    return resp
-
 def post_to_discord_with_retry(webhook_url: str, payload: dict, max_retries: int = 3) -> tuple:
     """Post to Discord with retry logic and exponential backoff.
     Returns (success: bool, status_code: int, error_msg: str or None)
@@ -4996,23 +3494,6 @@ def store_opening_line(event_id: str, line: float):
             "timestamp": datetime.now(pytz.timezone('America/New_York')).isoformat()
         }
         logger.debug(f"Stored opening line for {event_id}: {line}")
-
-def get_line_movement(event_id: str, current_line: float) -> dict:
-    """
-    Get line movement by comparing stored opening line with current line.
-    Returns: {"opening_line": float, "current_line": float, "movement": float}
-    """
-    if event_id not in opening_lines_store:
-        return {"opening_line": None, "current_line": current_line, "movement": 0}
-    
-    opening = opening_lines_store[event_id]["line"]
-    movement = current_line - opening
-    
-    return {
-        "opening_line": opening,
-        "current_line": current_line,
-        "movement": movement
-    }
 
 def fetch_opening_line(sport_key: str, event_id: str, current_line: float = None) -> dict:
     """
@@ -5116,14 +3597,6 @@ class ProbabilityConverter:
             return 100 / (american + 100)
         else:
             return abs(american) / (abs(american) + 100)
-    
-    @staticmethod
-    def decimal_to_american(decimal: float) -> int:
-        """Convert decimal odds to American odds."""
-        if decimal >= 2.0:
-            return int((decimal - 1) * 100)
-        else:
-            return int(-100 / (decimal - 1))
     
     @staticmethod
     def probability_to_american(prob: float) -> int:
@@ -5255,7 +3728,7 @@ class ProfessionalQualifier:
         reasons_pass = []
         reasons_fail = []
         
-        min_edge = SharpThresholds.MIN_TRUE_EDGE.get(league, 3.5)
+        min_edge = get_effective_edge_threshold(league)
         
         if edge_result.qualified:
             reasons_pass.append(f"True Edge: {edge_result.true_edge:.1f} >= {min_edge:.1f}")
@@ -5316,72 +3789,6 @@ class ProfessionalQualifier:
             reasons_fail=reasons_fail,
             recommendation=recommendation
         )
-
-
-def validate_game_data(game) -> dict:
-    """Validate game data quality before qualification."""
-    errors = []
-    warnings = []
-    
-    if game.projected_total:
-        league_ranges = {
-            'NBA': (180, 260), 'CBB': (120, 180), 'NFL': (30, 70),
-            'CFB': (35, 85), 'NHL': (4, 9)
-        }
-        min_total, max_total = league_ranges.get(game.league, (0, 999))
-        if not (min_total <= game.projected_total <= max_total):
-            errors.append(f"Projection {game.projected_total} outside range [{min_total}-{max_total}]")
-    
-    if game.away_ppg and game.away_ppg < 0:
-        errors.append(f"Invalid away_ppg: {game.away_ppg}")
-    if game.home_ppg and game.home_ppg < 0:
-        errors.append(f"Invalid home_ppg: {game.home_ppg}")
-    if game.true_edge and game.true_edge > 20:
-        warnings.append(f"Very large true edge: {game.true_edge}")
-    if game.vig_percentage and game.vig_percentage > 10:
-        warnings.append(f"Very high vig: {game.vig_percentage}%")
-    
-    return {'valid': len(errors) == 0, 'errors': errors, 'warnings': warnings}
-
-
-def calculate_spread_edge_sharp(projected_margin: float, spread_line: float,
-                                home_odds: int, away_odds: int, 
-                                league: str, is_home_pick: bool) -> EdgeResult:
-    """Calculate TRUE spread edge with vig removal."""
-    fair_spread = VigRemover.calculate_fair_line_totals(spread_line, away_odds, home_odds)
-    vig_data = VigRemover.remove_two_way_vig(away_odds, home_odds)
-    
-    raw_edge = abs(projected_margin - spread_line)
-    true_edge = abs(projected_margin - fair_spread)
-    
-    threshold = {'NBA': 3.0, 'CBB': 4.0, 'NFL': 2.0, 'CFB': 2.5, 'NHL': 0.3}.get(league, 2.0)
-    
-    if is_home_pick:
-        if projected_margin >= fair_spread:
-            direction = 'HOME'
-            qualified = true_edge >= threshold
-        else:
-            direction = None
-            qualified = False
-    else:
-        if projected_margin <= fair_spread:
-            direction = 'AWAY'
-            qualified = true_edge >= threshold
-        else:
-            direction = None
-            qualified = False
-    
-    return EdgeResult(
-        qualified=qualified,
-        direction=direction,
-        true_edge=round(true_edge, 2),
-        raw_edge=round(raw_edge, 2),
-        fair_line=round(fair_spread, 1),
-        posted_line=spread_line,
-        vig_pct=round(vig_data['vig_pct'], 2),
-        market_balance='BALANCED',
-        confidence='HIGH' if true_edge >= threshold * 1.5 else ('STANDARD' if qualified else 'NONE')
-    )
 
 
 class SharpThresholds:
@@ -5449,6 +3856,35 @@ class SharpEdgeCalculator:
             'under_fair_prob': vig_data['under_fair']
         }
 
+# --- Calibration Lookup ---
+_calibration_cache = TTLCache(maxsize=64, ttl=1800)  # 30-min TTL
+
+def get_calibration_adjustment(league: str, pick_type: str, adjustment_type: str) -> float:
+    """Look up active calibration adjustment. Returns 0.0 if none active."""
+    cache_key = f"{league}:{pick_type}:{adjustment_type}"
+    if cache_key in _calibration_cache:
+        return _calibration_cache[cache_key]
+    try:
+        adj = CalibrationAdjustment.query.filter_by(
+            league=league, pick_type=pick_type,
+            adjustment_type=adjustment_type, is_active=True
+        ).first()
+        val = adj.adjustment_value if adj else 0.0
+        _calibration_cache[cache_key] = val
+        return val
+    except Exception:
+        return 0.0
+
+
+def get_effective_edge_threshold(league: str) -> float:
+    """Get edge threshold, checking for calibration override first."""
+    override = get_calibration_adjustment(league, 'total', 'edge_threshold_override')
+    if override > 0:
+        logger.debug(f"Edge threshold override for {league}: {override}")
+        return override
+    return SharpThresholds.MIN_TRUE_EDGE.get(league, 8.0)
+
+
 def check_qualification_sharp(projected: float, line: float, league: str,
                               over_odds: int, under_odds: int) -> dict:
     """Calculate TRUE edge with vig removal for qualification."""
@@ -5456,8 +3892,8 @@ def check_qualification_sharp(projected: float, line: float, league: str,
         projected, line, over_odds, under_odds, 'OVER'
     )
     
-    threshold = SharpThresholds.MIN_TRUE_EDGE.get(league, 8.0)
-    
+    threshold = get_effective_edge_threshold(league)
+
     if edge_data['true_edge'] >= threshold:
         direction = 'O' if projected >= edge_data['true_line'] else 'U'
         return {
@@ -5507,7 +3943,7 @@ def check_qualification_professional(
     else:
         direction = None
     
-    threshold = SharpThresholds.MIN_TRUE_EDGE.get(league, 8.0)
+    threshold = get_effective_edge_threshold(league)
     qualified_edge = true_edge >= threshold
     
     prob_over = vig_data['prob_a']
@@ -5568,100 +4004,6 @@ def check_qualification_professional(
     return qual_result
 
 
-class SharpPickQualifier:
-    """Advanced pick qualification using sharp betting metrics."""
-    
-    CONFIDENCE_THRESHOLDS = {
-        'SUPERMAX': {'true_edge': 12.0, 'ev': 3.0, 'kelly': 0.05, 'history': 0.70},
-        'HIGH': {'true_edge': 10.0, 'ev': 1.5, 'kelly': 0.03, 'history': 0.65},
-        'MEDIUM': {'true_edge': 8.0, 'ev': 0.5, 'kelly': 0.02, 'history': 0.60},
-        'LOW': {'true_edge': 6.0, 'ev': 0.0, 'kelly': 0.01, 'history': 0.55}
-    }
-    
-    BET_SIZE_MAP = {'SUPERMAX': 5.0, 'HIGH': 3.0, 'MEDIUM': 2.0, 'LOW': 1.0}
-    
-    @classmethod
-    def qualify_pick(cls, game_data: dict) -> dict:
-        """
-        Qualify pick using sharp metrics.
-        
-        Args:
-            game_data: Dict with true_edge, ev_percentage, kelly_fraction, 
-                      history_win_rate, vig_percentage, etc.
-        """
-        reasons_pass = []
-        reasons_fail = []
-        
-        true_edge = game_data.get('true_edge', 0)
-        ev = game_data.get('ev_percentage') or 0
-        kelly = game_data.get('kelly_fraction', 0)
-        history = game_data.get('history_win_rate', 0)
-        vig = game_data.get('vig_percentage', 5.0)
-        
-        confidence = 'NONE'
-        for tier, thresholds in cls.CONFIDENCE_THRESHOLDS.items():
-            meets_tier = True
-            tier_reasons = []
-            
-            if true_edge >= thresholds['true_edge']:
-                tier_reasons.append(f"True edge {true_edge:.1f} >= {thresholds['true_edge']}")
-            else:
-                meets_tier = False
-            
-            if ev >= thresholds['ev']:
-                tier_reasons.append(f"EV {ev:.2f}% >= {thresholds['ev']}%")
-            elif ev is None or ev == 0:
-                tier_reasons.append("No Pinnacle data (EV waived)")
-            else:
-                meets_tier = False
-            
-            if history >= thresholds['history']:
-                tier_reasons.append(f"History {history*100:.0f}% >= {thresholds['history']*100:.0f}%")
-            else:
-                meets_tier = False
-            
-            if meets_tier:
-                confidence = tier
-                reasons_pass = tier_reasons
-                break
-        
-        qualified = confidence != 'NONE'
-        
-        if not qualified:
-            if true_edge < 6.0:
-                reasons_fail.append(f"True edge {true_edge:.1f} < 6.0 minimum")
-            if history < 0.55:
-                reasons_fail.append(f"History {history*100:.0f}% < 55% minimum")
-            if ev is not None and ev < 0:
-                reasons_fail.append(f"Negative EV {ev:.2f}%")
-        
-        if vig > 6.0:
-            reasons_fail.append(f"High vig {vig:.1f}% reduces value")
-        
-        bet_size = cls.BET_SIZE_MAP.get(confidence, 0)
-        if kelly > 0:
-            bet_size = min(bet_size, kelly * 100 * 0.25)
-        
-        recommendation = "PASS" if qualified else "SKIP"
-        if qualified and ev and ev > 2.0:
-            recommendation = "STRONG BET"
-        
-        return {
-            'qualified': qualified,
-            'confidence': confidence,
-            'bet_size_percentage': round(bet_size, 2),
-            'reasons_pass': reasons_pass,
-            'reasons_fail': reasons_fail,
-            'recommendation': recommendation,
-            'metrics': {
-                'true_edge': true_edge,
-                'ev': ev,
-                'kelly': kelly,
-                'history': history,
-                'vig': vig
-            }
-        }
-
 class SpreadValidator:
     """Enhanced spread validation with edge case handling."""
     
@@ -5716,35 +4058,6 @@ class SpreadValidator:
         
         return True, None, None
     
-    @staticmethod
-    def validate_spread_magnitude(spread: float, league: str) -> Tuple[bool, Optional[str]]:
-        """Validate spread is within reasonable range for league."""
-        max_spread = SpreadValidator.MAX_SPREADS.get(league, 50.0)
-        if abs(spread) > max_spread:
-            return False, f"Spread {spread} exceeds max for {league} ({max_spread})"
-        return True, None
-    
-    @staticmethod
-    def validate_and_correct_spread(
-        spread: float,
-        away_ml: Optional[float],
-        home_ml: Optional[float],
-        away_team: str,
-        home_team: str
-    ) -> Tuple[float, bool]:
-        """
-        Validates spread and returns corrected value if needed.
-        Returns: (final_spread, was_corrected)
-        """
-        is_valid, error_msg, corrected = SpreadValidator.validate_spread_vs_moneyline(
-            spread, away_ml, home_ml, away_team, home_team
-        )
-        
-        if not is_valid and corrected is not None:
-            logger.warning(f"AUTO-CORRECTED: {error_msg} -> Using {corrected}")
-            return corrected, True
-        
-        return spread, False
 
 
 class BulletproofPickValidator:
@@ -5964,40 +4277,6 @@ class BulletproofPickValidator:
             "total_rejected": len(rejected_picks)
         }
     
-    @classmethod
-    def get_best_picks_for_posting(cls, games: list, max_picks: int = 3) -> list:
-        """
-        Get the best validated picks for Discord posting.
-        
-        Prioritizes: SUPERMAX > HIGH > MEDIUM > LOW
-        Within tiers, sorts by edge.
-        
-        Returns list of validated pick dicts ready for posting.
-        """
-        validation_result = cls.validate_all_picks(games, pick_type='both')
-        by_tier = validation_result['by_tier']
-        
-        best_picks = []
-        for tier in ["SUPERMAX", "HIGH", "MEDIUM", "LOW"]:
-            for pick in by_tier[tier]:
-                if len(best_picks) >= max_picks:
-                    break
-                best_picks.append(pick)
-            if len(best_picks) >= max_picks:
-                break
-        
-        # Log validation summary
-        logger.info(f"🔒 BULLETPROOF VALIDATION: {len(best_picks)} picks selected")
-        logger.info(f"   SUPERMAX: {len(by_tier['SUPERMAX'])}, HIGH: {len(by_tier['HIGH'])}, "
-                   f"MEDIUM: {len(by_tier['MEDIUM'])}, LOW: {len(by_tier['LOW'])}")
-        logger.info(f"   Rejected: {validation_result['total_rejected']}")
-        
-        for pick in best_picks:
-            logger.info(f"   ✅ {pick['game']} ({pick['pick_type'].upper()}) - "
-                       f"Tier: {pick['confidence_tier']}, Edge: {pick['edge']:.1f}, "
-                       f"EV: {pick['ev']:.2f}%" if pick['ev'] else f"EV: N/A")
-        
-        return best_picks
 
 
 def calculate_recent_form_ppg(games: list) -> dict:
@@ -6183,122 +4462,6 @@ def teams_match(name1: str, name2: str) -> bool:
     if len(overlap) >= min(len(tokens1), len(tokens2)):
         return True
     return False
-
-class UniversalSpreadHandler:
-    """
-    Bulletproof spread extraction - works for ANY team (home or away) without confusion.
-    Gets spread for BOTH teams, validates they're mirror images, cross-checks with moneyline.
-    """
-    
-    @staticmethod
-    def extract_spread_data(away_team: str, home_team: str, bookmakers: list) -> Optional[dict]:
-        """
-        Extract spread data with FULL VALIDATION.
-        Returns standardized format with BOTH teams' perspectives.
-        """
-        if not bookmakers:
-            return None
-        
-        bovada_book = next((b for b in bookmakers if b.get("key") == "bovada"), None)
-        if not bovada_book:
-            return None
-        
-        markets = {m.get("key"): m for m in bovada_book.get("markets", [])}
-        
-        spreads_market = markets.get("spreads")
-        h2h_market = markets.get("h2h")
-        
-        if not spreads_market:
-            return None
-        
-        outcomes = spreads_market.get("outcomes", [])
-        
-        away_spread_outcome = None
-        home_spread_outcome = None
-        
-        for outcome in outcomes:
-            outcome_name = outcome.get("name", "")
-            if teams_match(outcome_name, away_team):
-                away_spread_outcome = outcome
-            elif teams_match(outcome_name, home_team):
-                home_spread_outcome = outcome
-        
-        if not away_spread_outcome or not home_spread_outcome:
-            logger.debug(f"Missing spread data for {away_team} @ {home_team}")
-            return None
-        
-        away_spread_raw = float(away_spread_outcome.get("point", 0))
-        home_spread_raw = float(home_spread_outcome.get("point", 0))
-        try:
-            away_odds = int(away_spread_outcome.get("price", -110))
-        except (ValueError, TypeError):
-            away_odds = -110
-        try:
-            home_odds = int(home_spread_outcome.get("price", -110))
-        except (ValueError, TypeError):
-            home_odds = -110
-        
-        away_ml = None
-        home_ml = None
-        if h2h_market:
-            h2h_outcomes = h2h_market.get("outcomes", [])
-            for h2h_out in h2h_outcomes:
-                h2h_name = h2h_out.get("name", "")
-                if teams_match(h2h_name, away_team):
-                    away_ml = h2h_out.get("price")
-                elif teams_match(h2h_name, home_team):
-                    home_ml = h2h_out.get("price")
-        
-        if abs(away_spread_raw + home_spread_raw) > 0.5:
-            logger.warning(f"SPREAD MISMATCH: {away_team}({away_spread_raw}) @ {home_team}({home_spread_raw})")
-        
-        if away_ml and home_ml:
-            if away_ml < home_ml:
-                favorite_team = away_team
-                underdog_team = home_team
-                favorite_location = 'away'
-            else:
-                favorite_team = home_team
-                underdog_team = away_team
-                favorite_location = 'home'
-        else:
-            if away_spread_raw < 0:
-                favorite_team = away_team
-                underdog_team = home_team
-                favorite_location = 'away'
-            else:
-                favorite_team = home_team
-                underdog_team = away_team
-                favorite_location = 'home'
-        
-        spread_data = {
-            'away_team': away_team,
-            'home_team': home_team,
-            'away_spread': away_spread_raw,
-            'home_spread': home_spread_raw,
-            'away_odds': away_odds,
-            'home_odds': home_odds,
-            'away_moneyline': away_ml,
-            'home_moneyline': home_ml,
-            'favorite': favorite_team,
-            'underdog': underdog_team,
-            'favorite_location': favorite_location,
-            'spread_magnitude': abs(away_spread_raw),
-            'spread_away_perspective': away_spread_raw,
-        }
-        
-        if away_ml and home_ml:
-            ml_says_away_fav = away_ml < home_ml
-            spread_says_away_fav = away_spread_raw < 0
-            
-            if ml_says_away_fav != spread_says_away_fav:
-                logger.warning(
-                    f"SPREAD/MONEYLINE MISMATCH: {away_team} @ {home_team} - "
-                    f"ML: {'Away fav' if ml_says_away_fav else 'Home fav'}, "
-                    f"Spread: {'Away fav' if spread_says_away_fav else 'Home fav'}"
-                )
-        
-        return spread_data
 
 class Game(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -6496,8 +4659,9 @@ class Pick(db.Model):
     true_edge = db.Column(db.Float)  # Edge after vig removal
     kelly_fraction = db.Column(db.Float)  # Kelly bet size
     expected_ev = db.Column(db.Float)  # Expected value at time of bet
-    
-    
+    actual_margin = db.Column(db.Float)  # home_score - away_score for spread error tracking
+
+
     __table_args__ = (
         db.Index('idx_pick_result', 'result'),
         db.Index('idx_pick_date_league', 'date', 'league'),
@@ -6505,6 +4669,77 @@ class Pick(db.Model):
         db.Index('idx_date_result', 'date', 'result'),
         db.Index('idx_is_lock_date', 'is_lock', 'date'),
     )
+
+
+class ModelCalibration(db.Model):
+    """One row per graded pick - projection vs actual for error tracking."""
+    id = db.Column(db.Integer, primary_key=True)
+    pick_id = db.Column(db.Integer, db.ForeignKey('pick.id'), nullable=False, unique=True)
+    date = db.Column(db.Date, nullable=False)
+    league = db.Column(db.String(10), nullable=False)
+    pick_type = db.Column(db.String(10), nullable=False)
+    matchup = db.Column(db.String(100))
+    projected_total = db.Column(db.Float)
+    actual_total = db.Column(db.Float)
+    total_error = db.Column(db.Float)  # projected - actual
+    projected_margin = db.Column(db.Float)
+    actual_margin = db.Column(db.Float)
+    margin_error = db.Column(db.Float)
+    edge_at_pick = db.Column(db.Float)
+    true_edge_at_pick = db.Column(db.Float)
+    confidence_tier = db.Column(db.String(20))
+    rlm_detected = db.Column(db.Boolean, default=False)
+    rlm_sharp_side_agreed = db.Column(db.Boolean, default=False)
+    sharp_money_agreed = db.Column(db.Boolean, default=False)
+    history_qualified = db.Column(db.Boolean, default=False)
+    result = db.Column(db.String(5))
+
+    __table_args__ = (
+        db.Index('idx_calibration_date_league', 'date', 'league'),
+        db.Index('idx_calibration_pick_type', 'pick_type'),
+    )
+
+
+class SignalPerformance(db.Model):
+    """Aggregated per-signal accuracy, recomputed daily."""
+    id = db.Column(db.Integer, primary_key=True)
+    computed_date = db.Column(db.Date, nullable=False)
+    league = db.Column(db.String(10), nullable=False)
+    pick_type = db.Column(db.String(10), nullable=False)
+    signal_name = db.Column(db.String(50), nullable=False)
+    lookback_days = db.Column(db.Integer, default=30)
+    total_picks = db.Column(db.Integer, default=0)
+    wins = db.Column(db.Integer, default=0)
+    losses = db.Column(db.Integer, default=0)
+    win_rate = db.Column(db.Float)
+    signal_lift = db.Column(db.Float)  # win_rate vs baseline
+    sample_sufficient = db.Column(db.Boolean, default=False)
+
+    __table_args__ = (
+        db.Index('idx_signal_date_league', 'computed_date', 'league'),
+        db.UniqueConstraint('computed_date', 'league', 'pick_type', 'signal_name', name='uq_signal_perf'),
+    )
+
+
+class CalibrationAdjustment(db.Model):
+    """Active corrections applied to picks."""
+    id = db.Column(db.Integer, primary_key=True)
+    league = db.Column(db.String(10), nullable=False)
+    pick_type = db.Column(db.String(10), nullable=False)
+    adjustment_type = db.Column(db.String(30), nullable=False)  # total_bias, margin_bias, edge_threshold_override
+    adjustment_value = db.Column(db.Float, default=0.0)
+    confidence = db.Column(db.Float, default=0.0)
+    is_active = db.Column(db.Boolean, default=False)
+    sample_size = db.Column(db.Integer, default=0)
+    raw_mean_error = db.Column(db.Float)
+    raw_std_error = db.Column(db.Float)
+    description = db.Column(db.String(200))
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('league', 'pick_type', 'adjustment_type', name='uq_calibration_adj'),
+    )
+
 
 def parse_game_time_hour(game_time_str: str) -> Optional[int]:
     """Parse game time string and return hour in 24h format (ET)."""
@@ -6737,75 +4972,6 @@ def calculate_expected_scores(away_ppg: float, away_opp: float,
     exp_home = (home_ppg + away_opp) / 2
     return exp_away, exp_home, exp_away + exp_home
 
-def calculate_blended_expected_scores(game, away_games: list, home_games: list) -> Tuple[float, float, float]:
-    """
-    Calculate expected scores using blended stats (60% recent form, 40% season).
-    Uses the locked formula with blended PPG values.
-    Returns: (expected_away, expected_home, projected_total)
-    """
-    if not all([game.away_ppg, game.away_opp_ppg, game.home_ppg, game.home_opp_ppg]):
-        raise ValueError("Insufficient data — no play")
-    
-    away_recent = calculate_recent_form_ppg(away_games) if away_games else {"ppg": 0, "opp_ppg": 0}
-    home_recent = calculate_recent_form_ppg(home_games) if home_games else {"ppg": 0, "opp_ppg": 0}
-    
-    if away_recent["ppg"] > 0 and home_recent["ppg"] > 0:
-        blended_away_ppg, blended_away_opp = calculate_blended_stats(
-            game.away_ppg, game.away_opp_ppg,
-            away_recent["ppg"], away_recent["opp_ppg"]
-        )
-        blended_home_ppg, blended_home_opp = calculate_blended_stats(
-            game.home_ppg, game.home_opp_ppg,
-            home_recent["ppg"], home_recent["opp_ppg"]
-        )
-        
-        return calculate_expected_scores(
-            blended_away_ppg, blended_away_opp,
-            blended_home_ppg, blended_home_opp
-        )
-    
-    return calculate_expected_scores(
-        game.away_ppg, game.away_opp_ppg,
-        game.home_ppg, game.home_opp_ppg
-    )
-
-def check_spread_qualification(expected_away: float, expected_home: float, 
-                                spread_line: float, league: str) -> Tuple[bool, Optional[str], float]:
-    """
-    LOCKED THRESHOLDS - Same thresholds as totals
-    
-    spread_line is stored in AWAY PERSPECTIVE:
-    - Positive = away is underdog (home is favorite by that amount)
-    - Negative = away is favorite (home is underdog)
-    
-    E.g., spread_line = 22 means away +22 underdog, home -22 favorite
-    E.g., spread_line = -5 means away -5 favorite, home +5 underdog
-    
-    line_margin = spread_line (what home team is expected to win by per the line)
-    projected_margin = expected_home - expected_away (positive = home wins by X)
-    
-    Direction Rules:
-    - Take HOME if: projected_margin >= line_margin + threshold (we think home wins by MORE than the line)
-    - Take AWAY if: projected_margin <= line_margin - threshold (we think home wins by LESS than the line)
-    
-    Example: Home expected to win by 3, spread_line = 22 (home -22 favorite)
-    line_margin = 22, projected_margin = 3
-    We expect home to win by 3, but line says home wins by 22
-    Difference = 19 points of value on AWAY side
-    projected_margin (3) <= line_margin (22) - threshold (8) = 14? Yes!
-    Bet AWAY +22 (they lose by 3 but cover +22)
-    """
-    threshold = THRESHOLDS.get(league, 8.0)
-    projected_margin = expected_home - expected_away
-    line_margin = spread_line  # spread_line IS the implied home margin (in away perspective storage)
-    edge = abs(projected_margin - line_margin)
-    
-    if projected_margin >= line_margin + threshold:
-        return True, "HOME", edge
-    elif projected_margin <= line_margin - threshold:
-        return True, "AWAY", edge
-    return False, None, edge
-
 def unified_spread_qualification(
     spread_direction: str,
     spread_line: float,
@@ -6938,41 +5104,7 @@ def american_to_implied_prob(odds: int) -> float:
     else:
         return abs(odds) / (abs(odds) + 100)
 
-def calculate_ev(bovada_odds: int, pinnacle_odds: int) -> float:
-    """
-    Calculate Expected Value using Pinnacle as the true probability.
-    
-    EV = (p_true * decimal_payout) - 1
-    Where p_true comes from Pinnacle's implied probability
-    and decimal_payout comes from Bovada's odds
-    
-    Positive EV = our odds are better than the sharp market
-    
-    Example: Bovada -140, Pinnacle -180
-    - Pinnacle implies 64.3% true probability
-    - Bovada decimal = 1.714
-    - EV = (0.643 * 1.714) - 1 = 0.102 = +10.2% EV
-    """
-    if not bovada_odds or not pinnacle_odds:
-        return None
-    
-    p_true = american_to_implied_prob(pinnacle_odds)
-    decimal_bovada = american_to_decimal(bovada_odds)
-    ev = (p_true * decimal_bovada) - 1
-    return round(ev * 100, 2)  # Return as percentage
-
 EV_THRESHOLD = 0.0  # Require positive EV (0% or better)
-
-def is_game_upcoming(game: Game) -> bool:
-    """Check if a game is upcoming (not finished)."""
-    if not game.game_time:
-        return True
-    time_str = game.game_time.lower()
-    finished_indicators = ['final', 'end', 'ft', 'aet', 'postponed', 'canceled', 'cancelled']
-    for indicator in finished_indicators:
-        if indicator in time_str:
-            return False
-    return True
 
 GAME_DURATION_HOURS = {
     'NBA': 2.5,
@@ -7166,19 +5298,6 @@ def fetch_url(url: str, timeout: int = 15) -> dict:
     response = requests.get(url, timeout=timeout)
     response.raise_for_status()
     return response.json()
-
-def fetch_espn_scoreboard(league: str, date_str: str, timeout: int = 15) -> dict:
-    """Fetch scoreboard from ESPN API - approved data source only."""
-    urls = {
-        "NBA": f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={date_str}",
-        "CBB": f"https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates={date_str}&limit=500&groups=50"
-    }
-    
-    url = urls.get(league)
-    if not url:
-        raise ValueError(f"Invalid league: {league}")
-    
-    return fetch_url(url, timeout)
 
 espn_teams_cache: dict = {}  # league -> {team_name: team_id}
 espn_team_schedule_cache: dict = {}  # "YYYY-MM-DD:league:team_name" -> games list (date-keyed for daily refresh)
@@ -7459,48 +5578,6 @@ def fetch_team_last_10_games(team_name: str, league: str) -> list:
     except Exception as e:
         logger.error(f"Error fetching history for {team_name}: {e}")
         return []
-
-def fetch_all_team_histories_batch(games: list) -> dict:
-    """
-    BULLETPROOF: Fetch all team histories in parallel with deduplication.
-    Reduces 100+ sequential API calls to ~20 parallel calls with caching.
-    """
-    et = pytz.timezone('America/New_York')
-    today_str = datetime.now(et).strftime("%Y-%m-%d")
-    
-    unique_teams = {}
-    for g in games:
-        unique_teams[(g.away_team, g.league)] = None
-        unique_teams[(g.home_team, g.league)] = None
-    
-    results = {}
-    teams_to_fetch = []
-    
-    for (team, league) in unique_teams.keys():
-        cache_key = f"{today_str}:{league}:{team.lower()}"
-        cached = espn_schedule_cache.get(cache_key)
-        if cached is not None:
-            results[cache_key] = cached
-        else:
-            teams_to_fetch.append((team, league, cache_key))
-    
-    if teams_to_fetch:
-        logger.info(f"Batch fetching histories for {len(teams_to_fetch)} teams (skipping {len(results)} cached)")
-        with ThreadPoolExecutor(max_workers=10) as executor:
-            futures = {}
-            for (team, league, cache_key) in teams_to_fetch:
-                futures[executor.submit(fetch_team_last_10_games, team, league)] = cache_key
-            
-            for future in as_completed(futures):
-                cache_key = futures[future]
-                try:
-                    team_games = future.result()
-                    results[cache_key] = team_games
-                except Exception as e:
-                    logger.error(f"Batch fetch failed for {cache_key}: {e}")
-                    results[cache_key] = []
-    
-    return results
 
 def calculate_ou_hit_rate(games: list, direction: str, current_line: float = None) -> float:
     """
@@ -7997,7 +6074,8 @@ def check_spread_pick_result(pick) -> int:
             return 0
         
         actual_margin = home_score - away_score
-        
+        pick.actual_margin = float(actual_margin)
+
         picked_home = teams_match(team_picked, home_team)
         picked_away = teams_match(team_picked, away_team)
         
@@ -8028,156 +6106,302 @@ def check_spread_pick_result(pick) -> int:
         logger.error(f"Error checking spread result for {pick.matchup}: {e}")
         return 0
 
-def check_pick_results() -> int:
-    """
-    Check results for pending picks - LOCKED LOGIC.
-    
-    Returns:
-        Number of picks updated with results
-    """
-    pending_picks = Pick.query.filter(Pick.result == None).all()
-    results_updated = 0
-    
-    for pick in pending_picks:
+
+class DailyCalibrationEngine:
+    """Silent closed-loop calibration engine. Runs daily at 6 AM ET.
+    Grades results, measures projection errors, scores signals, and computes bias corrections.
+    All output goes to logger only - no UI, no API responses."""
+
+    LOOKBACK_DAYS = 30
+    MIN_SAMPLE = 15
+    MAX_CORRECTION = 8.0
+    CONFIDENCE_THRESHOLD = 0.3
+    SIGNAL_NAMES = [
+        'rlm_agree', 'sharp_money_agree', 'edge_tier_supermax',
+        'edge_tier_high', 'edge_tier_standard', 'history_qualified', 'clv_positive'
+    ]
+
+    @classmethod
+    def run_daily_calibration(cls):
+        """Main entry point - runs all calibration steps and logs summary."""
+        logger.info("CALIBRATION: Starting daily calibration run...")
         try:
-            if not pick.pick or len(pick.pick) < 2:
-                logger.warning(f"Invalid pick format for pick {pick.id}: {pick.pick}")
-                continue
-            
-            if pick.pick_type == "spread":
-                results_updated += check_spread_pick_result(pick)
-                continue
-            
-            line = float(pick.pick[1:])
-            direction = pick.pick[0]
-            
-            if direction not in ['O', 'U']:
-                logger.warning(f"Invalid direction for pick {pick.id}: {direction}")
-                continue
-            
-            teams = pick.matchup.split(' @ ')
-            if len(teams) != 2:
-                logger.warning(f"Invalid matchup format for pick {pick.id}: {pick.matchup}")
-                continue
-            away_team, home_team = teams[0].strip(), teams[1].strip()
-            
-            date_str = pick.date.strftime("%Y%m%d")
-            actual_total = None
-            
-            if pick.league == "NBA":
-                url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={date_str}"
-                resp = requests.get(url, timeout=15)
-                for event in resp.json().get("events", []):
-                    status = event.get("status", {}).get("type", {}).get("name", "")
-                    if status != "STATUS_FINAL":
-                        continue
-                    comps = event.get("competitions", [{}])[0]
-                    teams_data = comps.get("competitors", [])
-                    if len(teams_data) == 2:
-                        away = next((t for t in teams_data if t.get("homeAway") == "away"), None)
-                        home = next((t for t in teams_data if t.get("homeAway") == "home"), None)
-                        if away and home:
-                            away_name = away.get("team", {}).get("shortDisplayName", "")
-                            home_name = home.get("team", {}).get("shortDisplayName", "")
-                            if teams_match(away_name, away_team) and teams_match(home_name, home_team):
-                                away_score = int(away.get("score", 0))
-                                home_score = int(home.get("score", 0))
-                                actual_total = away_score + home_score
-                                break
-            
-            elif pick.league == "CBB":
-                url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates={date_str}&limit=500&groups=50"
-                resp = requests.get(url, timeout=30)
-                for event in resp.json().get("events", []):
-                    status = event.get("status", {}).get("type", {}).get("name", "")
-                    if status != "STATUS_FINAL":
-                        continue
-                    comps = event.get("competitions", [{}])[0]
-                    teams_data = comps.get("competitors", [])
-                    if len(teams_data) == 2:
-                        away = next((t for t in teams_data if t.get("homeAway") == "away"), None)
-                        home = next((t for t in teams_data if t.get("homeAway") == "home"), None)
-                        if away and home:
-                            away_name = away.get("team", {}).get("shortDisplayName", "")
-                            home_name = home.get("team", {}).get("shortDisplayName", "")
-                            if teams_match(away_name, away_team) and teams_match(home_name, home_team):
-                                away_score = int(away.get("score", 0))
-                                home_score = int(home.get("score", 0))
-                                actual_total = away_score + home_score
-                                break
-            
-            elif pick.league == "NHL":
-                url = f"https://api-web.nhle.com/v1/score/{pick.date.strftime('%Y-%m-%d')}"
-                resp = requests.get(url, timeout=15)
-                for game in resp.json().get("games", []):
-                    if game.get("gameState") != "OFF":
-                        continue
-                    away_name = game.get("awayTeam", {}).get("placeName", {}).get("default", "")
-                    home_name = game.get("homeTeam", {}).get("placeName", {}).get("default", "")
-                    if teams_match(away_name, away_team) and teams_match(home_name, home_team):
-                        away_score = game.get("awayTeam", {}).get("score", 0)
-                        home_score = game.get("homeTeam", {}).get("score", 0)
-                        actual_total = away_score + home_score
-                        break
-            
-            elif pick.league == "NFL":
-                url = f"https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates={date_str}"
-                resp = requests.get(url, timeout=15)
-                for event in resp.json().get("events", []):
-                    status = event.get("status", {}).get("type", {}).get("name", "")
-                    if status != "STATUS_FINAL":
-                        continue
-                    comps = event.get("competitions", [{}])[0]
-                    teams_data = comps.get("competitors", [])
-                    if len(teams_data) == 2:
-                        away = next((t for t in teams_data if t.get("homeAway") == "away"), None)
-                        home = next((t for t in teams_data if t.get("homeAway") == "home"), None)
-                        if away and home:
-                            away_name = away.get("team", {}).get("shortDisplayName", "")
-                            home_name = home.get("team", {}).get("shortDisplayName", "")
-                            if teams_match(away_name, away_team) and teams_match(home_name, home_team):
-                                away_score = int(away.get("score", 0))
-                                home_score = int(home.get("score", 0))
-                                actual_total = away_score + home_score
-                                break
-            
-            elif pick.league == "CFB":
-                url = f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates={date_str}&limit=100"
-                resp = requests.get(url, timeout=15)
-                for event in resp.json().get("events", []):
-                    status = event.get("status", {}).get("type", {}).get("name", "")
-                    if status != "STATUS_FINAL":
-                        continue
-                    comps = event.get("competitions", [{}])[0]
-                    teams_data = comps.get("competitors", [])
-                    if len(teams_data) == 2:
-                        away = next((t for t in teams_data if t.get("homeAway") == "away"), None)
-                        home = next((t for t in teams_data if t.get("homeAway") == "home"), None)
-                        if away and home:
-                            away_name = away.get("team", {}).get("shortDisplayName", "")
-                            home_name = home.get("team", {}).get("shortDisplayName", "")
-                            if teams_match(away_name, away_team) and teams_match(home_name, home_team):
-                                away_score = int(away.get("score", 0))
-                                home_score = int(home.get("score", 0))
-                                actual_total = away_score + home_score
-                                break
-            
-            if actual_total is not None:
-                pick.actual_total = actual_total
-                if actual_total == line:
-                    pick.result = "P"
-                elif direction == "O":
-                    pick.result = "W" if actual_total > line else "L"
-                else:
-                    pick.result = "W" if actual_total < line else "L"
-                results_updated += 1
-                
+            graded = cls._grade_pending_results()
+            harvested = cls._harvest_projection_errors()
+            signals = cls._compute_signal_performance()
+            adjustments = cls._compute_calibration_adjustments()
+            # Clear calibration cache so new adjustments take effect
+            _calibration_cache.clear()
+            logger.info(
+                f"CALIBRATION COMPLETE: graded={graded}, errors_harvested={harvested}, "
+                f"signals={signals}, adjustments={adjustments}"
+            )
         except Exception as e:
-            logger.error(f"Error checking result for {pick.matchup}: {e}")
-            continue
-    
-    db.session.commit()
-    return results_updated
+            logger.error(f"CALIBRATION ERROR: {e}")
+
+    @classmethod
+    def _grade_pending_results(cls) -> int:
+        """Grade pending picks by calling existing result-checking logic."""
+        try:
+            count = check_finished_games_results()
+            db.session.commit()
+            logger.info(f"CALIBRATION: Graded {count} pending picks")
+            return count
+        except Exception as e:
+            logger.error(f"CALIBRATION: Error grading results: {e}")
+            db.session.rollback()
+            return 0
+
+    @classmethod
+    def _harvest_projection_errors(cls) -> int:
+        """Create ModelCalibration rows for graded picks not yet harvested."""
+        try:
+            # Find graded picks that don't have a ModelCalibration row yet
+            already_harvested = db.session.query(ModelCalibration.pick_id).subquery()
+            graded_picks = Pick.query.filter(
+                Pick.result.isnot(None),
+                ~Pick.id.in_(db.session.query(already_harvested.c.pick_id))
+            ).all()
+
+            harvested = 0
+            for pick in graded_picks:
+                game = Game.query.get(pick.game_id) if pick.game_id else None
+                # Compute projected values from game stats if available
+                projected_total = None
+                projected_margin = None
+                if game:
+                    away_stats = {}
+                    home_stats = {}
+                    # Try to get stats from game data
+                    if hasattr(game, 'away_ppg') and game.away_ppg:
+                        projected_total = (game.away_ppg or 0) + (game.home_ppg or 0)
+                    if hasattr(game, 'projected_total') and game.projected_total:
+                        projected_total = game.projected_total
+                    if hasattr(game, 'projected_margin'):
+                        projected_margin = game.projected_margin
+
+                # actual_total for totals picks: use actual_total from pick
+                actual_total_val = pick.actual_total
+                actual_margin_val = pick.actual_margin
+
+                total_error = None
+                if projected_total is not None and actual_total_val is not None:
+                    total_error = projected_total - actual_total_val
+
+                margin_error = None
+                if projected_margin is not None and actual_margin_val is not None:
+                    margin_error = projected_margin - actual_margin_val
+
+                # Determine confidence tier from edge
+                conf_tier = 'STANDARD'
+                if pick.true_edge is not None:
+                    threshold = SharpThresholds.MIN_TRUE_EDGE.get(pick.league, 8.0)
+                    if pick.true_edge >= threshold * 2.0:
+                        conf_tier = 'ELITE'
+                    elif pick.true_edge >= threshold * 1.5:
+                        conf_tier = 'HIGH'
+
+                cal = ModelCalibration(
+                    pick_id=pick.id,
+                    date=pick.date,
+                    league=pick.league,
+                    pick_type=pick.pick_type or 'total',
+                    matchup=pick.matchup,
+                    projected_total=projected_total,
+                    actual_total=actual_total_val,
+                    total_error=total_error,
+                    projected_margin=projected_margin,
+                    actual_margin=actual_margin_val,
+                    margin_error=margin_error,
+                    edge_at_pick=pick.edge,
+                    true_edge_at_pick=pick.true_edge,
+                    confidence_tier=conf_tier,
+                    result=pick.result
+                )
+                db.session.add(cal)
+                harvested += 1
+
+            if harvested > 0:
+                db.session.commit()
+            logger.info(f"CALIBRATION: Harvested {harvested} projection errors")
+            return harvested
+        except Exception as e:
+            logger.error(f"CALIBRATION: Error harvesting projection errors: {e}")
+            db.session.rollback()
+            return 0
+
+    @classmethod
+    def _compute_signal_performance(cls) -> int:
+        """Score each signal's win rate over a rolling window."""
+        try:
+            et = pytz.timezone('America/New_York')
+            today = datetime.now(et).date()
+            cutoff = today - timedelta(days=cls.LOOKBACK_DAYS)
+            signals_computed = 0
+
+            calibrations = ModelCalibration.query.filter(
+                ModelCalibration.date >= cutoff,
+                ModelCalibration.result.in_(['W', 'L'])
+            ).all()
+
+            if not calibrations:
+                logger.info("CALIBRATION: No calibration data for signal performance")
+                return 0
+
+            # Group by league and pick_type
+            groups = {}
+            for cal in calibrations:
+                key = (cal.league, cal.pick_type)
+                if key not in groups:
+                    groups[key] = []
+                groups[key].append(cal)
+
+            for (league, pick_type), cals in groups.items():
+                total = len(cals)
+                wins = sum(1 for c in cals if c.result == 'W')
+                baseline_wr = wins / total if total > 0 else 0.5
+
+                for signal_name in cls.SIGNAL_NAMES:
+                    # Filter calibrations where this signal was True
+                    if signal_name == 'rlm_agree':
+                        signal_cals = [c for c in cals if c.rlm_sharp_side_agreed]
+                    elif signal_name == 'sharp_money_agree':
+                        signal_cals = [c for c in cals if c.sharp_money_agreed]
+                    elif signal_name == 'edge_tier_supermax':
+                        signal_cals = [c for c in cals if c.confidence_tier == 'ELITE']
+                    elif signal_name == 'edge_tier_high':
+                        signal_cals = [c for c in cals if c.confidence_tier == 'HIGH']
+                    elif signal_name == 'edge_tier_standard':
+                        signal_cals = [c for c in cals if c.confidence_tier == 'STANDARD']
+                    elif signal_name == 'history_qualified':
+                        signal_cals = [c for c in cals if c.history_qualified]
+                    elif signal_name == 'clv_positive':
+                        # CLV positive: look up from Pick
+                        pick_ids = [c.pick_id for c in cals]
+                        clv_picks = {p.id: p for p in Pick.query.filter(
+                            Pick.id.in_(pick_ids), Pick.clv.isnot(None), Pick.clv > 0
+                        ).all()} if pick_ids else {}
+                        signal_cals = [c for c in cals if c.pick_id in clv_picks]
+                    else:
+                        signal_cals = []
+
+                    sig_total = len(signal_cals)
+                    sig_wins = sum(1 for c in signal_cals if c.result == 'W')
+                    sig_wr = sig_wins / sig_total if sig_total > 0 else 0.0
+                    sig_lift = sig_wr - baseline_wr if sig_total > 0 else 0.0
+
+                    # Upsert
+                    existing = SignalPerformance.query.filter_by(
+                        computed_date=today, league=league,
+                        pick_type=pick_type, signal_name=signal_name
+                    ).first()
+
+                    if existing:
+                        existing.total_picks = sig_total
+                        existing.wins = sig_wins
+                        existing.losses = sig_total - sig_wins
+                        existing.win_rate = round(sig_wr, 4)
+                        existing.signal_lift = round(sig_lift, 4)
+                        existing.sample_sufficient = sig_total >= cls.MIN_SAMPLE
+                    else:
+                        sp = SignalPerformance(
+                            computed_date=today, league=league,
+                            pick_type=pick_type, signal_name=signal_name,
+                            lookback_days=cls.LOOKBACK_DAYS,
+                            total_picks=sig_total, wins=sig_wins,
+                            losses=sig_total - sig_wins,
+                            win_rate=round(sig_wr, 4),
+                            signal_lift=round(sig_lift, 4),
+                            sample_sufficient=sig_total >= cls.MIN_SAMPLE
+                        )
+                        db.session.add(sp)
+                    signals_computed += 1
+
+            db.session.commit()
+            logger.info(f"CALIBRATION: Computed {signals_computed} signal performance metrics")
+            return signals_computed
+        except Exception as e:
+            logger.error(f"CALIBRATION: Error computing signal performance: {e}")
+            db.session.rollback()
+            return 0
+
+    @classmethod
+    def _compute_calibration_adjustments(cls) -> int:
+        """Compute total_bias and margin_bias corrections per league."""
+        try:
+            et = pytz.timezone('America/New_York')
+            today = datetime.now(et).date()
+            cutoff = today - timedelta(days=cls.LOOKBACK_DAYS)
+            adjustments_made = 0
+
+            calibrations = ModelCalibration.query.filter(
+                ModelCalibration.date >= cutoff
+            ).all()
+
+            if not calibrations:
+                logger.info("CALIBRATION: No calibration data for adjustments")
+                return 0
+
+            # Group by league
+            league_groups = {}
+            for cal in calibrations:
+                if cal.league not in league_groups:
+                    league_groups[cal.league] = []
+                league_groups[cal.league].append(cal)
+
+            for league, cals in league_groups.items():
+                # Total bias: mean of total_error for total picks
+                total_cals = [c for c in cals if c.pick_type == 'total' and c.total_error is not None]
+                if len(total_cals) >= cls.MIN_SAMPLE:
+                    errors = [c.total_error for c in total_cals]
+                    mean_err = statistics.mean(errors)
+                    std_err = statistics.stdev(errors) if len(errors) > 1 else 0.0
+                    # Confidence: based on sample size and std
+                    confidence = min(1.0, len(errors) / 50) * (1.0 / (1.0 + std_err / 10.0))
+                    # Cap correction
+                    correction = max(-cls.MAX_CORRECTION, min(cls.MAX_CORRECTION, -mean_err))
+                    is_active = confidence >= cls.CONFIDENCE_THRESHOLD
+
+                    cls._upsert_adjustment(
+                        league, 'total', 'total_bias', correction, confidence,
+                        is_active, len(errors), mean_err, std_err,
+                        f"Total bias correction: mean_error={mean_err:.2f}, n={len(errors)}"
+                    )
+                    adjustments_made += 1
+
+            db.session.commit()
+            logger.info(f"CALIBRATION: Computed {adjustments_made} calibration adjustments")
+            return adjustments_made
+        except Exception as e:
+            logger.error(f"CALIBRATION: Error computing adjustments: {e}")
+            db.session.rollback()
+            return 0
+
+    @staticmethod
+    def _upsert_adjustment(league, pick_type, adj_type, value, confidence,
+                           is_active, sample_size, mean_err, std_err, description):
+        """Insert or update a CalibrationAdjustment row."""
+        existing = CalibrationAdjustment.query.filter_by(
+            league=league, pick_type=pick_type, adjustment_type=adj_type
+        ).first()
+        if existing:
+            existing.adjustment_value = round(value, 4)
+            existing.confidence = round(confidence, 4)
+            existing.is_active = is_active
+            existing.sample_size = sample_size
+            existing.raw_mean_error = round(mean_err, 4)
+            existing.raw_std_error = round(std_err, 4)
+            existing.description = description
+        else:
+            adj = CalibrationAdjustment(
+                league=league, pick_type=pick_type, adjustment_type=adj_type,
+                adjustment_value=round(value, 4), confidence=round(confidence, 4),
+                is_active=is_active, sample_size=sample_size,
+                raw_mean_error=round(mean_err, 4), raw_std_error=round(std_err, 4),
+                description=description
+            )
+            db.session.add(adj)
+
 
 @app.route('/')
 def dashboard():
@@ -8211,13 +6435,25 @@ def dashboard():
     def cleanup_old_games():
         try:
             with app.app_context():
-                old_game_ids = [g.id for g in Game.query.filter(Game.date < today).limit(100).all()]
+                cutoff_30 = today - timedelta(days=30)
+                # Preserve games with graded picks from last 30 days
+                preserved_ids = set(
+                    p.game_id for p in Pick.query.filter(
+                        Pick.result.isnot(None),
+                        Pick.date >= cutoff_30,
+                        Pick.game_id.isnot(None)
+                    ).limit(500).all()
+                )
+                old_game_ids = [
+                    g.id for g in Game.query.filter(Game.date < today).limit(100).all()
+                    if g.id not in preserved_ids
+                ]
                 if old_game_ids:
                     Pick.query.filter(Pick.game_id.in_(old_game_ids)).update({Pick.game_id: None}, synchronize_session=False)
                     stmt = delete(Game).where(Game.id.in_(old_game_ids))
                     db.session.execute(stmt)
                     db.session.commit()
-                    logger.info(f"Background cleanup: removed {len(old_game_ids)} old games")
+                    logger.info(f"Background cleanup: removed {len(old_game_ids)} old games (preserved {len(preserved_ids)} with graded picks)")
         except Exception as e:
             logger.warning(f"Background cleanup error (non-critical): {e}")
             try:
@@ -8295,7 +6531,7 @@ def dashboard():
     # NBA/CBB: ±8.0, NFL/CFB: ±3.5, NHL: ±0.5
     # Alt lines required for display but qualification happens first via is_qualified flag
     qualified = [g for g in all_games if g.is_qualified]
-    
+
     # Filter to only show picks with alt lines (mandatory for display)
     qualified_with_alt = [g for g in qualified if g.alt_total_line]
     qualified = qualified_with_alt if qualified_with_alt else []
@@ -8955,36 +7191,6 @@ def get_nhl_stats():
         logger.error(f"NHL stats error: {e}")
     return stats
 
-def get_team_stats_from_event(event, sport):
-    stats = {}
-    try:
-        comps = event.get("competitions", [{}])[0]
-        for team_data in comps.get("competitors", []):
-            team = team_data.get("team", {})
-            team_name = team.get("shortDisplayName", "")
-            team_stats = team_data.get("statistics", [])
-            ppg = opp_ppg = None
-            for stat in team_stats:
-                if stat.get("name") == "avgPointsFor" or stat.get("name") == "points":
-                    ppg = stat.get("value") or stat.get("displayValue")
-                    if ppg: ppg = float(ppg)
-                if stat.get("name") == "avgPointsAgainst" or stat.get("name") == "pointsAgainst":
-                    opp_ppg = stat.get("value") or stat.get("displayValue")
-                    if opp_ppg: opp_ppg = float(opp_ppg)
-            records = team_data.get("records", [])
-            for rec in records:
-                if rec.get("type") == "total":
-                    for stat in rec.get("stats", []):
-                        if stat.get("name") == "avgPointsFor" and not ppg: 
-                            ppg = stat.get("value")
-                        if stat.get("name") == "avgPointsAgainst" and not opp_ppg:
-                            opp_ppg = stat.get("value")
-            if ppg and opp_ppg:
-                stats[team_name.lower()] = {"name": team_name, "ppg": ppg, "opp_ppg": opp_ppg}
-    except Exception as e:
-        logger.error(f"Event stats error: {e}")
-    return stats
-
 def find_team_stats(name, stats_dict):
     name_lower = name.lower()
     if name_lower in stats_dict:
@@ -9501,14 +7707,26 @@ def get_kenpom_prediction(away_team: str, home_team: str) -> dict:
     if norm_key in cache:
         return cache[norm_key]
 
+    # Try fuzzy match with both raw and normalized names
     for key, val in cache.items():
         cached_visitor = val['visitor'].lower()
         cached_home = val['home'].lower()
+        cached_visitor_norm = normalize_cbb_team_for_kenpom(cached_visitor)
+        cached_home_norm = normalize_cbb_team_for_kenpom(cached_home)
 
-        if (fuzzy_team_match(away_lower, cached_visitor) and
-            fuzzy_team_match(home_lower, cached_home)):
+        away_match = (fuzzy_team_match(away_lower, cached_visitor) or
+                      fuzzy_team_match(away_normalized, cached_visitor) or
+                      fuzzy_team_match(away_lower, cached_visitor_norm) or
+                      fuzzy_team_match(away_normalized, cached_visitor_norm))
+        home_match = (fuzzy_team_match(home_lower, cached_home) or
+                      fuzzy_team_match(home_normalized, cached_home) or
+                      fuzzy_team_match(home_lower, cached_home_norm) or
+                      fuzzy_team_match(home_normalized, cached_home_norm))
+
+        if away_match and home_match:
             return val
 
+    logger.warning(f"KenPom fanmatch: no match for {away_team} @ {home_team}")
     return {}
 
 
@@ -9564,15 +7782,50 @@ def fuzzy_team_match(name1: str, name2: str) -> bool:
     """Fuzzy match two team names, handling St./State, abbreviations, etc."""
     if name1 == name2:
         return True
-    n1 = name1.replace('.', '').replace('-', ' ').replace("'", '').strip()
-    n2 = name2.replace('.', '').replace('-', ' ').replace("'", '').strip()
+    n1 = name1.replace('.', '').replace('-', ' ').replace("'", '').replace("'", '').strip()
+    n2 = name2.replace('.', '').replace('-', ' ').replace("'", '').replace("'", '').strip()
     if n1 == n2:
         return True
-    if n1.replace(' st', ' state') == n2 or n2.replace(' st', ' state') == n1:
+
+    # Normalize "st" at end of name to "state" (but not "st" at start like "St. Johns")
+    def expand_st(s):
+        if s.endswith(' st'):
+            return s[:-3] + ' state'
+        return s
+    if expand_st(n1) == expand_st(n2):
         return True
+    if expand_st(n1) == n2 or expand_st(n2) == n1:
+        return True
+
+    # Handle "saint" vs "st" at start of name
+    def normalize_saint(s):
+        if s.startswith('st '):
+            return 'saint ' + s[3:]
+        if s.startswith('saint '):
+            return 'st ' + s[6:]
+        return None
+    n1_saint = normalize_saint(n1)
+    n2_saint = normalize_saint(n2)
+    if n1_saint and (n1_saint == n2 or n1_saint == expand_st(n2)):
+        return True
+    if n2_saint and (n2_saint == n1 or n2_saint == expand_st(n1)):
+        return True
+
+    # Substring match (min 4 chars to avoid false positives)
     if n1 in n2 or n2 in n1:
         if len(n1) >= 4 and len(n2) >= 4:
             return True
+
+    # Last word match for long names (e.g., "kentucky" matches "kentucky wildcats")
+    words1 = n1.split()
+    words2 = n2.split()
+    if len(words1) >= 1 and len(words2) >= 1:
+        # Match last words if they're substantial (5+ chars)
+        if words1[-1] == words2[-1] and len(words1[-1]) >= 5:
+            return True
+        if words1[0] == words2[0] and len(words1[0]) >= 5:
+            return True
+
     return False
 
 
@@ -10061,20 +8314,6 @@ def compute_cbb_matchup_breakdown(away_team: str, home_team: str) -> dict:
 
     return result
 
-
-def is_top_25_cbb(team_name: str) -> bool:
-    """Check if a CBB team is ranked in KenPom Top 25."""
-    tv = get_torvik_team(team_name)
-    if tv and tv.get('rank', 999) <= 25:
-        return True
-    return False
-
-def get_cbb_team_rank(team_name: str) -> int:
-    """Get CBB team KenPom ranking (1-365)."""
-    tv = get_torvik_team(team_name)
-    if tv:
-        return tv.get('rank', 999)
-    return 999
 
 def get_kenpom_rank(team_name: str) -> int:
     """Get KenPom efficiency ranking (1-365) for any CBB team."""
@@ -10938,6 +9177,36 @@ def fetch_stats():
 
         if matched:
             updated_count += 1
+            # Recalculate projected_total, edge, direction after PPG update
+            if all([game.away_ppg, game.away_opp_ppg, game.home_ppg, game.home_opp_ppg]):
+                try:
+                    exp_away, exp_home, proj_total = calculate_expected_scores(
+                        game.away_ppg, game.away_opp_ppg,
+                        game.home_ppg, game.home_opp_ppg
+                    )
+                    game.expected_away = exp_away
+                    game.expected_home = exp_home
+                    game.projected_total = proj_total
+                    game.projected_margin = exp_home - exp_away
+
+                    # Recalculate edge and direction if line exists
+                    if game.line is not None:
+                        edge_thresholds = {'NBA': 8.0, 'CBB': 8.0, 'NFL': 3.5, 'CFB': 3.5, 'NHL': 0.5}
+                        threshold = edge_thresholds.get(game.league, 8.0)
+                        edge = abs(proj_total - game.line)
+                        game.edge = edge
+
+                        if proj_total > game.line:
+                            game.direction = 'O'
+                        elif proj_total < game.line:
+                            game.direction = 'U'
+                        else:
+                            game.direction = None
+
+                        game.is_qualified = (edge >= threshold and game.direction is not None)
+                    logger.info(f"fetch_stats: Recalculated projection for {game.away_team}@{game.home_team}: proj={proj_total}")
+                except Exception as e:
+                    logger.error(f"fetch_stats: Projection calc error for {game.away_team}@{game.home_team}: {e}")
 
     try:
         db.session.commit()
@@ -11036,59 +9305,6 @@ def get_bovada_games(league: str = 'CBB') -> set:
     except Exception as e:
         logger.warning(f"Error fetching Bovada games: {e}")
         return _bovada_games_cache.get(cache_key, set())
-
-
-def is_bovada_game(away_team: str, home_team: str, bovada_games: set) -> bool:
-    """Check if a game is available on Bovada using fuzzy matching with proper normalization."""
-    if not bovada_games:
-        return True  # If no Bovada data, show all games
-    
-    # Normalize team names for matching
-    def normalize_for_match(name: str) -> str:
-        """Normalize team name for matching."""
-        n = name.lower().strip()
-        # Remove common suffixes and state abbreviations
-        for suffix in [' state', ' st', ' st.', ' university', ' univ', ' college']:
-            if n.endswith(suffix):
-                n = n[:-len(suffix)].strip()
-        # Handle common abbreviations
-        replacements = {
-            'north carolina': 'nc', 'south carolina': 'sc',
-            'central florida': 'ucf', 'c florida': 'ucf',
-            'louisiana state': 'lsu', 'florida state': 'fsu',
-            'texas a&m': 'texas am', 'brigham young': 'byu',
-            'san jose': 'san jose', 'san josé': 'san jose',
-        }
-        for old, new in replacements.items():
-            if old in n:
-                n = n.replace(old, new)
-        return n
-    
-    away_norm = normalize_for_match(away_team)
-    home_norm = normalize_for_match(home_team)
-    
-    # Exact match after normalization
-    if (away_norm, home_norm) in bovada_games:
-        return True
-    
-    # Check if normalized names match Bovada games
-    for (bov_away, bov_home) in bovada_games:
-        bov_away_norm = normalize_for_match(bov_away)
-        bov_home_norm = normalize_for_match(bov_home)
-        
-        # Check for token overlap (at least one significant word matches)
-        away_tokens = set(w for w in away_norm.split() if len(w) > 2)
-        home_tokens = set(w for w in home_norm.split() if len(w) > 2)
-        bov_away_tokens = set(w for w in bov_away_norm.split() if len(w) > 2)
-        bov_home_tokens = set(w for w in bov_home_norm.split() if len(w) > 2)
-        
-        away_match = bool(away_tokens & bov_away_tokens) or away_norm in bov_away_norm or bov_away_norm in away_norm
-        home_match = bool(home_tokens & bov_home_tokens) or home_norm in bov_home_norm or bov_home_norm in home_norm
-        
-        if away_match and home_match:
-            return True
-    
-    return False
 
 
 def fetch_odds_internal() -> dict:
@@ -11190,11 +9406,36 @@ def fetch_odds_internal() -> dict:
                         bookmakers = event.get("bookmakers", [])
                         bovada_book = next((b for b in bookmakers if b.get("key") == "bovada"), None)
                         pinnacle_book = next((b for b in bookmakers if b.get("key") == "pinnacle"), None)
-                        if not bovada_book:
-                            continue  # Skip games not on Bovada
+
+                        # Fallback: try FanDuel or DraftKings if no Bovada
+                        primary_book = bovada_book
+                        if not primary_book:
+                            fallback_keys = ['fanduel', 'draftkings', 'betmgm', 'caesars']
+                            for fb_key in fallback_keys:
+                                primary_book = next((b for b in bookmakers if b.get("key") == fb_key), None)
+                                if primary_book:
+                                    logger.info(f"Using {fb_key} as fallback for {league} {game.away_team}@{game.home_team}")
+                                    break
+
+                        if not primary_book:
+                            # No bookmaker at all - still calculate projection from stats
+                            if all([game.away_ppg, game.away_opp_ppg, game.home_ppg, game.home_opp_ppg]):
+                                try:
+                                    exp_away, exp_home, proj_total = calculate_expected_scores(
+                                        game.away_ppg, game.away_opp_ppg,
+                                        game.home_ppg, game.home_opp_ppg
+                                    )
+                                    game.expected_away = exp_away
+                                    game.expected_home = exp_home
+                                    game.projected_total = proj_total
+                                    game.projected_margin = exp_home - exp_away
+                                    logger.info(f"No bookmaker odds for {league} {game.away_team}@{game.home_team}, set projection={proj_total}")
+                                except Exception as e:
+                                    logger.error(f"Projection calc error (no bookmaker): {e}")
+                            continue
                         
-                        # Extract Bovada markets
-                        bovada_markets = {m.get("key"): m for m in bovada_book.get("markets", [])}
+                        # Extract markets from primary bookmaker (Bovada or fallback)
+                        bovada_markets = {m.get("key"): m for m in primary_book.get("markets", [])}
                         pinnacle_markets = {m.get("key"): m for m in pinnacle_book.get("markets", [])} if pinnacle_book else {}
                         
                         # Process TOTALS with SHARP qualification
@@ -12941,6 +11182,7 @@ def spreads():
     games_by_league = {
         'NBA': [],
         'CBB': [],
+        'NHL': [],
     }
     
     # Helper to check if game is currently live (fetch ESPN live games early)
@@ -13436,16 +11678,14 @@ def spreads():
             g.spread_net_gap = spread_qual.get('net_gap', 0)
             g.spread_qual_reason = spread_qual.get('reason', '')
         
-        # Apply elimination filters for NBA games
+        # Apply elimination filters: 10+ spread for ALL leagues
+        if g.spread_line is not None and abs(g.spread_line) >= 10:
+            eliminated_large_spread.append(g)
+            g.elimination_reason = 'LARGE SPREAD'
+            continue
+
+        # Apply additional elimination filters for NBA games
         if g.league == 'NBA' and g.spread_line is not None:
-            abs_spread = abs(g.spread_line)
-            
-            # 1. Eliminate large spreads (10+ points)
-            if abs_spread >= 10:
-                eliminated_large_spread.append(g)
-                g.elimination_reason = 'LARGE SPREAD'
-                continue
-            
             # 2. Eliminate bad teams (would need record data - use placeholder logic)
             # Bad teams typically have low PPG or are known struggling teams
             bad_record_teams = ['Wizards', 'Nets', 'Hornets', 'Blazers', 'Trail Blazers', 'Jazz']
@@ -13466,8 +11706,12 @@ def spreads():
             
             # Remaining = qualifying picks
             qualifying_picks.append(g)
-    
-    # Exclude NHL from total count (not implemented yet)
+
+    # Remove eliminated games from games_by_league so they don't show on the page
+    eliminated_ids = set(id(g) for g in eliminated_large_spread + eliminated_bad_teams + eliminated_bad_defense)
+    for league in games_by_league:
+        games_by_league[league] = [g for g in games_by_league[league] if id(g) not in eliminated_ids]
+
     basketball_games = [g for g in all_games if g.league in ['NBA', 'CBB']]
     
     # === DAILY SLATE ANALYSIS ===
@@ -13997,12 +12241,12 @@ def spreads():
     
     # Count RLM games per league for ordering
     league_rlm_counts = {}
-    for league in ['CBB', 'NBA']:
+    for league in ['CBB', 'NBA', 'NHL']:
         rlm_count = sum(1 for g in games_by_league.get(league, []) if getattr(g, 'rlm_detected', False))
         league_rlm_counts[league] = rlm_count
-    
-    # Sort leagues: most RLM games first, then by original order (CBB, NBA)
-    default_order = ['CBB', 'NBA']
+
+    # Sort leagues: most RLM games first, then by original order
+    default_order = ['CBB', 'NBA', 'NHL']
     sorted_leagues = sorted(default_order, key=lambda l: (-league_rlm_counts.get(l, 0), default_order.index(l)))
     
     # Build ordered dict with leagues having RLM games first
@@ -15414,24 +13658,63 @@ ON CONFLICT DO NOTHING;"""
     return Response('\n'.join(sql_statements), mimetype='text/plain')
 
 
+def start_calibration_scheduler(flask_app):
+    """Start background daemon thread that runs daily calibration at 6 AM ET."""
+    _calibration_last_run_date = [None]
+
+    def _calibration_loop():
+        while True:
+            try:
+                time.sleep(600)  # Check every 10 minutes
+                et = pytz.timezone('America/New_York')
+                now_et = datetime.now(et)
+                current_date = now_et.date()
+                current_hour = now_et.hour
+
+                # Run once per day at or after 6 AM ET
+                if current_hour >= 6 and _calibration_last_run_date[0] != current_date:
+                    _calibration_last_run_date[0] = current_date
+                    logger.info("Calibration scheduler: triggering daily calibration run")
+                    with flask_app.app_context():
+                        DailyCalibrationEngine.run_daily_calibration()
+            except Exception as e:
+                logger.error(f"Calibration scheduler error: {e}")
+
+    t = threading.Thread(target=_calibration_loop, daemon=True)
+    t.start()
+    logger.info("Calibration scheduler started (daily at 6:00 AM ET)")
+
+
 with app.app_context():
     db.create_all()
-    
+
     # On startup, check and load games for today
     et = pytz.timezone('America/New_York')
     today = datetime.now(et).date()
-    
-    # Clear old games from previous days
+    cutoff_30_days = today - timedelta(days=30)
+
+    # Clear old games from previous days - preserve games with graded picks from last 30 days
     old_games_count = Game.query.filter(Game.date < today).count()
     if old_games_count > 0:
-        logger.info(f"Startup cleanup: Removing {old_games_count} old games from previous days")
-        old_game_ids = [g.id for g in Game.query.filter(Game.date < today).all()]
+        logger.info(f"Startup cleanup: Checking {old_games_count} old games from previous days")
+        # Get IDs of games that have graded picks within the last 30 days (preserve these)
+        preserved_game_ids = set(
+            p.game_id for p in Pick.query.filter(
+                Pick.result.isnot(None),
+                Pick.date >= cutoff_30_days,
+                Pick.game_id.isnot(None)
+            ).all()
+        )
+        old_game_ids = [
+            g.id for g in Game.query.filter(Game.date < today).all()
+            if g.id not in preserved_game_ids
+        ]
         if old_game_ids:
             Pick.query.filter(Pick.game_id.in_(old_game_ids)).update({Pick.game_id: None}, synchronize_session=False)
             Game.query.filter(Game.id.in_(old_game_ids)).delete(synchronize_session=False)
             db.session.commit()
-            logger.info(f"Startup cleanup: Removed {len(old_game_ids)} old games")
-    
+            logger.info(f"Startup cleanup: Removed {len(old_game_ids)} old games (preserved {len(preserved_game_ids)} with graded picks)")
+
     # Check if we have games for today
     today_games_count = Game.query.filter_by(date=today).count()
     if today_games_count == 0:
@@ -15440,6 +13723,9 @@ with app.app_context():
 # Initialize automatic game loading system
 auto_loader = setup_automatic_loading(app, db)
 logger.info("Automatic game loading enabled - games will load on new day automatically")
+
+# Start calibration scheduler
+start_calibration_scheduler(app)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
