@@ -2483,10 +2483,10 @@
     </section>
     
     <div class="league-tabs">
-        <div class="league-tab all-tab" data-league="all" onclick="showAllGames()">
+        <div class="league-tab all-tab active" data-league="all" onclick="showAllGames()">
             📋 All <span class="count all-count">{{ total_games }}</span>
         </div>
-        <div class="league-tab qualified-tab active" data-league="qualified" onclick="showQualifiedGamesOnly()" style="background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%); color: white;">
+        <div class="league-tab qualified-tab" data-league="qualified" onclick="showQualifiedGamesOnly()">
             🎯 Qualified <span class="count qualified-count">0</span>
         </div>
     </div>
@@ -4741,7 +4741,7 @@
             const slateSection = document.getElementById('slate-section');
             if (slateSection) slateSection.style.display = 'none';
         }
-        showQualifiedGamesOnly();
+        showAllGames();
         
         document.querySelectorAll('.league-tab').forEach(tab => {
             tab.addEventListener('click', function() {

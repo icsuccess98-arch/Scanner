@@ -9501,13 +9501,48 @@ def get_kenpom_prediction(away_team: str, home_team: str) -> dict:
     if norm_key in cache:
         return cache[norm_key]
 
+    away_clean = away_lower.replace('.', '').replace("'", '').replace('-', ' ').strip()
+    home_clean = home_lower.replace('.', '').replace("'", '').replace('-', ' ').strip()
+    away_norm_clean = away_normalized.replace('.', '').replace("'", '').replace('-', ' ').strip()
+    home_norm_clean = home_normalized.replace('.', '').replace("'", '').replace('-', ' ').strip()
+
     for key, val in cache.items():
         cached_visitor = val['visitor'].lower()
         cached_home = val['home'].lower()
+        cv_clean = cached_visitor.replace('.', '').replace("'", '').replace('-', ' ').strip()
+        ch_clean = cached_home.replace('.', '').replace("'", '').replace('-', ' ').strip()
+        cv_norm = normalize_cbb_team_for_kenpom(cv_clean)
+        ch_norm = normalize_cbb_team_for_kenpom(ch_clean)
 
-        if (fuzzy_team_match(away_lower, cached_visitor) and
-            fuzzy_team_match(home_lower, cached_home)):
+        away_matches = (away_clean == cv_clean or away_norm_clean == cv_clean or
+                       away_clean == cv_norm.replace('.', '').replace("'", '') or
+                       away_norm_clean == cv_norm.replace('.', '').replace("'", '') or
+                       fuzzy_team_match(away_lower, cached_visitor))
+        home_matches = (home_clean == ch_clean or home_norm_clean == ch_clean or
+                       home_clean == ch_norm.replace('.', '').replace("'", '') or
+                       home_norm_clean == ch_norm.replace('.', '').replace("'", '') or
+                       fuzzy_team_match(home_lower, cached_home))
+
+        if away_matches and home_matches:
             return val
+
+        reverse_away = (away_clean == ch_clean or away_norm_clean == ch_clean or
+                       away_clean == ch_norm.replace('.', '').replace("'", '') or
+                       away_norm_clean == ch_norm.replace('.', '').replace("'", '') or
+                       fuzzy_team_match(away_lower, cached_home))
+        reverse_home = (home_clean == cv_clean or home_norm_clean == cv_clean or
+                       home_clean == cv_norm.replace('.', '').replace("'", '') or
+                       home_norm_clean == cv_norm.replace('.', '').replace("'", '') or
+                       fuzzy_team_match(home_lower, cached_visitor))
+
+        if reverse_away and reverse_home:
+            reversed_result = dict(val)
+            reversed_result['kenpom_spread'] = -val['kenpom_spread']
+            reversed_result['visitor'] = val['home']
+            reversed_result['home'] = val['visitor']
+            reversed_result['visitor_pred'] = val.get('home_pred', 0)
+            reversed_result['home_pred'] = val.get('visitor_pred', 0)
+            return reversed_result
 
     return {}
 
@@ -9556,6 +9591,57 @@ def normalize_cbb_team_for_kenpom(name: str) -> str:
         'prairie view': 'prairie view a&m', 'pvamu': 'prairie view a&m',
         'florida a&m': 'florida a&m', 'famu': 'florida a&m',
         'unc wilmington': 'unc wilmington', 'uncw': 'unc wilmington',
+        'g washington': 'george washington', 'geo washington': 'george washington', 'gw': 'george washington',
+        'mount st marys': "mount st. mary's", 'mt st marys': "mount st. mary's", 'mount st. marys': "mount st. mary's",
+        'nc a&t': 'north carolina a&t', 'ncat': 'north carolina a&t',
+        'unc asheville': 'unc asheville', 'unca': 'unc asheville',
+        'boise st': 'boise st.', 'boise state': 'boise st.',
+        'michigan st': 'michigan st.', 'michigan state': 'michigan st.',
+        'missouri st': 'missouri st.', 'missouri state': 'missouri st.',
+        'montana st': 'montana st.', 'montana state': 'montana st.',
+        'oregon st': 'oregon st.', 'oregon state': 'oregon st.',
+        'ohio st': 'ohio st.', 'ohio state': 'ohio st.',
+        'penn st': 'penn st.', 'penn state': 'penn st.',
+        'san diego st': 'san diego st.', 'san diego state': 'san diego st.',
+        'colorado st': 'colorado st.', 'colorado state': 'colorado st.',
+        'fresno st': 'fresno st.', 'fresno state': 'fresno st.',
+        'utah st': 'utah st.', 'utah state': 'utah st.',
+        'iowa st': 'iowa st.', 'iowa state': 'iowa st.',
+        'kansas st': 'kansas st.', 'kansas state': 'kansas st.',
+        'oklahoma st': 'oklahoma st.', 'oklahoma state': 'oklahoma st.',
+        'wichita st': 'wichita st.', 'wichita state': 'wichita st.',
+        'wright st': 'wright st.', 'wright state': 'wright st.',
+        'ball st': 'ball st.', 'ball state': 'ball st.',
+        'kent st': 'kent st.', 'kent state': 'kent st.',
+        'kennesaw st': 'kennesaw st.', 'kennesaw state': 'kennesaw st.',
+        'long beach st': 'long beach st.', 'long beach state': 'long beach st.',
+        'sacramento st': 'sacramento st.', 'sacramento state': 'sacramento st.',
+        'sam houston st': 'sam houston st.', 'sam houston state': 'sam houston st.',
+        'portland st': 'portland st.', 'portland state': 'portland st.',
+        'mtsu': 'middle tennessee', 'middle tenn': 'middle tennessee',
+        's dakota st': 'south dakota st.', 'south dakota st': 'south dakota st.',
+        'n dakota st': 'north dakota st.', 'north dakota st': 'north dakota st.',
+        'so indiana': 'southern indiana', 'uso': 'southern indiana',
+        'ca baptist': 'cal baptist', 'california baptist': 'cal baptist',
+        'abil christian': 'abilene christian', 'abilene chrstn': 'abilene christian',
+        'ut arlington': 'ut arlington', 'texas arlington': 'ut arlington',
+        'ut martin': 'ut martin', 'tennessee martin': 'ut martin',
+        'c connecticut': 'central connecticut', 'ccsu': 'central connecticut',
+        'e washington': 'eastern washington', 'ewu': 'eastern washington',
+        'idaho st': 'idaho st.', 'idaho state': 'idaho st.',
+        'se missouri': 'southeast missouri st.', 'semo': 'southeast missouri st.',
+        'little rock': 'little rock', 'ualr': 'little rock',
+        'w illinois': 'western illinois', 'wiu': 'western illinois',
+        'tennessee st': 'tennessee st.', 'tennessee state': 'tennessee st.',
+        'lindenwood': 'lindenwood',
+        'southern utah': 'southern utah', 's utah': 'southern utah',
+        'purdue fw': 'purdue fort wayne', 'pfw': 'purdue fort wayne',
+        'long island': 'long island', 'liu': 'long island',
+        'st thomas (mn)': 'st. thomas', 'st thomas mn': 'st. thomas',
+        'fdu': 'fairleigh dickinson',
+        'new haven': 'new haven',
+        'sacred heart': 'sacred heart',
+        'wagner': 'wagner',
     }
     return kenpom_aliases.get(name, name)
 
@@ -9568,11 +9654,23 @@ def fuzzy_team_match(name1: str, name2: str) -> bool:
     n2 = name2.replace('.', '').replace('-', ' ').replace("'", '').strip()
     if n1 == n2:
         return True
-    if n1.replace(' st', ' state') == n2 or n2.replace(' st', ' state') == n1:
+    n1_cleaned = ' '.join(n1.split())
+    n2_cleaned = ' '.join(n2.split())
+    if n1_cleaned == n2_cleaned:
         return True
-    if n1 in n2 or n2 in n1:
-        if len(n1) >= 4 and len(n2) >= 4:
+    if n1_cleaned.replace(' st', ' state') == n2_cleaned or n2_cleaned.replace(' st', ' state') == n1_cleaned:
+        return True
+    if n1_cleaned in n2_cleaned or n2_cleaned in n1_cleaned:
+        if len(n1_cleaned) >= 4 and len(n2_cleaned) >= 4:
             return True
+    kp1 = normalize_cbb_team_for_kenpom(n1_cleaned)
+    kp2 = normalize_cbb_team_for_kenpom(n2_cleaned)
+    if kp1 == kp2:
+        return True
+    kp1_clean = kp1.replace('.', '').replace("'", '').strip()
+    kp2_clean = kp2.replace('.', '').replace("'", '').strip()
+    if kp1_clean == kp2_clean:
+        return True
     return False
 
 
