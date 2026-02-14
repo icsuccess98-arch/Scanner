@@ -11068,7 +11068,7 @@ def fetch_games():
         for gd in all_games_data:
             league = gd.get("league")
             game = Game(
-                date=today, league=league, 
+                date=today, league=league,
                 away_team=gd["away_name"], home_team=gd["home_name"],
                 game_time=gd.get("game_time", ""),
                 away_ppg=gd.get("away_ppg"), away_opp_ppg=gd.get("away_opp"),
@@ -11077,11 +11077,73 @@ def fetch_games():
             db.session.add(game)
             games_added += 1
         db.session.commit()
+
+        # Apply KenPom stats to ALL CBB games (not just those with Bovada lines)
+        kenpom_applied = 0
+        cbb_games = Game.query.filter_by(date=today, league="CBB").all()
+        for game in cbb_games:
+            try:
+                torvik_proj = calculate_torvik_projection(game.away_team, game.home_team)
+                if torvik_proj:
+                    # Core efficiency
+                    game.torvik_tempo = torvik_proj.get('game_tempo')
+                    game.torvik_away_adj_o = torvik_proj.get('away_adj_o')
+                    game.torvik_away_adj_d = torvik_proj.get('away_adj_d')
+                    game.torvik_home_adj_o = torvik_proj.get('home_adj_o')
+                    game.torvik_home_adj_d = torvik_proj.get('home_adj_d')
+                    game.torvik_away_rank = torvik_proj.get('away_rank')
+                    game.torvik_home_rank = torvik_proj.get('home_rank')
+                    # Four Factors
+                    game.kenpom_away_efg = torvik_proj.get('away_efg')
+                    game.kenpom_home_efg = torvik_proj.get('home_efg')
+                    game.kenpom_away_to = torvik_proj.get('away_to')
+                    game.kenpom_home_to = torvik_proj.get('home_to')
+                    game.kenpom_away_or = torvik_proj.get('away_or')
+                    game.kenpom_home_or = torvik_proj.get('home_or')
+                    game.kenpom_away_ft_rate = torvik_proj.get('away_ft_rate')
+                    game.kenpom_home_ft_rate = torvik_proj.get('home_ft_rate')
+                    # Shooting
+                    game.kenpom_away_3pt = torvik_proj.get('away_3pt')
+                    game.kenpom_home_3pt = torvik_proj.get('home_3pt')
+                    game.kenpom_away_2pt = torvik_proj.get('away_2pt')
+                    game.kenpom_home_2pt = torvik_proj.get('home_2pt')
+                    game.kenpom_away_ft_pct = torvik_proj.get('away_ft_pct')
+                    game.kenpom_home_ft_pct = torvik_proj.get('home_ft_pct')
+                    # Defense
+                    game.kenpom_away_d_efg = torvik_proj.get('away_d_efg')
+                    game.kenpom_home_d_efg = torvik_proj.get('home_d_efg')
+                    game.kenpom_away_d_to = torvik_proj.get('away_d_to')
+                    game.kenpom_home_d_to = torvik_proj.get('home_d_to')
+                    # Size/Experience
+                    game.kenpom_away_height = torvik_proj.get('away_height')
+                    game.kenpom_home_height = torvik_proj.get('home_height')
+                    game.kenpom_away_exp = torvik_proj.get('away_exp')
+                    game.kenpom_home_exp = torvik_proj.get('home_exp')
+                    # SOS
+                    game.kenpom_away_sos = torvik_proj.get('away_sos')
+                    game.kenpom_home_sos = torvik_proj.get('home_sos')
+                    game.kenpom_away_sos_rank = torvik_proj.get('away_sos_rank')
+                    game.kenpom_home_sos_rank = torvik_proj.get('home_sos_rank')
+                    # Conference
+                    game.kenpom_away_conf = torvik_proj.get('away_conf')
+                    game.kenpom_home_conf = torvik_proj.get('home_conf')
+                    # Projected scores (even without a line)
+                    game.expected_away = torvik_proj.get('away_points')
+                    game.expected_home = torvik_proj.get('home_points')
+                    game.projected_total = torvik_proj.get('projected_total')
+                    game.projected_margin = torvik_proj.get('home_points', 0) - torvik_proj.get('away_points', 0)
+                    kenpom_applied += 1
+            except Exception as e:
+                logger.debug(f"KenPom apply error for {game.away_team}@{game.home_team}: {e}")
+
+        if kenpom_applied:
+            db.session.commit()
+            logger.info(f"KenPom stats applied to {kenpom_applied}/{len(cbb_games)} CBB games")
     else:
         logger.warning("No games fetched from ESPN - keeping existing data")
     fetch_time = time.time() - start_time
     logger.info(f"Games fetch complete in {fetch_time:.2f}s: {games_added} games added")
-    
+
     odds_result = fetch_odds_internal()
     history_result = fetch_history_internal()
     
