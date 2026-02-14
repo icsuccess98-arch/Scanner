@@ -103,8 +103,8 @@ def parse_vsin_splits(html: str, sport: str) -> dict:
                 if 'Handle' in row_text and 'Bets' in row_text:
                     continue
 
-                # Find cells with team names (look for "History" link indicator)
                 teams_cell = None
+                teams_cell_raw = None
                 spread_handle_cell = None
                 spread_bets_cell = None
 
@@ -112,21 +112,30 @@ def parse_vsin_splits(html: str, sport: str) -> dict:
                     cell_text = cell.get_text(strip=True)
                     if 'History' in cell_text or ('@' in cell_text and len(cell_text) > 5):
                         teams_cell = cell_text
-                        # Look for handle and bets in following cells
+                        teams_cell_raw = cell
                         if idx + 2 < len(cells):
-                            spread_handle_cell = cells[idx + 1].get_text(strip=True)
-                            spread_bets_cell = cells[idx + 2].get_text(strip=True)
+                            spread_handle_cell = cells[idx + 1].get_text(separator='|', strip=True)
+                            spread_bets_cell = cells[idx + 2].get_text(separator='|', strip=True)
                         break
 
                 if not teams_cell:
                     continue
 
-                # Clean team names - remove History and other markers
-                teams_text = re.sub(r'History.*$', '', teams_cell).strip()
-                teams_text = re.sub(r'Splits.*$', '', teams_text).strip()
+                away_team = None
+                home_team = None
 
-                # Use the centralized parse_team_names function
-                away_team, home_team = parse_team_names(teams_text)
+                if teams_cell_raw:
+                    sep_text = teams_cell_raw.get_text(separator='|', strip=True)
+                    parts = [p.strip() for p in sep_text.split('|') if p.strip()]
+                    team_parts = [p for p in parts if p not in ('History', 'Splits') and not re.match(r'^\d+\s+VSiN', p) and not re.match(r'^\(\d+\)$', p) and len(p) >= 2]
+                    if len(team_parts) >= 2:
+                        away_team = re.sub(r'\s*\(\d+\)\s*', '', team_parts[0]).strip()
+                        home_team = re.sub(r'\s*\(\d+\)\s*', '', team_parts[1]).strip()
+
+                if not away_team or not home_team:
+                    teams_text = re.sub(r'History.*$', '', teams_cell).strip()
+                    teams_text = re.sub(r'Splits.*$', '', teams_text).strip()
+                    away_team, home_team = parse_team_names(teams_text)
 
                 if not away_team or not home_team:
                     logger.debug(f"Could not parse teams from splits cell: '{teams_text}'")
@@ -301,22 +310,34 @@ def parse_vsin_lines(html: str, sport: str) -> dict:
                 if 'Time' in cells[0].get_text(strip=True):
                     continue
 
-                # Try to identify teams cell (usually has @ or longer text)
                 teams_cell = None
+                teams_cell_raw = None
                 teams_idx = -1
                 for idx, cell in enumerate(cells):
                     cell_text = cell.get_text(strip=True)
-                    # Teams cell is typically longer and may have @ or concatenated names
                     if len(cell_text) > 5 and not re.match(r'^[-+]?\d', cell_text):
                         teams_cell = cell_text
+                        teams_cell_raw = cell
                         teams_idx = idx
                         break
 
                 if not teams_cell:
                     continue
 
-                # Parse team names
-                away_team, home_team = parse_team_names(teams_cell)
+                away_team = None
+                home_team = None
+
+                if teams_cell_raw:
+                    sep_text = teams_cell_raw.get_text(separator='|', strip=True)
+                    parts = [p.strip() for p in sep_text.split('|') if p.strip() and not re.match(r'^\d+$', p.strip())]
+                    team_parts = [p for p in parts if len(p) >= 2 and not re.match(r'^[-+]?\d', p)]
+                    if len(team_parts) >= 2:
+                        away_team = re.sub(r'\s*\(\d+\)\s*', '', team_parts[0]).strip()
+                        home_team = re.sub(r'\s*\(\d+\)\s*', '', team_parts[1]).strip()
+
+                if not away_team or not home_team:
+                    away_team, home_team = parse_team_names(teams_cell)
+
                 if not away_team or not home_team:
                     continue
 
