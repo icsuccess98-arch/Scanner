@@ -3,7 +3,7 @@ import logging
 import time
 import statistics
 from datetime import datetime, date, timedelta
-from typing import Tuple, Optional, List
+from typing import Tuple, Optional, List, Dict
 from dataclasses import dataclass
 from functools import wraps
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -9754,6 +9754,9 @@ def fetch_all_kenpom_data():
 
     logger.info("Fetching all KenPom API endpoints...")
 
+    # Clear the key resolution cache so fresh data gets re-resolved
+    _kenpom_key_resolution_cache.clear()
+
     # Fetch all endpoints (the individual functions handle their own caching)
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -9788,35 +9791,33 @@ def get_kenpom_team_full(team_name: str) -> Optional[dict]:
     """
     Get complete KenPom data for a team from all endpoints.
     Returns unified data structure matching NBA model breakdown format.
+    Uses resolve_kenpom_key to find the EXACT KenPom cache key for ALL lookups.
     """
     # Ensure all data is loaded
     if not torvik_cache:
         fetch_all_kenpom_data()
 
-    name_lower = team_name.lower().strip()
+    # Resolve to the exact KenPom cache key ONCE, use it everywhere
+    kp_key = resolve_kenpom_key_cached(team_name)
+    if not kp_key:
+        logger.debug(f"KenPom key resolution failed for: {team_name}")
+        return None
 
-    # Get base ratings data (using existing fuzzy matching)
-    base_data = get_torvik_team(team_name)
+    # Get base ratings data using resolved key
+    base_data = torvik_cache.get(kp_key)
     if not base_data:
         return None
 
-    # Merge in Four Factors
-    ff_data = kenpom_four_factors_cache.get(name_lower, {})
+    # Use the SAME resolved key for ALL supplementary caches
+    ff_data = kenpom_four_factors_cache.get(kp_key, {})
+    pd_data = kenpom_point_distribution_cache.get(kp_key, {})
+    ht_data = kenpom_height_cache.get(kp_key, {})
+    misc_data = kenpom_misc_cache.get(kp_key, {})
+    fm_data = kenpom_fanmatch_cache.get(kp_key, {})
+    team_info = kenpom_teams_cache.get(kp_key, {})
 
-    # Merge in Point Distribution
-    pd_data = kenpom_point_distribution_cache.get(name_lower, {})
-
-    # Merge in Height
-    ht_data = kenpom_height_cache.get(name_lower, {})
-
-    # Merge in Misc
-    misc_data = kenpom_misc_cache.get(name_lower, {})
-
-    # Merge in Fanmatch
-    fm_data = kenpom_fanmatch_cache.get(name_lower, {})
-
-    # Merge in Team info
-    team_info = kenpom_teams_cache.get(name_lower, {})
+    if not ff_data and not ht_data and not misc_data:
+        logger.debug(f"KenPom supplementary caches empty for key '{kp_key}' (team: {team_name})")
 
     # Get conference data
     conf_abbrev = base_data.get('conf', '').lower()
@@ -10249,6 +10250,7 @@ def fetch_kenpom_ratings():
         if new_cache:
             torvik_cache = new_cache
             torvik_cache_date = today
+            _kenpom_key_resolution_cache.clear()  # Clear stale key mappings
             logger.info(f"KenPom API loaded {len(new_cache)} teams")
             logger.info(f"Torvik data loaded: {len(new_cache)} teams")
         return torvik_cache
@@ -10598,10 +10600,84 @@ CBB_TEAM_NAME_MAP = {
     'mtsu': 'middle tennessee', 'middle tennessee': 'middle tennessee', 'middle tenn': 'middle tennessee', 'mid tennessee': 'middle tennessee',
     'fiu': 'fiu', 'florida international': 'fiu', 'fla intl': 'fiu',
     'sc state': 'south carolina st.', 'south carolina state': 'south carolina st.',
+    # New D1 / transitional teams that ESPN names differently than KenPom
+    'le moyne': 'le moyne', 'lemoyne': 'le moyne', 'le moyne dolphins': 'le moyne',
+    'mercyhurst': 'mercyhurst', 'mercy': 'mercyhurst', 'mercyhurst lakers': 'mercyhurst',
+    'stonehill': 'stonehill', 'stonehill skyhawks': 'stonehill',
+    'cal baptist': 'cal baptist', 'california baptist': 'cal baptist', 'cbu': 'cal baptist',
+    'queens': 'queens', 'queens royals': 'queens',
+    'bellarmine': 'bellarmine', 'bellarmine knights': 'bellarmine',
+    'lindenwood': 'lindenwood', 'lindenwood lions': 'lindenwood',
+    'st thomas': 'st. thomas', 'st. thomas': 'st. thomas', 'st thomas mn': 'st. thomas',
+    'texas am commerce': 'east texas a&m', 'texas a&m commerce': 'east texas a&m',
+    'south dakota state': 'south dakota st.', 's dakota st': 'south dakota st.',
+    'north dakota state': 'north dakota st.', 'n dakota st': 'north dakota st.', 'ndsu': 'north dakota st.',
+    'north dakota': 'north dakota', 'und': 'north dakota',
+    # Additional ESPN shortDisplayName variants
+    'cs fullerton': 'cal st. fullerton', 'cs northridge': 'cal st. northridge', 'cs bakersfield': 'cal st. bakersfield',
+    'fla gulf coast': 'florida gulf coast', 'fgcu': 'florida gulf coast', 'florida gulf coast': 'florida gulf coast',
+    'nc central': 'north carolina central', 'nccu': 'north carolina central', 'north carolina central': 'north carolina central',
+    'southeastern la': 'southeastern louisiana', 'se louisiana': 'southeastern louisiana', 'southeastern louisiana': 'southeastern louisiana',
+    'northwestern la': 'northwestern st.', 'nw state': 'northwestern st.',
+    'southern u': 'southern', 'southern university': 'southern',
+    'mcneese st': 'mcneese', 'mcneese state': 'mcneese',
+    'nicholls st': 'nicholls', 'nicholls state': 'nicholls',
+    'sam houston': 'sam houston st.', 'shsu': 'sam houston st.',
+    'stephen f austin': "stephen f. austin", 'sfa': "stephen f. austin", 'sf austin': "stephen f. austin",
+    'prairie view am': 'prairie view a&m', 'prairie view a&m': 'prairie view a&m', 'pvamu': 'prairie view a&m',
+    'texas southern': 'texas southern', 'txso': 'texas southern',
+    'houston christian': 'houston christian', 'hcu': 'houston christian', 'hou christian': 'houston christian',
+    'incarnate word': 'incarnate word', 'uiw': 'incarnate word',
+    'lamar': 'lamar', 'lamar cardinals': 'lamar',
+    'north alabama': 'north alabama', 'una': 'north alabama',
+    'jacksonville': 'jacksonville', 'jax': 'jacksonville',
+    'kennesaw': 'kennesaw st.', 'kennesaw st': 'kennesaw st.',
+    'north florida': 'north florida', 'unf': 'north florida',
+    'east carolina': 'east carolina', 'ecu': 'east carolina',
+    'charleston': 'charleston', 'college of charleston': 'charleston', 'coll charleston': 'charleston',
+    'coastal caro': 'coastal carolina', 'coastal car': 'coastal carolina',
+    'sacramento st': 'sacramento st.', 'sac state': 'sacramento st.',
+    'utah tech': 'utah tech', 'dixie st': 'utah tech',
+    'tarleton': 'tarleton st.', 'tarleton st': 'tarleton st.', 'tarleton state': 'tarleton st.',
+    'abilene christian': 'abilene christian', 'acu': 'abilene christian',
+    'uc san diego': 'uc san diego', 'ucsd': 'uc san diego',
+    'portland st': 'portland st.', 'portland state': 'portland st.',
+    'south florida': 'south florida', 'bulls': 'south florida',
+    'weber st': 'weber st.', 'weber state': 'weber st.',
+    'idaho st': 'idaho st.', 'idaho state': 'idaho st.',
+    'tennessee st': 'tennessee st.', 'tennessee state': 'tennessee st.',
+    'tennessee tech': 'tennessee tech', 'ttu': 'tennessee tech',
+    'e texas a&m': 'e. texas a&m', 'east texas a&m': 'e. texas a&m',
+    'detroit': 'detroit mercy', 'detroit mercy': 'detroit mercy',
+    'sacred heart': 'sacred heart', 'shu': 'sacred heart',
+    'wagner': 'wagner', 'seahawks': 'wagner',
+    'rider': 'rider', 'broncs': 'rider',
+    'niagara': 'niagara', 'purple eagles': 'niagara',
+    'siena': 'siena', 'saints': 'siena',
+    'manhattan': 'manhattan', 'jaspers': 'manhattan',
+    'marist': 'marist', 'red foxes': 'marist',
+    'iona': 'iona', 'gaels': 'iona',
+    'canisius': 'canisius', 'golden griffins': 'canisius',
+    'merrimack': 'merrimack', 'warriors': 'merrimack',
+    'stony brook': 'stony brook', 'seawolves': 'stony brook',
+    'new hampshire': 'new hampshire', 'unh': 'new hampshire',
+    'umbc': 'umbc', 'retrievers': 'umbc',
+    'vermont': 'vermont', 'catamounts': 'vermont',
+    'albany': 'albany', 'great danes': 'albany',
+    'binghamton': 'binghamton', 'bearcats': 'binghamton',
+    'hartford': 'hartford', 'hawks': 'hartford',
+    'umass lowell': 'umass lowell', 'mass lowell': 'umass lowell', 'lowell': 'umass lowell',
+    'njit': 'njit', 'highlanders': 'njit',
+    'maine': 'maine', 'black bears': 'maine',
+    'siu edwardsville': 'siu edwardsville', 'siue': 'siu edwardsville',
 }
 
-def get_torvik_team(team_name: str) -> Optional[dict]:
-    """Get Torvik stats for a team by name (fuzzy match with bi-directional alias support)."""
+def resolve_kenpom_key(team_name: str) -> Optional[str]:
+    """
+    Resolve any team name (ESPN, Covers, VSIN, etc.) to the exact KenPom cache key.
+    This is the SINGLE SOURCE OF TRUTH for all KenPom cache lookups.
+    Returns the lowercase key as stored in torvik_cache/four_factors/height/misc caches, or None.
+    """
     if not torvik_cache:
         fetch_kenpom_ratings()
     if not torvik_cache:
@@ -10611,12 +10687,12 @@ def get_torvik_team(team_name: str) -> Optional[dict]:
 
     # Direct cache lookup
     if name_lower in torvik_cache:
-        return torvik_cache[name_lower]
+        return name_lower
 
-    # Try normalized name
+    # Try normalized name via CBB_TEAM_NAME_MAP
     normalized = normalize_cbb_team_name(team_name).lower().strip()
     if normalized in torvik_cache:
-        return torvik_cache[normalized]
+        return normalized
 
     # Try all known aliases (SJSU, SMC, etc.) - bi-directional lookup
     try:
@@ -10624,8 +10700,7 @@ def get_torvik_team(team_name: str) -> Optional[dict]:
         for alias in all_aliases:
             alias_lower = alias.lower().strip()
             if alias_lower in torvik_cache:
-                logger.debug(f"Torvik matched via alias: {team_name} -> {alias}")
-                return torvik_cache[alias_lower]
+                return alias_lower
     except Exception:
         pass
 
@@ -10633,30 +10708,55 @@ def get_torvik_team(team_name: str) -> Optional[dict]:
     if name_lower in CBB_TEAM_NAME_MAP:
         mapped_name = CBB_TEAM_NAME_MAP[name_lower]
         if mapped_name in torvik_cache:
-            return torvik_cache[mapped_name]
+            return mapped_name
+
+    # Try KenPom-specific aliases
+    kp_name = normalize_cbb_team_for_kenpom(name_lower)
+    if kp_name in torvik_cache:
+        return kp_name
+    kp_name_lower = kp_name.lower().strip()
+    if kp_name_lower in torvik_cache:
+        return kp_name_lower
 
     # Try with "st." suffix variations
     name_with_st = name_lower.replace(' state', ' st.').replace(' st', ' st.')
     if name_with_st in torvik_cache:
-        return torvik_cache[name_with_st]
+        return name_with_st
 
     # Try without periods
     name_no_periods = name_lower.replace('.', '')
     for key in torvik_cache:
         if key.replace('.', '') == name_no_periods:
-            return torvik_cache[key]
+            return key
 
-    # Fuzzy substring matching
-    for key, data in torvik_cache.items():
+    # Fuzzy substring matching (with safety: require significant overlap)
+    for key in torvik_cache:
         if name_lower in key or key in name_lower:
-            return data
+            if len(name_lower) >= 4 and len(key) >= 4:
+                return key
         # Check if key contains significant matching words
         key_parts = key.split()
         name_parts = name_lower.split()
         matching_parts = sum(1 for p in key_parts if p in name_parts and len(p) > 3)
         if matching_parts >= 1 and len(key_parts) <= 3:
-            return data
+            return key
 
+    return None
+
+# Cache for resolved KenPom keys: ESPN name -> KenPom cache key
+_kenpom_key_resolution_cache: Dict[str, Optional[str]] = {}
+
+def resolve_kenpom_key_cached(team_name: str) -> Optional[str]:
+    """Cached version of resolve_kenpom_key for batch performance."""
+    if team_name not in _kenpom_key_resolution_cache:
+        _kenpom_key_resolution_cache[team_name] = resolve_kenpom_key(team_name)
+    return _kenpom_key_resolution_cache[team_name]
+
+def get_torvik_team(team_name: str) -> Optional[dict]:
+    """Get Torvik stats for a team by name (fuzzy match with bi-directional alias support)."""
+    key = resolve_kenpom_key(team_name)
+    if key and key in torvik_cache:
+        return torvik_cache[key]
     return None
 
 def calculate_torvik_projection(away_team: str, home_team: str) -> Optional[dict]:
@@ -10669,10 +10769,18 @@ def calculate_torvik_projection(away_team: str, home_team: str) -> Optional[dict
     home_stats = get_kenpom_team_full(home_team)
 
     if not away_stats or not home_stats:
+        if not away_stats:
+            logger.warning(f"KenPom full data MISSING for away team: '{away_team}' (resolved key: {resolve_kenpom_key_cached(away_team)})")
+        if not home_stats:
+            logger.warning(f"KenPom full data MISSING for home team: '{home_team}' (resolved key: {resolve_kenpom_key_cached(home_team)})")
         # Fallback to basic data
         away_basic = get_torvik_team(away_team)
         home_basic = get_torvik_team(home_team)
         if not away_basic or not home_basic:
+            if not away_basic:
+                logger.warning(f"KenPom basic data MISSING for away team: '{away_team}'")
+            if not home_basic:
+                logger.warning(f"KenPom basic data MISSING for home team: '{home_team}'")
             return None
         away_stats = away_basic
         home_stats = home_basic
