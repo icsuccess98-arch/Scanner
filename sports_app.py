@@ -10385,7 +10385,7 @@ CBB_TEAM_NAME_MAP = {
     'uc santa barbara': 'uc santa barbara', 'ucsb': 'uc santa barbara', 'santa barbara': 'uc santa barbara',
     'cal poly': 'cal poly', 'cal poly slo': 'cal poly',
     'cal state fullerton': 'cal st. fullerton', 'fullerton': 'cal st. fullerton', 'csuf': 'cal st. fullerton',
-    'cal state northridge': 'cal st. northridge', 'northridge': 'cal st. northridge', 'csu northridge': 'cal st. northridge', 'csun': 'cal st. northridge',
+    'cal state northridge': 'csun', 'northridge': 'csun', 'csu northridge': 'csun', 'csun': 'csun', 'cal st. northridge': 'csun', 'cal st northridge': 'csun', 'cs northridge': 'csun', 'cs state northridge': 'csun',
     'cal state bakersfield': 'cal st. bakersfield', 'bakersfield': 'cal st. bakersfield', 'csub': 'cal st. bakersfield',
     'long beach state': 'long beach st.', 'long beach st': 'long beach st.', 'lbsu': 'long beach st.',
     # UMass variations
@@ -10459,7 +10459,7 @@ CBB_TEAM_NAME_MAP = {
     'southern indiana': 'southern indiana', 'so indiana': 'southern indiana', 'usi': 'southern indiana',
     'bellarmine': 'bellarmine', 'queens': 'queens',
     'lindenwood': 'lindenwood', 'mercyhurst': 'mercyhurst',
-    "hawaii": "hawai'i", "hawai'i": "hawai'i", 'hawaii': "hawai'i",
+    "hawaii": "hawaii", "hawai'i": "hawaii", "hawai\u2019i": "hawaii",
     'texas am': 'e. texas a&m', 'e texas am': 'e. texas a&m', 'east texas am': 'e. texas a&m', 'e texas a&m': 'e. texas a&m',
     'miss valley st': 'mississippi valley st.', 'mississippi valley': 'mississippi valley st.', 'mvsu': 'mississippi valley st.',
     # Southern Utah
@@ -10670,6 +10670,11 @@ CBB_TEAM_NAME_MAP = {
     'njit': 'njit', 'highlanders': 'njit',
     'maine': 'maine', 'black bears': 'maine',
     'siu edwardsville': 'siu edwardsville', 'siue': 'siu edwardsville',
+    # ESPN unicode/accent variants
+    "hawai'i": "hawaii", "hawai\u2018i": "hawaii", "hawai\u2019i": "hawaii",
+    'csu northridge': 'csun', 'csu bakersfield': 'cal st. bakersfield', 'csu fullerton': 'cal st. fullerton',
+    'san jose st': 'san jose st.', 'san jose state': 'san jose st.', 'sjsu': 'san jose st.',
+    "san josé st": "san jose st.", "san josé state": "san jose st.",
 }
 
 def resolve_kenpom_key(team_name: str) -> Optional[str]:
@@ -10685,9 +10690,21 @@ def resolve_kenpom_key(team_name: str) -> Optional[str]:
 
     name_lower = team_name.lower().strip()
 
+    # Strip accents/diacritics (Hawai'i → hawaii, San José → san jose) and smart quotes
+    import unicodedata
+    name_clean = ''.join(
+        c for c in unicodedata.normalize('NFD', name_lower)
+        if unicodedata.category(c) != 'Mn'
+    )
+    # Normalize curly/smart quotes to straight quotes, then remove
+    name_clean = name_clean.replace('\u2018', "'").replace('\u2019', "'").replace('\u201c', '"').replace('\u201d', '"')
+    name_clean = name_clean.replace("'", "").replace('"', '').strip()
+
     # Direct cache lookup
     if name_lower in torvik_cache:
         return name_lower
+    if name_clean in torvik_cache:
+        return name_clean
 
     # Try normalized name via CBB_TEAM_NAME_MAP
     normalized = normalize_cbb_team_name(team_name).lower().strip()
@@ -10704,11 +10721,12 @@ def resolve_kenpom_key(team_name: str) -> Optional[str]:
     except Exception:
         pass
 
-    # Try comprehensive mapping
-    if name_lower in CBB_TEAM_NAME_MAP:
-        mapped_name = CBB_TEAM_NAME_MAP[name_lower]
-        if mapped_name in torvik_cache:
-            return mapped_name
+    # Try comprehensive mapping (both original and accent-stripped)
+    for try_name in [name_lower, name_clean]:
+        if try_name in CBB_TEAM_NAME_MAP:
+            mapped_name = CBB_TEAM_NAME_MAP[try_name]
+            if mapped_name in torvik_cache:
+                return mapped_name
 
     # Try KenPom-specific aliases
     kp_name = normalize_cbb_team_for_kenpom(name_lower)
