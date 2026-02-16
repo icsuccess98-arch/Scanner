@@ -25,7 +25,7 @@ def get_discord_headers():
 _cache = {}
 CACHE_TTL = 300
 
-def fetch_discord_messages(limit=10):
+def fetch_discord_messages(limit=50):
     cache_key = f'discord_msgs_{DISCORD_CHANNEL_ID}'
     now = datetime.now(timezone.utc).timestamp()
     if cache_key in _cache:
@@ -53,13 +53,36 @@ def fetch_discord_messages(limit=10):
         logger.error(f"Discord fetch error: {e}")
         return []
 
-def parse_game_spreads(messages):
-    all_picks = []
-    seen_cards = set()
+def parse_spread_section(desc, section_name):
+    pattern = rf'(?:📊\s*\*\*{section_name}\*\*|{section_name})(.*?)(?=(?:🔢|🔥|📊\s*\*\*(?:SET|TOTAL|TOP|GAME|MATCH))|$)'
+    match = re.search(pattern, desc, re.DOTALL)
+    if not match:
+        return []
+
+    picks = []
+    lines = match.group(1).strip().split('\n')
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        pick = parse_spread_line(line)
+        if pick:
+            pick['spread_type'] = 'game' if 'GAME' in section_name else 'set'
+            picks.append(pick)
+    return picks
+
+def parse_all_spreads(messages):
+    all_cards = []
+    seen_msg_ids = set()
 
     for msg in messages:
         if not msg.get('embeds'):
             continue
+
+        msg_id = msg.get('id', '')
+        if msg_id in seen_msg_ids:
+            continue
+        seen_msg_ids.add(msg_id)
 
         timestamp = msg.get('timestamp', '')
         try:
@@ -86,50 +109,33 @@ def parse_game_spreads(messages):
             matches_match = re.search(r'\*\*(\d+)\s*matches\*\*', desc)
             total_matches = matches_match.group(1) if matches_match else ''
 
-            game_spread_section = re.search(
-                r'(?:📊\s*\*\*GAME SPREAD\*\*|GAME SPREAD)(.*?)(?=(?:🔢|🔥|📊\s*\*\*(?:SET|TOTAL|TOP))|$)',
-                desc, re.DOTALL
-            )
+            game_picks = parse_spread_section(desc, 'GAME SPREAD')
+            set_picks = parse_spread_section(desc, 'SET SPREAD')
 
-            if not game_spread_section:
+            all_picks = game_picks + set_picks
+
+            if not all_picks:
                 continue
 
-            spread_text = game_spread_section.group(1)
-            lines = spread_text.strip().split('\n')
+            top_plays = parse_top_plays(desc)
 
-            card_key = f"{msg_time.strftime('%Y-%m-%d')}_{record}"
-            if card_key in seen_cards:
-                continue
-            seen_cards.add(card_key)
+            all_cards.append({
+                'timestamp': msg_time.isoformat(),
+                'date': msg_time.strftime('%b %d, %Y'),
+                'time': msg_time.strftime('%I:%M %p ET'),
+                'record': record,
+                'win_pct': win_pct,
+                'pending': pending,
+                'total_matches': total_matches,
+                'game_picks': game_picks,
+                'set_picks': set_picks,
+                'picks': all_picks,
+                'top_plays': top_plays,
+                'footer': footer_text,
+                'color': embed.get('color', 3066993),
+            })
 
-            picks = []
-            for line in lines:
-                line = line.strip()
-                if not line:
-                    continue
-
-                pick = parse_spread_line(line)
-                if pick:
-                    picks.append(pick)
-
-            if picks:
-                top_plays = parse_top_plays(desc)
-
-                all_picks.append({
-                    'timestamp': msg_time.isoformat(),
-                    'date': msg_time.strftime('%b %d, %Y'),
-                    'time': msg_time.strftime('%I:%M %p ET'),
-                    'record': record,
-                    'win_pct': win_pct,
-                    'pending': pending,
-                    'total_matches': total_matches,
-                    'picks': picks,
-                    'top_plays': top_plays,
-                    'footer': footer_text,
-                    'color': embed.get('color', 3066993),
-                })
-
-    return all_picks
+    return all_cards
 
 def parse_spread_line(line):
     line = line.replace('**', '')
@@ -204,14 +210,38 @@ def parse_top_plays(desc):
     return top_plays
 
 def get_tennis_game_spreads():
-    messages = fetch_discord_messages(limit=10)
+    messages = fetch_discord_messages(limit=50)
     if not messages:
         return {'success': False, 'error': 'No messages fetched', 'cards': []}
 
-    cards = parse_game_spreads(messages)
+    cards = parse_all_spreads(messages)
+
+    total_wins = 0
+    total_losses = 0
+    total_pending = 0
+    total_spreads = 0
+    for card in cards:
+        for pick in card['picks']:
+            total_spreads += 1
+            if pick['result'] == 'win':
+                total_wins += 1
+            elif pick['result'] == 'loss':
+                total_losses += 1
+            else:
+                total_pending += 1
+
+    decided = total_wins + total_losses
+    overall_pct = round(total_wins / decided * 100) if decided > 0 else 0
+
     return {
         'success': True,
         'cards': cards,
+        'overall_record': f"{total_wins}-{total_losses}",
+        'overall_pct': overall_pct,
+        'total_spreads': total_spreads,
+        'total_pending': total_pending,
+        'total_wins': total_wins,
+        'total_losses': total_losses,
         'fetched_at': datetime.now(timezone.utc).isoformat(),
         'message_count': len(messages),
     }
