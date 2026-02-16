@@ -505,6 +505,7 @@
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js').catch(() => {});
         }
+        setTimeout(function(){ location.reload(); }, 120000);
     </script>
 </body>
 </html>
