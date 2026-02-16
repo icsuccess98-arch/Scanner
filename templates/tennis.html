@@ -475,7 +475,7 @@
                         <div class="pick-player-name">{{ pick.player }}</div>
                         <div class="pick-spread-line">
                             <span class="spread-badge {{ 'positive' if pick.spread_val > 0 else 'negative' }}">
-                                {{ '+' if pick.spread_val > 0 else '' }}{{ pick.spread }}
+                                {{ pick.spread if pick.spread.startswith('+') or pick.spread.startswith('-') else ('+' if pick.spread_val > 0 else '') ~ pick.spread }}
                             </span>
                             <span class="odds-val">({{ pick.odds }})</span>
                         </div>
