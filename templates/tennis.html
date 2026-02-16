@@ -403,7 +403,7 @@
             <h3>Unable to Load Picks</h3>
             <p>{{ data.error or 'Could not connect to picks source.' }}</p>
         </div>
-        {% elif not data.cards %}
+        {% elif not data.picks %}
         <div class="empty-state">
             <i class="bi bi-clock"></i>
             <h3>No Spreads Available</h3>
@@ -430,23 +430,14 @@
             </div>
         </div>
 
-        {% for card in data.cards %}
-        {% if card.picks %}
-
-        <div class="day-divider">
-            <span class="day-label">{{ card.date }}</span>
-            <span class="day-record">{{ card.record }} ({{ card.win_pct }}%)</span>
-            <span class="divider-line"></span>
-        </div>
-
-        {% if card.top_plays and loop.first %}
+        {% if data.top_plays %}
         <div class="section-label">Top Plays</div>
         <div class="top-plays-section">
             <div class="top-plays-header">
                 <span>🔥</span>
                 <h3>TOP PLAYS</h3>
             </div>
-            {% for tp in card.top_plays %}
+            {% for tp in data.top_plays %}
             <div class="top-play-item">
                 <div class="top-play-info">
                     <span class="top-play-rank">
@@ -465,10 +456,9 @@
         </div>
         {% endif %}
 
-        {% set filtered_picks = card.picks | selectattr('confidence', 'ge', 52) | list %}
-        <div class="section-label">Spreads ({{ filtered_picks|length }})</div>
+        <div class="section-label">Spreads ({{ data.picks|length }})</div>
         <div class="picks-grid">
-            {% for pick in filtered_picks %}
+            {% for pick in data.picks %}
             <div class="pick-card {{ pick.result or 'pending' }}">
                 <div class="pick-card-body">
                     <div class="pick-player">
@@ -498,9 +488,6 @@
             </div>
             {% endfor %}
         </div>
-
-        {% endif %}
-        {% endfor %}
         {% endif %}
     </div>
 

@@ -216,31 +216,29 @@ def get_tennis_game_spreads():
 
     cards = parse_all_spreads(messages)
 
-    total_wins = 0
-    total_losses = 0
-    total_pending = 0
-    total_spreads = 0
+    all_picks = []
+    top_plays = []
     for card in cards:
         for pick in card['picks']:
             if pick['confidence'] < 52:
                 continue
-            total_spreads += 1
-            if pick['result'] == 'win':
-                total_wins += 1
-            elif pick['result'] == 'loss':
-                total_losses += 1
-            else:
-                total_pending += 1
+            all_picks.append(pick)
+        if not top_plays and card.get('top_plays'):
+            top_plays = card['top_plays']
 
+    total_wins = sum(1 for p in all_picks if p['result'] == 'win')
+    total_losses = sum(1 for p in all_picks if p['result'] == 'loss')
+    total_pending = sum(1 for p in all_picks if p['result'] is None)
     decided = total_wins + total_losses
     overall_pct = round(total_wins / decided * 100) if decided > 0 else 0
 
     return {
         'success': True,
-        'cards': cards,
+        'picks': all_picks,
+        'top_plays': top_plays,
         'overall_record': f"{total_wins}-{total_losses}",
         'overall_pct': overall_pct,
-        'total_spreads': total_spreads,
+        'total_spreads': len(all_picks),
         'total_pending': total_pending,
         'total_wins': total_wins,
         'total_losses': total_losses,
