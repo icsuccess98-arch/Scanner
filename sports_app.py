@@ -1,14 +1,16 @@
 import os
 import logging
+import re
 import time
 import statistics
+import threading
+from collections import defaultdict
 from datetime import datetime, date, timedelta
 from typing import Tuple, Optional, List, Dict
 from dataclasses import dataclass
 from functools import wraps
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from enum import Enum
-import threading
 from math import radians, sin, cos, sqrt, atan2
 from flask import Flask, render_template, request, jsonify, redirect, url_for, make_response
 from flask_sqlalchemy import SQLAlchemy
@@ -22,12 +24,22 @@ from bs4 import BeautifulSoup
 from enhanced_scraping import get_cbb_logo, CBB_TEAM_LOGOS, CBB_TEAM_NAME_ALIASES, normalize_cbb_team_name, get_all_team_aliases, get_covers_matchup_stats, scrape_covers_cbb_slate, scrape_kenpom_team_metrics, get_cbb_slate_with_kenpom
 from team_identity import normalize_team_name as identity_normalize, CBB_CANONICAL_ALIASES, NBA_CANONICAL_ALIASES
 from automated_loading_system import (
-    setup_automatic_loading, 
-    get_transparent_cbb_logo, 
+    setup_automatic_loading,
+    get_transparent_cbb_logo,
     CBB_TEAM_LOGOS_COMPLETE,
     TeamRankingsScraper,
     EliminationFilterSystem
 )
+
+# AI Brain imports (graceful fallback — app works exactly as before if unavailable)
+try:
+    from feature_engineering import extract_features, get_ml_features
+    from ai_brains import analyze_game as brain_analyze_game
+    from ml_models import ensemble_predictor, EloSystem
+    AI_BRAINS_AVAILABLE = True
+except ImportError as e:
+    AI_BRAINS_AVAILABLE = False
+    logging.getLogger(__name__).info(f"AI brains not available: {e}")
 
 
 # NBA team logo URLs from ESPN CDN (module-level for shared access)
@@ -219,7 +231,6 @@ HISTORICAL_CACHE_TTL = 21600
 _dashboard_cache = {"data": None, "timestamp": 0, "lock": threading.Lock()}
 _team_stats_cache = TTLCache(maxsize=200, ttl=TEAM_STATS_CACHE_TTL)
 _historical_cache = TTLCache(maxsize=500, ttl=HISTORICAL_CACHE_TTL)
-_performance_metrics = {}
 
 def get_cached_dashboard():
     """Get cached dashboard data if still fresh."""
@@ -239,17 +250,6 @@ def clear_dashboard_cache():
     with _dashboard_cache["lock"]:
         _dashboard_cache["timestamp"] = 0
     logger.info("Dashboard cache cleared")
-
-def track_performance(operation: str, duration: float):
-    """Track operation performance for monitoring."""
-    if operation not in _performance_metrics:
-        _performance_metrics[operation] = []
-    _performance_metrics[operation].append({
-        'duration': duration,
-        'timestamp': time.time()
-    })
-    if len(_performance_metrics[operation]) > 100:
-        _performance_metrics[operation] = _performance_metrics[operation][-100:]
 
 CITY_COORDS = {
     'Atlanta': (33.7490, -84.3880), 'Boston': (42.3601, -71.0589),
@@ -632,32 +632,6 @@ def calculate_rlm(game) -> bool:
     return rlm_detected
 
 
-def calculate_sharp_side(game) -> str:
-    """
-    Determine sharp side based on money vs tickets %.
-    Sharp = Money % significantly higher than Tickets %
-    """
-    if not all([
-        getattr(game, 'away_tickets_pct', None),
-        getattr(game, 'home_tickets_pct', None),
-        getattr(game, 'away_money_pct', None),
-        getattr(game, 'home_money_pct', None)
-    ]):
-        return 'unknown'
-    
-    league = getattr(game, 'league', 'NBA')
-    sharp_threshold = EXTENDED_THRESHOLDS.get(league, {}).get('sharp_threshold', 10.0)
-    
-    away_sharp_diff = (game.away_money_pct or 0) - (game.away_tickets_pct or 0)
-    home_sharp_diff = (game.home_money_pct or 0) - (game.home_tickets_pct or 0)
-    
-    if away_sharp_diff >= sharp_threshold:
-        return 'away'
-    elif home_sharp_diff >= sharp_threshold:
-        return 'home'
-    return 'balanced'
-
-
 def get_nba_abbr(team_name: str) -> str:
     """Get NBA team abbreviation."""
     abbr_map = {
@@ -677,26 +651,6 @@ def get_nba_abbr(team_name: str) -> str:
         if key in team_lower:
             return abbr
     return ''
-
-
-def get_team_logo_bulletproof(team_name: str, league: str) -> str:
-    """
-    Get team logo with bulletproof fallback chain.
-    NEVER fails - always returns a valid URL.
-    """
-    team_lower = team_name.lower()
-    
-    if league == 'NBA':
-        abbr = get_nba_abbr(team_name)
-        if abbr:
-            return f'https://a.espncdn.com/i/teamlogos/nba/500/{abbr}.png'
-    elif league == 'CBB':
-        from automated_loading_system import ESPN_CBB_TEAM_IDS
-        team_id = ESPN_CBB_TEAM_IDS.get(team_name) or ESPN_CBB_TEAM_IDS.get(team_name.title())
-        if team_id:
-            return f'https://a.espncdn.com/i/teamlogos/ncaa/500-dark/{team_id}.png'
-    
-    return f'https://via.placeholder.com/64/667eea/ffffff?text={team_name[:3].upper()}'
 
 
 class MatchupIntelligence:
@@ -3431,118 +3385,15 @@ class TTLCache:
     def __setitem__(self, key, value):
         self.set(key, value)
     
+    def __len__(self):
+        return len(self.cache)
+
     def clear(self):
         self.cache.clear()
 
 line_movement_cache = TTLCache(maxsize=500, ttl=43200)
 opening_lines_store = TTLCache(maxsize=500, ttl=86400)
 espn_schedule_cache = TTLCache(maxsize=500, ttl=43200)
-weather_cache = TTLCache(maxsize=100, ttl=3600)
-
-# NFL/CFB Indoor stadiums (no weather impact)
-DOME_STADIUMS = {
-    'Cardinals', 'Falcons', 'Texans', 'Colts', 'Cowboys', 'Lions', 
-    'Saints', 'Vikings', 'Raiders', 'Rams', 'Chargers'
-}
-
-def get_weather_for_game(home_team: str, league: str) -> dict:
-    """
-    Get weather data for NFL/CFB outdoor games.
-    Returns None for indoor stadiums.
-    """
-    if league not in ['NFL', 'CFB']:
-        return None
-    
-    # Skip dome teams
-    for dome_team in DOME_STADIUMS:
-        if dome_team.lower() in home_team.lower():
-            return {'indoor': True, 'impact': 0}
-    
-    cache_key = f"{home_team}_{league}_{date.today().isoformat()}"
-    cached = weather_cache.get(cache_key)
-    if cached:
-        return cached
-    
-    # NFL team city mapping for weather lookup
-    NFL_CITIES = {
-        'Bills': 'Buffalo,NY', 'Patriots': 'Foxborough,MA', 'Dolphins': 'Miami,FL',
-        'Jets': 'East Rutherford,NJ', 'Ravens': 'Baltimore,MD', 'Bengals': 'Cincinnati,OH',
-        'Browns': 'Cleveland,OH', 'Steelers': 'Pittsburgh,PA', 'Titans': 'Nashville,TN',
-        'Jaguars': 'Jacksonville,FL', 'Broncos': 'Denver,CO', 'Chiefs': 'Kansas City,MO',
-        'Packers': 'Green Bay,WI', 'Bears': 'Chicago,IL', 'Seahawks': 'Seattle,WA',
-        '49ers': 'Santa Clara,CA', 'Giants': 'East Rutherford,NJ', 'Eagles': 'Philadelphia,PA',
-        'Commanders': 'Landover,MD', 'Panthers': 'Charlotte,NC', 'Buccaneers': 'Tampa,FL'
-    }
-    
-    city = None
-    for team_name, team_city in NFL_CITIES.items():
-        if team_name.lower() in home_team.lower():
-            city = team_city
-            break
-    
-    if not city:
-        return {'indoor': False, 'impact': 0, 'data_available': False}
-    
-    try:
-        api_key = os.environ.get('OPENWEATHER_API_KEY')
-        if not api_key:
-            return {'indoor': False, 'impact': 0, 'no_api_key': True}
-        
-        url = f"https://api.openweathermap.org/data/2.5/weather?q={city},US&appid={api_key}&units=imperial"
-        resp = requests.get(url, timeout=10)
-        if resp.status_code != 200:
-            return {'indoor': False, 'impact': 0, 'api_error': True}
-        
-        data = resp.json()
-        temp = data.get('main', {}).get('temp', 60)
-        wind_speed = data.get('wind', {}).get('speed', 0)
-        weather_main = data.get('weather', [{}])[0].get('main', '')
-        
-        # Calculate weather impact on totals (negative = UNDER bias)
-        impact = 0
-        weather_warning = []
-        
-        if wind_speed >= 25:
-            impact -= 5.0
-            weather_warning.append(f"Extreme wind ({wind_speed:.0f} mph)")
-        elif wind_speed >= 15:
-            impact -= 2.5
-            weather_warning.append(f"High wind ({wind_speed:.0f} mph)")
-        
-        if temp <= 20:
-            impact -= 3.0
-            weather_warning.append(f"Extreme cold ({temp:.0f}°F)")
-        elif temp <= 35:
-            impact -= 1.5
-            weather_warning.append(f"Cold weather ({temp:.0f}°F)")
-        
-        if weather_main in ['Rain', 'Snow', 'Thunderstorm']:
-            impact -= 3.0
-            weather_warning.append(weather_main)
-        elif weather_main in ['Drizzle', 'Mist']:
-            impact -= 1.0
-            weather_warning.append(weather_main)
-        
-        result = {
-            'indoor': False,
-            'temp': temp,
-            'wind_speed': wind_speed,
-            'conditions': weather_main,
-            'impact': impact,
-            'warnings': weather_warning,
-            'disqualify_total': abs(impact) >= 5.0
-        }
-        
-        weather_cache.set(cache_key, result)
-        if impact != 0:
-            logger.info(f"Weather impact for {home_team}: {impact:.1f} pts ({', '.join(weather_warning)})")
-        return result
-        
-    except Exception as e:
-        logger.error(f"Weather API error for {home_team}: {e}")
-        return {'indoor': False, 'impact': 0, 'error': str(e)}
-
-import threading
 
 class RateLimiter:
     """Token bucket rate limiter with exponential backoff on failures."""
@@ -3587,238 +3438,6 @@ class RateLimiter:
 
 espn_limiter = RateLimiter(requests_per_second=5)
 odds_api_limiter = RateLimiter(requests_per_second=2)
-espn_rate_limiter = espn_limiter
-odds_api_rate_limiter = odds_api_limiter
-
-def api_retry(max_attempts=3, base_delay=0.3, backoff_multiplier=2):
-    """
-    Retry decorator with exponential backoff for API calls.
-    """
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            last_exception = None
-            for attempt in range(max_attempts):
-                try:
-                    return func(*args, **kwargs)
-                except (requests.RequestException, requests.Timeout, requests.HTTPError) as e:
-                    last_exception = e
-                    if attempt < max_attempts - 1:
-                        delay = base_delay * (backoff_multiplier ** attempt)
-                        logger.warning(f"{func.__name__} attempt {attempt + 1} failed: {str(e)}. Retrying in {delay}s...")
-                        time.sleep(delay)
-                    else:
-                        logger.error(f"{func.__name__} failed after {max_attempts} attempts: {str(e)}")
-                except Exception as e:
-                    logger.error(f"{func.__name__} unexpected error: {str(e)}")
-                    raise
-            
-            if last_exception:
-                raise last_exception
-            return None
-        return wrapper
-    return decorator
-
-@dataclass
-class GameOdds:
-    """Structured container for game odds data."""
-    game_id: str
-    away_team: str
-    home_team: str
-    league: str
-    spread_home: Optional[float] = None
-    spread_away: Optional[float] = None
-    total: Optional[float] = None
-    moneyline_home: Optional[int] = None
-    moneyline_away: Optional[int] = None
-
-def get_headers():
-    """Standard headers for ESPN API requests."""
-    return {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'application/json'
-    }
-
-def calculate_trend_metrics(game_list: List[dict], team_name: str, metric_key: str) -> dict:
-    """
-    Calculate trend metrics with validation.
-    
-    FIXED: Added validation to prevent division by zero and handle edge cases.
-    """
-    if not game_list:
-        return {
-            'total_games': 0,
-            'hit_count': 0,
-            'hit_rate': 0.0,
-            'avg_value': 0.0
-        }
-    
-    hit_count = sum(1 for g in game_list if g.get(metric_key, False))
-    total_games = len(game_list)
-    hit_rate = (hit_count / total_games * 100) if total_games > 0 else 0.0
-    
-    values = [g.get('value', 0) for g in game_list if 'value' in g]
-    avg_value = (sum(values) / len(values)) if values else 0.0
-    
-    return {
-        'total_games': total_games,
-        'hit_count': hit_count,
-        'hit_rate': round(hit_rate, 1),
-        'avg_value': round(avg_value, 2)
-    }
-
-def calculate_over_under_edge(game: dict, odds: GameOdds) -> dict:
-    """
-    Calculate O/U edge with proper away favorite logic.
-    
-    Critical Features:
-    1. Away favorite O/U model: Requires BOTH away as favorite AND O/U threshold met
-    2. Normal O/U model: Separate validation
-    3. Proper favorite detection using moneyline
-    4. Enhanced logging for debugging
-    """
-    away_team = game.get('away_team', '')
-    home_team = game.get('home_team', '')
-    league = game.get('league', 'UNKNOWN')
-    
-    result = {
-        'total_edge': 0,
-        'total_direction': None,
-        'total_is_qualified': False,
-        'total_history_qualified': False,
-        'total_ev': 0,
-        'away_favorite_ou_qualified': False,
-        'away_is_favorite': False
-    }
-    
-    if not odds or odds.total is None:
-        logger.warning(f"No O/U odds for {away_team} @ {home_team}")
-        return result
-    
-    total_line = odds.total
-    
-    if odds.moneyline_away is not None and odds.moneyline_home is not None:
-        result['away_is_favorite'] = odds.moneyline_away < odds.moneyline_home
-        logger.info(f"Favorite check: {away_team} ({odds.moneyline_away}) vs {home_team} ({odds.moneyline_home}) - Away is favorite: {result['away_is_favorite']}")
-    
-    away_stats = game.get('away_stats', {})
-    home_stats = game.get('home_stats', {})
-    
-    away_ppg = away_stats.get('points_per_game', 0)
-    home_ppg = home_stats.get('points_per_game', 0)
-    projected_total = away_ppg + home_ppg
-    
-    if projected_total == 0:
-        logger.warning(f"No stats available for {away_team} @ {home_team}")
-        return result
-    
-    edge = abs(projected_total - total_line)
-    result['total_edge'] = round(edge, 1)
-    
-    if projected_total > total_line + 0.5:
-        result['total_direction'] = 'OVER'
-    elif projected_total < total_line - 0.5:
-        result['total_direction'] = 'UNDER'
-    else:
-        result['total_direction'] = None
-        logger.info(f"O/U edge too small for {away_team} @ {home_team}: {edge:.1f}")
-        return result
-    
-    threshold = GameConstants.EDGE_THRESHOLDS.get(league, 8.0)
-    edge_met = edge >= threshold
-    
-    if edge_met:
-        result['total_is_qualified'] = True
-        result['total_history_qualified'] = True
-        result['total_ev'] = round(edge * 0.5, 2)
-        logger.info(f"Normal O/U qualified: {away_team} @ {home_team} - Edge: {edge:.1f}, Direction: {result['total_direction']}")
-    
-    if result['away_is_favorite'] and edge_met:
-        result['away_favorite_ou_qualified'] = True
-        logger.info(f"AWAY FAVORITE O/U qualified: {away_team} @ {home_team} - Edge: {edge:.1f}, Direction: {result['total_direction']}")
-    elif result['away_is_favorite'] and not edge_met:
-        logger.info(f"Away team is favorite but O/U edge insufficient: {away_team} @ {home_team} - Edge: {edge:.1f} < {threshold}")
-    
-    return result
-
-def calculate_spread_edge(game: dict, odds: GameOdds) -> dict:
-    """
-    Calculate spread edge with proper model validation.
-    
-    Critical Features:
-    1. Proper spread calculation using team stats
-    2. Home/away percentage validation
-    3. Correct spread direction (home team perspective)
-    4. Enhanced logging
-    """
-    away_team = game.get('away_team', '')
-    home_team = game.get('home_team', '')
-    league = game.get('league', 'UNKNOWN')
-    
-    result = {
-        'spread_edge': 0,
-        'spread_direction': None,
-        'spread_is_qualified': False,
-        'spread_history_qualified': False,
-        'spread_ev': 0,
-        'away_spread_pct': 0,
-        'home_spread_pct': 0
-    }
-    
-    if not odds or odds.spread_home is None:
-        logger.warning(f"No spread odds for {away_team} @ {home_team}")
-        return result
-    
-    spread_line = odds.spread_home
-    
-    away_stats = game.get('away_stats', {})
-    home_stats = game.get('home_stats', {})
-    
-    away_ppg = away_stats.get('points_per_game', 0)
-    home_ppg = home_stats.get('points_per_game', 0)
-    away_opp = away_stats.get('opponent_ppg', 0)
-    home_opp = home_stats.get('opponent_ppg', 0)
-    
-    if away_ppg == 0 or home_ppg == 0:
-        logger.warning(f"No stats available for spread calculation: {away_team} @ {home_team}")
-        return result
-    
-    projected_margin = (home_ppg - away_opp) - (away_ppg - home_opp)
-    
-    edge = abs(projected_margin - spread_line)
-    result['spread_edge'] = round(edge, 1)
-    
-    # IMPROVED: Check threshold first, then determine direction
-    threshold = GameConstants.EDGE_THRESHOLDS.get(league, 8.0)
-    
-    if edge < threshold:
-        # Not enough edge to qualify
-        result['spread_direction'] = None
-        logger.info(f"Spread edge too small for {away_team} @ {home_team}: {edge:.1f} < {threshold}")
-        return result
-    
-    # Sufficient edge exists - determine direction based on projection vs line
-    if projected_margin > spread_line:
-        # Model favors HOME more than the line suggests
-        result['spread_direction'] = 'HOME'
-    elif projected_margin < spread_line:
-        # Model favors AWAY more than the line suggests  
-        result['spread_direction'] = 'AWAY'
-    else:
-        # Exactly on the line (rare)
-        result['spread_direction'] = None
-        logger.info(f"Spread exactly on projection for {away_team} @ {home_team}")
-        return result
-    
-    if edge >= threshold:
-        result['spread_is_qualified'] = True
-        result['spread_history_qualified'] = True
-        result['spread_ev'] = round(edge * 0.4, 2)
-        result['away_spread_pct'] = round(50 + (edge / 2), 1)
-        result['home_spread_pct'] = round(50 + (edge / 2), 1)
-        logger.info(f"Spread qualified: {away_team} @ {home_team} - Edge: {edge:.1f}, Direction: {result['spread_direction']}")
-    
-    return result
 
 class DataFetchError(Exception):
     """Custom exception for data fetch failures with context."""
@@ -3831,194 +3450,6 @@ def fetch_with_rate_limit(url, limiter, timeout=15):
     """Make HTTP request with rate limiting."""
     limiter.acquire()
     return requests.get(url, timeout=timeout)
-
-class ESPNClient:
-    """Unified ESPN API client with consistent error handling."""
-    
-    BASE_URLS = {
-        'NBA': 'basketball/nba',
-        'CBB': 'basketball/mens-college-basketball',
-        'NFL': 'football/nfl',
-        'CFB': 'football/college-football',
-        'NHL': 'hockey/nhl'
-    }
-    
-    SCOREBOARD_PARAMS = {
-        'NBA': {},
-        'CBB': {'limit': 500, 'groups': 50},
-        'NFL': {},
-        'CFB': {'limit': 100},
-        'NHL': {}
-    }
-    
-    TEAM_ENDPOINTS = {
-        'NBA': 'basketball/nba',
-        'CBB': 'basketball/mens-college-basketball',
-        'NFL': 'football/nfl',
-        'CFB': 'football/college-football',
-        'NHL': 'hockey/nhl'
-    }
-    
-    @classmethod
-    def get_scoreboard_url(cls, league: str, date_str: str) -> str:
-        """Build scoreboard URL with league-specific params."""
-        sport = cls.BASE_URLS.get(league)
-        if not sport:
-            raise ValueError(f"Unknown league: {league}")
-        
-        base = f"https://site.api.espn.com/apis/site/v2/sports/{sport}/scoreboard"
-        params = {'dates': date_str, **cls.SCOREBOARD_PARAMS.get(league, {})}
-        param_str = '&'.join(f"{k}={v}" for k, v in params.items())
-        return f"{base}?{param_str}"
-    
-    @classmethod
-    def get_team_url(cls, league: str, team_id: str) -> str:
-        """Build team stats URL."""
-        sport = cls.TEAM_ENDPOINTS.get(league)
-        if not sport:
-            raise ValueError(f"Unknown league: {league}")
-        return f"https://site.api.espn.com/apis/site/v2/sports/{sport}/teams/{team_id}"
-    
-    @classmethod
-    def get_schedule_url(cls, league: str, team_id: str) -> str:
-        """Build team schedule URL."""
-        sport = cls.TEAM_ENDPOINTS.get(league)
-        if not sport:
-            raise ValueError(f"Unknown league: {league}")
-        return f"https://site.api.espn.com/apis/site/v2/sports/{sport}/teams/{team_id}/schedule"
-    
-    @classmethod
-    def fetch_scoreboard(cls, league: str, date_str: str, timeout: int = None) -> dict:
-        """Fetch scoreboard with rate limiting and error handling."""
-        timeout = timeout or GameConstants.API_TIMEOUT_SCOREBOARD
-        url = cls.get_scoreboard_url(league, date_str)
-        resp = fetch_with_rate_limit(url, espn_limiter, timeout=timeout)
-        resp.raise_for_status()
-        return resp.json()
-    
-    @classmethod
-    def fetch_team_stats(cls, league: str, team_id: str, timeout: int = None) -> dict:
-        """Fetch team stats with rate limiting."""
-        timeout = timeout or GameConstants.API_TIMEOUT_DEFAULT
-        url = cls.get_team_url(league, team_id)
-        resp = fetch_with_rate_limit(url, espn_limiter, timeout=timeout)
-        resp.raise_for_status()
-        return resp.json()
-
-espn_client = ESPNClient()
-
-import re
-
-VALID_LEAGUES = {'NBA', 'CBB', 'NFL', 'CFB', 'NHL'}
-TEAM_NAME_PATTERN = re.compile(r'^[A-Za-z0-9\s\-\'\.&]+$')
-MAX_TEAM_NAME_LENGTH = 100
-
-def validate_team_name(name: str) -> bool:
-    """Validate team name to prevent injection."""
-    if not name or len(name) > MAX_TEAM_NAME_LENGTH:
-        return False
-    if not TEAM_NAME_PATTERN.match(name):
-        return False
-    return True
-
-_normalize_pattern1 = re.compile(r"['\-.]")
-_normalize_pattern2 = re.compile(r"\s+")
-
-def normalize_team_name_fast(name: str) -> str:
-    """Optimized team name normalization - 3x faster than chained replace()."""
-    if not name:
-        return ""
-    normalized = _normalize_pattern1.sub("", name.lower())
-    normalized = _normalize_pattern2.sub(" ", normalized).strip()
-    return normalized
-
-def validate_numeric(value, field_name: str, allow_negative: bool = True) -> float:
-    """Validate numeric field."""
-    try:
-        num = float(value)
-        if not allow_negative and num < 0:
-            raise ValueError(f"{field_name} must be non-negative")
-        return num
-    except (ValueError, TypeError):
-        raise ValueError(f"Invalid {field_name}")
-
-class TeamNameMatcher:
-    """Optimized team name matching with caching."""
-    
-    def __init__(self):
-        self.name_cache = {}
-        self.match_cache = {}
-    
-    def _get_normalized_tokens(self, name: str) -> dict:
-        """Get normalized tokens with caching."""
-        if name in self.name_cache:
-            return self.name_cache[name]
-        
-        name_lower = normalize_team_name_fast(name)
-        tokens = set(name_lower.split())
-        directional = None
-        for prefix in ['north', 'south', 'east', 'west', 'northern', 'southern', 'eastern', 'western']:
-            if name_lower.startswith(prefix):
-                directional = prefix
-                break
-        
-        result = {
-            'tokens': tokens,
-            'directional': directional,
-            'normalized': name_lower
-        }
-        
-        self.name_cache[name] = result
-        return result
-    
-    def match(self, name1: str, name2: str) -> bool:
-        """Match with result caching."""
-        cache_key = tuple(sorted([name1.lower(), name2.lower()]))
-        
-        if cache_key in self.match_cache:
-            return self.match_cache[cache_key]
-        
-        data1 = self._get_normalized_tokens(name1)
-        data2 = self._get_normalized_tokens(name2)
-        
-        if data1['normalized'] == data2['normalized']:
-            self.match_cache[cache_key] = True
-            return True
-        
-        if data1['directional'] and data2['directional']:
-            if data1['directional'] != data2['directional']:
-                self.match_cache[cache_key] = False
-                return False
-        
-        tokens1 = data1['tokens']
-        tokens2 = data2['tokens']
-        
-        if not tokens1 or not tokens2:
-            self.match_cache[cache_key] = False
-            return False
-        
-        overlap = tokens1 & tokens2
-        
-        if not overlap:
-            result = False
-        elif tokens1 <= tokens2 or tokens2 <= tokens1:
-            result = True
-        elif len(overlap) >= min(len(tokens1), len(tokens2)):
-            result = True
-        else:
-            result = False
-        
-        self.match_cache[cache_key] = result
-        return result
-    
-    def clear_cache(self):
-        """Clear caches to free memory."""
-        self.name_cache.clear()
-        self.match_cache.clear()
-
-team_matcher = TeamNameMatcher()
-
-from collections import defaultdict
 
 class LineMovementTracker:
     """Track complete line movement history for CLV calculation."""
@@ -4121,115 +3552,6 @@ def update_pick_clv():
     
     return updated
 
-SCOREBOARD_URLS = {
-    'NBA': "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={}",
-    'CBB': "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates={}",
-    'NFL': "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates={}",
-    'CFB': "https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates={}",
-    'NHL': "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard?dates={}"
-}
-
-def fetch_espn_scoreboard_safe(league: str, date_str: str, timeout: int = 15) -> dict:
-    """
-    BULLETPROOF: Fetch ESPN scoreboard with validation and retry logic.
-    
-    Features:
-    - Exponential backoff on failures
-    - Rate limit detection and handling
-    - Response structure validation
-    - Custom exception with context
-    """
-    max_retries = 3
-    backoff = 1
-    
-    if league not in SCOREBOARD_URLS:
-        raise DataFetchError(f"Unknown league: {league}", source="espn", retry_count=0)
-    
-    for attempt in range(max_retries):
-        try:
-            url = SCOREBOARD_URLS[league].format(date_str)
-            resp = fetch_with_rate_limit(url, espn_limiter, timeout=timeout)
-            
-            if resp.status_code == 429:
-                retry_after = int(resp.headers.get('Retry-After', 60))
-                logger.warning(f"ESPN rate limited for {league}, waiting {retry_after}s")
-                time.sleep(retry_after)
-                continue
-            
-            resp.raise_for_status()
-            data = resp.json()
-            
-            if 'events' not in data:
-                raise DataFetchError(f"Invalid response structure for {league} - missing 'events'", 
-                                    source="espn", retry_count=attempt)
-            
-            return data
-            
-        except requests.Timeout:
-            if attempt < max_retries - 1:
-                wait = backoff * (2 ** attempt)
-                logger.warning(f"ESPN timeout for {league}, retry {attempt+1}/{max_retries} in {wait}s")
-                time.sleep(wait)
-            else:
-                raise DataFetchError(f"ESPN timeout after {max_retries} attempts for {league}", 
-                                    source="espn", retry_count=max_retries)
-        
-        except requests.RequestException as e:
-            if attempt < max_retries - 1:
-                wait = backoff * (2 ** attempt)
-                logger.warning(f"ESPN request error for {league}: {e}, retry in {wait}s")
-                time.sleep(wait)
-            else:
-                raise DataFetchError(f"ESPN request failed for {league}: {e}", 
-                                    source="espn", retry_count=max_retries)
-    
-    raise DataFetchError(f"Max retries exceeded for {league}", source="espn", retry_count=max_retries)
-
-def fetch_odds_api_safe(url: str, params: dict, timeout: int = 30) -> dict:
-    """
-    BULLETPROOF: Fetch Odds API with validation and retry logic.
-    """
-    max_retries = 3
-    backoff = 1
-    
-    for attempt in range(max_retries):
-        try:
-            odds_api_limiter.acquire()
-            resp = requests.get(url, params=params, timeout=timeout)
-            
-            if resp.status_code == 429:
-                retry_after = int(resp.headers.get('Retry-After', 60))
-                logger.warning(f"Odds API rate limited, waiting {retry_after}s")
-                time.sleep(retry_after)
-                continue
-            
-            if resp.status_code == 401:
-                raise DataFetchError("Odds API authentication failed - check API key", 
-                                    source="odds_api", retry_count=attempt)
-            
-            resp.raise_for_status()
-            return resp.json()
-            
-        except requests.Timeout:
-            if attempt < max_retries - 1:
-                wait = backoff * (2 ** attempt)
-                logger.warning(f"Odds API timeout, retry {attempt+1}/{max_retries} in {wait}s")
-                time.sleep(wait)
-            else:
-                raise DataFetchError(f"Odds API timeout after {max_retries} attempts", 
-                                    source="odds_api", retry_count=max_retries)
-        
-        except requests.RequestException as e:
-            if attempt < max_retries - 1:
-                wait = backoff * (2 ** attempt)
-                logger.warning(f"Odds API error: {e}, retry in {wait}s")
-                time.sleep(wait)
-            else:
-                raise DataFetchError(f"Odds API request failed: {e}", 
-                                    source="odds_api", retry_count=max_retries)
-    
-    raise DataFetchError("Max retries exceeded for Odds API", source="odds_api", retry_count=max_retries)
-
 class VigCalculator:
     """Handles all vig removal calculations for true edge computation"""
     
@@ -4323,227 +3645,6 @@ LEAGUE_HISTORICAL_CONFIG = {
 }
 
 historical_lines_cache = TTLCache(maxsize=500, ttl=43200)
-
-class BulletproofCurrentLineCalculator:
-    """
-    BULLETPROOF Current Line Calculator
-    Uses current Vegas lines + ESPN results - NO PAID API NEEDED
-    
-    Logic:
-    1. Get current Vegas line for today's game
-    2. Look at team's last N ESPN game results
-    3. Apply current line to those past games
-    4. Calculate hypothetical performance with proper push handling
-    """
-    
-    def __init__(self):
-        self.min_games = {
-            'NBA': 15, 'CBB': 15, 'NFL': 8, 'CFB': 8, 'NHL': 15
-        }
-        self.thresholds = {
-            'qualify': 0.60,
-            'supermax': 0.70,
-            'high': 0.65,
-            'medium': 0.60
-        }
-    
-    def calculate_total_performance(self, games: list, current_total: float, direction: str, league: str) -> dict:
-        """
-        Calculate how team's games would have performed against CURRENT total line.
-        Properly excludes pushes from hit rate calculations.
-        """
-        min_games = self.min_games.get(league, 8)
-        
-        if not games or len(games) < 5:
-            return {
-                'hit_rate': None,
-                'qualified': False,
-                'sufficient_data': False,
-                'reason': f'Insufficient games: {len(games) if games else 0} (need {min_games})'
-            }
-        
-        overs = 0
-        unders = 0
-        pushes = 0
-        game_details = []
-        
-        for g in games:
-            actual_total = g.get('total', g.get('team_score', 0) + g.get('opp_score', 0))
-            diff = actual_total - current_total
-            
-            if abs(diff) < 0.5:
-                pushes += 1
-                result = 'PUSH'
-            elif diff > 0:
-                overs += 1
-                result = 'OVER'
-            else:
-                unders += 1
-                result = 'UNDER'
-            
-            game_details.append({
-                'actual_total': actual_total,
-                'current_line': current_total,
-                'margin': diff,
-                'result': result
-            })
-        
-        total_games = len(games)
-        non_push_games = total_games - pushes
-        
-        if non_push_games < min_games:
-            return {
-                'hit_rate': None,
-                'qualified': False,
-                'sufficient_data': False,
-                'overs': overs,
-                'unders': unders,
-                'pushes': pushes,
-                'total_games': total_games,
-                'reason': f'Only {non_push_games} decisive games (excluding {pushes} pushes), need {min_games}'
-            }
-        
-        if direction == 'O':
-            hits = overs
-            hit_rate = (overs / non_push_games) * 100
-        else:
-            hits = unders
-            hit_rate = (unders / non_push_games) * 100
-        
-        qualified = (hit_rate / 100) >= self.thresholds['qualify']
-        
-        confidence = None
-        if qualified:
-            rate_decimal = hit_rate / 100
-            if rate_decimal >= self.thresholds['supermax']:
-                confidence = 'SUPERMAX'
-            elif rate_decimal >= self.thresholds['high']:
-                confidence = 'HIGH'
-            elif rate_decimal >= self.thresholds['medium']:
-                confidence = 'MEDIUM'
-            else:
-                confidence = 'LOW'
-        
-        return {
-            'hit_rate': round(hit_rate, 1),
-            'hits': hits,
-            'total_games': non_push_games,
-            'overs': overs,
-            'unders': unders,
-            'pushes': pushes,
-            'all_games': total_games,
-            'direction': direction,
-            'qualified': qualified,
-            'confidence': confidence,
-            'threshold': self.thresholds['qualify'] * 100,
-            'current_line': current_total,
-            'sufficient_data': True,
-            'uses_current_line': True,
-            'record': f"{hits}-{non_push_games - hits}-{pushes}",
-            'game_details': game_details
-        }
-    
-    def calculate_spread_performance(self, games: list, current_spread: float, league: str) -> dict:
-        """
-        Calculate how team would have performed against CURRENT spread.
-        Uses correct ATS formula: spread_result = actual_margin + closing_spread
-        Properly excludes pushes from cover rate calculations.
-        """
-        min_games = self.min_games.get(league, 8)
-        
-        if not games or len(games) < 5:
-            return {
-                'cover_rate': None,
-                'qualified': False,
-                'sufficient_data': False,
-                'reason': f'Insufficient games: {len(games) if games else 0} (need {min_games})'
-            }
-        
-        covers = 0
-        losses = 0
-        pushes = 0
-        game_details = []
-        
-        for g in games:
-            actual_margin = g.get('margin', g.get('team_score', 0) - g.get('opp_score', 0))
-            
-            spread_result = actual_margin + current_spread
-            
-            if abs(spread_result) < 0.5:
-                pushes += 1
-                result = 'PUSH'
-            elif spread_result > 0:
-                covers += 1
-                result = 'COVER'
-            else:
-                losses += 1
-                result = 'NO_COVER'
-            
-            game_details.append({
-                'actual_margin': actual_margin,
-                'current_spread': current_spread,
-                'spread_result': spread_result,
-                'result': result
-            })
-        
-        total_games = len(games)
-        non_push_games = total_games - pushes
-        
-        if non_push_games < min_games:
-            return {
-                'cover_rate': None,
-                'qualified': False,
-                'sufficient_data': False,
-                'covers': covers,
-                'losses': losses,
-                'pushes': pushes,
-                'total_games': total_games,
-                'reason': f'Only {non_push_games} decisive games (excluding {pushes} pushes), need {min_games}'
-            }
-        
-        cover_rate = (covers / non_push_games) * 100
-        qualified = (cover_rate / 100) >= self.thresholds['qualify']
-        
-        confidence = None
-        if qualified:
-            rate_decimal = cover_rate / 100
-            if rate_decimal >= self.thresholds['supermax']:
-                confidence = 'SUPERMAX'
-            elif rate_decimal >= self.thresholds['high']:
-                confidence = 'HIGH'
-            elif rate_decimal >= self.thresholds['medium']:
-                confidence = 'MEDIUM'
-            else:
-                confidence = 'LOW'
-        
-        return {
-            'cover_rate': round(cover_rate, 1),
-            'covers': covers,
-            'losses': losses,
-            'pushes': pushes,
-            'total_games': non_push_games,
-            'all_games': total_games,
-            'qualified': qualified,
-            'confidence': confidence,
-            'threshold': self.thresholds['qualify'] * 100,
-            'current_spread': current_spread,
-            'sufficient_data': True,
-            'uses_current_line': True,
-            'record': f"{covers}-{losses}-{pushes}",
-            'game_details': game_details
-        }
-    
-    def get_confidence_tier(self, rate: float) -> str:
-        if rate >= 70:
-            return 'SUPERMAX'
-        elif rate >= 65:
-            return 'HIGH'
-        elif rate >= 60:
-            return 'MEDIUM'
-        else:
-            return 'LOW'
-
-bulletproof_calculator = BulletproofCurrentLineCalculator()
 
 class HistoricalBettingLinesService:
     def __init__(self):
@@ -4931,32 +4032,6 @@ def calculate_ou_hit_rate_espn(team_name: str, league: str, direction: str, curr
         'num_games': num_games
     }
 
-def api_request_with_retry(url: str, timeout: int = 30, max_retries: int = 2, **kwargs) -> requests.Response:
-    """Make API request with simple retry logic for transient failures.
-    Returns the response object or raises exception after all retries fail.
-    """
-    last_exception = None
-    for attempt in range(max_retries):
-        try:
-            resp = requests.get(url, timeout=timeout, **kwargs)
-            if resp.status_code == 200:
-                return resp
-            elif resp.status_code >= 500:  # Server error - retry
-                wait = (2 ** attempt) * 0.3
-                logger.debug(f"API server error {resp.status_code} for {url[:60]}, retrying in {wait}s")
-                time.sleep(wait)
-            else:  # Client error - don't retry
-                return resp
-        except requests.RequestException as e:
-            last_exception = e
-            wait = (2 ** attempt) * 0.3
-            logger.debug(f"API request error (attempt {attempt+1}/{max_retries}): {e}")
-            if attempt < max_retries - 1:
-                time.sleep(wait)
-    if last_exception:
-        raise last_exception
-    return resp
-
 def post_to_discord_with_retry(webhook_url: str, payload: dict, max_retries: int = 3) -> tuple:
     """Post to Discord with retry logic and exponential backoff.
     Returns (success: bool, status_code: int, error_msg: str or None)
@@ -4996,23 +4071,6 @@ def store_opening_line(event_id: str, line: float):
             "timestamp": datetime.now(pytz.timezone('America/New_York')).isoformat()
         }
         logger.debug(f"Stored opening line for {event_id}: {line}")
-
-def get_line_movement(event_id: str, current_line: float) -> dict:
-    """
-    Get line movement by comparing stored opening line with current line.
-    Returns: {"opening_line": float, "current_line": float, "movement": float}
-    """
-    if event_id not in opening_lines_store:
-        return {"opening_line": None, "current_line": current_line, "movement": 0}
-    
-    opening = opening_lines_store[event_id]["line"]
-    movement = current_line - opening
-    
-    return {
-        "opening_line": opening,
-        "current_line": current_line,
-        "movement": movement
-    }
 
 def fetch_opening_line(sport_key: str, event_id: str, current_line: float = None) -> dict:
     """
@@ -5318,72 +4376,6 @@ class ProfessionalQualifier:
         )
 
 
-def validate_game_data(game) -> dict:
-    """Validate game data quality before qualification."""
-    errors = []
-    warnings = []
-    
-    if game.projected_total:
-        league_ranges = {
-            'NBA': (180, 260), 'CBB': (120, 180), 'NFL': (30, 70),
-            'CFB': (35, 85), 'NHL': (4, 9)
-        }
-        min_total, max_total = league_ranges.get(game.league, (0, 999))
-        if not (min_total <= game.projected_total <= max_total):
-            errors.append(f"Projection {game.projected_total} outside range [{min_total}-{max_total}]")
-    
-    if game.away_ppg and game.away_ppg < 0:
-        errors.append(f"Invalid away_ppg: {game.away_ppg}")
-    if game.home_ppg and game.home_ppg < 0:
-        errors.append(f"Invalid home_ppg: {game.home_ppg}")
-    if game.true_edge and game.true_edge > 20:
-        warnings.append(f"Very large true edge: {game.true_edge}")
-    if game.vig_percentage and game.vig_percentage > 10:
-        warnings.append(f"Very high vig: {game.vig_percentage}%")
-    
-    return {'valid': len(errors) == 0, 'errors': errors, 'warnings': warnings}
-
-
-def calculate_spread_edge_sharp(projected_margin: float, spread_line: float,
-                                home_odds: int, away_odds: int, 
-                                league: str, is_home_pick: bool) -> EdgeResult:
-    """Calculate TRUE spread edge with vig removal."""
-    fair_spread = VigRemover.calculate_fair_line_totals(spread_line, away_odds, home_odds)
-    vig_data = VigRemover.remove_two_way_vig(away_odds, home_odds)
-    
-    raw_edge = abs(projected_margin - spread_line)
-    true_edge = abs(projected_margin - fair_spread)
-    
-    threshold = {'NBA': 3.0, 'CBB': 4.0, 'NFL': 2.0, 'CFB': 2.5, 'NHL': 0.3}.get(league, 2.0)
-    
-    if is_home_pick:
-        if projected_margin >= fair_spread:
-            direction = 'HOME'
-            qualified = true_edge >= threshold
-        else:
-            direction = None
-            qualified = False
-    else:
-        if projected_margin <= fair_spread:
-            direction = 'AWAY'
-            qualified = true_edge >= threshold
-        else:
-            direction = None
-            qualified = False
-    
-    return EdgeResult(
-        qualified=qualified,
-        direction=direction,
-        true_edge=round(true_edge, 2),
-        raw_edge=round(raw_edge, 2),
-        fair_line=round(fair_spread, 1),
-        posted_line=spread_line,
-        vig_pct=round(vig_data['vig_pct'], 2),
-        market_balance='BALANCED',
-        confidence='HIGH' if true_edge >= threshold * 1.5 else ('STANDARD' if qualified else 'NONE')
-    )
-
-
 class SharpThresholds:
     """Centralized thresholds for sharp betting qualification.
     TRUE_EDGE thresholds are LOWER than raw edge thresholds because vig removal reduces edge by ~40-60%.
@@ -5567,100 +4559,6 @@ def check_qualification_professional(
     
     return qual_result
 
-
-class SharpPickQualifier:
-    """Advanced pick qualification using sharp betting metrics."""
-    
-    CONFIDENCE_THRESHOLDS = {
-        'SUPERMAX': {'true_edge': 12.0, 'ev': 3.0, 'kelly': 0.05, 'history': 0.70},
-        'HIGH': {'true_edge': 10.0, 'ev': 1.5, 'kelly': 0.03, 'history': 0.65},
-        'MEDIUM': {'true_edge': 8.0, 'ev': 0.5, 'kelly': 0.02, 'history': 0.60},
-        'LOW': {'true_edge': 6.0, 'ev': 0.0, 'kelly': 0.01, 'history': 0.55}
-    }
-    
-    BET_SIZE_MAP = {'SUPERMAX': 5.0, 'HIGH': 3.0, 'MEDIUM': 2.0, 'LOW': 1.0}
-    
-    @classmethod
-    def qualify_pick(cls, game_data: dict) -> dict:
-        """
-        Qualify pick using sharp metrics.
-        
-        Args:
-            game_data: Dict with true_edge, ev_percentage, kelly_fraction, 
-                      history_win_rate, vig_percentage, etc.
-        """
-        reasons_pass = []
-        reasons_fail = []
-        
-        true_edge = game_data.get('true_edge', 0)
-        ev = game_data.get('ev_percentage') or 0
-        kelly = game_data.get('kelly_fraction', 0)
-        history = game_data.get('history_win_rate', 0)
-        vig = game_data.get('vig_percentage', 5.0)
-        
-        confidence = 'NONE'
-        for tier, thresholds in cls.CONFIDENCE_THRESHOLDS.items():
-            meets_tier = True
-            tier_reasons = []
-            
-            if true_edge >= thresholds['true_edge']:
-                tier_reasons.append(f"True edge {true_edge:.1f} >= {thresholds['true_edge']}")
-            else:
-                meets_tier = False
-            
-            if ev >= thresholds['ev']:
-                tier_reasons.append(f"EV {ev:.2f}% >= {thresholds['ev']}%")
-            elif ev is None or ev == 0:
-                tier_reasons.append("No Pinnacle data (EV waived)")
-            else:
-                meets_tier = False
-            
-            if history >= thresholds['history']:
-                tier_reasons.append(f"History {history*100:.0f}% >= {thresholds['history']*100:.0f}%")
-            else:
-                meets_tier = False
-            
-            if meets_tier:
-                confidence = tier
-                reasons_pass = tier_reasons
-                break
-        
-        qualified = confidence != 'NONE'
-        
-        if not qualified:
-            if true_edge < 6.0:
-                reasons_fail.append(f"True edge {true_edge:.1f} < 6.0 minimum")
-            if history < 0.55:
-                reasons_fail.append(f"History {history*100:.0f}% < 55% minimum")
-            if ev is not None and ev < 0:
-                reasons_fail.append(f"Negative EV {ev:.2f}%")
-        
-        if vig > 6.0:
-            reasons_fail.append(f"High vig {vig:.1f}% reduces value")
-        
-        bet_size = cls.BET_SIZE_MAP.get(confidence, 0)
-        if kelly > 0:
-            bet_size = min(bet_size, kelly * 100 * 0.25)
-        
-        recommendation = "PASS" if qualified else "SKIP"
-        if qualified and ev and ev > 2.0:
-            recommendation = "STRONG BET"
-        
-        return {
-            'qualified': qualified,
-            'confidence': confidence,
-            'bet_size_percentage': round(bet_size, 2),
-            'reasons_pass': reasons_pass,
-            'reasons_fail': reasons_fail,
-            'recommendation': recommendation,
-            'metrics': {
-                'true_edge': true_edge,
-                'ev': ev,
-                'kelly': kelly,
-                'history': history,
-                'vig': vig
-            }
-        }
 
 class SpreadValidator:
     """Enhanced spread validation with edge case handling."""
@@ -6455,7 +5353,15 @@ class Game(db.Model):
     pregame_away_road_record = db.Column(db.String(20))
     pregame_home_home_record = db.Column(db.String(20))
     pregame_stats_captured = db.Column(db.Boolean, default=False)
-    
+
+    # AI Brain analysis columns (silent — stored in DB, never displayed in UI)
+    brain_verdict = db.Column(db.String(10))       # OVER/UNDER/HOME/AWAY or None
+    brain_confidence = db.Column(db.Float)          # 5.0-8.5 consensus confidence
+    brain_agreement = db.Column(db.Integer)         # 0-4 agreeing brains
+    brain_qualified = db.Column(db.Boolean)         # 3/4 consensus met
+    brain_edge_boost = db.Column(db.Float)          # adjustment to effective edge (-2.0 to +3.0)
+    brain_analyzed_at = db.Column(db.DateTime)
+
     __table_args__ = (
         db.Index('idx_date_league', 'date', 'league'),
         db.Index('idx_qualified', 'is_qualified'),
@@ -6506,6 +5412,32 @@ class Pick(db.Model):
         db.Index('idx_is_lock_date', 'is_lock', 'date'),
     )
 
+class EloRating(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    team = db.Column(db.String(100), nullable=False)
+    league = db.Column(db.String(10), nullable=False)
+    rating = db.Column(db.Float, default=1500.0)
+    games_played = db.Column(db.Integer, default=0)
+    last_updated = db.Column(db.Date)
+    season = db.Column(db.String(20))
+    peak_rating = db.Column(db.Float)
+    __table_args__ = (
+        db.Index('idx_elo_team_league', 'team', 'league'),
+        db.Index('idx_elo_league_rating', 'league', 'rating'),
+    )
+
+class ModelTrainingLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    league = db.Column(db.String(10), nullable=False)
+    model_type = db.Column(db.String(20), nullable=False)
+    target = db.Column(db.String(20), nullable=False)
+    training_samples = db.Column(db.Integer)
+    validation_mae = db.Column(db.Float)
+    feature_importance = db.Column(db.Text)
+    model_path = db.Column(db.String(500))
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 def parse_game_time_hour(game_time_str: str) -> Optional[int]:
     """Parse game time string and return hour in 24h format (ET)."""
     if not game_time_str:
@@ -6543,6 +5475,100 @@ def is_big_slate_day() -> bool:
     et = pytz.timezone('America/New_York')
     today = datetime.now(et)
     return today.weekday() >= 4
+
+
+def run_brain_analysis():
+    """
+    Run 4-brain AI analysis on today's games with PPG data.
+    Stores results silently in Game brain columns — no UI impact.
+    Brain consensus boosts/penalizes effective edge for pick ranking.
+    """
+    if not AI_BRAINS_AVAILABLE:
+        return {'status': 'unavailable', 'analyzed': 0}
+
+    et = pytz.timezone('America/New_York')
+    today = datetime.now(et).date()
+
+    games = Game.query.filter_by(date=today).filter(
+        Game.away_ppg.isnot(None),
+        Game.home_ppg.isnot(None)
+    ).all()
+
+    if not games:
+        return {'status': 'no_games', 'analyzed': 0}
+
+    analyzed = 0
+    errors = 0
+
+    # Batch-fetch all Elo ratings in one query (avoids N+1 problem)
+    all_teams = set()
+    for g in games:
+        all_teams.add((g.away_team, g.league))
+        all_teams.add((g.home_team, g.league))
+    elo_cache = {}
+    try:
+        elo_records = EloRating.query.filter(
+            EloRating.team.in_([t for t, _ in all_teams])
+        ).all()
+        for e in elo_records:
+            elo_cache[(e.team, e.league)] = e.rating
+    except Exception:
+        pass  # No Elo data yet — all default to 1500
+
+    for game in games:
+        try:
+            # Get Elo ratings from cache (default 1500)
+            elo_away = elo_cache.get((game.away_team, game.league), 1500.0)
+            elo_home = elo_cache.get((game.home_team, game.league), 1500.0)
+
+            # Extract features
+            features = extract_features(game, elo_away, elo_home)
+
+            # Get ML features for ensemble
+            ml_features = get_ml_features(features)
+
+            # PPG-derived values for ensemble
+            ppg_total = (game.away_ppg or 0) + (game.home_ppg or 0)
+            ppg_margin = (game.home_ppg or 0) - (game.away_ppg or 0)
+
+            # Ensemble prediction
+            ensemble_pred = ensemble_predictor.predict(
+                ml_features, game.league, elo_away, elo_home, ppg_total, ppg_margin
+            )
+
+            # Run all 4 brains
+            verdict = brain_analyze_game(game, features, ensemble_pred)
+
+            # Store results in Game columns
+            game.brain_verdict = verdict.verdict
+            game.brain_confidence = verdict.confidence
+            game.brain_agreement = verdict.agreement_count
+            game.brain_qualified = verdict.qualified
+            game.brain_analyzed_at = datetime.utcnow()
+
+            # Calculate brain_edge_boost based on agreement level
+            if verdict.agreement_level == 'CONSENSUS':  # 4/4
+                boost = 2.0
+            elif verdict.agreement_level == 'STRONG':    # 3/4
+                boost = 1.0
+            elif verdict.agreement_level == 'SPLIT':     # 2/4
+                boost = -0.5
+            else:                                         # 0-1/4
+                boost = -1.5
+
+            # Scale by brain confidence: boost * (confidence - 5.0) / 3.5
+            conf_scale = (verdict.confidence - 5.0) / 3.5
+            game.brain_edge_boost = round(boost * max(0, conf_scale), 2)
+
+            analyzed += 1
+        except Exception as e:
+            logger.warning(f"Brain analysis error for {game.away_team}@{game.home_team}: {e}")
+            errors += 1
+
+    db.session.commit()
+    logger.info(f"Brain analysis complete: {analyzed} analyzed, {errors} errors out of {len(games)} games")
+    return {'status': 'complete', 'analyzed': analyzed, 'errors': errors, 'total': len(games)}
+
 
 def auto_save_qualified_picks(top_picks: list, today: 'date') -> int:
     """
@@ -6684,7 +5710,33 @@ def auto_save_qualified_picks(top_picks: list, today: 'date') -> int:
 with app.app_context():
     db.create_all()
 
-def calculate_projection(away_ppg: float, away_opp: float, 
+    # Migrate: add new columns to existing tables if they don't exist
+    _migration_columns = [
+        ("game", "brain_verdict", "VARCHAR(10)"),
+        ("game", "brain_confidence", "FLOAT"),
+        ("game", "brain_agreement", "INTEGER"),
+        ("game", "brain_qualified", "BOOLEAN"),
+        ("game", "brain_edge_boost", "FLOAT"),
+        ("game", "brain_analyzed_at", "TIMESTAMP"),
+    ]
+    for table, col, col_type in _migration_columns:
+        try:
+            db.session.execute(db.text(
+                f"ALTER TABLE {table} ADD COLUMN {col} {col_type}"
+            ))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+    # Fix column type if brain_agreement was created as VARCHAR
+    try:
+        db.session.execute(db.text(
+            "ALTER TABLE game ALTER COLUMN brain_agreement TYPE INTEGER USING brain_agreement::integer"
+        ))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+def calculate_projection(away_ppg: float, away_opp: float,
                         home_ppg: float, home_opp: float) -> float:
     """
     LOCKED FORMULA - DO NOT MODIFY
@@ -6736,75 +5788,6 @@ def calculate_expected_scores(away_ppg: float, away_opp: float,
     exp_away = (away_ppg + home_opp) / 2
     exp_home = (home_ppg + away_opp) / 2
     return exp_away, exp_home, exp_away + exp_home
-
-def calculate_blended_expected_scores(game, away_games: list, home_games: list) -> Tuple[float, float, float]:
-    """
-    Calculate expected scores using blended stats (60% recent form, 40% season).
-    Uses the locked formula with blended PPG values.
-    Returns: (expected_away, expected_home, projected_total)
-    """
-    if not all([game.away_ppg, game.away_opp_ppg, game.home_ppg, game.home_opp_ppg]):
-        raise ValueError("Insufficient data — no play")
-    
-    away_recent = calculate_recent_form_ppg(away_games) if away_games else {"ppg": 0, "opp_ppg": 0}
-    home_recent = calculate_recent_form_ppg(home_games) if home_games else {"ppg": 0, "opp_ppg": 0}
-    
-    if away_recent["ppg"] > 0 and home_recent["ppg"] > 0:
-        blended_away_ppg, blended_away_opp = calculate_blended_stats(
-            game.away_ppg, game.away_opp_ppg,
-            away_recent["ppg"], away_recent["opp_ppg"]
-        )
-        blended_home_ppg, blended_home_opp = calculate_blended_stats(
-            game.home_ppg, game.home_opp_ppg,
-            home_recent["ppg"], home_recent["opp_ppg"]
-        )
-        
-        return calculate_expected_scores(
-            blended_away_ppg, blended_away_opp,
-            blended_home_ppg, blended_home_opp
-        )
-    
-    return calculate_expected_scores(
-        game.away_ppg, game.away_opp_ppg,
-        game.home_ppg, game.home_opp_ppg
-    )
-
-def check_spread_qualification(expected_away: float, expected_home: float, 
-                                spread_line: float, league: str) -> Tuple[bool, Optional[str], float]:
-    """
-    LOCKED THRESHOLDS - Same thresholds as totals
-    
-    spread_line is stored in AWAY PERSPECTIVE:
-    - Positive = away is underdog (home is favorite by that amount)
-    - Negative = away is favorite (home is underdog)
-    
-    E.g., spread_line = 22 means away +22 underdog, home -22 favorite
-    E.g., spread_line = -5 means away -5 favorite, home +5 underdog
-    
-    line_margin = spread_line (what home team is expected to win by per the line)
-    projected_margin = expected_home - expected_away (positive = home wins by X)
-    
-    Direction Rules:
-    - Take HOME if: projected_margin >= line_margin + threshold (we think home wins by MORE than the line)
-    - Take AWAY if: projected_margin <= line_margin - threshold (we think home wins by LESS than the line)
-    
-    Example: Home expected to win by 3, spread_line = 22 (home -22 favorite)
-    line_margin = 22, projected_margin = 3
-    We expect home to win by 3, but line says home wins by 22
-    Difference = 19 points of value on AWAY side
-    projected_margin (3) <= line_margin (22) - threshold (8) = 14? Yes!
-    Bet AWAY +22 (they lose by 3 but cover +22)
-    """
-    threshold = THRESHOLDS.get(league, 8.0)
-    projected_margin = expected_home - expected_away
-    line_margin = spread_line  # spread_line IS the implied home margin (in away perspective storage)
-    edge = abs(projected_margin - line_margin)
-    
-    if projected_margin >= line_margin + threshold:
-        return True, "HOME", edge
-    elif projected_margin <= line_margin - threshold:
-        return True, "AWAY", edge
-    return False, None, edge
 
 def unified_spread_qualification(
     spread_direction: str,
@@ -6937,29 +5920,6 @@ def american_to_implied_prob(odds: int) -> float:
         return 100 / (odds + 100)
     else:
         return abs(odds) / (abs(odds) + 100)
-
-def calculate_ev(bovada_odds: int, pinnacle_odds: int) -> float:
-    """
-    Calculate Expected Value using Pinnacle as the true probability.
-    
-    EV = (p_true * decimal_payout) - 1
-    Where p_true comes from Pinnacle's implied probability
-    and decimal_payout comes from Bovada's odds
-    
-    Positive EV = our odds are better than the sharp market
-    
-    Example: Bovada -140, Pinnacle -180
-    - Pinnacle implies 64.3% true probability
-    - Bovada decimal = 1.714
-    - EV = (0.643 * 1.714) - 1 = 0.102 = +10.2% EV
-    """
-    if not bovada_odds or not pinnacle_odds:
-        return None
-    
-    p_true = american_to_implied_prob(pinnacle_odds)
-    decimal_bovada = american_to_decimal(bovada_odds)
-    ev = (p_true * decimal_bovada) - 1
-    return round(ev * 100, 2)  # Return as percentage
 
 EV_THRESHOLD = 0.0  # Require positive EV (0% or better)
 
@@ -7138,47 +6098,6 @@ def check_totals_pick_result(pick: Pick) -> int:
             pick.result = 'P'
     
     return 1
-
-def retry_request(max_retries: int = 3, backoff_factor: float = 1.0):
-    """Decorator for retrying failed HTTP requests with exponential backoff."""
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            last_exception: Optional[Exception] = None
-            for attempt in range(max_retries):
-                try:
-                    return func(*args, **kwargs)
-                except (requests.RequestException, requests.Timeout) as e:
-                    last_exception = e
-                    wait_time = backoff_factor * (2 ** attempt)
-                    logger.warning(f"Request failed (attempt {attempt + 1}/{max_retries}): {e}. Retrying in {wait_time}s...")
-                    time.sleep(wait_time)
-            logger.error(f"All {max_retries} attempts failed: {last_exception}")
-            if last_exception:
-                raise last_exception
-            raise RuntimeError("Unexpected retry failure")
-        return wrapper
-    return decorator
-
-@retry_request(max_retries=3, backoff_factor=1.0)
-def fetch_url(url: str, timeout: int = 15) -> dict:
-    """Fetch URL with retry logic."""
-    response = requests.get(url, timeout=timeout)
-    response.raise_for_status()
-    return response.json()
-
-def fetch_espn_scoreboard(league: str, date_str: str, timeout: int = 15) -> dict:
-    """Fetch scoreboard from ESPN API - approved data source only."""
-    urls = {
-        "NBA": f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={date_str}",
-        "CBB": f"https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates={date_str}&limit=500&groups=50"
-    }
-    
-    url = urls.get(league)
-    if not url:
-        raise ValueError(f"Invalid league: {league}")
-    
-    return fetch_url(url, timeout)
 
 espn_teams_cache: dict = {}  # league -> {team_name: team_id}
 espn_team_schedule_cache: dict = {}  # "YYYY-MM-DD:league:team_name" -> games list (date-keyed for daily refresh)
@@ -8442,11 +7361,17 @@ def dashboard():
     # TOTALS QUALIFICATION: Edge threshold ONLY (L5/L20/DEF EDGE are badges, not filters)
     # Badges are displayed for extra confidence but don't affect qualification
     logger.info(f"TOTALS qualified by edge threshold: {len(qualified)} games")
-    
-    # Sort qualified totals by effective edge (alt if available, else main)
-    qualified.sort(key=lambda x: x.alt_edge or x.edge or 0, reverse=True)
-    
-    # LOCK OF THE DAY = highest edge totals pick
+
+    # Brain-adjusted edge: brain boost only affects sort order, not displayed numbers
+    def _brain_adjusted_edge(g):
+        base = g.alt_edge or g.edge or 0
+        boost = g.brain_edge_boost if g.brain_edge_boost is not None else 0
+        return base + boost
+
+    # Sort qualified totals by brain-adjusted edge (alt if available, else main)
+    qualified.sort(key=_brain_adjusted_edge, reverse=True)
+
+    # LOCK OF THE DAY = highest brain-adjusted edge totals pick
     supermax_lock = qualified[0] if qualified else None
     
     # All qualified games (totals only)
@@ -8512,9 +7437,9 @@ def dashboard():
     # No weighted scores, no model bonuses, no confidence tiers
     # Pure formula: Difference = Projected_Total - Bovada_Line
     
-    # TOP 5: Games qualified by edge threshold (sorted by edge)
-    # Sort by edge before taking top 5
-    qualified.sort(key=lambda x: x.alt_edge or x.edge or 0, reverse=True)
+    # TOP 5: Games qualified by edge threshold (sorted by brain-adjusted edge)
+    # Sort by brain-adjusted edge before taking top 5
+    qualified.sort(key=_brain_adjusted_edge, reverse=True)
     
     # FETCH L5 STATS for NBA games and KenPom breakdown for CBB games
     # Pre-cache data to avoid API calls during template render
@@ -10161,20 +9086,6 @@ def compute_cbb_matchup_breakdown(away_team: str, home_team: str) -> dict:
     return result
 
 
-def is_top_25_cbb(team_name: str) -> bool:
-    """Check if a CBB team is ranked in KenPom Top 25."""
-    tv = get_torvik_team(team_name)
-    if tv and tv.get('rank', 999) <= 25:
-        return True
-    return False
-
-def get_cbb_team_rank(team_name: str) -> int:
-    """Get CBB team KenPom ranking (1-365)."""
-    tv = get_torvik_team(team_name)
-    if tv:
-        return tv.get('rank', 999)
-    return 999
-
 def get_kenpom_rank(team_name: str) -> int:
     """Get KenPom efficiency ranking (1-365) for any CBB team."""
     tv = get_torvik_team(team_name)
@@ -11163,17 +10074,30 @@ def fetch_games():
     logger.info(f"Games fetch complete in {fetch_time:.2f}s: {games_added} games added")
 
     odds_result = fetch_odds_internal()
+    vsin_result = fetch_vsin_internal()
     history_result = fetch_history_internal()
-    
+
+    # Run brain analysis in background (non-blocking)
+    if AI_BRAINS_AVAILABLE:
+        def _bg_brain_analysis():
+            try:
+                with app.app_context():
+                    run_brain_analysis()
+            except Exception as e:
+                logger.warning(f"Background brain analysis: {e}")
+        threading.Thread(target=_bg_brain_analysis, daemon=True).start()
+
     total_time = time.time() - start_time
     logger.info(f"Total fetch_games completed in {total_time:.2f}s")
-    
+
     return jsonify({
-        "success": True, 
-        "games_added": games_added, 
+        "success": True,
+        "games_added": games_added,
         "leagues_cleared": leagues_cleared,
         "lines_updated": odds_result.get("lines_updated", 0),
         "alt_lines_found": odds_result.get("alt_lines_found", 0),
+        "vsin_updated": vsin_result.get("vsin_updated", 0),
+        "rlm_found": vsin_result.get("rlm_found", 0),
         "history_checked": history_result.get("games_checked", 0),
         "fetch_time_seconds": round(total_time, 2)
     })
@@ -11668,10 +10592,228 @@ def fetch_odds():
     """Route wrapper for fetch_odds_internal."""
     return jsonify(fetch_odds_internal())
 
+@app.route('/fetch_vsin', methods=['POST'])
+def fetch_vsin():
+    """Route wrapper for fetch_vsin_internal."""
+    return jsonify(fetch_vsin_internal())
+
+def fetch_vsin_internal() -> dict:
+    """Fetch VSIN betting splits + line tracker data and persist to Game DB columns."""
+    import html as html_mod
+    start_time = time.time()
+
+    et = pytz.timezone('America/New_York')
+    today = datetime.now(et).date()
+
+    games = Game.query.filter_by(date=today).all()
+    if not games:
+        return {"success": True, "vsin_updated": 0, "rlm_found": 0}
+
+    # Determine which leagues have games today
+    leagues_today = set(g.league for g in games if g.league in ('NBA', 'CBB', 'NHL'))
+
+    # Fetch VSIN data for each league
+    vsin_all_data = {}
+    for league in leagues_today:
+        try:
+            vsin_all_data[league] = MatchupIntelligence.fetch_rlm_data(league)
+        except Exception as e:
+            logger.warning(f"VSIN fetch failed for {league}: {e}")
+            vsin_all_data[league] = {}
+
+    if not any(vsin_all_data.values()):
+        return {"success": True, "vsin_updated": 0, "rlm_found": 0, "reason": "no_vsin_data"}
+
+    def _teams_match(vsin_team: str, game_team: str, league: str) -> bool:
+        """Fuzzy match a VSIN team name against a Game DB team name."""
+        if not vsin_team or not game_team:
+            return False
+        vsin_lower = html_mod.unescape(vsin_team.lower().strip())
+        game_lower = html_mod.unescape(game_team.lower().strip())
+        # Exact
+        if vsin_lower == game_lower:
+            return True
+        # Canonical via team_identity
+        vsin_canonical = identity_normalize(vsin_lower, league)
+        game_canonical = identity_normalize(game_lower, league)
+        if vsin_canonical and game_canonical and vsin_canonical == game_canonical:
+            return True
+        # CBB alias lookup
+        if league == 'CBB':
+            vsin_alias = CBB_TEAM_NAME_ALIASES.get(vsin_lower, '').lower()
+            game_alias = CBB_TEAM_NAME_ALIASES.get(game_lower, '').lower()
+            if vsin_alias and vsin_alias == game_lower:
+                return True
+            if game_alias and game_alias == vsin_lower:
+                return True
+            if vsin_alias and game_alias and vsin_alias == game_alias:
+                return True
+        # Normalized basic
+        def _norm(n):
+            import re as re_mod
+            n = n.lower().strip().replace("'", '').replace('-', ' ').replace('  ', ' ')
+            n = re_mod.sub(r'\bst\b', 'state', n)
+            n = n.replace('st.', 'state').replace('univ.', '').replace('university', '').replace('  ', ' ')
+            return n.strip()
+        vsin_norm = _norm(vsin_lower)
+        game_norm = _norm(game_lower)
+        if vsin_norm == game_norm:
+            return True
+        # Token overlap (4+ char tokens)
+        vsin_tokens = {t for t in vsin_norm.split() if len(t) >= 4}
+        game_tokens = {t for t in game_norm.split() if len(t) >= 4}
+        if vsin_tokens and game_tokens and vsin_tokens & game_tokens:
+            return True
+        # Substring
+        if len(vsin_norm) >= 4 and len(game_norm) >= 4:
+            if vsin_norm in game_norm or game_norm in vsin_norm:
+                return True
+        return False
+
+    def _match_game_to_vsin(game, vsin_data: dict, league: str) -> dict:
+        """Find matching VSIN entry for a game."""
+        for key, data in vsin_data.items():
+            vsin_away = data.get('away_team', '')
+            vsin_home = data.get('home_team', '')
+            if not vsin_away or not vsin_home:
+                if ' @ ' in key:
+                    parts = key.split(' @ ')
+                    if len(parts) == 2:
+                        vsin_away = parts[0].strip()
+                        vsin_home = parts[1].strip()
+            if _teams_match(vsin_away, game.away_team, league) and _teams_match(vsin_home, game.home_team, league):
+                return data
+        return {}
+
+    vsin_updated = 0
+    rlm_found = 0
+
+    for game in games:
+        vsin_data = vsin_all_data.get(game.league, {})
+        if not vsin_data:
+            continue
+
+        match = _match_game_to_vsin(game, vsin_data, game.league)
+        if not match:
+            continue
+
+        # Persist betting splits
+        try:
+            tickets_away = match.get('tickets_away')
+            tickets_home = match.get('tickets_home')
+            money_away = match.get('money_away')
+            money_home = match.get('money_home')
+
+            if tickets_away is not None:
+                game.away_tickets_pct = float(tickets_away)
+            if tickets_home is not None:
+                game.home_tickets_pct = float(tickets_home)
+            if money_away is not None:
+                game.away_money_pct = float(money_away)
+            if money_home is not None:
+                game.home_money_pct = float(money_home)
+
+            # Totals splits
+            over_bet = match.get('over_bet_pct')
+            under_bet = match.get('under_bet_pct')
+            over_money = match.get('over_money_pct')
+            under_money = match.get('under_money_pct')
+            game.over_tickets_pct = float(over_bet) if over_bet is not None else 50
+            game.under_tickets_pct = float(under_bet) if under_bet is not None else 50
+            game.over_money_pct = float(over_money) if over_money is not None else 50
+            game.under_money_pct = float(under_money) if under_money is not None else 50
+
+            # Opening spread (only set if NULL — preserve first-seen value)
+            open_spread = match.get('open_away_spread')
+            if open_spread is not None and game.opening_spread is None:
+                try:
+                    game.opening_spread = float(open_spread)
+                except (ValueError, TypeError):
+                    pass
+
+            # Current/closed spread
+            current_spread = match.get('current_away_spread')
+            if current_spread is not None:
+                try:
+                    game.closed_spread = float(current_spread)
+                except (ValueError, TypeError):
+                    pass
+
+            # Opening total (only set if NULL)
+            open_total = match.get('total_open_line')
+            if open_total is not None and open_total != 'N/A' and game.opening_total is None:
+                try:
+                    game.opening_total = float(open_total)
+                except (ValueError, TypeError):
+                    pass
+
+            # Closed total
+            closed_total = match.get('total_current_line')
+            if closed_total is not None and closed_total != 'N/A':
+                try:
+                    game.closed_total = float(closed_total)
+                except (ValueError, TypeError):
+                    pass
+
+            # Apply VSIN's pre-computed RLM detection
+            if match.get('spread_rlm_detected'):
+                game.rlm_detected = True
+                game.rlm_sharp_side = match.get('spread_rlm_sharp_side', '')
+                # Build explanation from VSIN data
+                majority_pct = match.get('majority_pct', '')
+                majority_team = match.get('majority_team', '')
+                movement_val = match.get('line_movement_value')
+                if majority_pct and majority_team and movement_val is not None:
+                    game.rlm_explanation = f"RLM: {majority_pct}% money on {majority_team}, but line moved {abs(float(movement_val)):.1f} pts toward {game.rlm_sharp_side}"
+                else:
+                    game.rlm_explanation = f"RLM detected: sharp money on {game.rlm_sharp_side}"
+                # Derive confidence from money divergence
+                try:
+                    money_diff = abs(float(money_away or 50) - float(money_home or 50))
+                    game.rlm_confidence = min(100, 50 + money_diff)
+                    game.rlm_severity = 'extreme' if money_diff >= 30 else ('strong' if money_diff >= 15 else 'moderate')
+                except (ValueError, TypeError):
+                    game.rlm_confidence = 60
+                    game.rlm_severity = 'moderate'
+                rlm_found += 1
+
+            if match.get('totals_rlm_detected'):
+                game.totals_rlm_detected = True
+                game.totals_rlm_sharp_side = match.get('totals_rlm_sharp_side', '')
+                try:
+                    over_m = float(over_money or 50)
+                    under_m = float(under_money or 50)
+                    totals_diff = abs(over_m - under_m)
+                    game.totals_rlm_confidence = min(100, 50 + totals_diff)
+                    game.totals_rlm_severity = 'extreme' if totals_diff >= 30 else ('strong' if totals_diff >= 15 else 'moderate')
+                except (ValueError, TypeError):
+                    game.totals_rlm_confidence = 60
+                    game.totals_rlm_severity = 'moderate'
+                game.totals_rlm_explanation = f"Totals RLM: sharp money on {game.totals_rlm_sharp_side}"
+
+            # Also run standalone RLM detector (uses DB columns we just set)
+            calculate_rlm(game)
+
+            vsin_updated += 1
+        except Exception as e:
+            logger.warning(f"VSIN persist error for {game.away_team}@{game.home_team}: {e}")
+            continue
+
+    try:
+        db.session.commit()
+        logger.info(f"VSIN data persisted: {vsin_updated} games updated, {rlm_found} RLM detected in {time.time() - start_time:.2f}s")
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"VSIN commit failed: {e}")
+        return {"success": False, "vsin_updated": 0, "rlm_found": 0, "reason": str(e)}
+
+    return {"success": True, "vsin_updated": vsin_updated, "rlm_found": rlm_found}
+
+
 def fetch_history_internal() -> dict:
     """
     BULLETPROOF: Batch historical data updates with checkpointing.
-    
+
     Improvements:
     - Batch commits every 5 games (faster than individual commits)
     - Checkpoint logging for progress tracking
@@ -11765,39 +10907,6 @@ def test_historical_lines():
         })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
-
-@app.route('/api/performance_metrics')
-def performance_metrics_api():
-    """View performance metrics for monitoring."""
-    metrics = {}
-    
-    for operation, measurements in _performance_metrics.items():
-        if not measurements:
-            continue
-        
-        durations = [m['duration'] for m in measurements]
-        
-        metrics[operation] = {
-            'count': len(durations),
-            'avg_ms': round(sum(durations) / len(durations) * 1000, 1),
-            'min_ms': round(min(durations) * 1000, 1),
-            'max_ms': round(max(durations) * 1000, 1),
-        }
-        
-        if len(durations) >= 20:
-            sorted_durations = sorted(durations)
-            p95_index = int(len(sorted_durations) * 0.95)
-            metrics[operation]['p95_ms'] = round(sorted_durations[p95_index] * 1000, 1)
-    
-    return jsonify({
-        'success': True,
-        'metrics': metrics,
-        'cache_stats': {
-            'dashboard_cached': get_cached_dashboard() is not None,
-            'team_stats_size': len(_team_stats_cache),
-            'historical_size': len(_historical_cache),
-        }
-    })
 
 @app.route('/api/dashboard_data')
 def dashboard_data_api():
@@ -15803,9 +14912,42 @@ ON CONFLICT DO NOTHING;"""
     return Response('\n'.join(sql_statements), mimetype='text/plain')
 
 
+@app.route('/run_brains', methods=['POST'])
+def run_brains():
+    """Manually trigger brain analysis. Returns JSON results."""
+    if not AI_BRAINS_AVAILABLE:
+        return jsonify({"success": False, "message": "AI brains not available"})
+    try:
+        result = run_brain_analysis()
+        return jsonify({"success": True, **result})
+    except Exception as e:
+        logger.error(f"Manual brain analysis error: {e}")
+        return jsonify({"success": False, "message": str(e)})
+
+
+@app.route('/model_status', methods=['GET'])
+def model_status():
+    """AI system status — loaded models, brain availability."""
+    status = {
+        "ai_brains_available": AI_BRAINS_AVAILABLE,
+        "models": {}
+    }
+    if AI_BRAINS_AVAILABLE:
+        status["models"] = ensemble_predictor.get_model_status()
+    return jsonify(status)
+
+
 with app.app_context():
     db.create_all()
-    
+
+    # Load AI ensemble models on startup (graceful — no impact if models don't exist)
+    if AI_BRAINS_AVAILABLE:
+        try:
+            ensemble_predictor.load_all_models()
+            logger.info("AI ensemble models loaded on startup")
+        except Exception as e:
+            logger.info(f"AI model loading skipped: {e}")
+
     # On startup, check and load games for today
     et = pytz.timezone('America/New_York')
     today = datetime.now(et).date()
