@@ -2,13 +2,10 @@ import os
 import logging
 import re
 import time
-import statistics
 import threading
-from collections import defaultdict
 from datetime import datetime, date, timedelta
 from typing import Tuple, Optional, List, Dict
 from dataclasses import dataclass
-from functools import wraps
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from enum import Enum
 from math import radians, sin, cos, sqrt, atan2
@@ -21,14 +18,11 @@ from sqlalchemy import delete
 import requests
 import pytz
 from bs4 import BeautifulSoup
-from enhanced_scraping import get_cbb_logo, CBB_TEAM_LOGOS, CBB_TEAM_NAME_ALIASES, normalize_cbb_team_name, get_all_team_aliases, get_covers_matchup_stats, scrape_covers_cbb_slate, scrape_kenpom_team_metrics, get_cbb_slate_with_kenpom
-from team_identity import normalize_team_name as identity_normalize, CBB_CANONICAL_ALIASES, NBA_CANONICAL_ALIASES
+from enhanced_scraping import get_cbb_logo, CBB_TEAM_NAME_ALIASES, normalize_cbb_team_name, get_all_team_aliases, get_covers_matchup_stats
+from team_identity import normalize_team_name as identity_normalize
 from automated_loading_system import (
     setup_automatic_loading,
     get_transparent_cbb_logo,
-    CBB_TEAM_LOGOS_COMPLETE,
-    TeamRankingsScraper,
-    EliminationFilterSystem
 )
 
 # AI Brain imports (graceful fallback — app works exactly as before if unavailable)
@@ -364,9 +358,8 @@ def add_cache_headers(response):
     return response
 
 class GameConstants:
-    """Centralized configuration for all magic numbers and thresholds."""
-    
-    # Edge thresholds by league
+    """Centralized configuration for thresholds."""
+
     EDGE_THRESHOLDS = {
         "NBA": 8.0,
         "CBB": 8.0,
@@ -374,82 +367,10 @@ class GameConstants:
         "CFB": 3.5,
         "NHL": 0.5
     }
-    
-    # Minimum games for analysis by league
-    MIN_GAMES = {
-        "NBA": 8,
-        "CBB": 8,
-        "NFL": 4,
-        "CFB": 4,
-        "NHL": 8
-    }
-    MIN_GAMES_DEFAULT = 5
-    
-    # Confidence tier thresholds
-    SUPERMAX_EDGE = 12.0
-    HIGH_EDGE = 10.0
-    MEDIUM_EDGE = 8.0
-    
-    # History qualification rates
-    HISTORY_QUALIFY_RATE = 0.60
-    SUPERMAX_HISTORY_RATE = 0.70
-    HIGH_HISTORY_RATE = 0.65
-    
-    # Retry configuration
-    RETRY_MAX_ATTEMPTS = 3
-    RETRY_BASE_DELAY = 0.3
-    RETRY_BACKOFF_MULTIPLIER = 2
-    
-    # API timeouts
-    API_TIMEOUT_DEFAULT = 15
-    API_TIMEOUT_SCOREBOARD = 30
-    API_TIMEOUT_LONG = 60
-    
-    # Cache TTLs (seconds)
-    CACHE_TTL_LIVE_SCORES = 15
-    CACHE_TTL_TEAM_STATS = 3600
-    CACHE_TTL_HISTORICAL = 43200
-    CACHE_TTL_SCHEDULE = 43200
-    CACHE_TTL_OPENING_LINE = 86400
+
     CACHE_TTL_CTG = 14400  # 4 hours for CTG data
-    CACHE_TTL_PRE_GAME = 86400  # 24 hours for pre-game stats
-    
-    # Rate limits (requests per second)
-    RATE_LIMIT_ESPN = 5
-    RATE_LIMIT_ODDS_API = 2
-    
-    # Cache sizes
-    CACHE_SIZE_DEFAULT = 500
 
 THRESHOLDS = GameConstants.EDGE_THRESHOLDS
-
-# Extended thresholds for spread betting and sharp detection
-EXTENDED_THRESHOLDS = {
-    'NBA': {
-        'total_edge': 8.0,
-        'spread_edge': 3.5,
-        'min_ev': 3.0,
-        'sharp_threshold': 10.0,
-        'max_spread': 10.0,
-        'min_handle_avoid': 80
-    },
-    'CBB': {
-        'total_edge': 8.0,
-        'spread_edge': 3.5,
-        'min_ev': 3.0,
-        'sharp_threshold': 10.0,
-        'max_spread': 10.0,
-        'min_handle_avoid': 80
-    },
-    'NHL': {
-        'total_edge': 0.5,
-        'spread_edge': 0.5,
-        'min_ev': 2.5,
-        'sharp_threshold': 10.0,
-        'max_spread': 2.0,
-        'min_handle_avoid': 80
-    }
-}
 
 CBB_SPREAD_THRESHOLD = 4.0  # Lowered from 8.0 - professional edge is typically 2-4pts for spreads
 
@@ -630,27 +551,6 @@ def calculate_rlm(game) -> bool:
         game.rlm_detected = True
     
     return rlm_detected
-
-
-def get_nba_abbr(team_name: str) -> str:
-    """Get NBA team abbreviation."""
-    abbr_map = {
-        'hawks': 'atl', 'celtics': 'bos', 'nets': 'bkn',
-        'hornets': 'cha', 'bulls': 'chi', 'cavaliers': 'cle',
-        'mavericks': 'dal', 'nuggets': 'den', 'pistons': 'det',
-        'warriors': 'gs', 'rockets': 'hou', 'pacers': 'ind',
-        'clippers': 'lac', 'lakers': 'lal', 'grizzlies': 'mem',
-        'heat': 'mia', 'bucks': 'mil', 'timberwolves': 'min',
-        'pelicans': 'no', 'knicks': 'ny', 'thunder': 'okc',
-        'magic': 'orl', '76ers': 'phi', 'suns': 'phx',
-        'blazers': 'por', 'kings': 'sac', 'spurs': 'sa',
-        'raptors': 'tor', 'jazz': 'utah', 'wizards': 'wsh'
-    }
-    team_lower = team_name.lower()
-    for key, abbr in abbr_map.items():
-        if key in team_lower:
-            return abbr
-    return ''
 
 
 class MatchupIntelligence:
@@ -3388,9 +3288,6 @@ class TTLCache:
     def __len__(self):
         return len(self.cache)
 
-    def clear(self):
-        self.cache.clear()
-
 line_movement_cache = TTLCache(maxsize=500, ttl=43200)
 opening_lines_store = TTLCache(maxsize=500, ttl=86400)
 espn_schedule_cache = TTLCache(maxsize=500, ttl=43200)
@@ -3437,7 +3334,6 @@ class RateLimiter:
             self.failure_count = max(0, self.failure_count - 1)
 
 espn_limiter = RateLimiter(requests_per_second=5)
-odds_api_limiter = RateLimiter(requests_per_second=2)
 
 class DataFetchError(Exception):
     """Custom exception for data fetch failures with context."""
@@ -3450,107 +3346,6 @@ def fetch_with_rate_limit(url, limiter, timeout=15):
     """Make HTTP request with rate limiting."""
     limiter.acquire()
     return requests.get(url, timeout=timeout)
-
-class LineMovementTracker:
-    """Track complete line movement history for CLV calculation."""
-    
-    def __init__(self):
-        self.movements = defaultdict(list)
-    
-    def record_line(self, event_id: str, line: float, timestamp=None, source: str = 'bovada'):
-        """Record line observation."""
-        if timestamp is None:
-            timestamp = datetime.now(pytz.timezone('America/New_York'))
-        self.movements[event_id].append({
-            'line': line,
-            'timestamp': timestamp,
-            'source': source
-        })
-    
-    def get_opening_line(self, event_id: str) -> Optional[float]:
-        """Get first recorded line for event."""
-        movements = self.movements.get(event_id, [])
-        return movements[0]['line'] if movements else None
-    
-    def get_closing_line(self, event_id: str) -> Optional[float]:
-        """Get last recorded line for event."""
-        movements = self.movements.get(event_id, [])
-        return movements[-1]['line'] if movements else None
-    
-    def get_clv(self, event_id: str, bet_line: float) -> Optional[dict]:
-        """
-        Calculate CLV - how much value captured vs closing line.
-        Positive CLV = bet better line than close
-        """
-        movements = self.movements.get(event_id, [])
-        if not movements:
-            return None
-        
-        opening_line = movements[0]['line']
-        closing_line = movements[-1]['line']
-        
-        clv = closing_line - bet_line
-        movement = closing_line - opening_line
-        
-        return {
-            'clv': clv,
-            'bet_line': bet_line,
-            'opening_line': opening_line,
-            'closing_line': closing_line,
-            'movement': movement,
-            'beat_close': clv > 0
-        }
-    
-    def clear_old_events(self, max_age_hours: int = 24):
-        """Clear events older than max_age_hours."""
-        et = pytz.timezone('America/New_York')
-        cutoff = datetime.now(et) - timedelta(hours=max_age_hours)
-        keys_to_remove = []
-        for event_id, movements in self.movements.items():
-            if movements and movements[-1]['timestamp'] < cutoff:
-                keys_to_remove.append(event_id)
-        for key in keys_to_remove:
-            del self.movements[key]
-
-line_tracker = LineMovementTracker()
-
-def game_has_started(pick) -> bool:
-    """Check if game has started based on game_start time."""
-    if not pick.game_start:
-        return False
-    et = pytz.timezone('America/New_York')
-    now = datetime.now(et)
-    if pick.game_start.tzinfo is None:
-        game_start = et.localize(pick.game_start)
-    else:
-        game_start = pick.game_start
-    return now >= game_start
-
-def update_pick_clv():
-    """Update CLV for picks that have closed."""
-    pending = Pick.query.filter(Pick.closing_line == None, Pick.opening_line != None).all()
-    updated = 0
-    
-    for pick in pending:
-        if not game_has_started(pick):
-            continue
-        
-        clv_data = line_tracker.get_clv(
-            str(pick.game_id) if pick.game_id else str(pick.id),
-            pick.opening_line
-        )
-        
-        if clv_data:
-            pick.closing_line = clv_data['closing_line']
-            pick.clv = clv_data['clv']
-            pick.line_moved_favor = clv_data['beat_close']
-            updated += 1
-    
-    if updated > 0:
-        db.session.commit()
-        logger.info(f"Updated CLV for {updated} picks")
-    
-    return updated
 
 class VigCalculator:
     """Handles all vig removal calculations for true edge computation"""
@@ -4913,23 +4708,6 @@ def calculate_recent_form_ppg(games: list) -> dict:
     
     return {"ppg": ppg, "opp_ppg": opp_ppg, "games_used": len(recent)}
 
-def calculate_blended_stats(season_ppg: float, season_opp: float, 
-                           recent_ppg: float, recent_opp: float,
-                           recent_weight: float = 0.6) -> Tuple[float, float]:
-    """
-    Blend season stats with recent form (default 60% recent, 40% season).
-    Returns: (blended_ppg, blended_opp_ppg)
-    """
-    if recent_ppg == 0 or recent_opp == 0:
-        return season_ppg, season_opp
-    
-    season_weight = 1 - recent_weight
-    
-    blended_ppg = (recent_ppg * recent_weight) + (season_ppg * season_weight)
-    blended_opp = (recent_opp * recent_weight) + (season_opp * season_weight)
-    
-    return blended_ppg, blended_opp
-
 DIRECTIONAL_PREFIXES = {'eastern', 'western', 'central', 'northern', 'southern', 
                          'southeast', 'southwest', 'northeast', 'northwest'}
 DIRECTIONAL_ABBREVS = {'e': 'eastern', 'w': 'western', 'c': 'central', 'n': 'northern', 
@@ -5081,122 +4859,6 @@ def teams_match(name1: str, name2: str) -> bool:
     if len(overlap) >= min(len(tokens1), len(tokens2)):
         return True
     return False
-
-class UniversalSpreadHandler:
-    """
-    Bulletproof spread extraction - works for ANY team (home or away) without confusion.
-    Gets spread for BOTH teams, validates they're mirror images, cross-checks with moneyline.
-    """
-    
-    @staticmethod
-    def extract_spread_data(away_team: str, home_team: str, bookmakers: list) -> Optional[dict]:
-        """
-        Extract spread data with FULL VALIDATION.
-        Returns standardized format with BOTH teams' perspectives.
-        """
-        if not bookmakers:
-            return None
-        
-        bovada_book = next((b for b in bookmakers if b.get("key") == "bovada"), None)
-        if not bovada_book:
-            return None
-        
-        markets = {m.get("key"): m for m in bovada_book.get("markets", [])}
-        
-        spreads_market = markets.get("spreads")
-        h2h_market = markets.get("h2h")
-        
-        if not spreads_market:
-            return None
-        
-        outcomes = spreads_market.get("outcomes", [])
-        
-        away_spread_outcome = None
-        home_spread_outcome = None
-        
-        for outcome in outcomes:
-            outcome_name = outcome.get("name", "")
-            if teams_match(outcome_name, away_team):
-                away_spread_outcome = outcome
-            elif teams_match(outcome_name, home_team):
-                home_spread_outcome = outcome
-        
-        if not away_spread_outcome or not home_spread_outcome:
-            logger.debug(f"Missing spread data for {away_team} @ {home_team}")
-            return None
-        
-        away_spread_raw = float(away_spread_outcome.get("point", 0))
-        home_spread_raw = float(home_spread_outcome.get("point", 0))
-        try:
-            away_odds = int(away_spread_outcome.get("price", -110))
-        except (ValueError, TypeError):
-            away_odds = -110
-        try:
-            home_odds = int(home_spread_outcome.get("price", -110))
-        except (ValueError, TypeError):
-            home_odds = -110
-        
-        away_ml = None
-        home_ml = None
-        if h2h_market:
-            h2h_outcomes = h2h_market.get("outcomes", [])
-            for h2h_out in h2h_outcomes:
-                h2h_name = h2h_out.get("name", "")
-                if teams_match(h2h_name, away_team):
-                    away_ml = h2h_out.get("price")
-                elif teams_match(h2h_name, home_team):
-                    home_ml = h2h_out.get("price")
-        
-        if abs(away_spread_raw + home_spread_raw) > 0.5:
-            logger.warning(f"SPREAD MISMATCH: {away_team}({away_spread_raw}) @ {home_team}({home_spread_raw})")
-        
-        if away_ml and home_ml:
-            if away_ml < home_ml:
-                favorite_team = away_team
-                underdog_team = home_team
-                favorite_location = 'away'
-            else:
-                favorite_team = home_team
-                underdog_team = away_team
-                favorite_location = 'home'
-        else:
-            if away_spread_raw < 0:
-                favorite_team = away_team
-                underdog_team = home_team
-                favorite_location = 'away'
-            else:
-                favorite_team = home_team
-                underdog_team = away_team
-                favorite_location = 'home'
-        
-        spread_data = {
-            'away_team': away_team,
-            'home_team': home_team,
-            'away_spread': away_spread_raw,
-            'home_spread': home_spread_raw,
-            'away_odds': away_odds,
-            'home_odds': home_odds,
-            'away_moneyline': away_ml,
-            'home_moneyline': home_ml,
-            'favorite': favorite_team,
-            'underdog': underdog_team,
-            'favorite_location': favorite_location,
-            'spread_magnitude': abs(away_spread_raw),
-            'spread_away_perspective': away_spread_raw,
-        }
-        
-        if away_ml and home_ml:
-            ml_says_away_fav = away_ml < home_ml
-            spread_says_away_fav = away_spread_raw < 0
-            
-            if ml_says_away_fav != spread_says_away_fav:
-                logger.warning(
-                    f"SPREAD/MONEYLINE MISMATCH: {away_team} @ {home_team} - "
-                    f"ML: {'Away fav' if ml_says_away_fav else 'Home fav'}, "
-                    f"Spread: {'Away fav' if spread_says_away_fav else 'Home fav'}"
-                )
-        
-        return spread_data
 
 class Game(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -5425,18 +5087,6 @@ class EloRating(db.Model):
         db.Index('idx_elo_team_league', 'team', 'league'),
         db.Index('idx_elo_league_rating', 'league', 'rating'),
     )
-
-class ModelTrainingLog(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    league = db.Column(db.String(10), nullable=False)
-    model_type = db.Column(db.String(20), nullable=False)
-    target = db.Column(db.String(20), nullable=False)
-    training_samples = db.Column(db.Integer)
-    validation_mae = db.Column(db.Float)
-    feature_importance = db.Column(db.Text)
-    model_path = db.Column(db.String(500))
-    is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 def parse_game_time_hour(game_time_str: str) -> Optional[int]:
     """Parse game time string and return hour in 24h format (ET)."""
@@ -5907,33 +5557,6 @@ def unified_spread_qualification(
     
     return result
 
-def american_to_decimal(odds: int) -> float:
-    """Convert American odds to decimal odds."""
-    if odds > 0:
-        return (odds / 100) + 1
-    else:
-        return (100 / abs(odds)) + 1
-
-def american_to_implied_prob(odds: int) -> float:
-    """Convert American odds to implied probability (no-vig)."""
-    if odds > 0:
-        return 100 / (odds + 100)
-    else:
-        return abs(odds) / (abs(odds) + 100)
-
-EV_THRESHOLD = 0.0  # Require positive EV (0% or better)
-
-def is_game_upcoming(game: Game) -> bool:
-    """Check if a game is upcoming (not finished)."""
-    if not game.game_time:
-        return True
-    time_str = game.game_time.lower()
-    finished_indicators = ['final', 'end', 'ft', 'aet', 'postponed', 'canceled', 'cancelled']
-    for indicator in finished_indicators:
-        if indicator in time_str:
-            return False
-    return True
-
 GAME_DURATION_HOURS = {
     'NBA': 2.5,
     'CBB': 2.5,
@@ -6378,48 +6001,6 @@ def fetch_team_last_10_games(team_name: str, league: str) -> list:
     except Exception as e:
         logger.error(f"Error fetching history for {team_name}: {e}")
         return []
-
-def fetch_all_team_histories_batch(games: list) -> dict:
-    """
-    BULLETPROOF: Fetch all team histories in parallel with deduplication.
-    Reduces 100+ sequential API calls to ~20 parallel calls with caching.
-    """
-    et = pytz.timezone('America/New_York')
-    today_str = datetime.now(et).strftime("%Y-%m-%d")
-    
-    unique_teams = {}
-    for g in games:
-        unique_teams[(g.away_team, g.league)] = None
-        unique_teams[(g.home_team, g.league)] = None
-    
-    results = {}
-    teams_to_fetch = []
-    
-    for (team, league) in unique_teams.keys():
-        cache_key = f"{today_str}:{league}:{team.lower()}"
-        cached = espn_schedule_cache.get(cache_key)
-        if cached is not None:
-            results[cache_key] = cached
-        else:
-            teams_to_fetch.append((team, league, cache_key))
-    
-    if teams_to_fetch:
-        logger.info(f"Batch fetching histories for {len(teams_to_fetch)} teams (skipping {len(results)} cached)")
-        with ThreadPoolExecutor(max_workers=10) as executor:
-            futures = {}
-            for (team, league, cache_key) in teams_to_fetch:
-                futures[executor.submit(fetch_team_last_10_games, team, league)] = cache_key
-            
-            for future in as_completed(futures):
-                cache_key = futures[future]
-                try:
-                    team_games = future.result()
-                    results[cache_key] = team_games
-                except Exception as e:
-                    logger.error(f"Batch fetch failed for {cache_key}: {e}")
-                    results[cache_key] = []
-    
-    return results
 
 def calculate_ou_hit_rate(games: list, direction: str, current_line: float = None) -> float:
     """
@@ -7745,13 +7326,6 @@ def api_live_lines(league='NBA'):
             'error': str(e),
             'lines': {}
         })
-
-@app.route('/api/covers_h2h/<int:game_id>')
-def api_covers_h2h(game_id):
-    """Get full H2H data from Covers.com - W/L, ATS, O/U with team logos and games."""
-    game = Game.query.get_or_404(game_id)
-    h2h_data = MatchupIntelligence.fetch_covers_full_h2h(game.away_team, game.home_team, game.league)
-    return jsonify(h2h_data)
 
 @app.route('/api/covers_live/<int:game_id>')
 def api_covers_live(game_id):
@@ -10887,147 +10461,28 @@ def fetch_history():
     result = fetch_history_internal()
     return jsonify({"success": True, **result})
 
-@app.route('/api/test_historical_lines', methods=['GET'])
-def test_historical_lines():
-    """Test endpoint for historical betting lines service."""
-    team = request.args.get('team', 'Lakers')
-    league = request.args.get('league', 'NBA')
-    direction = request.args.get('direction', 'O')
-    
-    try:
-        ou_data = historical_lines_service.calculate_ou_hit_rate_with_actual_lines(team, league, direction)
-        ats_data = historical_lines_service.calculate_ats_hit_rate(team, league)
-        
-        return jsonify({
-            "success": True,
-            "team": team,
-            "league": league,
-            "ou_data": ou_data,
-            "ats_data": ats_data
-        })
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
-
-@app.route('/api/dashboard_data')
-def dashboard_data_api():
-    """Fast API endpoint for AJAX dashboard updates."""
-    cached = get_cached_dashboard()
-    if cached:
-        return jsonify(cached)
-    
-    start = time.time()
-    et = pytz.timezone('America/New_York')
-    today = datetime.now(et).date()
-    
-    games = Game.query.filter_by(date=today).filter(
-        Game.is_qualified == True
-    ).all()
-    
-    games_data = []
-    for game in games:
-        games_data.append({
-            'id': game.id,
-            'matchup': f"{game.away_team} @ {game.home_team}",
-            'league': game.league,
-            'line': game.line,
-            'edge': game.edge,
-            'true_edge': game.true_edge,
-            'direction': game.direction,
-            'is_qualified': game.is_qualified,
-            'game_time': game.game_time,
-            'total_ev': game.total_ev,
-            'projected_total': game.projected_total,
-        })
-    
-    response_data = {
-        'success': True,
-        'games': games_data,
-        'timestamp': datetime.now(et).isoformat(),
-        'count': len(games_data)
-    }
-    
-    set_dashboard_cache(response_data)
-    
-    elapsed = time.time() - start
-    track_performance('dashboard_api', elapsed)
-    logger.info(f"Dashboard API: {len(games_data)} games in {elapsed*1000:.0f}ms")
-    
-    return jsonify(response_data)
-
-@app.route('/api/situational_stats')
-def situational_stats_api():
-    """View situational factor statistics."""
-    et = pytz.timezone('America/New_York')
-    today = datetime.now(et).date()
-    
-    recent_games = Game.query.filter(
-        Game.date >= today - timedelta(days=7),
-        Game.date <= today
-    ).all()
-    
-    stats = {
-        'total_games': len(recent_games),
-        'back_to_back_away': 0,
-        'back_to_back_home': 0,
-        'long_travel': 0,
-        'situational_adjustments': 0,
-        'total_adjustments_sum': 0.0,
-    }
-    
-    for game in recent_games:
-        if hasattr(game, 'is_back_to_back_away') and game.is_back_to_back_away:
-            stats['back_to_back_away'] += 1
-        if hasattr(game, 'is_back_to_back_home') and game.is_back_to_back_home:
-            stats['back_to_back_home'] += 1
-        if hasattr(game, 'travel_distance') and game.travel_distance and game.travel_distance >= 2000:
-            stats['long_travel'] += 1
-        if hasattr(game, 'situational_adjustment') and game.situational_adjustment:
-            if abs(game.situational_adjustment) >= 1.0:
-                stats['situational_adjustments'] += 1
-                stats['total_adjustments_sum'] += game.situational_adjustment
-    
-    if stats['total_games'] > 0:
-        stats['back_to_back_pct'] = round((stats['back_to_back_away'] + stats['back_to_back_home']) / stats['total_games'] * 100, 1)
-        stats['long_travel_pct'] = round(stats['long_travel'] / stats['total_games'] * 100, 1)
-        stats['adjusted_pct'] = round(stats['situational_adjustments'] / stats['total_games'] * 100, 1)
-        if stats['situational_adjustments'] > 0:
-            stats['avg_adjustment'] = round(stats['total_adjustments_sum'] / stats['situational_adjustments'], 2)
-    
-    return jsonify({
-        'success': True,
-        'period': '7 days',
-        'stats': stats
-    })
-
 def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_spread: bool = False, home_team: str = "", debug_game: str = "") -> tuple:
     """
     Find the best alternate line with NEGATIVE odds only (no + money).
     Odds must be between -200 and -100 (no positive odds, no worse than -200).
-    
-    For OVER totals: Find the LOWEST alt line (easier to hit)
-    For UNDER totals: Find the HIGHEST alt line (easier to hit)
-    For spreads: Find better number for the pick direction
-    
-    Returns (best_line, best_odds) or (None, None) if no valid line found.
     """
-    MAX_ODDS = -185  # Floor - no worse than -185, anything worse is not a lock
-    MIN_ODDS = -100  # No positive odds allowed
+    MAX_ODDS = -185
+    MIN_ODDS = -100
     candidates = []
-    all_valid_lines = []  # For debug logging
-    all_raw_lines = []  # ALL lines before any filtering
-    
+    all_valid_lines = []
+    all_raw_lines = []
+
     for outcome in outcomes:
         odds = outcome.get("price", 0)
         point = outcome.get("point")
         name = outcome.get("name", "")
-        
+
         if point is not None:
             all_raw_lines.append((point, odds, name))
-        
-        # Only accept negative odds between -180 and -100 (no + money)
+
         if point is None or odds < MAX_ODDS or odds > MIN_ODDS:
             continue
-        
+
         if is_spread:
             is_home_outcome = teams_match(name, home_team)
             if direction == "HOME" and not is_home_outcome:
@@ -11037,7 +10492,6 @@ def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_s
             all_valid_lines.append((point, odds, name))
             candidates.append((point, odds))
         else:
-            # Direction is stored as "O" or "U" in database
             is_over = direction in ("OVER", "O")
             is_under = direction in ("UNDER", "U")
             if is_over and name != "Over":
@@ -11045,21 +10499,17 @@ def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_s
             if is_under and name != "Under":
                 continue
             all_valid_lines.append((point, odds, name))
-            # For OVER: only keep lines LOWER than main (easier to hit)
-            # For UNDER: only keep lines HIGHER than main (easier to hit)
             if current_line:
                 if is_over and point >= current_line:
                     continue
                 if is_under and point <= current_line:
                     continue
             candidates.append((point, odds))
-    
-    # Log all valid lines for debugging
+
     if debug_game:
         is_over_dir = direction in ("OVER", "O")
         filter_name = "Over" if is_over_dir else "Under" if direction in ("UNDER", "U") else direction
         logger.info(f"Alt lines for {debug_game}: direction={direction}, main_line={current_line}")
-        # Show all raw lines that match the direction
         raw_matching = [x for x in all_raw_lines if filter_name in x[2] or is_spread]
         for line, odds, name in sorted(raw_matching, key=lambda x: x[0]):
             odds_status = "OK" if MAX_ODDS <= odds <= MIN_ODDS else f"FILTERED (odds={odds})"
@@ -11067,27 +10517,21 @@ def find_best_alt_line(outcomes: list, direction: str, current_line: float, is_s
         if all_valid_lines:
             logger.info(f"  Valid lines (passed odds filter): {sorted(all_valid_lines, key=lambda x: x[0])}")
         logger.info(f"  Candidates (passed line filter): {sorted(candidates, key=lambda x: x[0])}")
-    
+
     if not candidates:
         return None, None
-    
-    # For OVER: pick the LOWEST line (sort ascending)
-    # For UNDER: pick the HIGHEST line (sort descending)
-    # For AWAY spreads: pick HIGHEST line (more points = better value)
-    # For HOME spreads: pick LOWEST line (fewer points to give = better value)
+
     is_over = direction in ("OVER", "O")
     if is_spread:
         if direction == "AWAY":
-            # AWAY = underdog getting points, want HIGHEST number
             candidates.sort(key=lambda x: x[0], reverse=True)
         else:
-            # HOME = favorite giving points, want LOWEST (least negative)
             candidates.sort(key=lambda x: x[0], reverse=True)
     elif is_over:
-        candidates.sort(key=lambda x: x[0])  # Ascending - lowest first
+        candidates.sort(key=lambda x: x[0])
     else:
-        candidates.sort(key=lambda x: x[0], reverse=True)  # Descending - highest first
-    
+        candidates.sort(key=lambda x: x[0], reverse=True)
+
     best_line, best_odds = candidates[0]
     logger.info(f"  Selected: {best_line} ({best_odds})")
     return best_line, best_odds
@@ -11097,9 +10541,9 @@ def fetch_single_alt_line(game_info: dict, api_key: str) -> dict:
     game_id = game_info['id']
     event_id = game_info['event_id']
     sport_key = game_info['sport_key']
-    
+
     result = {'game_id': game_id, 'alt_total': None}
-    
+
     try:
         url = f"https://api.the-odds-api.com/v4/sports/{sport_key}/events/{event_id}/odds"
         params = {
@@ -11112,20 +10556,20 @@ def fetch_single_alt_line(game_info: dict, api_key: str) -> dict:
         resp = requests.get(url, params=params, timeout=15)
         if resp.status_code != 200:
             return result
-        
+
         data = resp.json()
         bookmakers = data.get("bookmakers", [])
         book = next((b for b in bookmakers if b.get("key") == "bovada"), None)
         if not book:
             return result
-        
+
         markets = book.get("markets", [])
         game_name = f"{game_info['away_team']}@{game_info['home_team']}"
-        
+
         for market in markets:
             market_key = market.get("key")
             outcomes = market.get("outcomes", [])
-            
+
             if market_key == "alternate_totals" and game_info['is_qualified'] and game_info['direction']:
                 alt_line, alt_odds = find_best_alt_line(
                     outcomes, game_info['direction'], game_info['line'], is_spread=False, debug_game=game_name
@@ -11135,7 +10579,7 @@ def fetch_single_alt_line(game_info: dict, api_key: str) -> dict:
                     logger.info(f"Alt total found: {game_name} {game_info['direction']}{alt_line} ({alt_odds})")
     except Exception as e:
         logger.error(f"Alt lines error for game {game_id}: {e}")
-    
+
     return result
 
 def fetch_alt_lines_internal() -> dict:
@@ -11144,33 +10588,33 @@ def fetch_alt_lines_internal() -> dict:
     if not api_key:
         logger.warning("No ODDS_API_KEY or API_KEY for alt lines fetch")
         return {"alt_lines_found": 0, "games_checked": 0}
-    
+
     et = pytz.timezone('America/New_York')
     today = datetime.now(et).date()
-    
+
     qualified_totals = Game.query.filter(
         Game.date == today,
         Game.is_qualified == True,
         Game.event_id.isnot(None)
     ).all()
-    
+
     logger.info(f"Alt lines: checking {len(qualified_totals)} qualified totals games (parallel)")
-    
+
     game_infos = [{
         'id': g.id, 'event_id': g.event_id, 'sport_key': g.sport_key,
         'away_team': g.away_team, 'home_team': g.home_team,
         'is_qualified': g.is_qualified, 'direction': g.direction, 'line': g.line
     } for g in qualified_totals if g.event_id and g.sport_key]
-    
+
     alt_lines_found = 0
     results = {}
-    
+
     with ThreadPoolExecutor(max_workers=10) as executor:
         futures = {executor.submit(fetch_single_alt_line, info, api_key): info['id'] for info in game_infos}
         for future in as_completed(futures):
             result = future.result()
             results[result['game_id']] = result
-    
+
     for game in qualified_totals:
         if game.id in results:
             r = results[game.id]
@@ -11180,7 +10624,7 @@ def fetch_alt_lines_internal() -> dict:
                 if game.projected_total is not None:
                     game.alt_edge = abs(game.projected_total - game.alt_total_line)
                     logger.info(f"Alt edge recalc: {game.away_team}@{game.home_team} main={game.edge:.1f} -> alt={game.alt_edge:.1f}")
-    
+
     db.session.commit()
     return {"alt_lines_found": alt_lines_found, "games_checked": len(qualified_totals)}
 
@@ -11573,168 +11017,6 @@ def api_history_data():
     })
 
 
-@app.route('/api/line_movement_updates')
-def api_line_movement_updates():
-    """
-    Fast API endpoint for line movement updates (betting action display).
-    Returns ONLY current lines for LINE MOVEMENT section.
-    Updates every 5 seconds - fast and efficient.
-    """
-    et = pytz.timezone('America/New_York')
-    today = datetime.now(et).date()
-    
-    games = Game.query.filter_by(date=today).all()
-    
-    result = {
-        'games': [
-            {
-                'id': g.id,
-                'away_team': g.away_team,
-                'home_team': g.home_team,
-                'current_spread': float(g.current_spread) if g.current_spread else (float(g.spread_line) if g.spread_line else None),
-                'current_total': float(g.current_total) if g.current_total else (float(g.line) if g.line else None),
-                'game_started': g.game_started if hasattr(g, 'game_started') else False
-            }
-            for g in games if g.away_team and g.home_team
-        ],
-        'timestamp': datetime.now(et).isoformat(),
-        'update_frequency': '5 seconds'
-    }
-    
-    return jsonify(result)
-
-@app.route('/api/win_rate_analytics')
-def win_rate_analytics():
-    """
-    Comprehensive win rate analytics by league, confidence tier, day of week, 
-    time window, and data source.
-    """
-    picks = Pick.query.filter(Pick.result.in_(['W', 'L', 'P'])).all()
-    
-    if not picks:
-        return jsonify({'success': True, 'message': 'No completed picks yet', 'analytics': {}})
-    
-    # Initialize analytics structure
-    analytics = {
-        'overall': {'wins': 0, 'losses': 0, 'pushes': 0, 'win_rate': 0, 'total': 0},
-        'by_league': {},
-        'by_confidence_tier': {'SUPERMAX': {'wins': 0, 'losses': 0}, 'HIGH': {'wins': 0, 'losses': 0}, 
-                               'MEDIUM': {'wins': 0, 'losses': 0}, 'LOW': {'wins': 0, 'losses': 0}},
-        'by_day_of_week': {day: {'wins': 0, 'losses': 0} for day in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']},
-        'by_pick_type': {'total': {'wins': 0, 'losses': 0}, 'spread': {'wins': 0, 'losses': 0}},
-        'by_time_window': {'EARLY': {'wins': 0, 'losses': 0}, 'MID': {'wins': 0, 'losses': 0}, 'LATE': {'wins': 0, 'losses': 0}},
-        'recent_streak': [],
-        'best_edge_threshold': None
-    }
-    
-    for league in ['NBA', 'CBB', 'NFL', 'CFB', 'NHL']:
-        analytics['by_league'][league] = {'wins': 0, 'losses': 0, 'pushes': 0}
-    
-    # Day name mapping
-    day_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-    
-    for pick in picks:
-        result = pick.result
-        league = pick.league or 'Unknown'
-        pick_type = getattr(pick, 'pick_type', None) or 'total'
-        
-        # Overall
-        if result == 'W':
-            analytics['overall']['wins'] += 1
-        elif result == 'L':
-            analytics['overall']['losses'] += 1
-        else:
-            analytics['overall']['pushes'] += 1
-        analytics['overall']['total'] += 1
-        
-        # By league
-        if league in analytics['by_league']:
-            if result == 'W':
-                analytics['by_league'][league]['wins'] += 1
-            elif result == 'L':
-                analytics['by_league'][league]['losses'] += 1
-            else:
-                analytics['by_league'][league]['pushes'] += 1
-        
-        # By pick type
-        ptype = 'spread' if pick_type == 'spread' else 'total'
-        if result == 'W':
-            analytics['by_pick_type'][ptype]['wins'] += 1
-        elif result == 'L':
-            analytics['by_pick_type'][ptype]['losses'] += 1
-        
-        # By day of week
-        if pick.date:
-            day_idx = pick.date.weekday()
-            day_name = day_names[day_idx]
-            if result == 'W':
-                analytics['by_day_of_week'][day_name]['wins'] += 1
-            elif result == 'L':
-                analytics['by_day_of_week'][day_name]['losses'] += 1
-        
-        # By time window
-        window = getattr(pick, 'game_window', None) or 'MID'
-        if window in analytics['by_time_window']:
-            if result == 'W':
-                analytics['by_time_window'][window]['wins'] += 1
-            elif result == 'L':
-                analytics['by_time_window'][window]['losses'] += 1
-        
-        # By confidence tier (estimate based on edge)
-        edge = pick.edge or 0
-        if edge >= 12:
-            tier = 'SUPERMAX'
-        elif edge >= 10:
-            tier = 'HIGH'
-        elif edge >= 8:
-            tier = 'MEDIUM'
-        else:
-            tier = 'LOW'
-        if result == 'W':
-            analytics['by_confidence_tier'][tier]['wins'] += 1
-        elif result == 'L':
-            analytics['by_confidence_tier'][tier]['losses'] += 1
-        
-    
-    # Calculate win rates
-    def calc_win_rate(wins, losses):
-        total = wins + losses
-        return round(wins / total * 100, 1) if total > 0 else 0
-    
-    analytics['overall']['win_rate'] = calc_win_rate(analytics['overall']['wins'], analytics['overall']['losses'])
-    
-    for league in analytics['by_league']:
-        d = analytics['by_league'][league]
-        d['win_rate'] = calc_win_rate(d['wins'], d['losses'])
-        d['total'] = d['wins'] + d['losses'] + d['pushes']
-    
-    for tier in analytics['by_confidence_tier']:
-        d = analytics['by_confidence_tier'][tier]
-        d['win_rate'] = calc_win_rate(d['wins'], d['losses'])
-        d['total'] = d['wins'] + d['losses']
-    
-    for day in analytics['by_day_of_week']:
-        d = analytics['by_day_of_week'][day]
-        d['win_rate'] = calc_win_rate(d['wins'], d['losses'])
-        d['total'] = d['wins'] + d['losses']
-    
-    for ptype in analytics['by_pick_type']:
-        d = analytics['by_pick_type'][ptype]
-        d['win_rate'] = calc_win_rate(d['wins'], d['losses'])
-        d['total'] = d['wins'] + d['losses']
-    
-    for window in analytics['by_time_window']:
-        d = analytics['by_time_window'][window]
-        d['win_rate'] = calc_win_rate(d['wins'], d['losses'])
-        d['total'] = d['wins'] + d['losses']
-    
-    
-    # Recent streak (last 20 picks)
-    recent = Pick.query.filter(Pick.result.in_(['W', 'L'])).order_by(Pick.date.desc()).limit(20).all()
-    analytics['recent_streak'] = [p.result for p in recent]
-    
-    return jsonify({'success': True, 'analytics': analytics})
-
 @app.route('/history')
 def history():
     """Display pick history with win/loss stats - TOTALS ONLY (Lock of the Day)."""
@@ -11794,22 +11076,6 @@ def bankroll():
 
 _nba_standings_cache = {'data': {}, 'timestamp': 0}
 _nba_team_stats_cache = {'data': {}, 'timestamp': 0}
-
-# Pre-game stats cache - persists ATS/L10 data even when games start
-# Key: game_id -> {away_ats, home_ats, away_l10, home_l10, away_l10_ats, home_l10_ats, timestamp}
-_pre_game_stats_cache = {}
-CACHE_TTL_PRE_GAME = 86400  # 24 hours - games don't last longer than this
-
-def _cleanup_pre_game_cache():
-    """Remove expired entries from pre-game stats cache."""
-    global _pre_game_stats_cache
-    now = time.time()
-    expired_keys = [k for k, v in _pre_game_stats_cache.items() 
-                    if now - v.get('timestamp', 0) > CACHE_TTL_PRE_GAME]
-    for k in expired_keys:
-        del _pre_game_stats_cache[k]
-    if expired_keys:
-        logging.info(f"Cleaned up {len(expired_keys)} expired pre-game cache entries")
 
 def get_nba_team_stats():
     """Fetch comprehensive NBA team stats including ATS, Last 10, Home/Road records."""
@@ -12050,10 +11316,7 @@ def spreads():
     """Spreads page - shows all upcoming games with spread data (no totals filtering)."""
     et = pytz.timezone('America/New_York')
     today = datetime.now(et).date()
-    
-    # Cleanup expired pre-game cache entries
-    _cleanup_pre_game_cache()
-    
+
     # Fetch standings for all leagues
     nba_standings = get_nba_standings()
     cbb_standings = get_cbb_standings()
@@ -13539,22 +12802,6 @@ def spreads():
                            cbb_remaining_teams=cbb_remaining_display,
                            team_colors=NBA_TEAM_COLORS)
 
-@app.route('/download/codebase_structure')
-def download_codebase_structure():
-    """Download the codebase structure CSV."""
-    from flask import send_file
-    return send_file('sports_app_structure.csv', as_attachment=True, download_name='sports_app_structure.csv')
-
-@app.route('/download/app')
-def download_app():
-    """Download the sports app zip file."""
-    from flask import send_file
-    import os
-    zip_path = os.path.join(os.path.dirname(__file__), 'static', 'downloads', 'sports_app_latest.zip')
-    if os.path.exists(zip_path):
-        return send_file(zip_path, as_attachment=True, download_name='sports_app_latest.zip')
-    return jsonify({'error': 'File not found'}), 404
-
 @app.route('/update_result/<int:pick_id>', methods=['POST'])
 def update_result(pick_id):
     pick = Pick.query.get_or_404(pick_id)
@@ -14451,466 +13698,6 @@ def get_matchup_data(game_id):
         result['last5_home'] = []
     
     return jsonify(result)
-
-@app.route('/api/deep_test')
-def deep_test():
-    """
-    7-LAYER DEEP VALIDATION TEST SUITE
-    Each layer goes progressively deeper into the bulletproof system.
-    """
-    results = []
-    
-    # ============================================================
-    # LAYER 1: EDGE THRESHOLD VALIDATION
-    # Tests league-specific edge thresholds
-    # ============================================================
-    layer1_tests = []
-    
-    # NBA: threshold = 8.0
-    nba_pass = MockGame(league='NBA', edge=8.5, is_qualified=True, history_qualified=True)
-    nba_fail = MockGame(league='NBA', edge=7.5, is_qualified=True, history_qualified=True)
-    r1 = BulletproofPickValidator.validate_pick(nba_pass, 'total')
-    r2 = BulletproofPickValidator.validate_pick(nba_fail, 'total')
-    layer1_tests.append({
-        "test": "NBA edge 8.5 >= 8.0",
-        "passed": r1['validated'],
-        "expected": True,
-        "details": r1['checks_passed'] if r1['validated'] else r1['checks_failed']
-    })
-    layer1_tests.append({
-        "test": "NBA edge 7.5 < 8.0",
-        "passed": not r2['validated'],
-        "expected": True,
-        "details": r2['checks_failed']
-    })
-    
-    # NFL: threshold = 3.5
-    nfl_pass = MockGame(league='NFL', edge=4.0, is_qualified=True, history_qualified=True)
-    nfl_fail = MockGame(league='NFL', edge=3.0, is_qualified=True, history_qualified=True)
-    r3 = BulletproofPickValidator.validate_pick(nfl_pass, 'total')
-    r4 = BulletproofPickValidator.validate_pick(nfl_fail, 'total')
-    layer1_tests.append({
-        "test": "NFL edge 4.0 >= 3.5",
-        "passed": r3['validated'],
-        "expected": True,
-        "details": r3['checks_passed'] if r3['validated'] else r3['checks_failed']
-    })
-    layer1_tests.append({
-        "test": "NFL edge 3.0 < 3.5",
-        "passed": not r4['validated'],
-        "expected": True,
-        "details": r4['checks_failed']
-    })
-    
-    # NHL: threshold = 0.5
-    nhl_pass = MockGame(league='NHL', edge=0.7, is_qualified=True, history_qualified=True)
-    nhl_fail = MockGame(league='NHL', edge=0.3, is_qualified=True, history_qualified=True)
-    r5 = BulletproofPickValidator.validate_pick(nhl_pass, 'total')
-    r6 = BulletproofPickValidator.validate_pick(nhl_fail, 'total')
-    layer1_tests.append({
-        "test": "NHL edge 0.7 >= 0.5",
-        "passed": r5['validated'],
-        "expected": True,
-        "details": r5['checks_passed'] if r5['validated'] else r5['checks_failed']
-    })
-    layer1_tests.append({
-        "test": "NHL edge 0.3 < 0.5",
-        "passed": not r6['validated'],
-        "expected": True,
-        "details": r6['checks_failed']
-    })
-    
-    layer1_passed = all(t['passed'] == t['expected'] for t in layer1_tests)
-    results.append({
-        "layer": 1,
-        "name": "EDGE THRESHOLD VALIDATION",
-        "status": "PASS" if layer1_passed else "FAIL",
-        "tests": layer1_tests
-    })
-    
-    # ============================================================
-    # LAYER 2: MODEL QUALIFICATION FLAGS (TOTALS ONLY)
-    # Tests is_qualified flags
-    # ============================================================
-    layer2_tests = []
-    
-    # Totals: is_qualified = True should pass
-    qual_pass = MockGame(is_qualified=True, history_qualified=True)
-    qual_fail = MockGame(is_qualified=False, history_qualified=True)
-    r1 = BulletproofPickValidator.validate_pick(qual_pass, 'total')
-    r2 = BulletproofPickValidator.validate_pick(qual_fail, 'total')
-    layer2_tests.append({
-        "test": "Totals: is_qualified=True passes",
-        "passed": r1['validated'],
-        "expected": True,
-        "details": r1['checks_passed']
-    })
-    layer2_tests.append({
-        "test": "Totals: is_qualified=False rejected",
-        "passed": not r2['validated'],
-        "expected": True,
-        "details": r2['checks_failed']
-    })
-    
-    layer2_passed = all(t['passed'] == t['expected'] for t in layer2_tests)
-    results.append({
-        "layer": 2,
-        "name": "MODEL QUALIFICATION FLAGS",
-        "status": "PASS" if layer2_passed else "FAIL",
-        "tests": layer2_tests
-    })
-    
-    # ============================================================
-    # LAYER 3: HISTORICAL QUALIFICATION (TOTALS ONLY)
-    # Tests history_qualified
-    # ============================================================
-    layer3_tests = []
-    
-    hist_pass = MockGame(is_qualified=True, history_qualified=True, away_ou_pct=70, home_ou_pct=65)
-    hist_fail = MockGame(is_qualified=True, history_qualified=False, away_ou_pct=55, home_ou_pct=50)
-    r1 = BulletproofPickValidator.validate_pick(hist_pass, 'total')
-    r2 = BulletproofPickValidator.validate_pick(hist_fail, 'total')
-    layer3_tests.append({
-        "test": "Totals: history_qualified=True (70% O/U) passes",
-        "passed": r1['validated'],
-        "expected": True,
-        "details": r1['checks_passed']
-    })
-    layer3_tests.append({
-        "test": "Totals: history_qualified=False rejected",
-        "passed": not r2['validated'],
-        "expected": True,
-        "details": r2['checks_failed']
-    })
-    
-    layer3_passed = all(t['passed'] == t['expected'] for t in layer3_tests)
-    results.append({
-        "layer": 3,
-        "name": "HISTORICAL QUALIFICATION",
-        "status": "PASS" if layer3_passed else "FAIL",
-        "tests": layer3_tests
-    })
-    
-    # ============================================================
-    # LAYER 4: EV VALIDATION
-    # Tests positive EV allowed, negative EV rejected, NULL allowed
-    # ============================================================
-    layer4_tests = []
-    
-    ev_positive = MockGame(total_ev=3.5, is_qualified=True, history_qualified=True)
-    ev_negative = MockGame(total_ev=-2.0, is_qualified=True, history_qualified=True)
-    ev_null = MockGame(total_ev=None, is_qualified=True, history_qualified=True)
-    
-    r1 = BulletproofPickValidator.validate_pick(ev_positive, 'total')
-    r2 = BulletproofPickValidator.validate_pick(ev_negative, 'total')
-    r3 = BulletproofPickValidator.validate_pick(ev_null, 'total')
-    
-    layer4_tests.append({
-        "test": "EV +3.5% allowed (passes)",
-        "passed": r1['validated'],
-        "expected": True,
-        "details": [c for c in r1['checks_passed'] if 'EV' in c]
-    })
-    layer4_tests.append({
-        "test": "EV -2.0% rejected",
-        "passed": not r2['validated'],
-        "expected": True,
-        "details": [c for c in r2['checks_failed'] if 'EV' in c]
-    })
-    layer4_tests.append({
-        "test": "EV NULL allowed (passes)",
-        "passed": r3['validated'],
-        "expected": True,
-        "details": [c for c in r3['checks_passed'] if 'EV' in c]
-    })
-    
-    # Edge case: EV = 0 should pass
-    ev_zero = MockGame(total_ev=0.0, is_qualified=True, history_qualified=True)
-    r4 = BulletproofPickValidator.validate_pick(ev_zero, 'total')
-    layer4_tests.append({
-        "test": "EV 0.0% allowed (edge case)",
-        "passed": r4['validated'],
-        "expected": True,
-        "details": [c for c in r4['checks_passed'] if 'EV' in c]
-    })
-    
-    layer4_passed = all(t['passed'] == t['expected'] for t in layer4_tests)
-    results.append({
-        "layer": 4,
-        "name": "EV VALIDATION",
-        "status": "PASS" if layer4_passed else "FAIL",
-        "tests": layer4_tests
-    })
-    
-    # ============================================================
-    # LAYER 5: TEAM NAME MATCHING
-    # Tests fuzzy matching and normalization
-    # ============================================================
-    layer5_tests = []
-    
-    # Test teams_match function - validates fuzzy matching accuracy
-    test_cases = [
-        ("North Carolina", "UNC", True),
-        ("Michigan State", "Michigan St", True),
-        ("Texas A&M", "Texas A&M Aggies", True),
-        ("Duke", "Duke Blue Devils", True),
-        ("Eastern Michigan", "Central Michigan", False),  # Different schools
-        ("Ohio State", "Ohio Bobcats", False),  # MUST NOT MATCH - distinct schools
-        ("Lakers", "LA Lakers", True),
-        ("Philadelphia 76ers", "76ers", True),
-    ]
-    
-    # Additional negative test cases - document known limitations
-    # Note: teams_match uses fuzzy matching which may match "Michigan" to "Michigan State"
-    # due to substring matching. This is a known limitation documented here.
-    
-    for team1, team2, expected_match in test_cases:
-        result = teams_match(team1, team2)
-        layer5_tests.append({
-            "test": f"'{team1}' vs '{team2}' -> {expected_match}",
-            "passed": result == expected_match,
-            "expected": True,
-            "details": f"teams_match returned {result}"
-        })
-    
-    layer5_passed = all(t['passed'] for t in layer5_tests)
-    results.append({
-        "layer": 5,
-        "name": "TEAM NAME MATCHING",
-        "status": "PASS" if layer5_passed else "FAIL",
-        "tests": layer5_tests
-    })
-    
-    # ============================================================
-    # LAYER 6: FULL INTEGRATION TEST (TOTALS ONLY)
-    # Tests complete workflow from validation to Discord payload
-    # ============================================================
-    layer6_tests = []
-    
-    # Create a set of mock games with varying qualifications
-    mock_games = [
-        MockGame(away_team="Lakers", home_team="Celtics", league="NBA",
-                 edge=12.5, total_ev=3.5, away_ou_pct=75, home_ou_pct=70,
-                 is_qualified=True, history_qualified=True),
-        MockGame(away_team="Chiefs", home_team="Bills", league="NFL",
-                 edge=4.5, total_ev=1.5, away_ou_pct=68, home_ou_pct=65,
-                 is_qualified=True, history_qualified=True),
-        MockGame(away_team="Bruins", home_team="Rangers", league="NHL",
-                 edge=0.3, total_ev=0.5, away_ou_pct=60, home_ou_pct=55,
-                 is_qualified=True, history_qualified=True),
-        MockGame(away_team="Duke", home_team="UNC", league="CBB",
-                 edge=9.0, total_ev=-1.5, away_ou_pct=65, home_ou_pct=60,
-                 is_qualified=True, history_qualified=True),
-    ]
-    
-    validation_results = BulletproofPickValidator.validate_all_picks(mock_games, pick_type='total')
-    
-    layer6_tests.append({
-        "test": "Lakers @ Celtics (edge 12.5, EV 3.5%) -> SUPERMAX tier",
-        "passed": any(p['game'] == "Lakers @ Celtics" and p['confidence_tier'] == "SUPERMAX" 
-                      for p in validation_results['validated_picks']),
-        "expected": True,
-        "details": f"Found in tier: {[p['confidence_tier'] for p in validation_results['validated_picks'] if 'Lakers' in p['game']]}"
-    })
-    
-    layer6_tests.append({
-        "test": "Chiefs @ Bills (NFL edge 4.5) -> validated",
-        "passed": any(p['game'] == "Chiefs @ Bills" for p in validation_results['validated_picks']),
-        "expected": True,
-        "details": "NFL pick with sufficient edge passes"
-    })
-    
-    layer6_tests.append({
-        "test": "Bruins @ Rangers (NHL edge 0.3 < 0.5) -> rejected",
-        "passed": any(p['game'] == "Bruins @ Rangers" for p in validation_results['rejected_picks']),
-        "expected": True,
-        "details": "NHL edge below threshold rejected"
-    })
-    
-    layer6_tests.append({
-        "test": "Duke @ UNC (negative EV -1.5%) -> rejected",
-        "passed": any(p['game'] == "Duke @ UNC" for p in validation_results['rejected_picks']),
-        "expected": True,
-        "details": "Negative EV pick rejected"
-    })
-    
-    layer6_tests.append({
-        "test": "Tier counts: SUPERMAX=1, validated=2, rejected=2",
-        "passed": (len(validation_results['by_tier']['SUPERMAX']) == 1 and
-                   len(validation_results['validated_picks']) == 2 and
-                   len(validation_results['rejected_picks']) == 2),
-        "expected": True,
-        "details": f"SUPERMAX: {len(validation_results['by_tier']['SUPERMAX'])}, " +
-                   f"validated: {len(validation_results['validated_picks'])}, " +
-                   f"rejected: {len(validation_results['rejected_picks'])}"
-    })
-    
-    layer6_passed = all(t['passed'] for t in layer6_tests)
-    results.append({
-        "layer": 6,
-        "name": "FULL INTEGRATION TEST (TOTALS)",
-        "status": "PASS" if layer6_passed else "FAIL",
-        "tests": layer6_tests
-    })
-    
-    # ============================================================
-    # LAYER 7: TIMEZONE VALIDATION
-    # Tests UTC to ET conversion for game start times (history page)
-    # ============================================================
-    layer7_tests = []
-    
-    et = pytz.timezone('America/New_York')
-    utc = pytz.UTC
-    now_et = datetime.now(et)
-    
-    # Test 1: Past game (UTC time that's definitely in the past)
-    past_game_utc = datetime(2020, 1, 1, 12, 0, 0)  # Jan 1, 2020 12:00 UTC
-    past_game_utc_tz = utc.localize(past_game_utc)
-    past_game_et = past_game_utc_tz.astimezone(et)
-    is_past = past_game_et <= now_et
-    layer7_tests.append({
-        "test": "UTC past game (2020-01-01 12:00 UTC) correctly identified as PAST",
-        "passed": is_past,
-        "expected": True,
-        "details": f"Converted: {past_game_et.strftime('%Y-%m-%d %H:%M %Z')}"
-    })
-    
-    # Test 2: Future game (UTC time that's definitely in the future)
-    future_game_utc = datetime(2030, 12, 31, 23, 59, 59)  # Dec 31, 2030 23:59 UTC
-    future_game_utc_tz = utc.localize(future_game_utc)
-    future_game_et = future_game_utc_tz.astimezone(et)
-    is_future = future_game_et > now_et
-    layer7_tests.append({
-        "test": "UTC future game (2030-12-31 23:59 UTC) correctly identified as UPCOMING",
-        "passed": is_future,
-        "expected": True,
-        "details": f"Converted: {future_game_et.strftime('%Y-%m-%d %H:%M %Z')}"
-    })
-    
-    # Test 3: UTC to ET offset is correct (UTC is always ahead of ET by 4-5 hours)
-    test_utc = datetime(2026, 1, 10, 17, 0, 0)  # 5:00 PM UTC
-    test_utc_tz = utc.localize(test_utc)
-    test_et = test_utc_tz.astimezone(et)
-    hour_diff = test_utc.hour - test_et.hour
-    # In winter (EST), UTC is 5 hours ahead; in summer (EDT), UTC is 4 hours ahead
-    correct_offset = hour_diff in [4, 5] or hour_diff in [-20, -19]  # Handle day wrap
-    layer7_tests.append({
-        "test": "UTC to ET offset is 4-5 hours (EST/EDT)",
-        "passed": correct_offset,
-        "expected": True,
-        "details": f"17:00 UTC -> {test_et.strftime('%H:%M %Z')} (diff: {hour_diff}h)"
-    })
-    
-    # Test 4: Naive datetime treated as UTC (not ET)
-    naive_dt = datetime(2026, 6, 15, 18, 0, 0)  # 6:00 PM naive (should be UTC)
-    naive_as_utc = naive_dt.replace(tzinfo=utc)
-    naive_to_et = naive_as_utc.astimezone(et)
-    # 18:00 UTC in summer (EDT) = 14:00 ET (2:00 PM)
-    correct_conversion = naive_to_et.hour == 14  # 6 PM UTC = 2 PM EDT
-    layer7_tests.append({
-        "test": "Naive datetime (18:00) treated as UTC, converts to 14:00 EDT",
-        "passed": correct_conversion,
-        "expected": True,
-        "details": f"Naive 18:00 -> {naive_to_et.strftime('%H:%M %Z')}"
-    })
-    
-    # Test 5: Game that just started (1 minute ago) is NOT upcoming
-    one_min_ago_et = now_et - timedelta(minutes=1)
-    one_min_ago_utc = one_min_ago_et.astimezone(utc)
-    reconverted_et = one_min_ago_utc.astimezone(et)
-    is_started = reconverted_et <= now_et
-    layer7_tests.append({
-        "test": "Game started 1 min ago is correctly NOT upcoming",
-        "passed": is_started,
-        "expected": True,
-        "details": f"Started at {reconverted_et.strftime('%H:%M:%S %Z')}, now {now_et.strftime('%H:%M:%S %Z')}"
-    })
-    
-    # Test 6: Game starting in 1 hour IS upcoming
-    one_hour_later_et = now_et + timedelta(hours=1)
-    one_hour_later_utc = one_hour_later_et.astimezone(utc)
-    reconverted_et2 = one_hour_later_utc.astimezone(et)
-    is_upcoming = reconverted_et2 > now_et
-    layer7_tests.append({
-        "test": "Game starting in 1 hour is correctly UPCOMING",
-        "passed": is_upcoming,
-        "expected": True,
-        "details": f"Starts at {reconverted_et2.strftime('%H:%M:%S %Z')}, now {now_et.strftime('%H:%M:%S %Z')}"
-    })
-    
-    layer7_passed = all(t['passed'] for t in layer7_tests)
-    results.append({
-        "layer": 7,
-        "name": "TIMEZONE VALIDATION",
-        "status": "PASS" if layer7_passed else "FAIL",
-        "tests": layer7_tests
-    })
-    
-    # ============================================================
-    # SUMMARY
-    # ============================================================
-    all_passed = all(r['status'] == 'PASS' for r in results)
-    total_tests = sum(len(r['tests']) for r in results)
-    passed_tests = sum(1 for r in results for t in r['tests'] if t.get('passed', False))
-    
-    return jsonify({
-        "overall_status": "ALL PASS" if all_passed else "SOME FAILED",
-        "summary": f"{passed_tests}/{total_tests} tests passed",
-        "layers": results
-    })
-
-
-@app.route('/api/export_picks_sql')
-def export_picks_sql():
-    """
-    Export all picks as SQL INSERT statements for production database sync.
-    Access via browser and copy the SQL to run in production database.
-    """
-    picks = Pick.query.order_by(Pick.date.desc()).all()
-    
-    sql_statements = []
-    sql_statements.append("-- Export of all picks from development database")
-    sql_statements.append("-- Run this SQL in your PRODUCTION database to sync picks")
-    sql_statements.append("-- Generated at: " + datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-    sql_statements.append("")
-    sql_statements.append("-- First, clear existing picks (optional - uncomment if needed)")
-    sql_statements.append("-- DELETE FROM pick;")
-    sql_statements.append("")
-    
-    for p in picks:
-        # Escape single quotes in strings
-        matchup_safe = (p.matchup or '').replace("'", "''")
-        pick_safe = (p.pick or '').replace("'", "''")
-        result_safe = (p.result or '').replace("'", "''") if p.result else None
-        league_safe = (p.league or '').replace("'", "''")
-        pick_type_safe = (p.pick_type or '').replace("'", "''") if p.pick_type else None
-        game_window_safe = (p.game_window or '').replace("'", "''") if p.game_window else None
-        
-        # Format date fields
-        date_str = f"'{p.date}'" if p.date else 'NULL'
-        game_start_str = f"'{p.game_start}'" if p.game_start else 'NULL'
-        created_at_str = f"'{p.created_at}'" if p.created_at else 'NOW()'
-        
-        # Format numeric/boolean fields
-        game_id_str = str(p.game_id) if p.game_id else 'NULL'
-        edge_str = str(p.edge) if p.edge is not None else 'NULL'
-        actual_total_str = str(p.actual_total) if p.actual_total is not None else 'NULL'
-        line_value_str = str(p.line_value) if p.line_value is not None else 'NULL'
-        is_lock_str = 'TRUE' if p.is_lock else 'FALSE'
-        posted_str = 'TRUE' if p.posted_to_discord else 'FALSE'
-        result_str = f"'{result_safe}'" if result_safe else 'NULL'
-        pick_type_str = f"'{pick_type_safe}'" if pick_type_safe else 'NULL'
-        game_window_str = f"'{game_window_safe}'" if game_window_safe else 'NULL'
-        
-        sql = f"""INSERT INTO pick (game_id, date, league, matchup, pick, edge, result, actual_total, is_lock, posted_to_discord, created_at, pick_type, line_value, game_start, game_window) 
-VALUES ({game_id_str}, {date_str}, '{league_safe}', '{matchup_safe}', '{pick_safe}', {edge_str}, {result_str}, {actual_total_str}, {is_lock_str}, {posted_str}, {created_at_str}, {pick_type_str}, {line_value_str}, {game_start_str}, {game_window_str})
-ON CONFLICT DO NOTHING;"""
-        sql_statements.append(sql)
-    
-    # Return as plain text for easy copying
-    from flask import Response
-    return Response('\n'.join(sql_statements), mimetype='text/plain')
-
 
 @app.route('/run_brains', methods=['POST'])
 def run_brains():
