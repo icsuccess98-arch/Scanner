@@ -222,23 +222,6 @@
             color: var(--text-muted);
             font-size: 0.75rem;
         }
-        .type-badge {
-            font-size: 0.55rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            padding: 1px 5px;
-            border-radius: 4px;
-            font-weight: 700;
-        }
-        .type-badge.game {
-            background: rgba(46, 139, 87, 0.15);
-            color: var(--tennis-light);
-        }
-        .type-badge.set {
-            background: rgba(123, 44, 191, 0.15);
-            color: var(--purple-light);
-        }
-
         .pick-confidence {
             text-align: center;
             min-width: 52px;
@@ -482,10 +465,9 @@
         </div>
         {% endif %}
 
-        {% if card.game_picks %}
-        <div class="section-label">Game Spreads ({{ card.game_picks|length }})</div>
+        <div class="section-label">Spreads ({{ card.picks|length }})</div>
         <div class="picks-grid">
-            {% for pick in card.game_picks %}
+            {% for pick in card.picks %}
             <div class="pick-card {{ pick.result or 'pending' }}">
                 <div class="pick-card-body">
                     <div class="pick-player">
@@ -495,7 +477,6 @@
                                 {{ '+' if pick.spread_val > 0 else '' }}{{ pick.spread }}
                             </span>
                             <span class="odds-val">({{ pick.odds }})</span>
-                            <span class="type-badge game">Game</span>
                         </div>
                     </div>
                     <div class="pick-confidence">
@@ -516,43 +497,6 @@
             </div>
             {% endfor %}
         </div>
-        {% endif %}
-
-        {% if card.set_picks %}
-        <div class="section-label">Set Spreads ({{ card.set_picks|length }})</div>
-        <div class="picks-grid">
-            {% for pick in card.set_picks %}
-            <div class="pick-card {{ pick.result or 'pending' }}">
-                <div class="pick-card-body">
-                    <div class="pick-player">
-                        <div class="pick-player-name">{{ pick.player }}</div>
-                        <div class="pick-spread-line">
-                            <span class="spread-badge {{ 'positive' if pick.spread_val > 0 else 'negative' }}">
-                                {{ '+' if pick.spread_val > 0 else '' }}{{ pick.spread }}
-                            </span>
-                            <span class="odds-val">({{ pick.odds }})</span>
-                            <span class="type-badge set">Set</span>
-                        </div>
-                    </div>
-                    <div class="pick-confidence">
-                        <div class="conf-circle {{ 'conf-high' if pick.confidence >= 60 else 'conf-mid' if pick.confidence >= 55 else 'conf-low' }}">
-                            {{ pick.confidence }}%
-                        </div>
-                    </div>
-                    <div class="pick-result">
-                        {% if pick.result == 'win' %}
-                        <span class="result-icon result-win">✅</span>
-                        {% elif pick.result == 'loss' %}
-                        <span class="result-icon result-loss">❌</span>
-                        {% else %}
-                        <span class="result-pending">LIVE</span>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-        {% endif %}
 
         {% endif %}
         {% endfor %}
