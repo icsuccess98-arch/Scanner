@@ -5634,15 +5634,64 @@ def check_finished_games_results() -> int:
     
     return results_updated
 
+# NHL city/name -> abbreviation mapping for result checking
+NHL_TEAM_ABBREVS = {
+    'anaheim': 'ANA', 'ducks': 'ANA',
+    'arizona': 'UTA', 'utah': 'UTA', 'utah hockey club': 'UTA',
+    'boston': 'BOS', 'bruins': 'BOS',
+    'buffalo': 'BUF', 'sabres': 'BUF',
+    'calgary': 'CGY', 'flames': 'CGY',
+    'carolina': 'CAR', 'hurricanes': 'CAR',
+    'chicago': 'CHI', 'blackhawks': 'CHI',
+    'colorado': 'COL', 'avalanche': 'COL',
+    'columbus': 'CBJ', 'blue jackets': 'CBJ',
+    'dallas': 'DAL', 'stars': 'DAL',
+    'detroit': 'DET', 'red wings': 'DET',
+    'edmonton': 'EDM', 'oilers': 'EDM',
+    'florida': 'FLA', 'panthers': 'FLA',
+    'los angeles': 'LAK', 'kings': 'LAK',
+    'minnesota': 'MIN', 'wild': 'MIN',
+    'montreal': 'MTL', 'montréal': 'MTL', 'canadiens': 'MTL',
+    'nashville': 'NSH', 'predators': 'NSH',
+    'new jersey': 'NJD', 'devils': 'NJD',
+    'islanders': 'NYI',
+    'rangers': 'NYR',
+    'ottawa': 'OTT', 'senators': 'OTT',
+    'philadelphia': 'PHI', 'flyers': 'PHI',
+    'pittsburgh': 'PIT', 'penguins': 'PIT',
+    'san jose': 'SJS', 'sharks': 'SJS',
+    'seattle': 'SEA', 'kraken': 'SEA',
+    'st. louis': 'STL', 'st louis': 'STL', 'blues': 'STL',
+    'tampa bay': 'TBL', 'lightning': 'TBL',
+    'toronto': 'TOR', 'maple leafs': 'TOR',
+    'vancouver': 'VAN', 'canucks': 'VAN',
+    'vegas': 'VGK', 'golden knights': 'VGK',
+    'washington': 'WSH', 'capitals': 'WSH',
+    'winnipeg': 'WPG', 'jets': 'WPG',
+}
+
+
+def nhl_team_matches(api_abbrev: str, pick_name: str) -> bool:
+    """Check if an NHL API team (by abbrev) matches a pick's team name."""
+    key = pick_name.lower().strip()
+    # "New York" is ambiguous - could be Rangers (NYR) or Islanders (NYI)
+    if key == 'new york':
+        return api_abbrev in ('NYR', 'NYI')
+    pick_abbrev = NHL_TEAM_ABBREVS.get(key)
+    return pick_abbrev == api_abbrev if pick_abbrev else False
+
+
 def check_totals_pick_result(pick: Pick) -> int:
     """Check result for a totals pick."""
     if not pick.pick or len(pick.pick) < 2:
         return 0
     
     try:
-        line = float(pick.pick[1:])
         direction = pick.pick[0]
-    except ValueError:
+        # Strip odds info like "O122.5 (-185)" -> "122.5"
+        raw = pick.pick[1:].split('(')[0].strip()
+        line = float(raw)
+    except (ValueError, IndexError):
         return 0
     
     if direction not in ['O', 'U']:
@@ -5669,10 +5718,9 @@ def check_totals_pick_result(pick: Pick) -> int:
             for game in resp.json().get("games", []):
                 if game.get("gameState") != "OFF":
                     continue
-                # Use commonName (team nickname) for NHL, not placeName (city)
-                away_name = game.get("awayTeam", {}).get("commonName", {}).get("default", "")
-                home_name = game.get("homeTeam", {}).get("commonName", {}).get("default", "")
-                if teams_match(away_name, away_team) and teams_match(home_name, home_team):
+                away_abbrev = game.get("awayTeam", {}).get("abbrev", "")
+                home_abbrev = game.get("homeTeam", {}).get("abbrev", "")
+                if nhl_team_matches(away_abbrev, away_team) and nhl_team_matches(home_abbrev, home_team):
                     away_score = game.get("awayTeam", {}).get("score", 0)
                     home_score = game.get("homeTeam", {}).get("score", 0)
                     actual_total = away_score + home_score
@@ -6466,10 +6514,9 @@ def check_spread_pick_result(pick) -> int:
             for game in resp.json().get("games", []):
                 if game.get("gameState") != "OFF":
                     continue
-                # Use commonName (team nickname) for NHL, not placeName (city)
-                away_name = game.get("awayTeam", {}).get("commonName", {}).get("default", "")
-                home_name = game.get("homeTeam", {}).get("commonName", {}).get("default", "")
-                if teams_match(away_name, away_team) and teams_match(home_name, home_team):
+                away_abbrev = game.get("awayTeam", {}).get("abbrev", "")
+                home_abbrev = game.get("homeTeam", {}).get("abbrev", "")
+                if nhl_team_matches(away_abbrev, away_team) and nhl_team_matches(home_abbrev, home_team):
                     away_score = game.get("awayTeam", {}).get("score", 0)
                     home_score = game.get("homeTeam", {}).get("score", 0)
                     break
@@ -10988,8 +11035,8 @@ def api_check_game_results():
 
 @app.route('/api/history_data')
 def api_history_data():
-    """API endpoint for history page auto-refresh."""
-    picks = Pick.query.filter_by(is_lock=True).order_by(Pick.date.desc(), Pick.edge.desc()).all()
+    """API endpoint for history page auto-refresh. TOTALS ONLY to match /history page."""
+    picks = Pick.query.filter_by(is_lock=True, pick_type='total').order_by(Pick.date.desc(), Pick.edge.desc()).all()
     
     wins = len([p for p in picks if p.result == 'W'])
     losses = len([p for p in picks if p.result == 'L'])
