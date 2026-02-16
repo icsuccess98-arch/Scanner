@@ -11116,6 +11116,13 @@ def history():
     return render_template('history.html', picks=past_picks, upcoming_picks=upcoming_picks, 
                           wins=wins, losses=losses)
 
+@app.route('/tennis')
+def tennis():
+    """Tennis Game Spreads from Discord picks channel."""
+    from discord_scraper import get_tennis_game_spreads
+    data = get_tennis_game_spreads()
+    return render_template('tennis.html', data=data)
+
 @app.route('/bankroll')
 def bankroll():
     """52 Week Bankroll Builder tracker."""

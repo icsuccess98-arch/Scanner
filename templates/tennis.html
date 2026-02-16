@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en" style="background:#0a0a12;">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tennis Spreads - 730's Locks</title>
+    <style>html,body{background:#0a0a12!important;}</style>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="730 Locks">
+    <link rel="apple-touch-icon" href="/static/icon-512.png">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#0a0a12">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Pacifico&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0a0a12;
+            --bg-card: #12101a;
+            --bg-input: #1a1825;
+            --border: #2d2640;
+            --text: #F8F8FF;
+            --text-muted: #9990B0;
+            --accent: #7B2CBF;
+            --emerald: #50C878;
+            --green: #50C878;
+            --amber: #FFD700;
+            --crimson: #DC143C;
+            --red: #DC143C;
+            --gold: #FFD700;
+            --purple: #7B2CBF;
+            --purple-light: #9D4EDD;
+            --tennis: #2E8B57;
+            --tennis-light: #3CB371;
+            --tennis-dark: #1a5c38;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            min-height: 100vh;
+            padding-bottom: 80px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a5c38 0%, #0a0a12 60%);
+            padding: 16px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid var(--border);
+        }
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .header-brand .logo-text {
+            font-family: 'Pacifico', cursive;
+            font-size: 1.4rem;
+            background: linear-gradient(135deg, #50C878, #2E8B57);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .header-brand .tennis-icon {
+            font-size: 1.5rem;
+        }
+        .header-subtitle {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 600;
+        }
+        .record-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(46, 139, 87, 0.15);
+            border: 1px solid rgba(46, 139, 87, 0.3);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+        .record-badge .pct { color: var(--emerald); }
+
+        .container-main {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 12px 16px;
+        }
+
+        .card-header-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, rgba(46, 139, 87, 0.12), rgba(10, 10, 18, 0.95));
+            border-bottom: 1px solid var(--border);
+            border-radius: 12px 12px 0 0;
+        }
+        .card-header-bar .card-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--emerald);
+        }
+        .card-header-bar .card-meta {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        .top-plays-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+        .top-plays-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(10, 10, 18, 0.95));
+            border-bottom: 1px solid var(--border);
+        }
+        .top-plays-header h3 {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--gold);
+            margin: 0;
+        }
+        .top-play-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
+            border-bottom: 1px solid rgba(45, 38, 64, 0.5);
+        }
+        .top-play-item:last-child { border-bottom: none; }
+        .top-play-rank {
+            font-size: 1.1rem;
+            margin-right: 10px;
+            min-width: 28px;
+        }
+        .top-play-info {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .top-play-name {
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        .top-play-conf {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--emerald);
+            background: rgba(80, 200, 120, 0.1);
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+        .top-play-result {
+            font-size: 1rem;
+        }
+
+        .picks-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .pick-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .pick-card:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(46, 139, 87, 0.15);
+        }
+        .pick-card.win { border-left: 3px solid var(--emerald); }
+        .pick-card.loss { border-left: 3px solid var(--crimson); }
+        .pick-card.pending { border-left: 3px solid var(--text-muted); }
+
+        .pick-card-body {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            gap: 12px;
+        }
+
+        .pick-player {
+            flex: 1;
+        }
+        .pick-player-name {
+            font-weight: 700;
+            font-size: 0.9rem;
+            margin-bottom: 2px;
+        }
+        .pick-spread-line {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.78rem;
+        }
+        .spread-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 0.8rem;
+        }
+        .spread-badge.positive {
+            background: rgba(80, 200, 120, 0.12);
+            color: var(--emerald);
+        }
+        .spread-badge.negative {
+            background: rgba(220, 20, 60, 0.12);
+            color: #ff6b8a;
+        }
+        .odds-val {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+        }
+
+        .pick-confidence {
+            text-align: center;
+            min-width: 52px;
+        }
+        .conf-circle {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 0.8rem;
+            margin: 0 auto 2px;
+        }
+        .conf-high {
+            background: rgba(80, 200, 120, 0.15);
+            border: 2px solid var(--emerald);
+            color: var(--emerald);
+        }
+        .conf-mid {
+            background: rgba(255, 215, 0, 0.1);
+            border: 2px solid var(--amber);
+            color: var(--amber);
+        }
+        .conf-low {
+            background: rgba(153, 144, 176, 0.1);
+            border: 2px solid var(--text-muted);
+            color: var(--text-muted);
+        }
+
+        .pick-result {
+            min-width: 30px;
+            text-align: center;
+        }
+        .result-icon { font-size: 1.3rem; }
+        .result-win { color: var(--emerald); }
+        .result-loss { color: var(--crimson); }
+        .result-pending { color: var(--text-muted); font-size: 0.7rem; }
+
+        .card-group {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .card-footer {
+            padding: 8px 16px;
+            background: rgba(26, 24, 37, 0.8);
+            border-top: 1px solid var(--border);
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+        .empty-state i { font-size: 3rem; margin-bottom: 16px; color: var(--tennis); }
+        .empty-state h3 { font-size: 1.1rem; margin-bottom: 8px; color: var(--text); }
+
+        .stats-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .stat-box {
+            flex: 1;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            text-align: center;
+        }
+        .stat-box .stat-value {
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: var(--emerald);
+        }
+        .stat-box .stat-label {
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 2px;
+        }
+
+        .section-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-muted);
+            font-weight: 700;
+            margin-bottom: 8px;
+            padding-left: 4px;
+        }
+
+        .mobile-bottom-nav {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--bg-card);
+            border-top: 1px solid var(--border);
+            z-index: 1000;
+            padding: 6px 0 env(safe-area-inset-bottom, 6px);
+        }
+        .mobile-bottom-nav ul {
+            list-style: none;
+            display: flex;
+            justify-content: space-around;
+            margin: 0;
+            padding: 0;
+        }
+        .mobile-bottom-nav a {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            padding: 4px 8px;
+            font-weight: 600;
+        }
+        .mobile-bottom-nav a i { font-size: 1.2rem; margin-bottom: 2px; }
+        .mobile-bottom-nav a.active { color: var(--emerald); }
+        .mobile-bottom-nav a.active i { color: var(--emerald); }
+        @media (max-width: 768px) {
+            .mobile-bottom-nav { display: block; }
+            body { padding-bottom: 80px; }
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .pick-card { animation: fadeInUp 0.3s ease forwards; }
+        .pick-card:nth-child(1) { animation-delay: 0.02s; }
+        .pick-card:nth-child(2) { animation-delay: 0.04s; }
+        .pick-card:nth-child(3) { animation-delay: 0.06s; }
+        .pick-card:nth-child(4) { animation-delay: 0.08s; }
+        .pick-card:nth-child(5) { animation-delay: 0.10s; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="header-brand">
+                <span class="tennis-icon">🎾</span>
+                <div>
+                    <div class="logo-text">Seven Thirty</div>
+                    <div class="header-subtitle">Tennis Game Spreads</div>
+                </div>
+            </div>
+            {% if data.cards %}
+            <div class="record-badge">
+                <span>{{ data.cards[0].record }}</span>
+                <span class="pct">({{ data.cards[0].win_pct }}%)</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="container-main">
+        {% if not data.success %}
+        <div class="empty-state">
+            <i class="bi bi-wifi-off"></i>
+            <h3>Unable to Load Picks</h3>
+            <p>{{ data.error or 'Could not connect to picks source.' }}</p>
+        </div>
+        {% elif not data.cards %}
+        <div class="empty-state">
+            <i class="bi bi-clock"></i>
+            <h3>No Game Spreads Available</h3>
+            <p>Check back when today's tennis card is posted.</p>
+        </div>
+        {% else %}
+        {% for card in data.cards %}
+        {% if card.picks %}
+
+        <div class="stats-row">
+            <div class="stat-box">
+                <div class="stat-value">{{ card.picks|length }}</div>
+                <div class="stat-label">Spreads</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">{{ card.record }}</div>
+                <div class="stat-label">Record</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">{{ card.win_pct }}%</div>
+                <div class="stat-label">Win Rate</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">{{ card.pending }}</div>
+                <div class="stat-label">Pending</div>
+            </div>
+        </div>
+
+        {% if card.top_plays %}
+        <div class="section-label">Top Plays</div>
+        <div class="top-plays-section">
+            <div class="top-plays-header">
+                <span>🔥</span>
+                <h3>TOP PLAYS</h3>
+            </div>
+            {% for tp in card.top_plays %}
+            <div class="top-play-item">
+                <div class="top-play-info">
+                    <span class="top-play-rank">
+                        {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{% else %}#{{ loop.index }}{% endif %}
+                    </span>
+                    <span class="top-play-name">{{ tp.player }}</span>
+                </div>
+                <span class="top-play-conf">{{ tp.confidence }}%</span>
+                <span class="top-play-result">
+                    {% if tp.result == 'win' %}<span class="result-win">✅</span>
+                    {% elif tp.result == 'loss' %}<span class="result-loss">❌</span>
+                    {% else %}<span class="result-pending">⏳</span>{% endif %}
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="section-label">Game Spreads ({{ card.picks|length }})</div>
+        <div class="picks-grid">
+            {% for pick in card.picks %}
+            <div class="pick-card {{ pick.result or 'pending' }}">
+                <div class="pick-card-body">
+                    <div class="pick-player">
+                        <div class="pick-player-name">{{ pick.player }}</div>
+                        <div class="pick-spread-line">
+                            <span class="spread-badge {{ 'positive' if pick.spread_val > 0 else 'negative' }}">
+                                {{ '+' if pick.spread_val > 0 else '' }}{{ pick.spread }}
+                            </span>
+                            <span class="odds-val">({{ pick.odds }})</span>
+                        </div>
+                    </div>
+                    <div class="pick-confidence">
+                        <div class="conf-circle {{ 'conf-high' if pick.confidence >= 60 else 'conf-mid' if pick.confidence >= 55 else 'conf-low' }}">
+                            {{ pick.confidence }}%
+                        </div>
+                    </div>
+                    <div class="pick-result">
+                        {% if pick.result == 'win' %}
+                        <span class="result-icon result-win">✅</span>
+                        {% elif pick.result == 'loss' %}
+                        <span class="result-icon result-loss">❌</span>
+                        {% else %}
+                        <span class="result-pending">LIVE</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if card.footer %}
+        <div class="card-footer">{{ card.footer }}</div>
+        {% endif %}
+
+        {% endif %}
+        {% endfor %}
+        {% endif %}
+    </div>
+
+    <nav class="mobile-bottom-nav">
+        <ul>
+            <li><a href="/"><i class="bi bi-house-fill"></i>Home</a></li>
+            <li><a href="/spreads"><i class="bi bi-bar-chart-fill"></i>Spreads</a></li>
+            <li><a href="/tennis" class="active"><i class="bi bi-trophy-fill"></i>Tennis</a></li>
+            <li><a href="/bankroll"><i class="bi bi-piggy-bank-fill"></i>Bankroll</a></li>
+            <li><a href="/history"><i class="bi bi-clock-history"></i>History</a></li>
+        </ul>
+    </nav>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(() => {});
+        }
+    </script>
+</body>
+</html>
