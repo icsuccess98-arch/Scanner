@@ -1,0 +1,93 @@
+Request URL
+https://discord.com/api/v9/channels/1472481082468466791/messages?limit=30
+Request Method
+GET
+Status Code
+200 OK
+Remote Address
+162.159.137.232:443
+Referrer Policy
+strict-origin-when-cross-origin
+alt-svc
+h3=":443"; ma=86400
+cf-cache-status
+BYPASS
+cf-ray
+9cf0d09a4cd84839-ATL
+
+content-encoding
+gzip
+content-security-policy
+frame-ancestors 'none'; default-src https://o64374.ingest.sentry.io; report-to csp-sentry; report-uri https://o64374.ingest.sentry.io/api/5441894/security/?sentry_key=8fbbce30bf5244ec9429546beef21870&sentry_environment=stable
+content-type
+application/json
+date
+Mon, 16 Feb 2026 23:27:18 GMT
+nel
+{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+priority
+u=1,i
+report-to
+{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=Mk2IjKDkYKvBYueE8mwCjdcbHd7pFnL9VnH9UL1dPRhIUcZ9Md9oLwUf2gmDTExxKZSL%2BTGyGgyCnIUU%2BaKj0rqjECc0rJW3sWo%3D"}]}
+reporting-endpoints
+csp-sentry="https://o64374.ingest.sentry.io/api/5441894/security/?sentry_key=8fbbce30bf5244ec9429546beef21870&sentry_environment=stable"
+server
+cloudflare
+server-timing
+cfExtPri
+strict-transport-security
+max-age=31536000; includeSubDomains; preload
+vary
+Accept-Encoding
+via
+1.1 google
+x-content-type-options
+nosniff
+x-discord-features
+chat
+:authority
+discord.com
+:method
+GET
+:path
+/api/v9/channels/1472481082468466791/messages?limit=30
+:scheme
+https
+accept
+*/*
+accept-encoding
+gzip, deflate, br, zstd
+accept-language
+en-US,en;q=0.9
+authorization
+Nzg5MjM1NzE3NDIyOTcyOTI4.Gex_76.nkYEO--WOtkliXKtn9y18lFe9Q7Rq5D294ELOM
+cookie
+__dcfduid=93cb47c0a89e11f098b2728419645a22; __sdcfduid=93cb47c0a89e11f098b2728419645a222d67f757e3c8e9f81463cf4559292670880b67c3a252d67298ae6f7684afd104; cf_clearance=FE8rn.BkJ417SGV78q0tXr79OA6lF99rzrx0YhubpV0-1768508308-1.2.1.1-JHv2QhYCnmx5aLPJ5Z79rfH4Lqu4Neou6gAbEFBsDwjuMmNKOD_ajMyHwBLYz2jO69gjGMdPVCX.iMYyZaHRycigAuaQ5.E7MZgaoLi_LF1SZ0cFle7qaH643.qR2fA30fkid2i1.s5E8YnG20O72XFBjnhqgWj.09KkE2toSbh9XvO0OQejn56JwFy2bldpFBLNaVDRP0rAfCYonNp7deu.QQ8cWTAIKD0ZqUJYgoA; _cfuvid=Fb8F2hwItcL4xzCNvcHAXt9Sd4IwkfZvopP.AdaU0x4-1771283382.3120017-1.0.1.1-qtAyEi3G38SBYrfkKhcL3kEO4lE0qaYK5adv0_ItqJk
+priority
+u=1, i
+referer
+https://discord.com/channels/1427061095964737680/1472481082468466791
+sec-ch-ua
+"Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"
+sec-ch-ua-mobile
+?0
+sec-ch-ua-platform
+"Chrome OS"
+sec-fetch-dest
+empty
+sec-fetch-mode
+cors
+sec-fetch-site
+same-origin
+user-agent
+Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36
+x-debug-options
+bugReporterEnabled
+x-discord-locale
+en-US
+x-discord-timezone
+America/New_York
+x-installation-id
+1465843419044774051.dhHG9cKPboZrICFT0_LqHlb9z6k
+x-super-properties
+eyJvcyI6IiIsImJyb3dzZXIiOiJDaHJvbWUiLCJkZXZpY2UiOiIiLCJzeXN0ZW1fbG9jYWxlIjoiZW4tVVMiLCJoYXNfY2xpZW50X21vZHMiOmZhbHNlLCJicm93c2VyX3VzZXJfYWdlbnQiOiJNb3ppbGxhLzUuMCAoWDExOyBDck9TIHg4Nl82NCAxNDU0MS4wLjApIEFwcGxlV2ViS2l0LzUzNy4zNiAoS0hUTUwsIGxpa2UgR2Vja28pIENocm9tZS8xNDMuMC4wLjAgU2FmYXJpLzUzNy4zNiIsImJyb3dzZXJfdmVyc2lvbiI6IjE0My4wLjAuMCIsIm9zX3ZlcnNpb24iOiIiLCJyZWZlcnJlciI6IiIsInJlZmVycmluZ19kb21haW4iOiIiLCJyZWZlcnJlcl9jdXJyZW50IjoiIiwicmVmZXJyaW5nX2RvbWFpbl9jdXJyZW50IjoiIiwicmVsZWFzZV9jaGFubmVsIjoic3RhYmxlIiwiY2xpZW50X2J1aWxkX251bWJlciI6NDk3MjU0LCJjbGllbnRfZXZlbnRfc291cmNlIjpudWxsLCJjbGllbnRfbGF1bmNoX2lkIjoiNWY4N2E0MGUtNjc5Mi00N2ZlLTljNTctZmFiNWEyZWNmODRmIiwibGF1bmNoX3NpZ25hdHVyZSI6ImYxMmJjYTQ4LTMyYTQtNDQ5MS04OTAwLTc1MDkzODQ4OTdjYiIsImNsaWVudF9oZWFydGJlYXRfc2Vzc2lvbl9pZCI6IjFmYjFkMWM0LWNhNzAtNDZkZS1hYWVmLWM4MDg4ZmQ3OWJjOSIsImNsaWVudF9hcHBfc3RhdGUiOiJ1bmZvY3VzZWQifQ==
