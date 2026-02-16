@@ -465,9 +465,10 @@
         </div>
         {% endif %}
 
-        <div class="section-label">Spreads ({{ card.picks|length }})</div>
+        {% set filtered_picks = card.picks | selectattr('confidence', 'ge', 52) | list %}
+        <div class="section-label">Spreads ({{ filtered_picks|length }})</div>
         <div class="picks-grid">
-            {% for pick in card.picks %}
+            {% for pick in filtered_picks %}
             <div class="pick-card {{ pick.result or 'pending' }}">
                 <div class="pick-card-body">
                     <div class="pick-player">
@@ -490,7 +491,7 @@
                         {% elif pick.result == 'loss' %}
                         <span class="result-icon result-loss">❌</span>
                         {% else %}
-                        <span class="result-pending">LIVE</span>
+                        <span class="result-pending">⏳</span>
                         {% endif %}
                     </div>
                 </div>

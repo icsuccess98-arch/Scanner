@@ -222,6 +222,8 @@ def get_tennis_game_spreads():
     total_spreads = 0
     for card in cards:
         for pick in card['picks']:
+            if pick['confidence'] < 52:
+                continue
             total_spreads += 1
             if pick['result'] == 'win':
                 total_wins += 1
