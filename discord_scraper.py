@@ -259,6 +259,13 @@ def get_tennis_game_spreads():
     for p in all_picks:
         brain_counts[p['brains']['count']] = brain_counts.get(p['brains']['count'], 0) + 1
 
+    four_brain_picks = [p for p in all_picks if p['brains']['count'] == 4]
+    fb_wins = sum(1 for p in four_brain_picks if p['result'] == 'win')
+    fb_losses = sum(1 for p in four_brain_picks if p['result'] == 'loss')
+    fb_pending = sum(1 for p in four_brain_picks if p['result'] is None)
+    fb_decided = fb_wins + fb_losses
+    fb_pct = round(fb_wins / fb_decided * 100) if fb_decided > 0 else 0
+
     return {
         'success': True,
         'picks': all_picks,
@@ -270,6 +277,10 @@ def get_tennis_game_spreads():
         'total_wins': total_wins,
         'total_losses': total_losses,
         'brain_counts': brain_counts,
+        'fb_record': f"{fb_wins}-{fb_losses}",
+        'fb_pct': fb_pct,
+        'fb_total': len(four_brain_picks),
+        'fb_pending': fb_pending,
         'fetched_at': datetime.now(timezone.utc).isoformat(),
         'message_count': len(messages),
     }

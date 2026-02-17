@@ -470,10 +470,10 @@
                     <div class="header-subtitle">Tennis Spreads</div>
                 </div>
             </div>
-            {% if data.overall_record %}
+            {% if data.fb_record %}
             <div class="record-badge">
-                <span>{{ data.overall_record }}</span>
-                <span class="pct">({{ data.overall_pct }}%)</span>
+                <span>🧠 {{ data.fb_record }}</span>
+                <span class="pct">({{ data.fb_pct }}%)</span>
             </div>
             {% endif %}
         </div>
@@ -496,19 +496,19 @@
 
         <div class="stats-row">
             <div class="stat-box">
-                <div class="stat-value">{{ data.total_spreads }}</div>
-                <div class="stat-label">Spreads</div>
+                <div class="stat-value">{{ data.fb_total }}</div>
+                <div class="stat-label">🧠 4/4 Picks</div>
             </div>
             <div class="stat-box">
-                <div class="stat-value">{{ data.overall_record }}</div>
+                <div class="stat-value">{{ data.fb_record }}</div>
                 <div class="stat-label">Record</div>
             </div>
             <div class="stat-box">
-                <div class="stat-value">{{ data.overall_pct }}%</div>
+                <div class="stat-value">{{ data.fb_pct }}%</div>
                 <div class="stat-label">Win Rate</div>
             </div>
             <div class="stat-box">
-                <div class="stat-value">{{ data.total_pending }}</div>
+                <div class="stat-value">{{ data.fb_pending }}</div>
                 <div class="stat-label">Pending</div>
             </div>
         </div>
@@ -517,15 +517,15 @@
             <div class="filter-tab" data-filter="all" onclick="filterBrains('all')">
                 All <span class="tab-count">{{ data.picks|length }}</span>
             </div>
-            <div class="filter-tab" data-filter="4" onclick="filterBrains('4')">
+            <div class="filter-tab active" data-filter="4" onclick="filterBrains('4')">
                 🧠 4/4 <span class="tab-count">{{ data.brain_counts.get(4, 0) }}</span>
             </div>
-            <div class="filter-tab active" data-filter="3" onclick="filterBrains('3')">
+            <div class="filter-tab" data-filter="3" onclick="filterBrains('3')">
                 🧠 3+ <span class="tab-count">{{ data.brain_counts.get(3, 0) + data.brain_counts.get(4, 0) }}</span>
             </div>
         </div>
 
-        {% set filtered_picks = data.picks|selectattr('brains.count', 'ge', 3)|list %}
+        {% set filtered_picks = data.picks|selectattr('brains.count', 'ge', 4)|list %}
         <div class="section-label">Spreads (<span id="visibleCount">{{ filtered_picks|length }}</span>)</div>
         <div class="picks-grid" id="picksGrid">
             {% for pick in data.picks %}
@@ -607,7 +607,7 @@
             });
             document.getElementById('visibleCount').textContent = visible;
         }
-        filterBrains('3');
+        filterBrains('4');
     </script>
 </body>
 </html>
