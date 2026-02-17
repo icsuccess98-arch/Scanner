@@ -222,19 +222,24 @@ def analyze_four_brains(pick, player_stats=None):
         pstats = fuzzy_lookup(player_name, player_stats)
 
     if pstats and not pstats.get('elo_only'):
-        # Full stats available (top 50 ATP/WTA from leadersource)
         tour = pstats.get('tour', 'ATP')
         is_wta = tour == 'WTA'
 
-        # Stats brain: Hold/Break Differential (Net Rating)
-        # ATP elite: +12%+ strong: +8%+  -> threshold 0.55
-        # WTA elite: hold 75-80%, break 40%+ -> much lower net ratings, threshold 0.30
-        net_threshold = 0.30 if is_wta else 0.55
-        stats = pstats.get('net_rating', 0) > net_threshold
+        # Stats brain: Net Rating (Hold% - Break% Differential) + 1st Serve Won%
+        # Basketball equivalent: Net Rating
+        # Hold/Break diff is #1 predictor. 1st Serve Won% shows serve dominance quality.
+        # ATP: net > 0.55 or 1st serve > 73%. WTA: net > 0.30 or 1st serve > 68%
+        net_rating = pstats.get('net_rating', 0)
+        first_serve_won = pstats.get('first_serve_won', 0)
+        if is_wta:
+            stats = net_rating > 0.30 or first_serve_won > 0.68
+        else:
+            stats = net_rating > 0.55 or first_serve_won > 0.73
 
-        # Trends brain: RPW + 2nd Serve Won % (pressure tolerance)
-        # ATP: RPW > 38%, 2nd serve > 52%
-        # WTA: RPW > 42%, 2nd serve > 46% (WTA has more breaks, higher RPW is normal)
+        # Trends brain: Return Points Won% + 2nd Serve Won% (pressure tolerance)
+        # Basketball equivalent: OREB%
+        # RPW is more predictive than break% long-term. 2nd serve measures pressure.
+        # ATP: RPW > 38% or 2nd serve > 52%. WTA: RPW > 42% or 2nd serve > 46%
         rpw = pstats.get('rpw', 0)
         second_serve = pstats.get('second_serve_won', 0)
         if is_wta:
@@ -242,14 +247,20 @@ def analyze_four_brains(pick, player_stats=None):
         else:
             trends = rpw > 0.38 or second_serve > 0.52
 
-        # Value brain: Low double fault rate + good odds
-        # Same threshold for both tours - DF is universally bad
+        # Value brain: Double Fault Rate (TOV%) + Break Point Opps Created (FT Rate) + odds
+        # Basketball equivalent: TOV% + FT Rate
+        # Low DF = low risk. High BP creation = more scoring opportunities.
+        # DF < 4% AND (odds >= -130 OR bp/match >= threshold)
         df_rate = pstats.get('df_rate', 0.05)
-        value = df_rate < 0.04 and odds_val >= -130
+        bp_per_match = pstats.get('bp_per_match', 0)
+        bp_threshold = 8.0 if is_wta else 7.0
+        value = df_rate < 0.04 and (odds_val >= -130 or bp_per_match >= bp_threshold)
 
-        # Matchup brain: Surface Elo + dominance ratio
-        # ATP Elo > 1900, WTA Elo > 1800 (WTA Elo scale runs lower)
-        elo = pstats.get('elo')
+        # Matchup brain: Surface Elo (SOS) + Dominance Ratio
+        # Basketball equivalent: Strength of Schedule
+        # "Surface Elo > Overall Elo when betting" - use hard court Elo preferentially
+        # Dominance ratio > 1.10 = strong favorite profile
+        elo = pstats.get('hard_elo') or pstats.get('elo')
         dominance = pstats.get('dominance_ratio', 0)
         elo_threshold = 1800 if is_wta else 1900
         matchup = (elo is not None and elo > elo_threshold) or dominance > 1.10
@@ -280,7 +291,57 @@ def analyze_four_brains(pick, player_stats=None):
         'has_elo': pstats is not None and pstats.get('elo') is not None,
     }
     brains['count'] = sum([stats, trends, value, matchup])
+
+    # Attach key metrics for display in the UI
+    if pstats and not pstats.get('elo_only'):
+        brains['metrics'] = {
+            'hold_pct': pstats.get('hold_pct'),
+            'break_pct': pstats.get('break_pct'),
+            'net_rating': pstats.get('net_rating'),
+            'first_serve_won': pstats.get('first_serve_won'),
+            'second_serve_won': pstats.get('second_serve_won'),
+            'rpw': pstats.get('rpw'),
+            'df_rate': pstats.get('df_rate'),
+            'bp_per_match': pstats.get('bp_per_match'),
+            'dominance_ratio': pstats.get('dominance_ratio'),
+            'elo': pstats.get('hard_elo') or pstats.get('elo'),
+            'matches': pstats.get('matches'),
+            'tour': pstats.get('tour', 'ATP'),
+        }
+
     return brains
+
+def _find_opponent(pick_name, matchups):
+    """Find opponent for a picked player using fuzzy matching against matchup dict."""
+    from tennis_abstract_scraper import _normalize
+
+    # Direct match
+    if pick_name in matchups:
+        return matchups[pick_name]
+
+    # Normalized match
+    norm_pick = _normalize(pick_name)
+    norm_index = {_normalize(k): k for k in matchups}
+    if norm_pick in norm_index:
+        return matchups[norm_index[norm_pick]]
+
+    # Last name + initial match
+    pick_parts = pick_name.replace('.', '').split()
+    if len(pick_parts) >= 2:
+        pick_last = _normalize(pick_parts[-1])
+        pick_initial = pick_parts[0][0].upper()
+        for full_name in matchups:
+            parts = full_name.split()
+            if len(parts) < 2:
+                continue
+            if parts[0][0].upper() != pick_initial:
+                continue
+            for part in parts[1:]:
+                if _normalize(part) == pick_last:
+                    return matchups[full_name]
+
+    return None
+
 
 def get_tennis_game_spreads():
     messages = fetch_discord_messages(limit=50)
@@ -295,6 +356,14 @@ def get_tennis_game_spreads():
     except Exception as e:
         logger.warning(f"Could not load Tennis Abstract stats: {e}")
 
+    # Try to load current matchups for opponent comparison
+    current_matchups = {}
+    try:
+        from tennis_abstract_scraper import get_current_matchups
+        current_matchups = get_current_matchups()
+    except Exception as e:
+        logger.warning(f"Could not load matchups: {e}")
+
     cards = parse_all_spreads(messages)
 
     all_picks = []
@@ -304,6 +373,20 @@ def get_tennis_game_spreads():
             if pick['confidence'] < 52:
                 continue
             pick['brains'] = analyze_four_brains(pick, player_stats=player_stats)
+
+            # Find opponent and attach their stats
+            if current_matchups and player_stats and pick.get('player'):
+                from tennis_abstract_scraper import fuzzy_lookup, _build_name_index, _normalize
+                opp_name = _find_opponent(pick['player'], current_matchups)
+                if opp_name:
+                    opp_pick = {'player': opp_name, 'confidence': 50, 'spread_val': 0, 'odds_val': -110}
+                    opp_brains = analyze_four_brains(opp_pick, player_stats=player_stats)
+                    pick['opponent'] = {
+                        'name': opp_name,
+                        'brains': opp_brains,
+                        'metrics': opp_brains.get('metrics'),
+                    }
+
             all_picks.append(pick)
         if not top_plays and card.get('top_plays'):
             top_plays = card['top_plays']
@@ -343,6 +426,64 @@ def get_tennis_game_spreads():
         'fetched_at': datetime.now(timezone.utc).isoformat(),
         'message_count': len(messages),
     }
+
+EDGE_METRICS = [
+    ('net_rating', True),
+    ('hold_pct', True),
+    ('break_pct', True),
+    ('first_serve_won', True),
+    ('rpw', True),
+    ('second_serve_won', True),
+    ('df_rate', False),  # lower is better
+    ('bp_per_match', True),
+    ('elo', True),
+    ('dominance_ratio', True),
+]
+
+
+def _compute_edges(m1, m2):
+    """Compute edge counts between two metrics dicts. Returns (p1_edges, p2_edges)."""
+    p1_edges, p2_edges = 0, 0
+    for key, higher_better in EDGE_METRICS:
+        v1, v2 = m1.get(key), m2.get(key)
+        if v1 is not None and v2 is not None and v1 != v2:
+            if higher_better:
+                if v1 > v2:
+                    p1_edges += 1
+                else:
+                    p2_edges += 1
+            else:
+                if v1 < v2:
+                    p1_edges += 1
+                else:
+                    p2_edges += 1
+    return p1_edges, p2_edges
+
+
+def analyze_tournament_matchups(draws, player_stats):
+    """Run brains analysis on all players in tournament draws."""
+    if not player_stats or not draws:
+        return draws
+
+    for tournament in draws:
+        for matchup in tournament['matchups']:
+            if matchup.get('status') != 'upcoming':
+                continue
+
+            for pkey in ('player1', 'player2'):
+                name = matchup[pkey]
+                dummy = {'player': name, 'confidence': 50, 'spread_val': 0, 'odds_val': -110}
+                brains = analyze_four_brains(dummy, player_stats=player_stats)
+                matchup[f'{pkey}_brains'] = brains
+                matchup[f'{pkey}_metrics'] = brains.get('metrics')
+
+            m1 = matchup.get('player1_metrics')
+            m2 = matchup.get('player2_metrics')
+            if m1 and m2:
+                matchup['p1_edges'], matchup['p2_edges'] = _compute_edges(m1, m2)
+
+    return draws
+
 
 def clear_discord_cache():
     _cache.clear()
