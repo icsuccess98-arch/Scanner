@@ -132,6 +132,12 @@ Universal team name matching for KenPom and Covers.com:
 - **3P% Key Update**: Changed 3PT% to 3P% to match KenPom naming convention
 - **Adj O/D as PPG**: For CBB, PPG now displays Adj O (offensive efficiency) when traditional PPG unavailable
 
+### Tennis Removal (Feb 2026)
+- Removed entire tennis page, route, and all tennis-related code
+- Deleted tennis_abstract_scraper.py and templates/tennis.html
+- Cleaned tennis functions from discord_scraper.py
+- Removed tennis nav links from all page templates
+
 -   **Stocks Data**:
     -   yfinance (Yahoo Finance)
 -   **Communication**:
