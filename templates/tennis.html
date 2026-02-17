@@ -95,6 +95,8 @@
             border-radius: 20px;
             font-size: 0.8rem;
             font-weight: 700;
+            white-space: nowrap;
+            flex-shrink: 0;
         }
         .record-badge .pct { color: var(--emerald); }
 
@@ -191,17 +193,23 @@
 
         .pick-player {
             flex: 1;
+            min-width: 0;
+            overflow: hidden;
         }
         .pick-player-name {
             font-weight: 700;
             font-size: 0.9rem;
             margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .pick-spread-line {
             display: flex;
             align-items: center;
             gap: 8px;
             font-size: 0.78rem;
+            white-space: nowrap;
         }
         .spread-badge {
             display: inline-block;
@@ -264,20 +272,24 @@
 
         .brains-row {
             display: flex;
-            gap: 6px;
-            padding: 6px 16px 10px;
+            gap: 5px;
+            padding: 6px 12px 10px;
             border-top: 1px solid rgba(45, 38, 64, 0.4);
+            flex-wrap: nowrap;
+            align-items: center;
         }
         .brain-chip {
             display: inline-flex;
             align-items: center;
-            gap: 3px;
-            font-size: 0.6rem;
+            gap: 2px;
+            font-size: 0.55rem;
             font-weight: 700;
-            padding: 3px 7px;
+            padding: 3px 5px;
             border-radius: 6px;
             text-transform: uppercase;
-            letter-spacing: 0.3px;
+            letter-spacing: 0.2px;
+            white-space: nowrap;
+            flex-shrink: 0;
         }
         .brain-chip.on {
             background: rgba(80, 200, 120, 0.12);
@@ -519,9 +531,6 @@
             </div>
             <div class="filter-tab active" data-filter="4" onclick="filterBrains('4')">
                 🧠 4/4 <span class="tab-count">{{ data.brain_counts.get(4, 0) }}</span>
-            </div>
-            <div class="filter-tab" data-filter="3" onclick="filterBrains('3')">
-                🧠 3+ <span class="tab-count">{{ data.brain_counts.get(3, 0) + data.brain_counts.get(4, 0) }}</span>
             </div>
         </div>
 
