@@ -513,48 +513,20 @@
             </div>
         </div>
 
-        {% if data.top_plays %}
-        <div class="section-label">Top Plays</div>
-        <div class="top-plays-section">
-            <div class="top-plays-header">
-                <span>🔥</span>
-                <h3>TOP PLAYS</h3>
-            </div>
-            {% for tp in data.top_plays %}
-            <div class="top-play-item">
-                <div class="top-play-info">
-                    <span class="top-play-rank">
-                        {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{% else %}#{{ loop.index }}{% endif %}
-                    </span>
-                    <span class="top-play-name">{{ tp.player }}</span>
-                </div>
-                <span class="top-play-conf">{{ tp.confidence }}%</span>
-                <span class="top-play-result">
-                    {% if tp.result == 'win' %}<span class="result-win">✅</span>
-                    {% elif tp.result == 'loss' %}<span class="result-loss">❌</span>
-                    {% else %}<span class="result-pending">⏳</span>{% endif %}
-                </span>
-            </div>
-            {% endfor %}
-        </div>
-        {% endif %}
-
         <div class="filter-tabs" id="brainFilters">
-            <div class="filter-tab active" data-filter="all" onclick="filterBrains('all')">
+            <div class="filter-tab" data-filter="all" onclick="filterBrains('all')">
                 All <span class="tab-count">{{ data.picks|length }}</span>
             </div>
             <div class="filter-tab" data-filter="4" onclick="filterBrains('4')">
                 🧠 4/4 <span class="tab-count">{{ data.brain_counts.get(4, 0) }}</span>
             </div>
-            <div class="filter-tab" data-filter="3" onclick="filterBrains('3')">
+            <div class="filter-tab active" data-filter="3" onclick="filterBrains('3')">
                 🧠 3+ <span class="tab-count">{{ data.brain_counts.get(3, 0) + data.brain_counts.get(4, 0) }}</span>
-            </div>
-            <div class="filter-tab" data-filter="2" onclick="filterBrains('2')">
-                🧠 2+ <span class="tab-count">{{ data.brain_counts.get(2, 0) + data.brain_counts.get(3, 0) + data.brain_counts.get(4, 0) }}</span>
             </div>
         </div>
 
-        <div class="section-label">Spreads (<span id="visibleCount">{{ data.picks|length }}</span>)</div>
+        {% set filtered_picks = data.picks|selectattr('brains.count', 'ge', 3)|list %}
+        <div class="section-label">Spreads (<span id="visibleCount">{{ filtered_picks|length }}</span>)</div>
         <div class="picks-grid" id="picksGrid">
             {% for pick in data.picks %}
             <div class="pick-card {{ pick.result or 'pending' }}" data-brains="{{ pick.brains.count }}">
@@ -635,6 +607,7 @@
             });
             document.getElementById('visibleCount').textContent = visible;
         }
+        filterBrains('3');
     </script>
 </body>
 </html>
