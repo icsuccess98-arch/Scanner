@@ -11120,8 +11120,14 @@ def history():
 def tennis():
     """Tennis Game Spreads from Discord picks channel."""
     from discord_scraper import get_tennis_game_spreads
+    from tennis_abstract_scraper import get_tennis_abstract_stats
     data = get_tennis_game_spreads()
-    return render_template('tennis.html', data=data)
+    try:
+        player_stats = get_tennis_abstract_stats()
+    except Exception as e:
+        logger.error(f"Tennis Abstract stats error: {e}")
+        player_stats = {}
+    return render_template('tennis.html', data=data, player_stats=player_stats)
 
 @app.route('/bankroll')
 def bankroll():

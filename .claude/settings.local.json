@@ -44,7 +44,10 @@
       "Bash(awk:*)",
       "Bash(kill:*)",
       "Bash(git commit:*)",
-      "Bash(/dev/null -c \"\nimport os\nos.environ.setdefault\\(''DATABASE_URL'', ''sqlite:///sports.db''\\)\nfrom sports_app import app, db, Pick, teams_match\n\nwith app.app_context\\(\\):\n    pending = Pick.query.filter\\(Pick.result == None\\).all\\(\\)\n    for p in pending:\n        parts = p.matchup.split\\('' @ ''\\)\n        if len\\(parts\\) != 2:\n            continue\n        away, home = parts[0].strip\\(\\), parts[1].strip\\(\\)\n        print\\(f''ID={p.id} | {p.date} | {p.league} | Away=\"\"{away}\"\" Home=\"\"{home}\"\" | Pick: {p.pick}''\\)\n\")"
+      "Bash(/dev/null -c \"\nimport os\nos.environ.setdefault\\(''DATABASE_URL'', ''sqlite:///sports.db''\\)\nfrom sports_app import app, db, Pick, teams_match\n\nwith app.app_context\\(\\):\n    pending = Pick.query.filter\\(Pick.result == None\\).all\\(\\)\n    for p in pending:\n        parts = p.matchup.split\\('' @ ''\\)\n        if len\\(parts\\) != 2:\n            continue\n        away, home = parts[0].strip\\(\\), parts[1].strip\\(\\)\n        print\\(f''ID={p.id} | {p.date} | {p.league} | Away=\"\"{away}\"\" Home=\"\"{home}\"\" | Pick: {p.pick}''\\)\n\")",
+      "WebFetch(domain:www.tennisabstract.com)",
+      "WebSearch",
+      "WebFetch(domain:tennisabstract.com)"
     ]
   }
 }

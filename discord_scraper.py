@@ -209,24 +209,75 @@ def parse_top_plays(desc):
 
     return top_plays
 
-def analyze_four_brains(pick):
+def analyze_four_brains(pick, player_stats=None):
     confidence = pick.get('confidence', 50)
     spread_val = abs(pick.get('spread_val', 0))
     odds_val = pick.get('odds_val', -110)
+    player_name = pick.get('player', '')
 
-    stats = confidence >= 60
+    # Try to use real Tennis Abstract stats if available
+    pstats = None
+    if player_stats and player_name:
+        from tennis_abstract_scraper import fuzzy_lookup
+        pstats = fuzzy_lookup(player_name, player_stats)
 
-    trends = spread_val <= 5.0
+    if pstats and not pstats.get('elo_only'):
+        # Full stats available (top 50 ATP/WTA from leadersource)
+        tour = pstats.get('tour', 'ATP')
+        is_wta = tour == 'WTA'
 
-    value = odds_val >= -115
+        # Stats brain: Hold/Break Differential (Net Rating)
+        # ATP elite: +12%+ strong: +8%+  -> threshold 0.55
+        # WTA elite: hold 75-80%, break 40%+ -> much lower net ratings, threshold 0.30
+        net_threshold = 0.30 if is_wta else 0.55
+        stats = pstats.get('net_rating', 0) > net_threshold
 
-    matchup = (confidence >= 58 and spread_val <= 6.5) or confidence >= 64
+        # Trends brain: RPW + 2nd Serve Won % (pressure tolerance)
+        # ATP: RPW > 38%, 2nd serve > 52%
+        # WTA: RPW > 42%, 2nd serve > 46% (WTA has more breaks, higher RPW is normal)
+        rpw = pstats.get('rpw', 0)
+        second_serve = pstats.get('second_serve_won', 0)
+        if is_wta:
+            trends = rpw > 0.42 or second_serve > 0.46
+        else:
+            trends = rpw > 0.38 or second_serve > 0.52
+
+        # Value brain: Low double fault rate + good odds
+        # Same threshold for both tours - DF is universally bad
+        df_rate = pstats.get('df_rate', 0.05)
+        value = df_rate < 0.04 and odds_val >= -130
+
+        # Matchup brain: Surface Elo + dominance ratio
+        # ATP Elo > 1900, WTA Elo > 1800 (WTA Elo scale runs lower)
+        elo = pstats.get('elo')
+        dominance = pstats.get('dominance_ratio', 0)
+        elo_threshold = 1800 if is_wta else 1900
+        matchup = (elo is not None and elo > elo_threshold) or dominance > 1.10
+    elif pstats:
+        # Elo-only player (outside leadersource top 50, but has Elo ratings)
+        # Use confidence for stats/trends, Elo for matchup, odds for value
+        stats = confidence >= 60
+        trends = spread_val <= 5.0
+
+        value = odds_val >= -115
+
+        elo = pstats.get('elo')
+        # Can't determine tour from Elo-only, so use 1800 as safe middle ground
+        matchup = elo is not None and elo > 1800
+    else:
+        # No data at all - pure confidence-based fallback
+        stats = confidence >= 60
+        trends = spread_val <= 5.0
+        value = odds_val >= -115
+        matchup = (confidence >= 58 and spread_val <= 6.5) or confidence >= 64
 
     brains = {
         'stats': stats,
         'trends': trends,
         'value': value,
         'matchup': matchup,
+        'has_real_stats': pstats is not None and not pstats.get('elo_only'),
+        'has_elo': pstats is not None and pstats.get('elo') is not None,
     }
     brains['count'] = sum([stats, trends, value, matchup])
     return brains
@@ -236,6 +287,14 @@ def get_tennis_game_spreads():
     if not messages:
         return {'success': False, 'error': 'No messages fetched', 'picks': [], 'top_plays': []}
 
+    # Try to load real player stats for four brains analysis
+    player_stats = None
+    try:
+        from tennis_abstract_scraper import get_tennis_abstract_stats
+        player_stats = get_tennis_abstract_stats()
+    except Exception as e:
+        logger.warning(f"Could not load Tennis Abstract stats: {e}")
+
     cards = parse_all_spreads(messages)
 
     all_picks = []
@@ -244,7 +303,7 @@ def get_tennis_game_spreads():
         for pick in card['picks']:
             if pick['confidence'] < 52:
                 continue
-            pick['brains'] = analyze_four_brains(pick)
+            pick['brains'] = analyze_four_brains(pick, player_stats=player_stats)
             all_picks.append(pick)
         if not top_plays and card.get('top_plays'):
             top_plays = card['top_plays']
