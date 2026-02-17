@@ -507,6 +507,20 @@
                         {% endif %}
                     </div>
                 </div>
+                <div class="brains-row">
+                    <span class="brain-chip {{ 'on' if pick.brains.stats else 'off' }}">
+                        <span class="brain-icon">📊</span> Stats
+                    </span>
+                    <span class="brain-chip {{ 'on' if pick.brains.trends else 'off' }}">
+                        <span class="brain-icon">📈</span> Trends
+                    </span>
+                    <span class="brain-chip {{ 'on' if pick.brains.value else 'off' }}">
+                        <span class="brain-icon">💎</span> Value
+                    </span>
+                    <span class="brain-chip {{ 'on' if pick.brains.matchup else 'off' }}">
+                        <span class="brain-icon">⚔️</span> Matchup
+                    </span>
+                </div>
             </div>
             {% endfor %}
         </div>
