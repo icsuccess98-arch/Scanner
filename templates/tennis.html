@@ -262,6 +262,89 @@
         .result-loss { color: var(--crimson); }
         .result-pending { color: var(--text-muted); font-size: 0.7rem; }
 
+        .brains-row {
+            display: flex;
+            gap: 6px;
+            padding: 6px 16px 10px;
+            border-top: 1px solid rgba(45, 38, 64, 0.4);
+        }
+        .brain-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 0.6rem;
+            font-weight: 700;
+            padding: 3px 7px;
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .brain-chip.on {
+            background: rgba(80, 200, 120, 0.12);
+            color: var(--emerald);
+            border: 1px solid rgba(80, 200, 120, 0.25);
+        }
+        .brain-chip.off {
+            background: rgba(153, 144, 176, 0.06);
+            color: rgba(153, 144, 176, 0.4);
+            border: 1px solid rgba(153, 144, 176, 0.1);
+        }
+        .brain-chip .brain-icon { font-size: 0.7rem; }
+        .brain-count-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 0.6rem;
+            font-weight: 800;
+            margin-left: auto;
+            padding: 3px 8px;
+            border-radius: 6px;
+        }
+        .brain-count-badge.b4 { background: rgba(80, 200, 120, 0.15); color: var(--emerald); }
+        .brain-count-badge.b3 { background: rgba(255, 215, 0, 0.12); color: var(--gold); }
+        .brain-count-badge.b2 { background: rgba(255, 165, 0, 0.12); color: #ffa500; }
+        .brain-count-badge.b1 { background: rgba(153, 144, 176, 0.1); color: var(--text-muted); }
+        .brain-count-badge.b0 { background: rgba(220, 20, 60, 0.1); color: var(--crimson); }
+
+        .filter-tabs {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 14px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 2px;
+        }
+        .filter-tab {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 7px 14px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            color: var(--text-muted);
+            font-size: 0.7rem;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        .filter-tab:hover { border-color: var(--emerald); color: var(--text); }
+        .filter-tab.active {
+            background: rgba(80, 200, 120, 0.12);
+            border-color: var(--emerald);
+            color: var(--emerald);
+        }
+        .filter-tab .tab-count {
+            background: rgba(255,255,255,0.1);
+            padding: 1px 6px;
+            border-radius: 10px;
+            font-size: 0.6rem;
+        }
+        .filter-tab.active .tab-count {
+            background: rgba(80, 200, 120, 0.2);
+        }
+
         .empty-state {
             text-align: center;
             padding: 60px 20px;
@@ -456,10 +539,25 @@
         </div>
         {% endif %}
 
-        <div class="section-label">Spreads ({{ data.picks|length }})</div>
-        <div class="picks-grid">
+        <div class="filter-tabs" id="brainFilters">
+            <div class="filter-tab active" data-filter="all" onclick="filterBrains('all')">
+                All <span class="tab-count">{{ data.picks|length }}</span>
+            </div>
+            <div class="filter-tab" data-filter="4" onclick="filterBrains('4')">
+                🧠 4/4 <span class="tab-count">{{ data.brain_counts.get(4, 0) }}</span>
+            </div>
+            <div class="filter-tab" data-filter="3" onclick="filterBrains('3')">
+                🧠 3+ <span class="tab-count">{{ data.brain_counts.get(3, 0) + data.brain_counts.get(4, 0) }}</span>
+            </div>
+            <div class="filter-tab" data-filter="2" onclick="filterBrains('2')">
+                🧠 2+ <span class="tab-count">{{ data.brain_counts.get(2, 0) + data.brain_counts.get(3, 0) + data.brain_counts.get(4, 0) }}</span>
+            </div>
+        </div>
+
+        <div class="section-label">Spreads (<span id="visibleCount">{{ data.picks|length }}</span>)</div>
+        <div class="picks-grid" id="picksGrid">
             {% for pick in data.picks %}
-            <div class="pick-card {{ pick.result or 'pending' }}">
+            <div class="pick-card {{ pick.result or 'pending' }}" data-brains="{{ pick.brains.count }}">
                 <div class="pick-card-body">
                     <div class="pick-player">
                         <div class="pick-player-name">{{ pick.player }}</div>
@@ -485,6 +583,23 @@
                         {% endif %}
                     </div>
                 </div>
+                <div class="brains-row">
+                    <span class="brain-chip {{ 'on' if pick.brains.stats else 'off' }}">
+                        <span class="brain-icon">📊</span> Stats
+                    </span>
+                    <span class="brain-chip {{ 'on' if pick.brains.trends else 'off' }}">
+                        <span class="brain-icon">📈</span> Trends
+                    </span>
+                    <span class="brain-chip {{ 'on' if pick.brains.value else 'off' }}">
+                        <span class="brain-icon">💎</span> Value
+                    </span>
+                    <span class="brain-chip {{ 'on' if pick.brains.matchup else 'off' }}">
+                        <span class="brain-icon">⚔️</span> Matchup
+                    </span>
+                    <span class="brain-count-badge b{{ pick.brains.count }}">
+                        🧠 {{ pick.brains.count }}/4
+                    </span>
+                </div>
             </div>
             {% endfor %}
         </div>
@@ -506,6 +621,20 @@
             navigator.serviceWorker.register('/sw.js').catch(() => {});
         }
         setTimeout(function(){ location.reload(); }, 120000);
+
+        function filterBrains(level) {
+            document.querySelectorAll('.filter-tab').forEach(function(t) { t.classList.remove('active'); });
+            document.querySelector('.filter-tab[data-filter="' + level + '"]').classList.add('active');
+            var cards = document.querySelectorAll('.pick-card');
+            var visible = 0;
+            cards.forEach(function(card) {
+                var brains = parseInt(card.getAttribute('data-brains'));
+                var show = level === 'all' || brains >= parseInt(level);
+                card.style.display = show ? '' : 'none';
+                if (show) visible++;
+            });
+            document.getElementById('visibleCount').textContent = visible;
+        }
     </script>
 </body>
 </html>

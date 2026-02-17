@@ -209,10 +209,32 @@ def parse_top_plays(desc):
 
     return top_plays
 
+def analyze_four_brains(pick):
+    confidence = pick.get('confidence', 50)
+    spread_val = abs(pick.get('spread_val', 0))
+    odds_val = pick.get('odds_val', -110)
+
+    stats = confidence >= 60
+
+    trends = spread_val <= 5.0
+
+    value = odds_val >= -115
+
+    matchup = (confidence >= 58 and spread_val <= 6.5) or confidence >= 64
+
+    brains = {
+        'stats': stats,
+        'trends': trends,
+        'value': value,
+        'matchup': matchup,
+    }
+    brains['count'] = sum([stats, trends, value, matchup])
+    return brains
+
 def get_tennis_game_spreads():
     messages = fetch_discord_messages(limit=50)
     if not messages:
-        return {'success': False, 'error': 'No messages fetched', 'cards': []}
+        return {'success': False, 'error': 'No messages fetched', 'picks': [], 'top_plays': []}
 
     cards = parse_all_spreads(messages)
 
@@ -222,6 +244,7 @@ def get_tennis_game_spreads():
         for pick in card['picks']:
             if pick['confidence'] < 52:
                 continue
+            pick['brains'] = analyze_four_brains(pick)
             all_picks.append(pick)
         if not top_plays and card.get('top_plays'):
             top_plays = card['top_plays']
@@ -231,6 +254,10 @@ def get_tennis_game_spreads():
     total_pending = sum(1 for p in all_picks if p['result'] is None)
     decided = total_wins + total_losses
     overall_pct = round(total_wins / decided * 100) if decided > 0 else 0
+
+    brain_counts = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0}
+    for p in all_picks:
+        brain_counts[p['brains']['count']] = brain_counts.get(p['brains']['count'], 0) + 1
 
     return {
         'success': True,
@@ -242,6 +269,7 @@ def get_tennis_game_spreads():
         'total_pending': total_pending,
         'total_wins': total_wins,
         'total_losses': total_losses,
+        'brain_counts': brain_counts,
         'fetched_at': datetime.now(timezone.utc).isoformat(),
         'message_count': len(messages),
     }
