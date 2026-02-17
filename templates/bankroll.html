@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#d4af37">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -43,8 +43,9 @@
             padding-bottom: 90px;
         }
         .header {
-            background: linear-gradient(180deg, #16131f 0%, var(--bg-dark) 100%);
+            background: #0a0a12;
             padding: 1.5rem 1rem;
+            padding-top: calc(1.5rem + env(safe-area-inset-top, 0px));
             border-bottom: 1px solid var(--border);
             display: flex;
             justify-content: center;
@@ -52,7 +53,6 @@
             position: sticky;
             top: 0;
             z-index: 100;
-            backdrop-filter: blur(10px);
         }
         .brand {
             font-size: 2rem;
@@ -399,7 +399,7 @@
             left: 0;
             right: 0;
             background: linear-gradient(180deg, transparent 0%, var(--bg-dark) 20%);
-            padding: 1.5rem 1rem 1rem;
+            padding: 1.5rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
             z-index: 100;
         }
         .nav-buttons {
@@ -936,9 +936,15 @@
             filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.5));
         }
         @media (max-width: 768px) {
-            .mobile-bottom-nav { display: block; }
+            .mobile-bottom-nav { 
+                display: block; 
+                padding-bottom: env(safe-area-inset-bottom, 0px);
+            }
             .nav-links { display: none !important; }
-            body { padding-bottom: 70px; }
+            body { 
+                padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px)); 
+                -webkit-overflow-scrolling: touch;
+            }
         }
     </style>
 </body>
