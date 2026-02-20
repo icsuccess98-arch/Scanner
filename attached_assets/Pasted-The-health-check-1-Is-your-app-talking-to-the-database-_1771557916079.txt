@@ -1,0 +1,50 @@
+The health check
+1. Is your app talking to the database efficiently?
+
+This is the number one performance killer I see in AI-generated code. The AI tends to make separate database calls inside loops instead of batching them. Your app might feel fast with 10 users. At 100 users it slows down. At 500 it starts timing out.
+
+What to look for: if your app loads a page and you can see it making dozens of small database requests instead of a few larger ones, that's the problem. This is sometimes called the "N+1 query problem" if you want to Google it.
+
+The fix is usually straightforward. Batch your queries. Load related data together instead of one at a time. This alone can make your app 5 to 10 times faster without changing anything else.
+
+2. Are your API keys and secrets actually secure?
+
+I still see apps where API keys are hardcoded directly in the frontend code. That means anyone who opens their browser's developer tools can see your Stripe key, your OpenAI key, whatever you've got in there. That's not a minor issue. Someone could run up thousands of dollars on your OpenAI account or worse.
+
+What to check: open your app in a browser, right-click, hit "View Page Source" or check the Network tab. If you can see any API keys in there, they need to move to your backend immediately. Your frontend should never talk directly to third-party APIs. It should go through your own backend which keeps the keys hidden.
+
+If you're on Replit, use Replit Secrets for your environment variables. If you've migrated to Railway or another host, use their environment variable settings. Never commit keys to your code.
+
+3. What happens when something fails?
+
+Try this: turn off your wifi and use your app. Or open it in an incognito window and try to access a page that requires login. What happens?
+
+In most AI-generated apps, the answer is nothing good. You get a blank screen, a cryptic error, or the app just hangs. Your users are seeing this too. They just aren't telling you about it. They're leaving.
+
+Good error handling means: if a payment fails, the user sees a clear message and can retry. If the server is slow, there's a loading state instead of a frozen screen. If someone's session expires, they get redirected to login instead of seeing broken data.
+
+This doesn't need to be perfect. But the critical flows, signup, login, payment, and whatever your core feature is, should fail gracefully.
+
+4. Do you have any test coverage on your payment flow?
+
+If your app charges money, this is non-negotiable. I've worked with founders who didn't realize their Stripe integration was silently failing for days. Revenue was leaking and they had no idea.
+
+At minimum you want: a test that confirms a user can complete a purchase end to end, a test that confirms failed payments are handled properly, and a test that confirms webhooks from Stripe are being received and processed.
+
+If you're not sure how to write these, even a manual checklist that you run through before every deployment helps. Go to your staging environment (you have one, right?), make a test purchase with Stripe's test card, and confirm everything works. Every single time before you push to production.
+
+5. Is there any separation between your staging and production environments?
+
+If you're pushing code changes directly to the app your customers are using, you're one bad commit away from breaking everything. I covered this in detail in my last post about the MVP to production workflow, but it's worth repeating because it's still the most common gap I see.
+
+Staging doesn't need to be complicated. It's just a second copy of your app that runs your new code before real users see it. Railway makes this easy. Vercel makes this easy. Even a second Replit deployment can work in a pinch.
+
+The point is: never let your customers be the first people to test your changes.
+
+6. Can your app handle 10x your current users?
+
+You don't need to over-engineer for millions of users. But you should know what breaks first when traffic increases. Usually it's the database queries (see point 1), large file uploads with no size limits, or API rate limits you haven't accounted for.
+
+A simple way to think about it: if your app has 50 users right now and someone shares it on Twitter tomorrow and 500 people sign up, what breaks? If you don't know the answer, that's the problem.
+
+What I'd actually prioritize
