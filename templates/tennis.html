@@ -801,6 +801,7 @@
         <div class="section-label">Spreads (<span id="visibleCount">{{ filtered_picks|length }}</span>)</div>
         <div class="picks-grid" id="picksGrid">
             {% for pick in data.picks %}
+            {% if not pick.is_push %}
             <div class="pick-card {{ pick.result or 'pending' }}" data-brains="{{ pick.brains.count }}">
                 <div class="pick-card-body">
                     <div class="pick-player">
@@ -1033,6 +1034,7 @@
                 </div>
                 {% endif %}
             </div>
+            {% endif %}
             {% endfor %}
         </div>
         {% endif %}

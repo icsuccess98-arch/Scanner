@@ -9,6 +9,17 @@ from functools import lru_cache
 logger = logging.getLogger(__name__)
 
 DISCORD_CHANNEL_ID = '1472481082468466791'
+
+RESULT_OVERRIDES = {
+    ('P. Busta', '+3.5'): 'win',
+    ('K. Khachanov', '-1.5'): 'win',
+    ('Q. Zheng', '-1.5'): 'push',
+    ('E. Raducanu', '-1.5'): 'loss',
+    ('M. Sakkari', '+1.5'): 'push',
+    ('J. Cristian', '+1.5'): 'win',
+    ('K. Muchova', '-1.5'): 'push',
+    ('A. Shevchenko', '+3.0'): 'win',
+}
 DISCORD_API_BASE = 'https://discord.com/api/v9'
 
 def get_discord_headers():
@@ -147,6 +158,8 @@ def parse_spread_line(line):
     elif '❌' in line:
         result = 'loss'
         line = line.replace('❌', '').strip()
+    elif '⚪' in line or '➖' in line:
+        line = line.replace('⚪', '').replace('➖', '').strip()
 
     match = re.match(
         r'([A-Za-zÀ-ÿ\.\s\'-]+?)\s*([+-]?\d+\.?\d*)\s*\(([+-]\d+)\)\s*\|\s*(\d+)%',
@@ -168,6 +181,13 @@ def parse_spread_line(line):
         except:
             odds_val = 0
 
+        if result is None:
+            override = RESULT_OVERRIDES.get((player, spread))
+            if override == 'push':
+                result = None
+            elif override:
+                result = override
+
         return {
             'player': player,
             'spread': spread,
@@ -176,6 +196,7 @@ def parse_spread_line(line):
             'odds_val': odds_val,
             'confidence': int(confidence),
             'result': result,
+            'is_push': RESULT_OVERRIDES.get((player, spread)) == 'push',
         }
     return None
 
@@ -391,17 +412,19 @@ def get_tennis_game_spreads():
         if not top_plays and card.get('top_plays'):
             top_plays = card['top_plays']
 
-    total_wins = sum(1 for p in all_picks if p['result'] == 'win')
-    total_losses = sum(1 for p in all_picks if p['result'] == 'loss')
-    total_pending = sum(1 for p in all_picks if p['result'] is None)
+    active_picks = [p for p in all_picks if not p.get('is_push')]
+    total_wins = sum(1 for p in active_picks if p['result'] == 'win')
+    total_losses = sum(1 for p in active_picks if p['result'] == 'loss')
+    total_pending = sum(1 for p in active_picks if p['result'] is None)
+    total_pushes = sum(1 for p in all_picks if p.get('is_push'))
     decided = total_wins + total_losses
     overall_pct = round(total_wins / decided * 100) if decided > 0 else 0
 
     brain_counts = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0}
-    for p in all_picks:
+    for p in active_picks:
         brain_counts[p['brains']['count']] = brain_counts.get(p['brains']['count'], 0) + 1
 
-    four_brain_picks = [p for p in all_picks if p['brains']['count'] == 4]
+    four_brain_picks = [p for p in active_picks if p['brains']['count'] == 4]
     fb_wins = sum(1 for p in four_brain_picks if p['result'] == 'win')
     fb_losses = sum(1 for p in four_brain_picks if p['result'] == 'loss')
     fb_pending = sum(1 for p in four_brain_picks if p['result'] is None)
@@ -414,8 +437,9 @@ def get_tennis_game_spreads():
         'top_plays': top_plays,
         'overall_record': f"{total_wins}-{total_losses}",
         'overall_pct': overall_pct,
-        'total_spreads': len(all_picks),
+        'total_spreads': len(active_picks),
         'total_pending': total_pending,
+        'total_pushes': total_pushes,
         'total_wins': total_wins,
         'total_losses': total_losses,
         'brain_counts': brain_counts,
