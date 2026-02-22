@@ -1287,35 +1287,20 @@
 
         {# --- VSIN BETTING ACTION SECTION --- #}
         {% if vsin_tennis and vsin_tennis.success and vsin_tennis.matches %}
-        {% set sharp_matches = [] %}
         {% set rlm_matches = [] %}
         {% set all_vsin = vsin_tennis.matches.values()|list %}
         {% for m in all_vsin %}
-            {% if m.sharp_side %}{% if sharp_matches.append(m) %}{% endif %}{% endif %}
             {% if m.p1_rlm or m.p2_rlm %}{% if rlm_matches.append(m) %}{% endif %}{% endif %}
         {% endfor %}
+        {% if rlm_matches|length > 0 %}
         <div class="vsin-tennis-section">
             <div class="vsin-tennis-header" onclick="toggleVsinTennis()">
                 <span class="vsin-badge-inline">VSIN</span>
-                <span class="vsin-title">Tennis Betting Action</span>
-                {% if sharp_matches|length > 0 %}
-                <span class="vsin-alert-badge sharp-money"><i class="bi bi-lightning-fill"></i> {{ sharp_matches|length }} Sharp</span>
-                {% endif %}
-                {% if rlm_matches|length > 0 %}
+                <span class="vsin-title">Tennis RLM</span>
                 <span class="vsin-alert-badge rlm"><i class="bi bi-arrow-left-right"></i> {{ rlm_matches|length }} RLM</span>
-                {% endif %}
-                <span class="vsin-count">{{ all_vsin|length }} matches</span>
                 <i class="bi bi-chevron-down" id="vsin-chevron"></i>
             </div>
             <div id="vsin-tennis-body" style="display:block;">
-                {% if sharp_matches|length > 0 or rlm_matches|length > 0 %}
-                <div class="section-label" style="margin-bottom:8px;font-size:0.65rem;">Sharp Money & RLM Alerts</div>
-                {% set alert_matches = [] %}
-                {% for m in all_vsin %}
-                    {% if m.sharp_side or m.p1_rlm or m.p2_rlm %}
-                        {% if alert_matches.append(m) %}{% endif %}
-                    {% endif %}
-                {% endfor %}
                 {% macro render_vsin_card(m, show_badges=false) %}
                 {% set p1s = m.get('p1_stats') if m.get('p1_stats') else {} %}
                 {% set p2s = m.get('p2_stats') if m.get('p2_stats') else {} %}
@@ -1458,21 +1443,12 @@
                 </div>
                 {% endmacro %}
 
-                {% for m in alert_matches %}
+                {% for m in rlm_matches %}
                 {{ render_vsin_card(m, show_badges=true) }}
-                {% endfor %}
-                {% endif %}
-
-                {% set dates_seen = [] %}
-                {% for m in all_vsin %}
-                {% if m.date and m.date not in dates_seen %}
-                    {% if dates_seen.append(m.date) %}{% endif %}
-                    <div class="section-label" style="margin:12px 0 8px;font-size:0.65rem;">{{ m.date }}</div>
-                {% endif %}
-                {{ render_vsin_card(m) }}
                 {% endfor %}
             </div>
         </div>
+        {% endif %}
         {% endif %}
 
         {# --- TOURNAMENT ANALYSIS SECTION --- #}

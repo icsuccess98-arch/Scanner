@@ -473,8 +473,7 @@ def get_vsin_tennis_data() -> dict:
     }
     
     today = datetime.now()
-    tomorrow = today + timedelta(days=1)
-    filter_dates = {today.strftime('%b %-d'), tomorrow.strftime('%b %-d')}
+    filter_dates = {today.strftime('%b %-d')}
     logger.info(f"VSIN Tennis date filter: {filter_dates}")
     
     try:
