@@ -39,6 +39,7 @@ def get_vsin_splits(sport: str = 'CBB') -> dict:
         'NFL': 'https://data.vsin.com/nfl/betting-splits/',
         'CFB': 'https://data.vsin.com/college-football/betting-splits/',
         'NHL': 'https://data.vsin.com/nhl/betting-splits/',
+        'TENNIS': 'https://data.vsin.com/tennis/betting-splits/',
     }
 
     url = sport_urls.get(sport.upper(), sport_urls['CBB'])
@@ -188,6 +189,153 @@ def parse_vsin_splits(html: str, sport: str) -> dict:
     return splits
 
 
+def parse_tennis_splits(html: str) -> dict:
+    """Parse tennis betting splits from VSIN HTML - tennis uses player names instead of team names"""
+    splits = {}
+    
+    try:
+        soup = BeautifulSoup(html, 'html.parser')
+        tables = soup.find_all('table')
+        logger.info(f"VSIN Tennis splits: Found {len(tables)} tables")
+        
+        current_tournament = 'Tennis'
+        
+        for table in tables:
+            cells = table.find_all('td')
+            
+            i = 0
+            while i < len(cells):
+                cell = cells[i]
+                cls = cell.get('class', [])
+                text = cell.get_text(separator='|', strip=True)
+                
+                if 'text-center' in cls and ('ATP' in text or 'WTA' in text or 'ITF' in text):
+                    parts = text.split('|')
+                    current_tournament = parts[0].strip() if parts else text
+                    i += 1
+                    continue
+                
+                if 'font-12' in cls and '|' in text:
+                    parts = text.split('|')
+                    if len(parts) == 2 and len(parts[0]) > 2 and len(parts[1]) > 2:
+                        player1 = parts[0].strip()
+                        player2 = parts[1].strip()
+                        
+                        odds_text = ''
+                        handle_text = ''
+                        bets_text = ''
+                        
+                        for j in range(1, 4):
+                            if i + j < len(cells):
+                                next_text = cells[i + j].get_text(separator='|', strip=True)
+                                next_cls = cells[i + j].get('class', [])
+                                if '%' in next_text and not handle_text:
+                                    handle_text = next_text
+                                elif '%' in next_text and handle_text and not bets_text:
+                                    bets_text = next_text
+                                elif re.match(r'^[+-]?\d', next_text) and not odds_text:
+                                    odds_text = next_text
+                        
+                        handle_pcts = re.findall(r'(\d+)%', handle_text) if handle_text else []
+                        bets_pcts = re.findall(r'(\d+)%', bets_text) if bets_text else []
+                        
+                        if not bets_pcts and handle_pcts:
+                            bets_pcts = handle_pcts
+                            handle_pcts = []
+                        
+                        odds_parts = odds_text.split('|') if odds_text else []
+                        p1_odds = odds_parts[0].strip() if len(odds_parts) >= 1 else ''
+                        p2_odds = odds_parts[1].strip() if len(odds_parts) >= 2 else ''
+                        
+                        game_key = f"{player1} vs {player2}"
+                        
+                        entry = {
+                            'player1': player1,
+                            'player2': player2,
+                            'tournament': current_tournament,
+                            'p1_odds': p1_odds,
+                            'p2_odds': p2_odds,
+                        }
+                        
+                        if len(handle_pcts) >= 2:
+                            entry['p1_handle_pct'] = int(handle_pcts[0])
+                            entry['p2_handle_pct'] = int(handle_pcts[1])
+                        if len(bets_pcts) >= 2:
+                            entry['p1_bets_pct'] = int(bets_pcts[0])
+                            entry['p2_bets_pct'] = int(bets_pcts[1])
+                        
+                        if entry.get('p1_handle_pct') is not None and entry.get('p1_bets_pct') is not None:
+                            entry['p1_sharp'] = get_sharp_indicator(entry['p1_bets_pct'], entry['p1_handle_pct'])
+                            entry['p2_sharp'] = get_sharp_indicator(entry['p2_bets_pct'], entry['p2_handle_pct'])
+                        
+                        if entry.get('p1_handle_pct') is not None or entry.get('p1_bets_pct') is not None:
+                            splits[game_key] = entry
+                            logger.debug(f"Tennis split: {game_key} | Handle: {entry.get('p1_handle_pct')}/{entry.get('p2_handle_pct')} Bets: {entry.get('p1_bets_pct')}/{entry.get('p2_bets_pct')}")
+                
+                i += 1
+        
+        logger.info(f"Parsed {len(splits)} tennis matches from VSIN splits")
+    
+    except Exception as e:
+        logger.error(f"Error parsing tennis splits: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+    
+    return splits
+
+
+def get_vsin_tennis_data() -> dict:
+    """Fetch and combine VSIN tennis splits data with RLM detection"""
+    cookies = load_cookies()
+    if not cookies:
+        return {'success': False, 'message': 'No cookies found.', 'matches': {}}
+    
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/html,*/*',
+        'Referer': 'https://vsin.com/',
+    }
+    
+    try:
+        resp = requests.get('https://data.vsin.com/tennis/betting-splits/', 
+                          cookies=cookies, headers=headers, timeout=30)
+        if resp.status_code != 200:
+            return {'success': False, 'message': f'Failed: {resp.status_code}', 'matches': {}}
+        
+        matches = parse_tennis_splits(resp.text)
+        
+        for key, match in matches.items():
+            p1_handle = match.get('p1_handle_pct', 50)
+            p2_handle = match.get('p2_handle_pct', 50)
+            p1_bets = match.get('p1_bets_pct', 50)
+            p2_bets = match.get('p2_bets_pct', 50)
+            
+            match['p1_rlm'] = False
+            match['p2_rlm'] = False
+            
+            if p1_bets >= 60 and p1_handle < p2_handle:
+                match['p2_rlm'] = True
+            if p2_bets >= 60 and p2_handle < p1_handle:
+                match['p1_rlm'] = True
+            
+            p1_divergence = abs(p1_handle - p1_bets)
+            p2_divergence = abs(p2_handle - p2_bets)
+            match['p1_divergence'] = p1_divergence
+            match['p2_divergence'] = p2_divergence
+            
+            match['sharp_side'] = None
+            if p1_handle > p1_bets and p1_divergence >= 15:
+                match['sharp_side'] = match['player1']
+            elif p2_handle > p2_bets and p2_divergence >= 15:
+                match['sharp_side'] = match['player2']
+        
+        return {'success': True, 'matches': matches, 'count': len(matches)}
+    
+    except Exception as e:
+        logger.error(f"Error fetching VSIN tennis: {e}")
+        return {'success': False, 'message': str(e), 'matches': {}}
+
+
 def extract_percentage(text: str) -> float:
     """Extract percentage value from text"""
     if not text:
@@ -235,6 +383,7 @@ def get_vsin_lines(sport: str = 'CBB') -> dict:
         'NFL': 'https://data.vsin.com/nfl/vegas-odds-linetracker/',
         'CFB': 'https://data.vsin.com/college-football/vegas-odds-linetracker/',
         'NHL': 'https://data.vsin.com/nhl/vegas-odds-linetracker/',
+        'TENNIS': 'https://data.vsin.com/tennis/vegas-odds-linetracker/',
     }
 
     url = sport_urls.get(sport.upper(), sport_urls['CBB'])

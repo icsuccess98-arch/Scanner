@@ -11123,16 +11123,19 @@ def tennis():
     import concurrent.futures
     from discord_scraper import get_tennis_game_spreads, analyze_tournament_matchups
     from tennis_abstract_scraper import get_tennis_abstract_stats, get_tournament_draws, reset_upgrade_count
+    from vsin_scraper import get_vsin_tennis_data
 
     reset_upgrade_count()
     data = {'success': False, 'error': 'Loading...', 'picks': [], 'top_plays': []}
     player_stats = {}
     tournament_draws = []
+    vsin_tennis = {'success': False, 'matches': {}}
 
     try:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
             future_data = executor.submit(get_tennis_game_spreads)
             future_stats = executor.submit(get_tennis_abstract_stats)
+            future_vsin = executor.submit(get_vsin_tennis_data)
             try:
                 data = future_data.result(timeout=20)
             except Exception as e:
@@ -11141,6 +11144,10 @@ def tennis():
                 player_stats = future_stats.result(timeout=10)
             except Exception as e:
                 logger.error(f"Tennis Abstract stats timeout/error: {e}")
+            try:
+                vsin_tennis = future_vsin.result(timeout=15)
+            except Exception as e:
+                logger.error(f"VSIN tennis timeout/error: {e}")
     except Exception as e:
         logger.error(f"Tennis data fetch error: {e}")
 
@@ -11150,7 +11157,8 @@ def tennis():
     except Exception as e:
         logger.error(f"Tournament analysis error: {e}")
 
-    return render_template('tennis.html', data=data, player_stats=player_stats, tournaments=tournament_draws)
+    return render_template('tennis.html', data=data, player_stats=player_stats, 
+                          tournaments=tournament_draws, vsin_tennis=vsin_tennis)
 
 @app.route('/bankroll')
 def bankroll():

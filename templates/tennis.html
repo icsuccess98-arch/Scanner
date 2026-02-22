@@ -423,6 +423,134 @@
             font-weight: 600;
         }
 
+        /* VSIN Tennis Betting Action */
+        .vsin-tennis-section {
+            margin-top: 24px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+        .vsin-tennis-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 14px;
+            background: linear-gradient(135deg, rgba(123, 44, 191, 0.15), rgba(46, 139, 87, 0.1));
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+        .vsin-tennis-header:hover { border-color: var(--accent); }
+        .vsin-badge-inline {
+            font-size: 0.5rem;
+            font-weight: 800;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: rgba(0, 150, 255, 0.15);
+            color: #4da6ff;
+            letter-spacing: 0.5px;
+        }
+        .vsin-tennis-header .vsin-title {
+            font-weight: 700;
+            font-size: 0.85rem;
+            flex: 1;
+        }
+        .vsin-tennis-header .vsin-count {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            background: rgba(255,255,255,0.06);
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+        .vsin-match-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            margin-bottom: 6px;
+            transition: all 0.2s;
+        }
+        .vsin-match-card:hover { border-color: var(--tennis-light); }
+        .vsin-match-card.has-rlm { border-left: 3px solid #ff6b6b; }
+        .vsin-match-card.has-sharp { border-left: 3px solid #50C878; }
+        .vsin-match-tourn {
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+        .vsin-match-players {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        .vsin-player {
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .vsin-player.sharp { color: #50C878; }
+        .vsin-player-odds {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            margin-left: 4px;
+        }
+        .vsin-vs { font-size: 0.65rem; color: var(--text-muted); }
+        .vsin-splits-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .vsin-split-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.65rem;
+        }
+        .vsin-split-label {
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-size: 0.55rem;
+            font-weight: 600;
+        }
+        .vsin-split-bar {
+            display: flex;
+            width: 80px;
+            height: 6px;
+            border-radius: 3px;
+            overflow: hidden;
+            background: rgba(255,255,255,0.05);
+        }
+        .vsin-split-bar .p1 {
+            background: var(--tennis-light);
+            transition: width 0.3s;
+        }
+        .vsin-split-bar .p2 {
+            background: var(--accent);
+            transition: width 0.3s;
+        }
+        .vsin-pct { font-weight: 600; font-size: 0.6rem; }
+        .vsin-pct.majority { color: #daa520; }
+        .vsin-alert-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 0.55rem;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 4px;
+            margin-left: 6px;
+        }
+        .vsin-alert-badge.rlm {
+            background: rgba(255, 107, 107, 0.15);
+            color: #ff6b6b;
+        }
+        .vsin-alert-badge.sharp-money {
+            background: rgba(80, 200, 120, 0.15);
+            color: #50C878;
+        }
+
         /* Tournament section */
         .tournament-section {
             margin-top: 24px;
@@ -1039,6 +1167,116 @@
         </div>
         {% endif %}
 
+        {# --- VSIN BETTING ACTION SECTION --- #}
+        {% if vsin_tennis and vsin_tennis.success and vsin_tennis.matches %}
+        {% set sharp_matches = [] %}
+        {% set rlm_matches = [] %}
+        {% set all_vsin = vsin_tennis.matches.values()|list %}
+        {% for m in all_vsin %}
+            {% if m.sharp_side %}{% if sharp_matches.append(m) %}{% endif %}{% endif %}
+            {% if m.p1_rlm or m.p2_rlm %}{% if rlm_matches.append(m) %}{% endif %}{% endif %}
+        {% endfor %}
+        <div class="vsin-tennis-section">
+            <div class="vsin-tennis-header" onclick="toggleVsinTennis()">
+                <span class="vsin-badge-inline">VSIN</span>
+                <span class="vsin-title">Tennis Betting Action</span>
+                {% if sharp_matches|length > 0 %}
+                <span class="vsin-alert-badge sharp-money"><i class="bi bi-lightning-fill"></i> {{ sharp_matches|length }} Sharp</span>
+                {% endif %}
+                {% if rlm_matches|length > 0 %}
+                <span class="vsin-alert-badge rlm"><i class="bi bi-arrow-left-right"></i> {{ rlm_matches|length }} RLM</span>
+                {% endif %}
+                <span class="vsin-count">{{ all_vsin|length }} matches</span>
+                <i class="bi bi-chevron-down" id="vsin-chevron"></i>
+            </div>
+            <div id="vsin-tennis-body" style="display:none;">
+                {% if sharp_matches|length > 0 or rlm_matches|length > 0 %}
+                <div class="section-label" style="margin-bottom:8px;font-size:0.65rem;">Sharp Money & RLM Alerts</div>
+                {% set alert_matches = [] %}
+                {% for m in all_vsin %}
+                    {% if m.sharp_side or m.p1_rlm or m.p2_rlm %}
+                        {% if alert_matches.append(m) %}{% endif %}
+                    {% endif %}
+                {% endfor %}
+                {% for m in alert_matches %}
+                <div class="vsin-match-card {{ 'has-rlm' if (m.p1_rlm or m.p2_rlm) else ('has-sharp' if m.sharp_side else '') }}">
+                    <div class="vsin-match-tourn">{{ m.tournament }}</div>
+                    <div class="vsin-match-players">
+                        <span class="vsin-player {{ 'sharp' if m.sharp_side == m.player1 else '' }}">
+                            {{ m.player1 }}
+                            <span class="vsin-player-odds">{{ m.p1_odds }}</span>
+                            {% if m.p1_rlm %}<span class="vsin-alert-badge rlm"><i class="bi bi-arrow-left-right"></i> RLM</span>{% endif %}
+                            {% if m.sharp_side == m.player1 %}<span class="vsin-alert-badge sharp-money"><i class="bi bi-lightning-fill"></i> Sharp</span>{% endif %}
+                        </span>
+                        <span class="vsin-vs">vs</span>
+                        <span class="vsin-player {{ 'sharp' if m.sharp_side == m.player2 else '' }}">
+                            {{ m.player2 }}
+                            <span class="vsin-player-odds">{{ m.p2_odds }}</span>
+                            {% if m.p2_rlm %}<span class="vsin-alert-badge rlm"><i class="bi bi-arrow-left-right"></i> RLM</span>{% endif %}
+                            {% if m.sharp_side == m.player2 %}<span class="vsin-alert-badge sharp-money"><i class="bi bi-lightning-fill"></i> Sharp</span>{% endif %}
+                        </span>
+                    </div>
+                    <div class="vsin-splits-row">
+                        <div class="vsin-split-item">
+                            <span class="vsin-split-label">Handle</span>
+                            <span class="vsin-pct {{ 'majority' if m.p1_handle_pct|default(0) > 50 else '' }}">{{ m.p1_handle_pct|default(0) }}%</span>
+                            <div class="vsin-split-bar">
+                                <div class="p1" style="width:{{ m.p1_handle_pct|default(50) }}%"></div>
+                                <div class="p2" style="width:{{ m.p2_handle_pct|default(50) }}%"></div>
+                            </div>
+                            <span class="vsin-pct {{ 'majority' if m.p2_handle_pct|default(0) > 50 else '' }}">{{ m.p2_handle_pct|default(0) }}%</span>
+                        </div>
+                        <div class="vsin-split-item">
+                            <span class="vsin-split-label">Bets</span>
+                            <span class="vsin-pct {{ 'majority' if m.p1_bets_pct|default(0) > 50 else '' }}">{{ m.p1_bets_pct|default(0) }}%</span>
+                            <div class="vsin-split-bar">
+                                <div class="p1" style="width:{{ m.p1_bets_pct|default(50) }}%"></div>
+                                <div class="p2" style="width:{{ m.p2_bets_pct|default(50) }}%"></div>
+                            </div>
+                            <span class="vsin-pct {{ 'majority' if m.p2_bets_pct|default(0) > 50 else '' }}">{{ m.p2_bets_pct|default(0) }}%</span>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                {% endif %}
+
+                <div class="section-label" style="margin:12px 0 8px;font-size:0.65rem;">All Matches ({{ all_vsin|length }})</div>
+                {% for m in all_vsin %}
+                {% if not m.sharp_side and not m.p1_rlm and not m.p2_rlm %}
+                <div class="vsin-match-card">
+                    <div class="vsin-match-tourn">{{ m.tournament }}</div>
+                    <div class="vsin-match-players">
+                        <span class="vsin-player">{{ m.player1 }} <span class="vsin-player-odds">{{ m.p1_odds }}</span></span>
+                        <span class="vsin-vs">vs</span>
+                        <span class="vsin-player">{{ m.player2 }} <span class="vsin-player-odds">{{ m.p2_odds }}</span></span>
+                    </div>
+                    <div class="vsin-splits-row">
+                        <div class="vsin-split-item">
+                            <span class="vsin-split-label">Handle</span>
+                            <span class="vsin-pct {{ 'majority' if m.p1_handle_pct|default(0) > 50 else '' }}">{{ m.p1_handle_pct|default(0) }}%</span>
+                            <div class="vsin-split-bar">
+                                <div class="p1" style="width:{{ m.p1_handle_pct|default(50) }}%"></div>
+                                <div class="p2" style="width:{{ m.p2_handle_pct|default(50) }}%"></div>
+                            </div>
+                            <span class="vsin-pct {{ 'majority' if m.p2_handle_pct|default(0) > 50 else '' }}">{{ m.p2_handle_pct|default(0) }}%</span>
+                        </div>
+                        <div class="vsin-split-item">
+                            <span class="vsin-split-label">Bets</span>
+                            <span class="vsin-pct {{ 'majority' if m.p1_bets_pct|default(0) > 50 else '' }}">{{ m.p1_bets_pct|default(0) }}%</span>
+                            <div class="vsin-split-bar">
+                                <div class="p1" style="width:{{ m.p1_bets_pct|default(50) }}%"></div>
+                                <div class="p2" style="width:{{ m.p2_bets_pct|default(50) }}%"></div>
+                            </div>
+                            <span class="vsin-pct {{ 'majority' if m.p2_bets_pct|default(0) > 50 else '' }}">{{ m.p2_bets_pct|default(0) }}%</span>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
         {# --- TOURNAMENT ANALYSIS SECTION --- #}
         {% if tournaments %}
         <div class="tournament-section">
@@ -1203,6 +1441,21 @@
             el.classList.toggle('expanded');
             var content = el.nextElementSibling;
             content.classList.toggle('show');
+        }
+
+        function toggleVsinTennis() {
+            if ('vibrate' in navigator) navigator.vibrate(10);
+            var body = document.getElementById('vsin-tennis-body');
+            var chevron = document.getElementById('vsin-chevron');
+            if (body.style.display === 'none') {
+                body.style.display = 'block';
+                chevron.classList.add('bi-chevron-up');
+                chevron.classList.remove('bi-chevron-down');
+            } else {
+                body.style.display = 'none';
+                chevron.classList.add('bi-chevron-down');
+                chevron.classList.remove('bi-chevron-up');
+            }
         }
 
         function toggleTournament(el) {
