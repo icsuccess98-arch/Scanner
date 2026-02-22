@@ -10,9 +10,10 @@
     <link rel="apple-touch-icon" href="/static/icon-512.png">
     <link rel="manifest" href="/static/manifest.json">
     <meta name="theme-color" content="#d4af37">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/css/bootstrap-icons.min.css" rel="stylesheet">
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
     <style>
         :root {
             /* Royal Gold Theme */
@@ -1634,6 +1635,26 @@
         }
         @keyframes spin { to { transform: rotate(360deg); } }
         
+        /* Button spinner */
+        .spinner-border {
+            display: inline-block;
+            width: 1rem;
+            height: 1rem;
+            vertical-align: -0.125em;
+            border: 0.125em solid currentcolor;
+            border-right-color: transparent;
+            border-radius: 50%;
+            animation: spinner-border 0.75s linear infinite;
+        }
+        .spinner-border-sm {
+            width: 0.875rem;
+            height: 0.875rem;
+            border-width: 0.125em;
+        }
+        @keyframes spinner-border {
+            to { transform: rotate(360deg); }
+        }
+        
         /* Skeleton Loading */
         .skeleton {
             background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-input) 50%, var(--bg-card) 75%);
@@ -3088,7 +3109,17 @@
             fetch('/api/status')
             .then(r => r.json())
             .then(data => {
-                if (data.games_changed) {
+                // Update games count without full reload
+                if (data.games_count !== undefined) {
+                    const gamesCountEl = document.getElementById('games-count');
+                    if (gamesCountEl && gamesCountEl.textContent !== data.games_count.toString()) {
+                        gamesCountEl.textContent = data.games_count;
+                    }
+                }
+                
+                // Only do full reload if date changed (already handled by checkDateChange)
+                // or if specifically instructed by server
+                if (data.force_reload) {
                     location.reload();
                 }
             })
@@ -3098,10 +3129,38 @@
         setInterval(checkDateChange, 60000);
         setInterval(autoRefreshData, 300000);
         
+        // Smart polling intervals
+        let liveScoresInterval = null;
+        let currentInterval = 60000; // Start with 60s
+        let hasLiveGames = false;
+        
+        function updatePollingInterval() {
+            if (liveScoresInterval) {
+                clearInterval(liveScoresInterval);
+            }
+            
+            // Check if we're in game hours (12 PM - 1 AM ET)
+            const now = new Date();
+            const et = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));
+            const hour = et.getHours();
+            const isGameHours = hour >= 12 || hour <= 1;
+            
+            // Set interval based on game hours and live games status
+            if (hasLiveGames && isGameHours) {
+                currentInterval = 15000; // 15 seconds when live games during game hours
+            } else {
+                currentInterval = 60000; // 60 seconds otherwise
+            }
+            
+            liveScoresInterval = setInterval(fetchLiveScores, currentInterval);
+        }
+
         function fetchLiveScores() {
             fetch('/api/live_scores')
             .then(r => r.json())
             .then(data => {
+                let foundLiveGames = false;
+                
                 if (data.live_scores) {
                     // Update game cards
                     document.querySelectorAll('.game-card').forEach(card => {
@@ -3139,6 +3198,7 @@
                                 card.classList.add('game-final');
                             } else {
                                 // LIVE - any game with scores that isn't final is live
+                                foundLiveGames = true;
                                 if (pregameEl) pregameEl.style.display = 'none';
                                 if (finalEl) finalEl.style.display = 'none';
                                 if (liveEl) {
@@ -3186,6 +3246,7 @@
                                 }
                             } else {
                                 // LIVE
+                                foundLiveGames = true;
                                 if (pregame) pregame.style.display = 'none';
                                 if (final) final.style.display = 'none';
                                 if (live) {
@@ -3201,11 +3262,18 @@
                         }
                     }
                 }
+                
+                // Update polling interval if live games status changed
+                if (foundLiveGames !== hasLiveGames) {
+                    hasLiveGames = foundLiveGames;
+                    updatePollingInterval();
+                }
             })
             .catch(err => console.log('Live scores error:', err));
         }
         
-        setInterval(fetchLiveScores, 2500);
+        // Start smart polling
+        updatePollingInterval();
         fetchLiveScores();
         
         if ('Notification' in window && 'serviceWorker' in navigator) {
@@ -3268,25 +3336,42 @@
         window.addEventListener('offline', updateOfflineStatus);
         document.addEventListener('DOMContentLoaded', updateOfflineStatus);
         
+        function setButtonLoading(btn, loading, originalText, loadingText) {
+            if (loading) {
+                btn.disabled = true;
+                btn.innerHTML = `<div class="spinner-border spinner-border-sm me-2" role="status"></div>${loadingText}`;
+            } else {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        }
+
         function fetchGames() {
             hapticFeedback();
             const btn = event.target.closest('button');
-            btn.disabled = true;
-            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Loading...';
+            const originalText = '<i class="bi bi-arrow-repeat"></i> Fetch Games';
+            
+            setButtonLoading(btn, true, originalText, 'Loading...');
             showLoading();
             
             fetch('/fetch_games', {method: 'POST'})
             .then(r => r.json())
             .then(data => {
+                hideLoading();
                 window.location.href = '/';
             })
-            .catch(() => hideLoading());
+            .catch(() => {
+                hideLoading();
+                setButtonLoading(btn, false, originalText, '');
+            });
         }
 
         function fetchOdds() {
+            hapticFeedback();
             const btn = event.target.closest('button');
-            btn.disabled = true;
-            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Loading...';
+            const originalText = '<i class="bi bi-currency-dollar"></i> Fetch Odds';
+            
+            setButtonLoading(btn, true, originalText, 'Fetching...');
             showLoading();
             
             fetch('/fetch_odds', {method: 'POST'})
@@ -3297,16 +3382,21 @@
                     window.location.href = '/?qualified=1';
                 } else {
                     alert(data.message || 'Failed to fetch odds');
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="bi bi-currency-dollar"></i> Fetch Odds';
+                    setButtonLoading(btn, false, originalText, '');
                 }
+            })
+            .catch(() => {
+                hideLoading();
+                setButtonLoading(btn, false, originalText, '');
             });
         }
 
         function postDiscord() {
+            hapticFeedback();
             const btn = event.target.closest('button');
-            btn.disabled = true;
-            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Posting...';
+            const originalText = '<i class="bi bi-discord"></i> Post to Discord';
+            
+            setButtonLoading(btn, true, originalText, 'Posting...');
             
             fetch('/post_discord', {method: 'POST'})
             .then(r => r.json())
@@ -3317,8 +3407,10 @@
                 } else {
                     alert(data.message || 'Failed to post');
                 }
-                btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-discord"></i> Post to Discord';
+                setButtonLoading(btn, false, originalText, '');
+            })
+            .catch(() => {
+                setButtonLoading(btn, false, originalText, '');
             });
         }
         

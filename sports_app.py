@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from enum import Enum
 from math import radians, sin, cos, sqrt, atan2
+from functools import wraps
+from collections import defaultdict
 from flask import Flask, render_template, request, jsonify, redirect, url_for, make_response
 from flask_sqlalchemy import SQLAlchemy
 from flask_compress import Compress
@@ -35,6 +37,38 @@ except ImportError as e:
     AI_BRAINS_AVAILABLE = False
     logging.getLogger(__name__).info(f"AI brains not available: {e}")
 
+# Connection pooling for external API calls
+_http_session = requests.Session()
+_http_session.headers.update({'User-Agent': 'Mozilla/5.0 730Locks/1.0'})
+
+# Rate limiting and error tracking
+_endpoint_cooldowns = {}
+_error_counts = defaultdict(int)
+_recent_errors = []
+
+def cooldown(seconds=5):
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            key = f.__name__
+            now = time.time()
+            last = _endpoint_cooldowns.get(key, 0)
+            if now - last < seconds:
+                return jsonify({'error': 'Too many requests', 'retry_after': seconds}), 429
+            _endpoint_cooldowns[key] = now
+            return f(*args, **kwargs)
+        return wrapper
+    return decorator
+
+def track_error(module, error):
+    _error_counts[module] += 1
+    _recent_errors.append({
+        'module': module,
+        'error': str(error)[:200],
+        'time': datetime.utcnow().isoformat()
+    })
+    if len(_recent_errors) > 50:
+        _recent_errors.pop(0)
 
 # NBA team logo URLs from ESPN CDN (module-level for shared access)
 NBA_TEAM_COLORS = {
@@ -7215,6 +7249,14 @@ def favicon():
 def offline():
     return app.send_static_file('offline.html')
 
+@app.route('/api/errors')
+def api_errors():
+    """Lightweight error tracking dashboard."""
+    return jsonify({
+        'counts': dict(_error_counts),
+        'recent': _recent_errors[-20:]
+    })
+
 @app.route('/api/status')
 def api_status():
     et = pytz.timezone('America/New_York')
@@ -9512,6 +9554,7 @@ def process_espn_events(events: list, today: date, et, league: str) -> tuple:
     return games_data, team_ids
 
 @app.route('/fetch_games', methods=['POST'])
+@cooldown(10)
 def fetch_games():
     start_time = time.time()
     et = pytz.timezone('America/New_York')
@@ -9738,6 +9781,7 @@ def fetch_games():
     })
 
 @app.route('/fetch_stats', methods=['POST'])
+@cooldown(10)
 def fetch_stats():
     nba_stats = get_nba_stats()
     nhl_stats = get_nhl_stats()
@@ -10223,11 +10267,13 @@ def fetch_odds_internal() -> dict:
     }
 
 @app.route('/fetch_odds', methods=['POST'])
+@cooldown(10)
 def fetch_odds():
     """Route wrapper for fetch_odds_internal."""
     return jsonify(fetch_odds_internal())
 
 @app.route('/fetch_vsin', methods=['POST'])
+@cooldown(10)
 def fetch_vsin():
     """Route wrapper for fetch_vsin_internal."""
     return jsonify(fetch_vsin_internal())
@@ -10517,6 +10563,7 @@ def fetch_history_internal() -> dict:
     }
 
 @app.route('/fetch_history', methods=['POST'])
+@cooldown(10)
 def fetch_history():
     """Fetch historical data for qualified games to apply 85% threshold."""
     result = fetch_history_internal()
@@ -10690,6 +10737,7 @@ def fetch_alt_lines_internal() -> dict:
     return {"alt_lines_found": alt_lines_found, "games_checked": len(qualified_totals)}
 
 @app.route('/post_discord', methods=['POST'])
+@cooldown(10)
 def post_discord():
     et = pytz.timezone('America/New_York')
     today = datetime.now(et).date()
@@ -10833,9 +10881,21 @@ def post_discord():
     
     webhook = os.environ.get("SPORTS_DISCORD_WEBHOOK")
     if webhook:
-        success, status_code, error = post_to_discord_with_retry(webhook, {"content": msg})
-        if not success:
-            return jsonify({"success": False, "message": f"Discord post failed: {error}", "status": status_code})
+        # Post to Discord asynchronously
+        def _post_to_discord_async(webhook_url, payload):
+            try:
+                success, status_code, error = post_to_discord_with_retry(webhook_url, payload)
+                if success:
+                    logger.info("Discord post successful")
+                else:
+                    logger.error(f"Discord post failed: {error}")
+                    track_error('discord_post', f"Status {status_code}: {error}")
+            except Exception as e:
+                logger.error(f"Discord post exception: {e}")
+                track_error('discord_post', e)
+        
+        thread = threading.Thread(target=_post_to_discord_async, args=(webhook, {"content": msg}))
+        thread.start()
         
         # Save ALL posted picks to history (Lock + Top Picks) to preserve line at time of posting
         picks_saved = 0
@@ -10888,7 +10948,7 @@ def post_discord():
         db.session.commit()
         logger.info(f"Saved {picks_saved} picks to history (line locked at time of posting)")
         
-        return jsonify({"success": True, "status": status_code, "picks_count": picks_saved})
+        return jsonify({"success": True, "status": "queued", "picks_count": picks_saved})
     
     return jsonify({"success": False, "message": "Discord webhook not configured"})
 
@@ -11037,6 +11097,7 @@ def get_schedule_windows():
     })
 
 @app.route('/check_results', methods=['POST'])
+@cooldown(10)
 def check_results():
     updated = check_finished_games_results()
     return jsonify({"success": True, "results_updated": updated})
@@ -11226,94 +11287,108 @@ def bankroll():
     """52 Week Bankroll Builder tracker."""
     return render_template('bankroll.html')
 
-_nba_standings_cache = {'data': {}, 'timestamp': 0}
-_nba_team_stats_cache = {'data': {}, 'timestamp': 0}
+# Single cache for ESPN NBA standings data (60min TTL)
+_espn_standings_cache = {'data': None, 'timestamp': 0}
+
+def _fetch_espn_standings():
+    """Fetch ESPN NBA standings data with caching (60min TTL). Returns raw API response."""
+    global _espn_standings_cache
+    
+    # Check cache (60 min TTL)
+    if _espn_standings_cache['data'] and time.time() - _espn_standings_cache['timestamp'] < 3600:
+        return _espn_standings_cache['data']
+    
+    try:
+        url = 'https://site.api.espn.com/apis/v2/sports/basketball/nba/standings'
+        resp = _http_session.get(url, timeout=15)
+        if resp.status_code == 200:
+            data = resp.json()
+            _espn_standings_cache = {'data': data, 'timestamp': time.time()}
+            logger.info("Fetched fresh ESPN NBA standings data")
+            return data
+        else:
+            logger.warning(f"ESPN API returned {resp.status_code}")
+    except Exception as e:
+        logger.error(f"Error fetching ESPN standings: {e}")
+        track_error('espn_standings', e)
+    
+    # Return cached data if available, even if stale
+    return _espn_standings_cache['data']
 
 def get_nba_team_stats():
     """Fetch comprehensive NBA team stats including ATS, Last 10, Home/Road records."""
-    global _nba_team_stats_cache
-    import time
-    
-    # Check cache (30 min TTL)
-    if _nba_team_stats_cache['data'] and time.time() - _nba_team_stats_cache['timestamp'] < 1800:
-        return _nba_team_stats_cache['data']
-    
     stats = {}
+    
+    # Get cached ESPN standings data
+    data = _fetch_espn_standings()
+    if not data:
+        return stats
+    
     try:
-        # Fetch from ESPN API for team records
-        url = 'https://site.api.espn.com/apis/v2/sports/basketball/nba/standings'
-        resp = requests.get(url, timeout=15)
-        if resp.status_code == 200:
-            data = resp.json()
-            for conf in data.get('children', []):
-                conf_name = 'Eastern' if 'east' in conf.get('name', '').lower() else 'Western'
-                entries = conf.get('standings', {}).get('entries', [])
+        for conf in data.get('children', []):
+            conf_name = 'Eastern' if 'east' in conf.get('name', '').lower() else 'Western'
+            entries = conf.get('standings', {}).get('entries', [])
+            
+            for entry in entries:
+                team_info = entry.get('team', {})
+                full_name = team_info.get('displayName', '')
+                team_name = full_name.split()[-1]  # Last word (nickname)
+                team_abbr = team_info.get('abbreviation', '')
                 
-                for entry in entries:
-                    team_info = entry.get('team', {})
-                    full_name = team_info.get('displayName', '')
-                    team_name = full_name.split()[-1]  # Last word (nickname)
-                    team_abbr = team_info.get('abbreviation', '')
-                    
-                    # Handle special cases like "Trail Blazers" (two-word nickname)
-                    if 'Trail Blazers' in full_name:
-                        team_name = 'Trail Blazers'
-                    
-                    # Parse all available stats - use displayValue for formatted records
-                    raw_stats = {}
-                    for s in entry.get('stats', []):
-                        name = s.get('name', '')
-                        raw_stats[name] = s.get('displayValue', str(s.get('value', '--')))
-                    
-                    overall_wins = int(float(raw_stats.get('wins', '0').replace(',', ''))) if raw_stats.get('wins', '0').replace(',', '').isdigit() else 0
-                    overall_losses = int(float(raw_stats.get('losses', '0').replace(',', ''))) if raw_stats.get('losses', '0').replace(',', '').isdigit() else 0
-                    
-                    # Get Home, Road, and Last Ten directly from displayValue
-                    home_record = raw_stats.get('Home', '--')
-                    road_record = raw_stats.get('Road', '--')
-                    last_10 = raw_stats.get('Last Ten Games', '--')
-                    
-                    team_data = {
-                        'overall_record': f"{overall_wins}-{overall_losses}",
-                        'home_record': home_record,
-                        'road_record': road_record,
-                        'wins': overall_wins,
-                        'losses': overall_losses,
-                        'conf': conf_name,
-                        'last_10': last_10,
-                        # ATS data needs Covers.com
-                        'ats_record': '--',
-                        'ats_home': '--',
-                        'ats_road': '--',
-                        'last_10_ats': '--'
-                    }
-                    
-                    stats[team_name] = team_data
-                    stats[team_abbr] = team_data
+                # Handle special cases like "Trail Blazers" (two-word nickname)
+                if 'Trail Blazers' in full_name:
+                    team_name = 'Trail Blazers'
+                
+                # Parse all available stats - use displayValue for formatted records
+                raw_stats = {}
+                for s in entry.get('stats', []):
+                    name = s.get('name', '')
+                    raw_stats[name] = s.get('displayValue', str(s.get('value', '--')))
+                
+                overall_wins = int(float(raw_stats.get('wins', '0').replace(',', ''))) if raw_stats.get('wins', '0').replace(',', '').isdigit() else 0
+                overall_losses = int(float(raw_stats.get('losses', '0').replace(',', ''))) if raw_stats.get('losses', '0').replace(',', '').isdigit() else 0
+                
+                # Get Home, Road, and Last Ten directly from displayValue
+                home_record = raw_stats.get('Home', '--')
+                road_record = raw_stats.get('Road', '--')
+                last_10 = raw_stats.get('Last Ten Games', '--')
+                
+                team_data = {
+                    'overall_record': f"{overall_wins}-{overall_losses}",
+                    'home_record': home_record,
+                    'road_record': road_record,
+                    'wins': overall_wins,
+                    'losses': overall_losses,
+                    'conf': conf_name,
+                    'last_10': last_10,
+                    # ATS data needs Covers.com
+                    'ats_record': '--',
+                    'ats_home': '--',
+                    'ats_road': '--',
+                    'last_10_ats': '--'
+                }
+                
+                stats[team_name] = team_data
+                stats[team_abbr] = team_data
         
-        _nba_team_stats_cache = {'data': stats, 'timestamp': time.time()}
-        logger.info(f"Fetched NBA team stats for {len(stats)} teams")
+        logger.info(f"Parsed NBA team stats for {len(stats)} teams from cached data")
     except Exception as e:
-        logger.warning(f"Error fetching NBA team stats: {e}")
+        logger.warning(f"Error parsing NBA team stats: {e}")
+        track_error('nba_team_stats', e)
     
     return stats
 
 def get_nba_standings():
     """Fetch NBA standings from ESPN API with caching."""
-    global _nba_standings_cache
-    import time
-    
-    # Check cache (60 min TTL)
-    if _nba_standings_cache['data'] and time.time() - _nba_standings_cache['timestamp'] < 3600:
-        return _nba_standings_cache['data']
-    
     standings = {}
+    
+    # Get cached ESPN standings data
+    data = _fetch_espn_standings()
+    if not data:
+        return standings
+    
     try:
-        url = 'https://site.api.espn.com/apis/v2/sports/basketball/nba/standings'
-        resp = requests.get(url, timeout=10)
-        if resp.status_code == 200:
-            data = resp.json()
-            for child in data.get('children', []):
+        for child in data.get('children', []):
                 conf_name = child.get('name', '')
                 conf_abbr = 'Eastern' if 'east' in conf_name.lower() else 'Western'
                 entries = child.get('standings', {}).get('entries', [])
@@ -11340,10 +11415,10 @@ def get_nba_standings():
                         'losses': losses,
                         'conf': conf_abbr
                     }
-        _nba_standings_cache = {'data': standings, 'timestamp': time.time()}
-        logger.info(f"Fetched NBA standings for {len(standings)} teams")
+        logger.info(f"Parsed NBA standings for {len(standings)} teams from cached data")
     except Exception as e:
-        logger.warning(f"Error fetching NBA standings: {e}")
+        logger.warning(f"Error parsing NBA standings: {e}")
+        track_error('nba_standings', e)
     return standings
 
 _cbb_standings_cache = {'data': {}, 'timestamp': 0}
