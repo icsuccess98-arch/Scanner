@@ -11157,6 +11157,53 @@ def tennis():
     except Exception as e:
         logger.error(f"Tournament analysis error: {e}")
 
+    if vsin_tennis.get('success') and player_stats:
+        def find_player_stats(name, stats_dict):
+            if name in stats_dict:
+                return stats_dict[name]
+            name_lower = name.lower()
+            for k, v in stats_dict.items():
+                if k.lower() == name_lower:
+                    return v
+            parts = name.split()
+            if len(parts) >= 2:
+                last = parts[-1].lower()
+                for k, v in stats_dict.items():
+                    k_parts = k.split()
+                    if k_parts and k_parts[-1].lower() == last:
+                        if len(parts) >= 2 and len(k_parts) >= 2 and parts[0][0].lower() == k_parts[0][0].lower():
+                            return v
+            return None
+
+        try:
+            from tennis_abstract_scraper import _upgrade_player
+            upgrade_names = set()
+            for key, match in vsin_tennis.get('matches', {}).items():
+                if match.get('sharp_side') or match.get('p1_rlm') or match.get('p2_rlm'):
+                    upgrade_names.add(match['player1'])
+                    upgrade_names.add(match['player2'])
+            for name in upgrade_names:
+                canonical = None
+                for k in player_stats:
+                    if k == name or k.lower() == name.lower():
+                        canonical = k
+                        break
+                    k_parts = k.split()
+                    n_parts = name.split()
+                    if len(k_parts) >= 2 and len(n_parts) >= 2 and k_parts[-1].lower() == n_parts[-1].lower() and k_parts[0][0].lower() == n_parts[0][0].lower():
+                        canonical = k
+                        break
+                if canonical and player_stats[canonical].get('elo_only'):
+                    _upgrade_player(canonical, player_stats)
+        except Exception as e:
+            logger.debug(f"VSIN player upgrade error: {e}")
+
+        for key, match in vsin_tennis.get('matches', {}).items():
+            p1_stats = find_player_stats(match['player1'], player_stats)
+            p2_stats = find_player_stats(match['player2'], player_stats)
+            match['p1_stats'] = p1_stats
+            match['p2_stats'] = p2_stats
+
     return render_template('tennis.html', data=data, player_stats=player_stats, 
                           tournaments=tournament_draws, vsin_tennis=vsin_tennis)
 

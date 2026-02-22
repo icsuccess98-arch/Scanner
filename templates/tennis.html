@@ -482,20 +482,44 @@
         }
         .vsin-match-players {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            flex-direction: column;
+            gap: 2px;
             margin-bottom: 6px;
         }
-        .vsin-player {
+        .vsin-player-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 4px;
+        }
+        .vsin-player-name {
             font-size: 0.8rem;
             font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 55%;
         }
-        .vsin-player.sharp { color: #50C878; }
+        .vsin-player-name.sharp { color: #50C878; }
+        .vsin-player-right {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
+        }
         .vsin-player-odds {
-            font-size: 0.65rem;
-            color: var(--text-muted);
-            margin-left: 4px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--text);
         }
+        .vsin-player-elo {
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            background: rgba(255,255,255,0.05);
+            padding: 1px 5px;
+            border-radius: 3px;
+        }
+        .vsin-player-elo.higher { color: #50C878; background: rgba(80,200,120,0.1); }
         .vsin-line-move {
             display: flex;
             align-items: center;
@@ -505,15 +529,22 @@
             padding: 3px 6px;
             border-radius: 4px;
             background: rgba(255,255,255,0.03);
+            flex-wrap: wrap;
         }
-        .vsin-line-move .open-line { color: var(--text-muted); }
+        .vsin-line-move .open-line { color: var(--text-muted); white-space: nowrap; }
         .vsin-line-move .arrow { font-size: 0.7rem; }
         .vsin-line-move .arrow.shortened { color: #50C878; }
         .vsin-line-move .arrow.lengthened { color: #ff6b6b; }
         .vsin-line-move .curr-line { font-weight: 700; }
         .vsin-line-move .curr-line.shortened { color: #50C878; }
         .vsin-line-move .curr-line.lengthened { color: #ff6b6b; }
-        .vsin-vs { font-size: 0.65rem; color: var(--text-muted); }
+        .vsin-vs-divider {
+            font-size: 0.55rem;
+            color: var(--text-muted);
+            text-align: center;
+            letter-spacing: 1px;
+            margin: 0;
+        }
         .vsin-splits-row {
             display: flex;
             gap: 8px;
@@ -524,16 +555,21 @@
             align-items: center;
             gap: 4px;
             font-size: 0.65rem;
+            flex: 1;
+            min-width: 0;
         }
         .vsin-split-label {
             color: var(--text-muted);
             text-transform: uppercase;
             font-size: 0.55rem;
             font-weight: 600;
+            flex-shrink: 0;
         }
         .vsin-split-bar {
             display: flex;
-            width: 80px;
+            flex: 1;
+            min-width: 40px;
+            max-width: 100px;
             height: 6px;
             border-radius: 3px;
             overflow: hidden;
@@ -547,8 +583,69 @@
             background: var(--accent);
             transition: width 0.3s;
         }
-        .vsin-pct { font-weight: 600; font-size: 0.6rem; }
+        .vsin-pct { font-weight: 600; font-size: 0.6rem; flex-shrink: 0; }
         .vsin-pct.majority { color: #daa520; }
+        .vsin-matchup-stats {
+            margin-top: 6px;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            padding-top: 6px;
+        }
+        .vsin-matchup-stats table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.6rem;
+        }
+        .vsin-matchup-stats th {
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.5rem;
+            letter-spacing: 0.3px;
+            padding: 2px 3px;
+            text-align: center;
+            white-space: nowrap;
+        }
+        .vsin-matchup-stats th:first-child { text-align: left; }
+        .vsin-matchup-stats td {
+            padding: 2px 3px;
+            text-align: center;
+            white-space: nowrap;
+        }
+        .vsin-matchup-stats td:first-child {
+            text-align: left;
+            color: var(--text-muted);
+            font-size: 0.55rem;
+        }
+        .vsin-matchup-stats .stat-better { color: #50C878; font-weight: 700; }
+        .vsin-matchup-stats .stat-worse { color: var(--text-muted); }
+        .vsin-matchup-toggle {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.55rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px 0 0;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            margin-top: 4px;
+        }
+        .vsin-matchup-toggle:hover { color: var(--tennis-light); }
+        .vsin-matchup-toggle i { font-size: 0.6rem; transition: transform 0.2s; }
+        .vsin-matchup-content { display: none; }
+        .vsin-matchup-content.show { display: block; }
+        .vsin-edge-summary {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.6rem;
+            margin-top: 4px;
+            padding: 3px 0;
+        }
+        .vsin-edge-score { font-weight: 800; font-size: 0.7rem; }
+        .vsin-edge-score.win { color: #50C878; }
+        .vsin-edge-score.lose { color: #ff6b6b; }
+        .vsin-edge-label { color: var(--text-muted); font-size: 0.5rem; text-transform: uppercase; }
         .vsin-alert-badge {
             display: inline-flex;
             align-items: center;
@@ -1215,33 +1312,48 @@
                         {% if alert_matches.append(m) %}{% endif %}
                     {% endif %}
                 {% endfor %}
-                {% for m in alert_matches %}
+                {% macro render_vsin_card(m, show_badges=false) %}
+                {% set p1s = m.get('p1_stats') if m.get('p1_stats') else {} %}
+                {% set p2s = m.get('p2_stats') if m.get('p2_stats') else {} %}
+                {% set p1_elo = p1s.get('elo', 0) if p1s else 0 %}
+                {% set p2_elo = p2s.get('elo', 0) if p2s else 0 %}
+                {% set card_id = m.player1|replace(' ','')|truncate(6,True,'') ~ m.player2|replace(' ','')|truncate(6,True,'') %}
                 <div class="vsin-match-card {{ 'has-rlm' if (m.p1_rlm or m.p2_rlm) else ('has-sharp' if m.sharp_side else '') }}">
                     <div class="vsin-match-tourn">{{ m.tournament }}</div>
                     <div class="vsin-match-players">
-                        <span class="vsin-player {{ 'sharp' if m.sharp_side == m.player1 else '' }}">
-                            {{ m.player1 }}
-                            <span class="vsin-player-odds">{{ m.p1_odds }}</span>
-                            {% if m.p1_rlm %}<span class="vsin-alert-badge rlm"><i class="bi bi-arrow-left-right"></i> RLM</span>{% endif %}
-                            {% if m.sharp_side == m.player1 %}<span class="vsin-alert-badge sharp-money"><i class="bi bi-lightning-fill"></i> Sharp</span>{% endif %}
-                        </span>
-                        <span class="vsin-vs">vs</span>
-                        <span class="vsin-player {{ 'sharp' if m.sharp_side == m.player2 else '' }}">
-                            {{ m.player2 }}
-                            <span class="vsin-player-odds">{{ m.p2_odds }}</span>
-                            {% if m.p2_rlm %}<span class="vsin-alert-badge rlm"><i class="bi bi-arrow-left-right"></i> RLM</span>{% endif %}
-                            {% if m.sharp_side == m.player2 %}<span class="vsin-alert-badge sharp-money"><i class="bi bi-lightning-fill"></i> Sharp</span>{% endif %}
-                        </span>
+                        <div class="vsin-player-row">
+                            <span class="vsin-player-name {{ 'sharp' if show_badges and m.sharp_side == m.player1 else '' }}">
+                                {{ m.player1 }}
+                                {% if show_badges and m.p1_rlm %}<span class="vsin-alert-badge rlm" style="margin-left:3px;"><i class="bi bi-arrow-left-right"></i> RLM</span>{% endif %}
+                                {% if show_badges and m.sharp_side == m.player1 %}<span class="vsin-alert-badge sharp-money" style="margin-left:3px;"><i class="bi bi-lightning-fill"></i></span>{% endif %}
+                            </span>
+                            <span class="vsin-player-right">
+                                {% if p1_elo %}<span class="vsin-player-elo {{ 'higher' if p1_elo > p2_elo else '' }}">{{ p1_elo|round(0)|int }}</span>{% endif %}
+                                <span class="vsin-player-odds">{{ m.p1_odds }}</span>
+                            </span>
+                        </div>
+                        <div class="vsin-vs-divider">vs</div>
+                        <div class="vsin-player-row">
+                            <span class="vsin-player-name {{ 'sharp' if show_badges and m.sharp_side == m.player2 else '' }}">
+                                {{ m.player2 }}
+                                {% if show_badges and m.p2_rlm %}<span class="vsin-alert-badge rlm" style="margin-left:3px;"><i class="bi bi-arrow-left-right"></i> RLM</span>{% endif %}
+                                {% if show_badges and m.sharp_side == m.player2 %}<span class="vsin-alert-badge sharp-money" style="margin-left:3px;"><i class="bi bi-lightning-fill"></i></span>{% endif %}
+                            </span>
+                            <span class="vsin-player-right">
+                                {% if p2_elo %}<span class="vsin-player-elo {{ 'higher' if p2_elo > p1_elo else '' }}">{{ p2_elo|round(0)|int }}</span>{% endif %}
+                                <span class="vsin-player-odds">{{ m.p2_odds }}</span>
+                            </span>
+                        </div>
                     </div>
                     {% if m.p1_open_odds or m.p2_open_odds %}
                     <div class="vsin-line-move">
-                        <span class="open-line">{{ m.player1|truncate(12, True, '..') }}: {{ m.p1_open_odds }}</span>
+                        <span class="open-line">{{ m.p1_open_odds }}</span>
                         {% if m.p1_line_move %}
                         <i class="bi bi-arrow-right arrow {{ m.p1_line_move }}"></i>
                         <span class="curr-line {{ m.p1_line_move }}">{{ m.p1_odds }}</span>
                         {% endif %}
-                        <span style="margin:0 6px;color:var(--text-muted);">|</span>
-                        <span class="open-line">{{ m.player2|truncate(12, True, '..') }}: {{ m.p2_open_odds }}</span>
+                        <span style="margin:0 4px;color:var(--text-muted);">|</span>
+                        <span class="open-line">{{ m.p2_open_odds }}</span>
                         {% if m.p2_line_move %}
                         <i class="bi bi-arrow-right arrow {{ m.p2_line_move }}"></i>
                         <span class="curr-line {{ m.p2_line_move }}">{{ m.p2_odds }}</span>
@@ -1268,7 +1380,82 @@
                             <span class="vsin-pct {{ 'majority' if m.p2_bets_pct|default(0) > 50 else '' }}">{{ m.p2_bets_pct|default(0) }}%</span>
                         </div>
                     </div>
+                    {% if (p1s and p1s.get('hold_pct') is not none) or (p2s and p2s.get('hold_pct') is not none) %}
+                    <div class="vsin-matchup-toggle" onclick="this.querySelector('i').classList.toggle('bi-chevron-down');this.querySelector('i').classList.toggle('bi-chevron-up');this.nextElementSibling.classList.toggle('show');">
+                        <i class="bi bi-chevron-down"></i>
+                        <span>Matchup Stats</span>
+                    </div>
+                    <div class="vsin-matchup-content">
+                        <div class="vsin-matchup-stats">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th></th>
+                                        <th>{{ m.player1.split(' ')[-1]|truncate(10,True,'') }}</th>
+                                        <th>{{ m.player2.split(' ')[-1]|truncate(10,True,'') }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% set compare_metrics = [
+                                        ('Hold %', 'hold_pct', 100, true),
+                                        ('Break %', 'break_pct', 100, true),
+                                        ('1st Srv Won', 'first_serve_won', 100, true),
+                                        ('Ret Pts Won', 'rpw', 100, true),
+                                        ('2nd Srv Won', 'second_serve_won', 100, true),
+                                        ('Net Rating', 'net_rating', 100, true),
+                                        ('DF Rate', 'df_rate', 100, false),
+                                        ('Dominance', 'dominance_ratio', 1, true)
+                                    ] %}
+                                    {% set ns = namespace(p1_edges=0, p2_edges=0) %}
+                                    {% for label, key, mult, higher_better in compare_metrics %}
+                                    {% set pv = p1s.get(key) if p1s else None %}
+                                    {% set ov = p2s.get(key) if p2s else None %}
+                                    {% if pv is not none or ov is not none %}
+                                    <tr>
+                                        <td>{{ label }}</td>
+                                        {% if pv is not none and ov is not none %}
+                                            {% set p1val = pv * mult %}
+                                            {% set p2val = ov * mult %}
+                                            {% if higher_better %}
+                                                {% set p1_wins = p1val > p2val %}
+                                            {% else %}
+                                                {% set p1_wins = p1val < p2val %}
+                                            {% endif %}
+                                            {% set tied = (p1val - p2val)|abs < 0.05 %}
+                                            {% if not tied and p1_wins %}{% set ns.p1_edges = ns.p1_edges + 1 %}{% elif not tied %}{% set ns.p2_edges = ns.p2_edges + 1 %}{% endif %}
+                                            <td class="{{ 'stat-better' if (not tied and p1_wins) else ('stat-worse' if not tied else '') }}">
+                                                {% if mult == 100 %}{{ p1val|round(1) }}%{% elif key == 'dominance_ratio' %}{{ pv|round(2) }}{% else %}{{ p1val }}{% endif %}
+                                            </td>
+                                            <td class="{{ 'stat-better' if (not tied and not p1_wins) else ('stat-worse' if not tied else '') }}">
+                                                {% if mult == 100 %}{{ p2val|round(1) }}%{% elif key == 'dominance_ratio' %}{{ ov|round(2) }}{% else %}{{ p2val }}{% endif %}
+                                            </td>
+                                        {% elif pv is not none %}
+                                            <td>{% if mult == 100 %}{{ (pv*mult)|round(1) }}%{% else %}{{ pv|round(2) }}{% endif %}</td>
+                                            <td style="color:var(--text-muted);">—</td>
+                                        {% else %}
+                                            <td style="color:var(--text-muted);">—</td>
+                                            <td>{% if mult == 100 %}{{ (ov*mult)|round(1) }}%{% else %}{{ ov|round(2) }}{% endif %}</td>
+                                        {% endif %}
+                                    </tr>
+                                    {% endif %}
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                            {% if ns.p1_edges > 0 or ns.p2_edges > 0 %}
+                            <div class="vsin-edge-summary">
+                                <span class="vsin-edge-score win">{{ ns.p1_edges }}</span>
+                                <span class="vsin-edge-label">Edge Count</span>
+                                <span class="vsin-edge-score lose">{{ ns.p2_edges }}</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
+                {% endmacro %}
+
+                {% for m in alert_matches %}
+                {{ render_vsin_card(m, show_badges=true) }}
                 {% endfor %}
                 {% endif %}
 
@@ -1279,49 +1466,7 @@
                     <div class="section-label" style="margin:12px 0 8px;font-size:0.65rem;">{{ m.date }}</div>
                 {% endif %}
                 {% if not m.sharp_side and not m.p1_rlm and not m.p2_rlm %}
-                <div class="vsin-match-card">
-                    <div class="vsin-match-tourn">{{ m.tournament }}</div>
-                    <div class="vsin-match-players">
-                        <span class="vsin-player">{{ m.player1 }} <span class="vsin-player-odds">{{ m.p1_odds }}</span></span>
-                        <span class="vsin-vs">vs</span>
-                        <span class="vsin-player">{{ m.player2 }} <span class="vsin-player-odds">{{ m.p2_odds }}</span></span>
-                    </div>
-                    {% if m.p1_open_odds or m.p2_open_odds %}
-                    <div class="vsin-line-move">
-                        <span class="open-line">{{ m.player1|truncate(12, True, '..') }}: {{ m.p1_open_odds }}</span>
-                        {% if m.p1_line_move %}
-                        <i class="bi bi-arrow-right arrow {{ m.p1_line_move }}"></i>
-                        <span class="curr-line {{ m.p1_line_move }}">{{ m.p1_odds }}</span>
-                        {% endif %}
-                        <span style="margin:0 6px;color:var(--text-muted);">|</span>
-                        <span class="open-line">{{ m.player2|truncate(12, True, '..') }}: {{ m.p2_open_odds }}</span>
-                        {% if m.p2_line_move %}
-                        <i class="bi bi-arrow-right arrow {{ m.p2_line_move }}"></i>
-                        <span class="curr-line {{ m.p2_line_move }}">{{ m.p2_odds }}</span>
-                        {% endif %}
-                    </div>
-                    {% endif %}
-                    <div class="vsin-splits-row">
-                        <div class="vsin-split-item">
-                            <span class="vsin-split-label">Handle</span>
-                            <span class="vsin-pct {{ 'majority' if m.p1_handle_pct|default(0) > 50 else '' }}">{{ m.p1_handle_pct|default(0) }}%</span>
-                            <div class="vsin-split-bar">
-                                <div class="p1" style="width:{{ m.p1_handle_pct|default(50) }}%"></div>
-                                <div class="p2" style="width:{{ m.p2_handle_pct|default(50) }}%"></div>
-                            </div>
-                            <span class="vsin-pct {{ 'majority' if m.p2_handle_pct|default(0) > 50 else '' }}">{{ m.p2_handle_pct|default(0) }}%</span>
-                        </div>
-                        <div class="vsin-split-item">
-                            <span class="vsin-split-label">Bets</span>
-                            <span class="vsin-pct {{ 'majority' if m.p1_bets_pct|default(0) > 50 else '' }}">{{ m.p1_bets_pct|default(0) }}%</span>
-                            <div class="vsin-split-bar">
-                                <div class="p1" style="width:{{ m.p1_bets_pct|default(50) }}%"></div>
-                                <div class="p2" style="width:{{ m.p2_bets_pct|default(50) }}%"></div>
-                            </div>
-                            <span class="vsin-pct {{ 'majority' if m.p2_bets_pct|default(0) > 50 else '' }}">{{ m.p2_bets_pct|default(0) }}%</span>
-                        </div>
-                    </div>
-                </div>
+                {{ render_vsin_card(m) }}
                 {% endif %}
                 {% endfor %}
             </div>
