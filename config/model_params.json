@@ -1,0 +1,176 @@
+{
+  "description": "Centralized configuration for Seven Thirty's Locks AI system",
+  "last_updated": "2026-02-22",
+  
+  "ensemble_weights": {
+    "NBA": {"xgb": 0.45, "glm": 0.20, "elo": 0.25, "ppg": 0.10},
+    "CBB": {"xgb": 0.40, "glm": 0.20, "elo": 0.20, "ppg": 0.20},
+    "NFL": {"xgb": 0.45, "glm": 0.20, "elo": 0.25, "ppg": 0.10},
+    "CFB": {"xgb": 0.40, "glm": 0.20, "elo": 0.25, "ppg": 0.15},
+    "NHL": {"xgb": 0.40, "glm": 0.20, "elo": 0.25, "ppg": 0.15},
+    "MLB": {"xgb": 0.30, "glm": 0.20, "elo": 0.25, "ppg": 0.25}
+  },
+  
+  "edge_thresholds": {
+    "NBA": 8.0,
+    "CBB": 8.0, 
+    "NFL": 3.5,
+    "CFB": 3.5,
+    "NHL": 0.5,
+    "MLB": 1.5
+  },
+  
+  "spread_thresholds": {
+    "NBA": 8.0,
+    "CBB": 4.0,
+    "NFL": 3.5,
+    "CFB": 3.5,
+    "NHL": 0.5
+  },
+  
+  "min_sample_sizes": {
+    "NBA": 10,
+    "CBB": 10,
+    "NFL": 8,
+    "CFB": 8,
+    "NHL": 10,
+    "MLB": 12
+  },
+  
+  "b2b_adjustments": {
+    "NBA": {
+      "under_boost": 20,
+      "fatigue_factor": 0.85
+    },
+    "NHL": {
+      "under_boost": 18,
+      "goalie_fatigue": 0.80
+    },
+    "CBB": {
+      "under_boost": 12,
+      "tired_legs": 0.90
+    }
+  },
+  
+  "rlm_thresholds": {
+    "money_threshold": 60,
+    "sharp_divergence_min": 10,
+    "steam_move_threshold": 1.5,
+    "early_move_threshold": 1.0,
+    "multi_book_steam_count": 3,
+    "pinnacle_conflict_threshold": 1.0,
+    "pinnacle_penalty_factor": 0.3
+  },
+  
+  "confidence_scales": {
+    "floor": 5.0,
+    "ceiling": 8.5,
+    "actions": [
+      {"threshold": 7.5, "label": "STRONG BET"},
+      {"threshold": 7.0, "label": "BET"},
+      {"threshold": 6.5, "label": "LEAN/BET"},
+      {"threshold": 6.0, "label": "LEAN"},
+      {"threshold": 0.0, "label": "PASS"}
+    ]
+  },
+  
+  "qualification_filters": {
+    "consensus_min": 3,
+    "min_true_edge": {
+      "NBA": 3.5,
+      "CBB": 4.0,
+      "NFL": 2.0,
+      "CFB": 2.5,
+      "NHL": 0.3,
+      "MLB": 0.8
+    },
+    "min_ev": 1.0,
+    "min_win_rate": 0.58,
+    "max_vig": 8.0,
+    "ou_thresholds": {
+      "l5_min": 100.0,
+      "l10_min": 90.0,
+      "l20_min": 95.0,
+      "sample_min": 20
+    }
+  },
+  
+  "brain_weights": {
+    "default": {
+      "purist": 0.30,
+      "conservative": 0.25,
+      "aggressive": 0.20,
+      "sharp": 0.25
+    },
+    "by_league": {
+      "NBA": {"purist": 0.30, "conservative": 0.20, "aggressive": 0.25, "sharp": 0.25},
+      "CBB": {"purist": 0.35, "conservative": 0.30, "aggressive": 0.10, "sharp": 0.25},
+      "NHL": {"purist": 0.25, "conservative": 0.20, "aggressive": 0.25, "sharp": 0.30},
+      "MLB": {"purist": 0.25, "conservative": 0.25, "aggressive": 0.25, "sharp": 0.25},
+      "NFL": {"purist": 0.25, "conservative": 0.20, "aggressive": 0.30, "sharp": 0.25},
+      "CFB": {"purist": 0.30, "conservative": 0.25, "aggressive": 0.20, "sharp": 0.25}
+    }
+  },
+  
+  "situational_factors": {
+    "public_fade_threshold": 75,
+    "kelly_threshold": 0.02,
+    "defense_mismatch_rank": 25,
+    "rest_advantage_boost": {
+      "NBA": 15,
+      "NHL": 12,
+      "CBB": 8
+    }
+  },
+  
+  "home_court_advantages": {
+    "CBB": 3.5,
+    "NBA": 3.0,
+    "NFL": 2.5,
+    "CFB": 3.0,
+    "NHL": 2.0,
+    "MLB": 1.5
+  },
+  
+  "pace_adjustments": {
+    "NBA": {
+      "use_pace": true,
+      "fallback_to_ppg": true,
+      "efficiency_weight": 0.5,
+      "pace_weight": 0.5
+    }
+  },
+  
+  "multipliers": {
+    "total_ev_multiplier": 0.5,
+    "spread_ev_multiplier": 0.4,
+    "pinnacle_alignment_boost": 1.3,
+    "early_movement_weight": 1.5,
+    "late_movement_weight": 1.0
+  },
+  
+  "xgb_params": {
+    "max_depth": 4,
+    "learning_rate": 0.05,
+    "n_estimators": 200,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "min_child_weight": 5,
+    "reg_alpha": 0.1,
+    "reg_lambda": 1.0,
+    "random_state": 42
+  },
+  
+  "glm_params": {
+    "alpha": 0.1,
+    "l1_ratio": 0.5,
+    "max_iter": 2000,
+    "random_state": 42
+  },
+  
+  "elo_params": {
+    "base_k": 20.0,
+    "starting_rating": 1500.0,
+    "regression_factor": 0.75
+  }
+}

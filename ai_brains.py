@@ -151,7 +151,7 @@ def _run_formula(features, league: str, bet_type: str) -> Optional[Dict]:
     shf = features.sharp_features
 
     if bet_type == 'totals':
-        # --- TOTALS: PPG-only for ALL leagues ---
+        # --- TOTALS: Enhanced with pace data for NBA ---
         away_ppg = sf.get('away_ppg')
         home_ppg = sf.get('home_ppg')
         away_opp = sf.get('away_opp_ppg')
@@ -163,9 +163,46 @@ def _run_formula(features, league: str, bet_type: str) -> Optional[Dict]:
         if market_line is None or market_line <= 0:
             return None
 
-        exp_away = (away_ppg + home_opp) / 2
-        exp_home = (home_ppg + away_opp) / 2
-        proj_total = exp_away + exp_home
+        # NBA PACE ADJUSTMENT: Use pace data when available for more accurate projections
+        if league == 'NBA':
+            away_pace = sf.get('away_pace')  # Possessions per game
+            home_pace = sf.get('home_pace') 
+            away_off_eff = sf.get('away_off_eff')  # Offensive efficiency (pts per 100 possessions)
+            home_off_eff = sf.get('home_off_eff')
+            away_def_eff = sf.get('away_def_eff')  # Defensive efficiency (pts allowed per 100 possessions)
+            home_def_eff = sf.get('home_def_eff')
+            
+            # Use pace-adjusted projection if pace data is available
+            if all(v is not None and v > 0 for v in [away_pace, home_pace, away_off_eff, home_off_eff, away_def_eff, home_def_eff]):
+                logger.debug(f"Using pace-adjusted NBA totals projection")
+                
+                # Project game pace: average of both teams' pace
+                game_pace = (away_pace + home_pace) / 2
+                
+                # Project efficiency for each team vs opponent
+                # Away team offense vs home team defense
+                exp_away_eff = (away_off_eff + home_def_eff) / 2
+                # Home team offense vs away team defense  
+                exp_home_eff = (home_off_eff + away_def_eff) / 2
+                
+                # Convert to expected points: (efficiency / 100) * pace
+                exp_away = (exp_away_eff / 100) * game_pace
+                exp_home = (exp_home_eff / 100) * game_pace
+                proj_total = exp_away + exp_home
+                
+                logger.debug(f"Pace projection: Away {exp_away:.1f}, Home {exp_home:.1f}, Total {proj_total:.1f}")
+            else:
+                # Fallback to PPG-based projection when pace data unavailable
+                logger.debug(f"Falling back to PPG-based NBA totals projection (pace data incomplete)")
+                exp_away = (away_ppg + home_opp) / 2
+                exp_home = (home_ppg + away_opp) / 2
+                proj_total = exp_away + exp_home
+        else:
+            # Non-NBA leagues: Use traditional PPG approach
+            exp_away = (away_ppg + home_opp) / 2
+            exp_home = (home_ppg + away_opp) / 2
+            proj_total = exp_away + exp_home
+
         threshold = EDGE_THRESHOLDS.get(league, 8.0)
         diff = proj_total - market_line
 
@@ -727,31 +764,92 @@ class SharpBrain:
             else:
                 factors.append("Formula: insufficient data")
 
-            # Step 2: Evaluate market signals
+            # Step 2: Enhanced market signals with advanced RLM detection
             market_side = None
             market_raw = 0.0
 
+            # PINNACLE VALIDATION: Weight Pinnacle as truth
+            pinnacle_spread = sf.get('pinnacle_spread')
+            pinnacle_total = sf.get('pinnacle_total')
+            model_spread = result.get('projected_value') if result and bet_type == 'spread' else None
+            model_total = result.get('projected_value') if result and bet_type == 'totals' else None
+            
+            pinnacle_conflict = False
+            if bet_type == 'spread' and pinnacle_spread is not None and model_spread is not None:
+                spread_diff = abs(model_spread - pinnacle_spread)
+                if spread_diff > 1.0:
+                    pinnacle_conflict = True
+                    factors.append(f"⚠️ PINNACLE CONFLICT: Model {model_spread:+.1f} vs Pinnacle {pinnacle_spread:+.1f} (diff: {spread_diff:.1f})")
+                    market_raw *= 0.3  # Heavy penalty for disagreeing with Pinnacle
+            elif bet_type == 'totals' and pinnacle_total is not None and model_total is not None:
+                total_diff = abs(model_total - pinnacle_total)
+                if total_diff > 1.0:
+                    pinnacle_conflict = True
+                    factors.append(f"⚠️ PINNACLE CONFLICT: Model {model_total:.1f} vs Pinnacle {pinnacle_total:.1f} (diff: {total_diff:.1f})")
+                    market_raw *= 0.3  # Heavy penalty for disagreeing with Pinnacle
+
             if bet_type == 'totals':
-                # Totals RLM
+                # Enhanced Totals RLM with time weighting and steam detection
                 if sf.get('totals_rlm_detected') == 1.0:
                     totals_side = getattr(game, 'totals_rlm_sharp_side', None)
                     if totals_side:
                         mapped = totals_side.upper() if totals_side.upper() in ('OVER', 'UNDER') else None
                         if mapped:
                             market_side = mapped
-                            market_raw += 25
+                            base_rlm = 25
+                            
+                            # Time-weighted RLM: Early moves weighted more heavily
+                            early_line_movement = sf.get('early_total_movement')  # Line movement in first 2 hours
+                            late_line_movement = sf.get('late_total_movement')    # Line movement in final 2 hours
+                            
+                            if early_line_movement is not None and abs(early_line_movement) >= 1.0:
+                                base_rlm += 15  # Early moves indicate sharp money
+                                factors.append(f"EARLY STEAM: {abs(early_line_movement):.1f}pts total movement")
+                            
+                            if late_line_movement is not None and abs(late_line_movement) >= 1.5:
+                                base_rlm += 10  # Late steam also significant
+                                factors.append(f"LATE STEAM: {abs(late_line_movement):.1f}pts total movement")
+                            
+                            market_raw += base_rlm
                             factors.append(f"Totals RLM: sharp on {mapped}")
 
-                # Totals EV
-                ev_val = sf.get('total_ev')
-                if ev_val is not None and ev_val >= MIN_EV:
-                    market_raw += min(15, ev_val * 2.5)
-                    factors.append(f"+EV (totals): {ev_val:.1f}%")
-                elif ev_val is not None and ev_val < 0:
-                    market_raw *= 0.7
-                    factors.append(f"Negative totals EV: {ev_val:+.1f}%")
+                # Multi-book steam detection for totals
+                steam_count = 0
+                draftkings_total = sf.get('draftkings_total')
+                fanduel_total = sf.get('fanduel_total') 
+                betmgm_total = sf.get('betmgm_total')
+                caesars_total = sf.get('caesars_total')
+                
+                if all(v is not None for v in [draftkings_total, fanduel_total, betmgm_total]):
+                    # Check if 3+ books moved same direction
+                    opening_total = sf.get('opening_total')
+                    if opening_total is not None:
+                        moves = [
+                            draftkings_total - opening_total,
+                            fanduel_total - opening_total,
+                            betmgm_total - opening_total
+                        ]
+                        if caesars_total is not None:
+                            moves.append(caesars_total - opening_total)
+                        
+                        # Count books moving same direction with magnitude > 0.5
+                        over_moves = sum(1 for move in moves if move > 0.5)
+                        under_moves = sum(1 for move in moves if move < -0.5)
+                        
+                        if over_moves >= 3:
+                            steam_count = over_moves
+                            if market_side is None:
+                                market_side = 'OVER'
+                            market_raw += 20
+                            factors.append(f"MULTI-BOOK STEAM: {over_moves} books moved OVER")
+                        elif under_moves >= 3:
+                            steam_count = under_moves  
+                            if market_side is None:
+                                market_side = 'UNDER'
+                            market_raw += 20
+                            factors.append(f"MULTI-BOOK STEAM: {under_moves} books moved UNDER")
 
-                # O/U money vs ticket divergence
+                # Enhanced O/U divergence analysis
                 over_money = sf.get('over_money_pct')
                 over_tickets = sf.get('over_tickets_pct')
                 if over_money is not None and over_tickets is not None:
@@ -760,26 +858,19 @@ class SharpBrain:
                         sharp_ou = 'OVER' if over_money > over_tickets else 'UNDER'
                         if market_side is None:
                             market_side = sharp_ou
-                        market_raw += min(20, div * 1.2)
+                        
+                        # Enhanced weighting based on Pinnacle alignment
+                        div_bonus = min(20, div * 1.2)
+                        if not pinnacle_conflict:
+                            div_bonus *= 1.3  # Boost when aligned with Pinnacle
+                        market_raw += div_bonus
+                        
                         factors.append(
                             f"O/U sharp split: money {over_money:.0f}% vs tickets "
-                            f"{over_tickets:.0f}% -> {sharp_ou}")
-
-                # Totals line movement
-                total_move = sf.get('total_line_movement')
-                if total_move is not None and abs(total_move) >= 0.5:
-                    move_dir = 'OVER' if total_move > 0 else 'UNDER'
-                    market_raw += min(10, abs(total_move) * 3)
-                    if abs(total_move) >= 1.5:
-                        if market_side is None:
-                            market_side = move_dir
-                        market_raw += 8
-                        factors.append(f"STEAM totals: {abs(total_move):.1f}pts -> {move_dir}")
-                    else:
-                        factors.append(f"Totals line moved {abs(total_move):.1f}pts -> {move_dir}")
+                            f"{over_tickets:.0f}% -> {sharp_ou} ({'Pinnacle aligned' if not pinnacle_conflict else 'Pinnacle conflict'})")
 
             else:
-                # Spread RLM
+                # Enhanced Spread RLM with advanced detection
                 if sf.get('rlm_detected') == 1.0:
                     rlm_side = getattr(game, 'rlm_sharp_side', None)
                     if rlm_side:
@@ -791,11 +882,61 @@ class SharpBrain:
                             mapped = rlm_side
                         market_side = mapped
                         rlm_conf = _safe(sf.get('rlm_confidence'), 50)
-                        market_raw += min(35, rlm_conf * 0.5)
+                        base_rlm = min(35, rlm_conf * 0.5)
+                        
+                        # Time-weighted spread movement
+                        early_spread_movement = sf.get('early_spread_movement')
+                        late_spread_movement = sf.get('late_spread_movement')
+                        
+                        if early_spread_movement is not None and abs(early_spread_movement) >= 1.0:
+                            base_rlm += 15
+                            factors.append(f"EARLY SHARP: {abs(early_spread_movement):.1f}pts spread movement")
+                        
+                        if late_spread_movement is not None and abs(late_spread_movement) >= 1.5:
+                            base_rlm += 10  
+                            factors.append(f"LATE SHARP: {abs(late_spread_movement):.1f}pts spread movement")
+                        
+                        # Pinnacle vs recreational book comparison
+                        if not pinnacle_conflict:
+                            base_rlm *= 1.4  # Boost when aligned with Pinnacle
+                            
+                        market_raw += base_rlm
                         rlm_expl = getattr(game, 'rlm_explanation', f"Sharp on {rlm_side}")
-                        factors.append(f"RLM: {rlm_expl}")
+                        factors.append(f"RLM: {rlm_expl} ({'Pinnacle aligned' if not pinnacle_conflict else 'Pinnacle conflict'})")
 
-                # Money/ticket divergence
+                # Multi-book steam detection for spreads
+                draftkings_spread = sf.get('draftkings_spread')
+                fanduel_spread = sf.get('fanduel_spread')
+                betmgm_spread = sf.get('betmgm_spread')
+                caesars_spread = sf.get('caesars_spread')
+                
+                if all(v is not None for v in [draftkings_spread, fanduel_spread, betmgm_spread]):
+                    opening_spread = sf.get('opening_spread')
+                    if opening_spread is not None:
+                        moves = [
+                            draftkings_spread - opening_spread,
+                            fanduel_spread - opening_spread,
+                            betmgm_spread - opening_spread
+                        ]
+                        if caesars_spread is not None:
+                            moves.append(caesars_spread - opening_spread)
+                        
+                        # Count books moving same direction with magnitude > 0.5
+                        toward_home = sum(1 for move in moves if move > 0.5)  
+                        toward_away = sum(1 for move in moves if move < -0.5)
+                        
+                        if toward_home >= 3:
+                            if market_side is None:
+                                market_side = 'HOME'
+                            market_raw += 25
+                            factors.append(f"MULTI-BOOK STEAM: {toward_home} books moved toward HOME")
+                        elif toward_away >= 3:
+                            if market_side is None:
+                                market_side = 'AWAY'
+                            market_raw += 25  
+                            factors.append(f"MULTI-BOOK STEAM: {toward_away} books moved toward AWAY")
+
+                # Enhanced money/ticket divergence
                 div_away = sf.get('money_ticket_divergence_away')
                 div_home = sf.get('money_ticket_divergence_home')
                 if div_away is not None and div_home is not None:
@@ -804,50 +945,48 @@ class SharpBrain:
                         sharp_team = 'AWAY' if _safe(div_away) > _safe(div_home) else 'HOME'
                         if market_side is None:
                             market_side = sharp_team
-                        market_raw += min(20, max_div * 1.2)
+                        
+                        div_bonus = min(20, max_div * 1.2)
+                        if not pinnacle_conflict:
+                            div_bonus *= 1.2  # Boost when aligned with Pinnacle
+                        market_raw += div_bonus
+                        
                         factors.append(
                             f"Sharp split: Away {_safe(div_away):+.0f}% "
-                            f"Home {_safe(div_home):+.0f}% -> {sharp_team}")
+                            f"Home {_safe(div_home):+.0f}% -> {sharp_team} ({'Pinnacle aligned' if not pinnacle_conflict else 'Pinnacle conflict'})")
 
-                # Spread EV
-                ev_val = sf.get('spread_ev')
-                if ev_val is not None and ev_val >= MIN_EV:
-                    market_raw += min(15, ev_val * 2.5)
-                    factors.append(f"+EV (spread): {ev_val:.1f}%")
-                elif ev_val is not None and ev_val < 0:
-                    market_raw *= 0.7
-                    factors.append(f"Negative spread EV: {ev_val:+.1f}%")
-
-                # Spread line movement
-                spread_move = sf.get('spread_line_movement')
-                if spread_move is not None and abs(spread_move) >= 0.5:
-                    move_dir = "toward Home" if spread_move > 0 else "toward Away"
-                    market_raw += min(8, abs(spread_move) * 3)
-                    if abs(spread_move) >= 1.5:
-                        steam_side = 'HOME' if spread_move > 0 else 'AWAY'
-                        if market_side is None:
-                            market_side = steam_side
-                        market_raw += 8
-                        factors.append(f"STEAM: {abs(spread_move):.1f}pts {move_dir}")
-                    else:
-                        factors.append(f"Line moved {abs(spread_move):.1f}pts {move_dir}")
-
-                # Public fade
+                # Enhanced public fade logic
                 away_pct = _safe(sf.get('away_tickets_pct'))
                 home_pct = _safe(sf.get('home_tickets_pct'))
                 if max(away_pct, home_pct) >= 75:
                     heavy = 'AWAY' if away_pct > home_pct else 'HOME'
                     fade = 'HOME' if heavy == 'AWAY' else 'AWAY'
                     factors.append(f"Public: {max(away_pct, home_pct):.0f}% on {heavy} (fade {fade})")
-                    if market_side is None:
+                    if market_side is None and not pinnacle_conflict:  # Only fade if not conflicting with Pinnacle
                         market_side = fade
                         market_raw += 6
 
-                # Kelly
+                # Kelly with Pinnacle weighting  
                 kelly = sf.get('kelly_fraction')
                 if kelly is not None and kelly > 0.02:
-                    market_raw += min(8, kelly * 100)
-                    factors.append(f"Kelly {kelly:.1%} bankroll")
+                    kelly_bonus = min(8, kelly * 100)
+                    if not pinnacle_conflict:
+                        kelly_bonus *= 1.2
+                    market_raw += kelly_bonus
+                    factors.append(f"Kelly {kelly:.1%} bankroll ({'Pinnacle aligned' if not pinnacle_conflict else 'Pinnacle conflict'})")
+
+            # Common EV analysis for both bet types
+            ev_val = sf.get('total_ev') if bet_type == 'totals' else sf.get('spread_ev')
+            if ev_val is not None:
+                if ev_val >= MIN_EV:
+                    ev_bonus = min(15, ev_val * 2.5)
+                    if not pinnacle_conflict:
+                        ev_bonus *= 1.3  # Boost when aligned with Pinnacle
+                    market_raw += ev_bonus
+                    factors.append(f"+EV ({bet_type}): {ev_val:.1f}% ({'Pinnacle aligned' if not pinnacle_conflict else 'Pinnacle conflict'})")
+                elif ev_val < 0:
+                    market_raw *= 0.7
+                    factors.append(f"Negative {bet_type} EV: {ev_val:+.1f}%")
 
             # Step 3: Resolution logic (same pattern as Aggressive)
             side = None

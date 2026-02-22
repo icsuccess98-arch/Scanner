@@ -85,17 +85,15 @@ _DIRECT_ATTRS = [
     'def_rank_away', 'def_rank_home',
 ]
 
-# ML feature columns (subset used for XGB/GLM training - excludes targets)
-ML_FEATURE_COLS = [
+# PREDICTION FEATURES: Available at prediction time (no closing line data)
+# These features should be used for live predictions and model training
+PREDICTION_FEATURES = [
     'away_ppg', 'home_ppg', 'away_opp_ppg', 'home_opp_ppg',
     'elo_away', 'elo_home', 'elo_diff',
     'days_rest_away', 'days_rest_home', 'is_back_to_back_away', 'is_back_to_back_home',
     'travel_distance', 'rest_advantage',
     'away_tickets_pct', 'home_tickets_pct', 'away_money_pct', 'home_money_pct',
     'over_money_pct', 'under_money_pct',
-    'rlm_detected', 'totals_rlm_detected',
-    'spread_line_movement', 'total_line_movement',
-    'money_ticket_divergence_away', 'money_ticket_divergence_home',
     'away_ou_pct', 'home_ou_pct', 'h2h_ou_pct',
     'away_spread_pct', 'home_spread_pct', 'h2h_spread_pct',
     'ppg_total', 'ppg_diff',
@@ -110,7 +108,27 @@ ML_FEATURE_COLS = [
     'kenpom_away_height', 'kenpom_home_height',
     'kenpom_away_exp', 'kenpom_home_exp',
     'kenpom_away_sos', 'kenpom_home_sos',
+    # NBA pace features (for pace-adjusted projections)
+    'away_pace', 'home_pace', 'away_off_eff', 'home_off_eff', 'away_def_eff', 'home_def_eff',
 ]
+
+# POST-CLOSE FEATURES: Include closing line derived features for analysis (not live predictions)
+# These features create data leakage if used for live predictions since they depend on final market state
+POST_CLOSE_FEATURES = PREDICTION_FEATURES + [
+    'rlm_detected', 'totals_rlm_detected',  # RLM detection happens post-close
+    'spread_line_movement', 'total_line_movement',  # Final line movement
+    'money_ticket_divergence_away', 'money_ticket_divergence_home',  # Final divergence
+    'closed_spread', 'closed_total',  # Closing lines
+    'opening_spread', 'opening_total',  # Opening lines (for CLV calculation)
+    'early_spread_movement', 'late_spread_movement',  # Time-weighted movements
+    'early_total_movement', 'late_total_movement',  # Time-weighted movements  
+    'pinnacle_spread', 'pinnacle_total',  # Pinnacle lines for validation
+    'draftkings_spread', 'fanduel_spread', 'betmgm_spread', 'caesars_spread',  # Multi-book data
+    'draftkings_total', 'fanduel_total', 'betmgm_total', 'caesars_total',  # Multi-book data
+]
+
+# Backward compatibility: Default to PREDICTION_FEATURES to avoid leakage
+ML_FEATURE_COLS = PREDICTION_FEATURES
 
 
 @dataclass

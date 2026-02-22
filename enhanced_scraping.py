@@ -27,17 +27,46 @@ from datetime import datetime, timedelta
 import logging
 from functools import lru_cache
 import json
+import os
 
 logger = logging.getLogger(__name__)
 
 
-# ============================================================
-# COLLEGE BASKETBALL TEAM LOGOS (HARDCODED)
-# ============================================================
+def load_team_logos() -> Dict[str, str]:
+    """
+    Load team logos from config/team_logos.json.
+    
+    Returns:
+        Dictionary of team name -> logo URL mappings.
+        Falls back to empty dict if file is missing.
+    """
+    try:
+        config_path = os.path.join(os.path.dirname(__file__), 'config', 'team_logos.json')
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as f:
+                data = json.load(f)
+                return data.get('cbb_team_logos', {})
+        else:
+            logger.warning(f"Team logos config file not found: {config_path}")
+            return {}
+    except Exception as e:
+        logger.error(f"Error loading team logos config: {e}")
+        return {}
 
-CBB_TEAM_LOGOS = {
-    # ACC
-    'Duke': 'https://a.espncdn.com/i/teamlogos/ncaa/500/150.png',
+
+# Load team logos from configuration file
+CBB_TEAM_LOGOS = load_team_logos()
+
+# If JSON loading failed, use these fallback logos for critical teams
+if not CBB_TEAM_LOGOS:
+    logger.warning("Using fallback team logos - please check config/team_logos.json")
+    CBB_TEAM_LOGOS = {
+        'Duke': 'https://a.espncdn.com/i/teamlogos/ncaa/500/150.png',
+        'North Carolina': 'https://a.espncdn.com/i/teamlogos/ncaa/500/153.png',
+        'Kansas': 'https://a.espncdn.com/i/teamlogos/ncaa/500/2305.png',
+        'Kentucky': 'https://a.espncdn.com/i/teamlogos/ncaa/500/96.png',
+        'UCLA': 'https://a.espncdn.com/i/teamlogos/ncaa/500/26.png'
+    }
     'North Carolina': 'https://a.espncdn.com/i/teamlogos/ncaa/500/153.png',
     'Virginia': 'https://a.espncdn.com/i/teamlogos/ncaa/500/258.png',
     'Louisville': 'https://a.espncdn.com/i/teamlogos/ncaa/500/97.png',

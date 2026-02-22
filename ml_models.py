@@ -11,6 +11,17 @@ from datetime import datetime, date
 from typing import Optional, Dict, List
 from dataclasses import dataclass, field
 
+# Import feature sets (with fallback to avoid circular imports)
+try:
+    from feature_engineering import PREDICTION_FEATURES, POST_CLOSE_FEATURES
+except ImportError:
+    # Fallback feature sets if import fails
+    PREDICTION_FEATURES = [
+        'away_ppg', 'home_ppg', 'away_opp_ppg', 'home_opp_ppg',
+        'elo_away', 'elo_home', 'elo_diff', 'away_ou_pct', 'home_ou_pct'
+    ]
+    POST_CLOSE_FEATURES = PREDICTION_FEATURES + ['rlm_detected', 'spread_line_movement']
+
 logger = logging.getLogger(__name__)
 
 # Safe imports with fallback
@@ -54,12 +65,12 @@ DEFAULT_ENSEMBLE_WEIGHTS = {
 }
 
 LEAGUE_ENSEMBLE_WEIGHTS = {
-    'NBA': {'xgb': 0.35, 'glm': 0.20, 'elo': 0.20, 'ppg': 0.25},
-    'CBB': {'xgb': 0.30, 'glm': 0.20, 'elo': 0.15, 'ppg': 0.35},
-    'NFL': {'xgb': 0.40, 'glm': 0.20, 'elo': 0.25, 'ppg': 0.15},
-    'CFB': {'xgb': 0.35, 'glm': 0.20, 'elo': 0.25, 'ppg': 0.20},
-    'NHL': {'xgb': 0.35, 'glm': 0.20, 'elo': 0.20, 'ppg': 0.25},
-    'MLB': {'xgb': 0.30, 'glm': 0.20, 'elo': 0.25, 'ppg': 0.25},
+    'NBA': {'xgb': 0.45, 'glm': 0.20, 'elo': 0.25, 'ppg': 0.10},
+    'CBB': {'xgb': 0.40, 'glm': 0.20, 'elo': 0.20, 'ppg': 0.20},
+    'NFL': {'xgb': 0.45, 'glm': 0.20, 'elo': 0.25, 'ppg': 0.10},
+    'CFB': {'xgb': 0.40, 'glm': 0.20, 'elo': 0.25, 'ppg': 0.15},
+    'NHL': {'xgb': 0.40, 'glm': 0.20, 'elo': 0.25, 'ppg': 0.15},
+    'MLB': {'xgb': 0.30, 'glm': 0.20, 'elo': 0.25, 'ppg': 0.25},  # Keep MLB unchanged
 }
 
 
@@ -235,13 +246,33 @@ class XGBModel:
         self.feature_names = None
         self.trained = False
 
-    def train(self, X: 'pd.DataFrame', y: 'pd.Series') -> Dict:
-        """Train XGBoost model. Returns training metadata dict."""
+    def train(self, X: 'pd.DataFrame', y: 'pd.Series', include_post_close: bool = False) -> Dict:
+        """
+        Train XGBoost model. Returns training metadata dict.
+        
+        Args:
+            X: Feature dataframe
+            y: Target series
+            include_post_close: If True, use POST_CLOSE_FEATURES (for analysis).
+                              If False, use PREDICTION_FEATURES only (for live predictions).
+        """
         if not self.available():
             return {'error': 'xgboost not available'}
 
         if len(X) < 10:
             return {'error': f'Too few samples: {len(X)}'}
+
+        # Select appropriate feature set to avoid data leakage
+        feature_cols = POST_CLOSE_FEATURES if include_post_close else PREDICTION_FEATURES
+        available_features = [col for col in feature_cols if col in X.columns]
+        
+        if len(available_features) == 0:
+            return {'error': 'No valid features found in dataset'}
+        
+        # Filter X to only include valid features
+        X_filtered = X[available_features]
+        logger.info(f"XGB {self.league}/{self.target}: Using {len(available_features)} features "
+                   f"({'with post-close' if include_post_close else 'prediction-time only'})")
 
         is_classifier = (self.target == 'win_prob')
         params = {
@@ -262,8 +293,8 @@ class XGBModel:
         else:
             params['objective'] = 'reg:squarederror'
 
-        self.feature_names = list(X.columns)
-        X_filled = X.fillna(0)
+        self.feature_names = list(X_filtered.columns)
+        X_filled = X_filtered.fillna(0)
 
         if is_classifier:
             self.model = xgb.XGBClassifier(**params)
@@ -365,16 +396,36 @@ class GLMModel:
         self.feature_names = None
         self.trained = False
 
-    def train(self, X: 'pd.DataFrame', y: 'pd.Series') -> Dict:
-        """Train Elastic Net model. Returns training metadata."""
+    def train(self, X: 'pd.DataFrame', y: 'pd.Series', include_post_close: bool = False) -> Dict:
+        """
+        Train Elastic Net model. Returns training metadata.
+        
+        Args:
+            X: Feature dataframe
+            y: Target series
+            include_post_close: If True, use POST_CLOSE_FEATURES (for analysis).
+                              If False, use PREDICTION_FEATURES only (for live predictions).
+        """
         if not self.available():
             return {'error': 'scikit-learn not available'}
 
         if len(X) < 10:
             return {'error': f'Too few samples: {len(X)}'}
 
-        self.feature_names = list(X.columns)
-        X_filled = X.fillna(0)
+        # Select appropriate feature set to avoid data leakage
+        feature_cols = POST_CLOSE_FEATURES if include_post_close else PREDICTION_FEATURES
+        available_features = [col for col in feature_cols if col in X.columns]
+        
+        if len(available_features) == 0:
+            return {'error': 'No valid features found in dataset'}
+        
+        # Filter X to only include valid features
+        X_filtered = X[available_features]
+        logger.info(f"GLM {self.league}/{self.target}: Using {len(available_features)} features "
+                   f"({'with post-close' if include_post_close else 'prediction-time only'})")
+
+        self.feature_names = list(X_filtered.columns)
+        X_filled = X_filtered.fillna(0)
 
         self.scaler = StandardScaler()
         X_scaled = self.scaler.fit_transform(X_filled)
