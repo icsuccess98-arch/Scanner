@@ -35,7 +35,12 @@ The application features a jewel-tone color scheme and is optimized for mobile w
 The system implements professional sharp money detection based on divergence between bet % and money %:
 - Sharp money = lower bet % but higher money/handle % (e.g., 40% bets but 70% money = sharp side)
 - Divergence thresholds: 10%+ moderate, 20%+ strong, 30%+ extreme
-- RLM (Reverse Line Movement) = line moves AGAINST majority of bets
+- RLM (Reverse Line Movement) = line moves AGAINST where majority of PUBLIC BETS (tickets) are
+  - Uses bets/tickets % (public action) to determine the "public side" - NOT handle/money %
+  - Sharp money (handle) is the CAUSE of the line moving against public consensus
+  - Unified logic across NBA, CBB, and Tennis (Feb 2026)
+  - Threshold: >=54% bets to establish public majority, fallback to 60% money if bets unavailable
+  - Example: 68% public bets on Team A, but line moves toward Team B = RLM on Team B
 - Stagnant line warning: Heavy money (65%+) but line hasn't moved = Vegas resisting
 
 **Betting Checklist (6 criteria):**

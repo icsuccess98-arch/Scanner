@@ -476,12 +476,15 @@ def calculate_rlm(game) -> bool:
     """
     RLM Detection using Favorite/Underdog Decision Table.
     
-    Money on Favorite + Line moves Down (toward underdog) = RLM, sharp = underdog
-    Money on Underdog + Line moves Up (toward favorite) = RLM, sharp = favorite
-    Money on Favorite + Line moves Up = NOT RLM (line confirming money)
-    Money on Underdog + Line moves Down = NOT RLM (line confirming money)
+    RLM = line moves AGAINST where majority of public bets (tickets) are.
+    Sharp money (handle) drives the line against public consensus.
     
-    Threshold: >=54% money to establish majority. Uses money %, not tickets.
+    Bets on Favorite + Line moves Down (toward underdog) = RLM, sharp = underdog
+    Bets on Underdog + Line moves Up (toward favorite) = RLM, sharp = favorite
+    Bets on Favorite + Line moves Up = NOT RLM (line confirming bets)
+    Bets on Underdog + Line moves Down = NOT RLM (line confirming bets)
+    
+    Threshold: >=54% bets to establish public majority.
     """
     current_spread_field = 'spread_line' if hasattr(game, 'spread_line') else 'spread'
     
@@ -505,8 +508,9 @@ def calculate_rlm(game) -> bool:
     if abs(movement) == 0:
         return False
     
-    if away_money < 60 and home_money < 60:
-        return False
+    if away_tickets < 54 and home_tickets < 54:
+        if away_money < 60 and home_money < 60:
+            return False
     
     favorite_team = None
     underdog_team = None
@@ -520,11 +524,16 @@ def calculate_rlm(game) -> bool:
         return False
     
     fav_is_away = (favorite_team == game.away_team)
+    fav_tickets = away_tickets if fav_is_away else home_tickets
+    dog_tickets = home_tickets if fav_is_away else away_tickets
     fav_money = away_money if fav_is_away else home_money
     dog_money = home_money if fav_is_away else away_money
     
-    money_on_favorite = fav_money >= 60
-    money_on_underdog = dog_money >= 60
+    bets_on_favorite = fav_tickets >= 54
+    bets_on_underdog = dog_tickets >= 54
+    if not bets_on_favorite and not bets_on_underdog:
+        bets_on_favorite = fav_money >= 60
+        bets_on_underdog = dog_money >= 60
     
     if fav_is_away:
         line_moved_up = movement < 0
@@ -536,18 +545,18 @@ def calculate_rlm(game) -> bool:
     rlm_detected = False
     sharp_team = None
     
-    if money_on_favorite and line_moved_down:
+    if bets_on_favorite and line_moved_down:
         rlm_detected = True
         sharp_team = underdog_team
-    elif money_on_underdog and line_moved_up:
+    elif bets_on_underdog and line_moved_up:
         rlm_detected = True
         sharp_team = favorite_team
     
     if rlm_detected and hasattr(game, 'rlm_sharp_side'):
-        majority_pct = fav_money if money_on_favorite else dog_money
-        majority_team = favorite_team if money_on_favorite else underdog_team
+        majority_pct = fav_tickets if bets_on_favorite else dog_tickets
+        majority_team = favorite_team if bets_on_favorite else underdog_team
         game.rlm_sharp_side = sharp_team
-        game.rlm_explanation = f"RLM: {majority_pct:.0f}% money on {majority_team}, but line moved {abs(movement):.1f} pts toward {sharp_team}"
+        game.rlm_explanation = f"RLM: {majority_pct:.0f}% bets on {majority_team}, but line moved {abs(movement):.1f} pts toward {sharp_team}"
         game.rlm_detected = True
     
     return rlm_detected
@@ -2805,12 +2814,12 @@ class MatchupIntelligence:
                 
                 logger.debug(f"RLM setup: {away_team} vs {home_team} | Favorite: {favorite_team} (from open: '{open_favorite}')")
                 
-                # === SPREAD RLM DETECTION (Favorite/Underdog Decision Table) ===
-                # Money on Favorite + Line moves Down (toward underdog) = RLM, sharp = underdog
-                # Money on Underdog + Line moves Up (toward favorite) = RLM, sharp = favorite
-                # Money on Favorite + Line moves Up = NOT RLM (line confirming money)
-                # Money on Underdog + Line moves Down = NOT RLM (line confirming money)
-                # Threshold: >=54% money to establish majority
+                # === SPREAD RLM DETECTION (Bets-Based Decision Table) ===
+                # Bets on Favorite + Line moves Down (toward underdog) = RLM, sharp = underdog
+                # Bets on Underdog + Line moves Up (toward favorite) = RLM, sharp = favorite
+                # Bets on Favorite + Line moves Up = NOT RLM (line confirming bets)
+                # Bets on Underdog + Line moves Down = NOT RLM (line confirming bets)
+                # Threshold: >=54% bets to establish public majority, fallback to 60% money
                 try:
                     if spread_open_line is not None and spread_current_line is not None and away_team and home_team and favorite_team and underdog_team:
                         open_spread = float(spread_open_line)
@@ -2819,11 +2828,16 @@ class MatchupIntelligence:
                         movement = current_spread - open_spread
                         
                         fav_is_away = (favorite_team == away_team)
+                        fav_bet_pct = away_bet_pct if fav_is_away else home_bet_pct
+                        dog_bet_pct = home_bet_pct if fav_is_away else away_bet_pct
                         fav_money_pct = away_money_pct if fav_is_away else home_money_pct
                         dog_money_pct = home_money_pct if fav_is_away else away_money_pct
                         
-                        money_on_favorite = fav_money_pct >= 60
-                        money_on_underdog = dog_money_pct >= 60
+                        bets_on_favorite = fav_bet_pct >= 54
+                        bets_on_underdog = dog_bet_pct >= 54
+                        if not bets_on_favorite and not bets_on_underdog:
+                            bets_on_favorite = fav_money_pct >= 60
+                            bets_on_underdog = dog_money_pct >= 60
                         
                         if fav_is_away:
                             line_moved_up = movement < 0
@@ -2832,14 +2846,14 @@ class MatchupIntelligence:
                             line_moved_up = movement > 0
                             line_moved_down = movement < 0
                         
-                        if money_on_favorite and line_moved_down:
+                        if bets_on_favorite and line_moved_down:
                             spread_rlm_detected = True
                             spread_rlm_sharp_side = underdog_team
-                            logger.info(f"RLM DETECTED: {fav_money_pct:.0f}% money on {favorite_team} (fav), but line moved DOWN toward {underdog_team} (open {open_spread:+.1f} → curr {current_spread:+.1f})")
-                        elif money_on_underdog and line_moved_up:
+                            logger.info(f"RLM DETECTED: {fav_bet_pct:.0f}% bets on {favorite_team} (fav), but line moved DOWN toward {underdog_team} (open {open_spread:+.1f} → curr {current_spread:+.1f})")
+                        elif bets_on_underdog and line_moved_up:
                             spread_rlm_detected = True
                             spread_rlm_sharp_side = favorite_team
-                            logger.info(f"RLM DETECTED: {dog_money_pct:.0f}% money on {underdog_team} (dog), but line moved UP toward {favorite_team} (open {open_spread:+.1f} → curr {current_spread:+.1f})")
+                            logger.info(f"RLM DETECTED: {dog_bet_pct:.0f}% bets on {underdog_team} (dog), but line moved UP toward {favorite_team} (open {open_spread:+.1f} → curr {current_spread:+.1f})")
                 except Exception as e:
                     logger.warning(f"Error detecting spread RLM: {e}")
                 
