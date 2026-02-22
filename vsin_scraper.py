@@ -222,26 +222,30 @@ def parse_tennis_splits(html: str) -> dict:
                         player2 = parts[1].strip()
                         
                         odds_text = ''
-                        handle_text = ''
-                        bets_text = ''
+                        pct_cells = []
                         
-                        for j in range(1, 4):
-                            if i + j < len(cells):
-                                next_text = cells[i + j].get_text(separator='|', strip=True)
-                                next_cls = cells[i + j].get('class', [])
-                                if '%' in next_text and not handle_text:
-                                    handle_text = next_text
-                                elif '%' in next_text and handle_text and not bets_text:
-                                    bets_text = next_text
-                                elif re.match(r'^[+-]?\d', next_text) and not odds_text:
-                                    odds_text = next_text
+                        for j in range(1, 10):
+                            if i + j >= len(cells):
+                                break
+                            next_cell = cells[i + j]
+                            next_text = next_cell.get_text(separator='|', strip=True)
+                            next_cls = next_cell.get('class', [])
+                            
+                            if 'font-12' in next_cls or 'text-center' in next_cls:
+                                break
+                            
+                            if re.match(r'^[+-]?\d', next_text) and '|' in next_text and '%' not in next_text and not odds_text:
+                                odds_text = next_text
+                            elif '%' in next_text and '|' in next_text:
+                                pct_cells.append(next_text)
                         
-                        handle_pcts = re.findall(r'(\d+)%', handle_text) if handle_text else []
-                        bets_pcts = re.findall(r'(\d+)%', bets_text) if bets_text else []
-                        
-                        if not bets_pcts and handle_pcts:
-                            bets_pcts = handle_pcts
-                            handle_pcts = []
+                        handle_pcts = []
+                        bets_pcts = []
+                        if len(pct_cells) >= 2:
+                            handle_pcts = re.findall(r'(\d+)%', pct_cells[0])
+                            bets_pcts = re.findall(r'(\d+)%', pct_cells[1])
+                        elif len(pct_cells) == 1:
+                            handle_pcts = re.findall(r'(\d+)%', pct_cells[0])
                         
                         odds_parts = odds_text.split('|') if odds_text else []
                         p1_odds = odds_parts[0].strip() if len(odds_parts) >= 1 else ''
@@ -264,11 +268,18 @@ def parse_tennis_splits(html: str) -> dict:
                             entry['p1_bets_pct'] = int(bets_pcts[0])
                             entry['p2_bets_pct'] = int(bets_pcts[1])
                         
-                        if entry.get('p1_handle_pct') is not None and entry.get('p1_bets_pct') is not None:
+                        has_handle = entry.get('p1_handle_pct') is not None
+                        has_bets = entry.get('p1_bets_pct') is not None
+                        
+                        if has_handle and has_bets:
                             entry['p1_sharp'] = get_sharp_indicator(entry['p1_bets_pct'], entry['p1_handle_pct'])
                             entry['p2_sharp'] = get_sharp_indicator(entry['p2_bets_pct'], entry['p2_handle_pct'])
                         
-                        if entry.get('p1_handle_pct') is not None or entry.get('p1_bets_pct') is not None:
+                        if has_handle or has_bets:
+                            if not has_handle:
+                                logger.warning(f"Tennis split missing handle data: {game_key}")
+                            if not has_bets:
+                                logger.warning(f"Tennis split missing bets data: {game_key}")
                             splits[game_key] = entry
                             logger.debug(f"Tennis split: {game_key} | Handle: {entry.get('p1_handle_pct')}/{entry.get('p2_handle_pct')} Bets: {entry.get('p1_bets_pct')}/{entry.get('p2_bets_pct')}")
                 

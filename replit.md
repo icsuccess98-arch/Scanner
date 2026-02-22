@@ -132,11 +132,14 @@ Universal team name matching for KenPom and Covers.com:
 - **3P% Key Update**: Changed 3PT% to 3P% to match KenPom naming convention
 - **Adj O/D as PPG**: For CBB, PPG now displays Adj O (offensive efficiency) when traditional PPG unavailable
 
-### Tennis Removal (Feb 2026)
-- Removed entire tennis page, route, and all tennis-related code
-- Deleted tennis_abstract_scraper.py and templates/tennis.html
-- Cleaned tennis functions from discord_scraper.py
-- Removed tennis nav links from all page templates
+### VSIN Tennis Integration (Feb 2026)
+- `parse_tennis_splits()` in vsin_scraper.py parses VSIN tennis-specific HTML format
+- Pipe-separated player names, moneyline odds, handle %, and bets % per match
+- Tournament detection via ATP/WTA/ITF text-center cells
+- `get_vsin_tennis_data()` fetches splits, applies RLM detection (≥60% money threshold) and sharp money analysis (15%+ divergence)
+- Tennis route loads VSIN data in parallel with Discord picks and Tennis Abstract stats
+- VSIN Betting Action section on tennis page: collapsible, shows sharp/RLM alerts first, split bars for handle/bets
+- Supports ~70+ matches per day across ATP, WTA, and ITF tournaments
 
 -   **Stocks Data**:
     -   yfinance (Yahoo Finance)
