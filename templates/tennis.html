@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="en" style="background:#0a0a12;">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Tennis Spreads - 730's Locks</title>
+    <style>html,body{background:#0a0a12!important;}</style>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="730 Locks">
+    <link rel="apple-touch-icon" href="/static/icon-512.png">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#0a0a12">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Pacifico&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0a0a12;
+            --bg-card: #12101a;
+            --bg-input: #1a1825;
+            --border: #2d2640;
+            --text: #F8F8FF;
+            --text-muted: #9990B0;
+            --accent: #7B2CBF;
+            --emerald: #50C878;
+            --green: #50C878;
+            --amber: #FFD700;
+            --crimson: #DC143C;
+            --red: #DC143C;
+            --gold: #FFD700;
+            --purple: #7B2CBF;
+            --purple-light: #9D4EDD;
+            --tennis: #2E8B57;
+            --tennis-light: #3CB371;
+            --tennis-dark: #1a5c38;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html {
+            overflow-y: scroll;
+            -webkit-overflow-scrolling: touch;
+            height: 100%;
+        }
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            min-height: 100%;
+            padding-bottom: 80px;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a5c38 0%, #0a0a12 60%), #0a0a12;
+            padding: 16px 20px;
+            padding-top: calc(16px + env(safe-area-inset-top, 0px));
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid var(--border);
+        }
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .header-brand .logo-text {
+            font-family: 'Pacifico', cursive;
+            font-size: 1.4rem;
+            background: linear-gradient(135deg, #50C878, #2E8B57);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .header-brand .tennis-icon {
+            font-size: 1.5rem;
+        }
+        .header-subtitle {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 600;
+        }
+        .record-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(46, 139, 87, 0.15);
+            border: 1px solid rgba(46, 139, 87, 0.3);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .record-badge .pct { color: var(--emerald); }
+
+        .container-main {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 12px 16px;
+        }
+
+        .picks-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .pick-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .pick-card:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(46, 139, 87, 0.15);
+        }
+        .pick-card.win { border-left: 3px solid var(--emerald); }
+        .pick-card.loss { border-left: 3px solid var(--crimson); }
+        .pick-card.pending { border-left: 3px solid var(--text-muted); }
+
+        .pick-card-body {
+            display: flex;
+            align-items: center;
+            padding: 14px 14px 10px;
+            gap: 10px;
+        }
+
+        .pick-player {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+        }
+        .pick-player-name {
+            font-weight: 700;
+            font-size: 0.95rem;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .pick-spread-line {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+        .spread-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 0.78rem;
+        }
+        .spread-badge.positive {
+            background: rgba(80, 200, 120, 0.12);
+            color: var(--emerald);
+        }
+        .spread-badge.negative {
+            background: rgba(220, 20, 60, 0.12);
+            color: #ff6b8a;
+        }
+        .odds-val {
+            color: var(--text-muted);
+            font-size: 0.72rem;
+        }
+        .pick-confidence {
+            text-align: center;
+            flex-shrink: 0;
+        }
+        .conf-circle {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 0.75rem;
+        }
+        .conf-high {
+            background: rgba(80, 200, 120, 0.15);
+            border: 2px solid var(--emerald);
+            color: var(--emerald);
+        }
+        .conf-mid {
+            background: rgba(255, 215, 0, 0.1);
+            border: 2px solid var(--amber);
+            color: var(--amber);
+        }
+        .conf-low {
+            background: rgba(153, 144, 176, 0.1);
+            border: 2px solid var(--text-muted);
+            color: var(--text-muted);
+        }
+
+        .pick-result {
+            flex-shrink: 0;
+            text-align: center;
+        }
+        .result-icon { font-size: 1.2rem; }
+        .result-win { color: var(--emerald); }
+        .result-loss { color: var(--crimson); }
+        .result-pending { color: var(--text-muted); font-size: 0.8rem; }
+
+        .brains-row {
+            display: flex;
+            gap: 4px;
+            padding: 7px 14px 9px;
+            border-top: 1px solid rgba(45, 38, 64, 0.3);
+            align-items: center;
+        }
+        .brain-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 0.6rem;
+            font-weight: 700;
+            padding: 3px 6px;
+            border-radius: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.2px;
+            white-space: nowrap;
+        }
+        .brain-chip.on {
+            background: rgba(80, 200, 120, 0.1);
+            color: var(--emerald);
+            border: 1px solid rgba(80, 200, 120, 0.2);
+        }
+        .brain-chip.off {
+            background: transparent;
+            color: rgba(153, 144, 176, 0.3);
+            border: 1px solid rgba(153, 144, 176, 0.1);
+        }
+        .brain-chip .brain-icon { font-size: 0.65rem; }
+        .brain-count-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 0.6rem;
+            font-weight: 800;
+            margin-left: auto;
+            padding: 3px 8px;
+            border-radius: 5px;
+            white-space: nowrap;
+        }
+        .brain-count-badge.b4 { background: rgba(80, 200, 120, 0.15); color: var(--emerald); }
+        .brain-count-badge.b3 { background: rgba(255, 215, 0, 0.12); color: var(--gold); }
+        .brain-count-badge.b2 { background: rgba(255, 165, 0, 0.12); color: #ffa500; }
+        .brain-count-badge.b1 { background: rgba(153, 144, 176, 0.1); color: var(--text-muted); }
+        .brain-count-badge.b0 { background: rgba(220, 20, 60, 0.1); color: var(--crimson); }
+
+        .metrics-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.45rem 1rem;
+            background: var(--bg-input);
+            border-top: 1px solid rgba(45, 38, 64, 0.3);
+            cursor: pointer;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            transition: all 0.2s ease;
+        }
+        .metrics-toggle:hover {
+            background: rgba(46, 139, 87, 0.1);
+            color: var(--tennis-light);
+        }
+        .metrics-toggle i {
+            font-size: 0.6rem;
+            transition: transform 0.3s ease;
+        }
+        .metrics-toggle.expanded i {
+            transform: rotate(180deg);
+        }
+        .metrics-toggle .adv-badge {
+            background: linear-gradient(135deg, rgba(46, 139, 87, 0.25), rgba(46, 139, 87, 0.15));
+            border: 1px solid rgba(46, 139, 87, 0.4);
+            color: var(--tennis-light);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.55rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+        .metrics-content {
+            display: none;
+            padding: 0.75rem 1rem;
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.95) 0%, rgba(15, 23, 42, 0.8) 100%);
+            border-top: 1px solid rgba(45, 38, 64, 0.3);
+        }
+        .metrics-content.show { display: block; }
+
+        .metrics-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .metrics-table th {
+            font-size: 0.55rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            font-weight: 700;
+            padding: 0 0 6px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        .metrics-table th:last-child { text-align: right; }
+        .metrics-table td {
+            font-size: 0.72rem;
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(45, 38, 64, 0.2);
+        }
+        .metrics-table td:first-child {
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 0.65rem;
+        }
+        .metrics-table td:nth-child(2) {
+            font-weight: 700;
+            text-align: center;
+        }
+        .metrics-table td:last-child {
+            text-align: right;
+            font-size: 0.6rem;
+            font-weight: 600;
+        }
+        .metrics-table .metric-pass { color: var(--emerald); }
+        .metrics-table .metric-fail { color: var(--text-muted); }
+        .metrics-table .metric-elite { color: var(--gold); }
+        .metrics-table .metric-value {
+            font-variant-numeric: tabular-nums;
+        }
+        .metrics-section-label {
+            font-size: 0.55rem;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--tennis-light);
+            font-weight: 700;
+            padding: 8px 0 3px;
+        }
+        .metrics-matches {
+            text-align: center;
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            padding-top: 6px;
+            margin-top: 4px;
+            border-top: 1px solid var(--border);
+        }
+
+        /* Matchup comparison table */
+        .matchup-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 0 8px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 4px;
+        }
+        .matchup-player-label {
+            font-size: 0.6rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            max-width: 40%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .matchup-player-label.picked { color: var(--emerald); }
+        .matchup-player-label.opponent { color: var(--crimson); }
+        .matchup-vs { color: var(--text-muted); font-size: 0.55rem; font-weight: 600; }
+
+        .metrics-table.matchup th { text-align: center; }
+        .metrics-table.matchup th:first-child { text-align: left; }
+        .metrics-table.matchup th:last-child { text-align: center; }
+        .metrics-table.matchup td { text-align: center; }
+        .metrics-table.matchup td:first-child { text-align: left; }
+        .metrics-table.matchup td:last-child { text-align: center; }
+
+        .edge-win { color: var(--emerald); }
+        .edge-lose { color: var(--crimson); }
+        .edge-tie { color: var(--text-muted); }
+        .edge-icon { font-size: 0.65rem; }
+
+        .edge-summary {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 0 2px;
+            margin-top: 4px;
+            border-top: 1px solid var(--border);
+        }
+        .edge-score {
+            font-size: 0.75rem;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+        }
+        .edge-label {
+            font-size: 0.55rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        /* Tournament section */
+        .tournament-section {
+            margin-top: 24px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+        .tournament-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .tournament-header:hover {
+            border-color: var(--tennis-light);
+        }
+        .tournament-header .tour-badge {
+            font-size: 0.55rem;
+            font-weight: 800;
+            padding: 2px 7px;
+            border-radius: 4px;
+            letter-spacing: 0.5px;
+        }
+        .tour-badge.atp { background: rgba(46, 139, 87, 0.2); color: var(--tennis-light); }
+        .tour-badge.wta { background: rgba(123, 44, 191, 0.2); color: var(--purple-light); }
+        .tournament-header .tour-name {
+            font-weight: 700;
+            font-size: 0.85rem;
+            flex: 1;
+        }
+        .tournament-header .tour-count {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+        .tournament-header i {
+            color: var(--text-muted);
+            font-size: 0.6rem;
+            transition: transform 0.3s ease;
+        }
+        .tournament-header.expanded i { transform: rotate(180deg); }
+        .tournament-body {
+            display: none;
+            padding-bottom: 8px;
+        }
+        .tournament-body.show { display: block; }
+
+        .matchup-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 6px;
+            overflow: hidden;
+        }
+        .matchup-card-body {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            gap: 8px;
+        }
+        .matchup-card .mc-player {
+            flex: 1;
+            min-width: 0;
+            text-align: center;
+        }
+        .matchup-card .mc-player-name {
+            font-weight: 700;
+            font-size: 0.78rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 3px;
+        }
+        .matchup-card .mc-brains {
+            display: flex;
+            gap: 2px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .matchup-card .mc-brain-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .mc-brain-dot.on { background: var(--emerald); }
+        .mc-brain-dot.off { background: rgba(153, 144, 176, 0.2); }
+        .matchup-card .mc-brain-count {
+            font-size: 0.55rem;
+            font-weight: 800;
+            margin-top: 2px;
+        }
+        .matchup-card .mc-vs {
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+        .mc-vs .round-badge {
+            font-size: 0.5rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            letter-spacing: 0.3px;
+        }
+        .mc-vs .vs-text {
+            font-size: 0.6rem;
+            font-weight: 700;
+            color: var(--text-muted);
+        }
+        .mc-edge-bar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 5px 12px;
+            border-top: 1px solid rgba(45, 38, 64, 0.3);
+            background: rgba(15, 23, 42, 0.4);
+        }
+        .mc-edge-bar .edge-num {
+            font-size: 0.65rem;
+            font-weight: 800;
+            min-width: 18px;
+            text-align: center;
+        }
+        .mc-edge-bar .edge-bar-track {
+            flex: 1;
+            height: 4px;
+            background: rgba(153, 144, 176, 0.15);
+            border-radius: 2px;
+            overflow: hidden;
+            display: flex;
+        }
+        .mc-edge-bar .edge-bar-p1 {
+            background: var(--emerald);
+            height: 100%;
+            transition: width 0.3s;
+        }
+        .mc-edge-bar .edge-bar-p2 {
+            background: var(--crimson);
+            height: 100%;
+            transition: width 0.3s;
+        }
+        .mc-no-data {
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 4px 12px 6px;
+            border-top: 1px solid rgba(45, 38, 64, 0.3);
+        }
+
+        .filter-tabs {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 14px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 2px;
+        }
+        .filter-tab {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 7px 14px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            color: var(--text-muted);
+            font-size: 0.7rem;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        .filter-tab:hover { border-color: var(--emerald); color: var(--text); }
+        .filter-tab.active {
+            background: rgba(80, 200, 120, 0.12);
+            border-color: var(--emerald);
+            color: var(--emerald);
+        }
+        .filter-tab .tab-count {
+            background: rgba(255,255,255,0.1);
+            padding: 1px 6px;
+            border-radius: 10px;
+            font-size: 0.6rem;
+        }
+        .filter-tab.active .tab-count {
+            background: rgba(80, 200, 120, 0.2);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+        .empty-state i { font-size: 3rem; margin-bottom: 16px; color: var(--tennis); }
+        .empty-state h3 { font-size: 1.1rem; margin-bottom: 8px; color: var(--text); }
+
+        .stats-row {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 14px;
+        }
+        .stat-box {
+            flex: 1;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 6px;
+            text-align: center;
+        }
+        .stat-box .stat-value {
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: var(--emerald);
+            white-space: nowrap;
+        }
+        .stat-box .stat-label {
+            font-size: 0.55rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            margin-top: 3px;
+            white-space: nowrap;
+        }
+
+        .section-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-muted);
+            font-weight: 700;
+            margin-bottom: 8px;
+            padding-left: 4px;
+        }
+
+        .day-divider {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 20px 0 12px;
+            padding: 0 4px;
+        }
+        .day-divider .day-label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--emerald);
+            white-space: nowrap;
+        }
+        .day-divider .day-record {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+        .day-divider .divider-line {
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .mobile-bottom-nav {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--bg-card);
+            border-top: 1px solid var(--border);
+            z-index: 1000;
+            padding: 6px 0 env(safe-area-inset-bottom, 6px);
+        }
+        .mobile-bottom-nav ul {
+            list-style: none;
+            display: flex;
+            justify-content: space-around;
+            margin: 0;
+            padding: 0;
+        }
+        .mobile-bottom-nav a {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            padding: 4px 8px;
+            font-weight: 600;
+        }
+        .mobile-bottom-nav a i { font-size: 1.2rem; margin-bottom: 2px; }
+        .mobile-bottom-nav a.active { color: var(--emerald); }
+        .mobile-bottom-nav a.active i { color: var(--emerald); }
+        @media (max-width: 768px) {
+            .mobile-bottom-nav { display: block; }
+            body { padding-bottom: 80px; }
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .pick-card { animation: fadeInUp 0.3s ease forwards; }
+        .pick-card:nth-child(1) { animation-delay: 0.02s; }
+        .pick-card:nth-child(2) { animation-delay: 0.04s; }
+        .pick-card:nth-child(3) { animation-delay: 0.06s; }
+        .pick-card:nth-child(4) { animation-delay: 0.08s; }
+        .pick-card:nth-child(5) { animation-delay: 0.10s; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="header-brand">
+                <span class="tennis-icon">🎾</span>
+                <div>
+                    <div class="logo-text">Seven Thirty</div>
+                    <div class="header-subtitle">Tennis Spreads</div>
+                </div>
+            </div>
+            {% if data.fb_record %}
+            <div class="record-badge">
+                <span>🧠 {{ data.fb_record }}</span>
+                <span class="pct">({{ data.fb_pct }}%)</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="container-main">
+        {% if not data.success %}
+        <div class="empty-state">
+            <i class="bi bi-wifi-off"></i>
+            <h3>Unable to Load Picks</h3>
+            <p>{{ data.error or 'Could not connect to picks source.' }}</p>
+        </div>
+        {% elif not data.picks %}
+        <div class="empty-state">
+            <i class="bi bi-clock"></i>
+            <h3>No Spreads Available</h3>
+            <p>Check back when today's tennis card is posted.</p>
+        </div>
+        {% else %}
+
+        <div class="stats-row">
+            <div class="stat-box">
+                <div class="stat-value">{{ data.fb_total }}</div>
+                <div class="stat-label">🧠 4/4 Picks</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">{{ data.fb_record }}</div>
+                <div class="stat-label">Record</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">{{ data.fb_pct }}%</div>
+                <div class="stat-label">Win Rate</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">{{ data.fb_pending }}</div>
+                <div class="stat-label">Pending</div>
+            </div>
+        </div>
+
+        <div class="filter-tabs" id="brainFilters">
+            <div class="filter-tab" data-filter="all" onclick="filterBrains('all')">
+                All <span class="tab-count">{{ data.picks|length }}</span>
+            </div>
+            <div class="filter-tab active" data-filter="4" onclick="filterBrains('4')">
+                🧠 4/4 <span class="tab-count">{{ data.brain_counts.get(4, 0) }}</span>
+            </div>
+        </div>
+
+        {% set filtered_picks = data.picks|selectattr('brains.count', 'ge', 4)|list %}
+        <div class="section-label">Spreads (<span id="visibleCount">{{ filtered_picks|length }}</span>)</div>
+        <div class="picks-grid" id="picksGrid">
+            {% for pick in data.picks %}
+            <div class="pick-card {{ pick.result or 'pending' }}" data-brains="{{ pick.brains.count }}">
+                <div class="pick-card-body">
+                    <div class="pick-player">
+                        <div class="pick-player-name">{{ pick.player }}</div>
+                        <div class="pick-spread-line">
+                            <span class="spread-badge {{ 'positive' if pick.spread_val > 0 else 'negative' }}">
+                                {{ pick.spread if pick.spread.startswith('+') or pick.spread.startswith('-') else ('+' if pick.spread_val > 0 else '') ~ pick.spread }}
+                            </span>
+                            <span class="odds-val">({{ pick.odds }})</span>
+                        </div>
+                    </div>
+                    <div class="pick-confidence">
+                        <div class="conf-circle {{ 'conf-high' if pick.confidence >= 60 else 'conf-mid' if pick.confidence >= 55 else 'conf-low' }}">
+                            {{ pick.confidence }}%
+                        </div>
+                    </div>
+                    <div class="pick-result">
+                        {% if pick.result == 'win' %}
+                        <span class="result-icon result-win">✅</span>
+                        {% elif pick.result == 'loss' %}
+                        <span class="result-icon result-loss">❌</span>
+                        {% else %}
+                        <span class="result-pending">⏳</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="brains-row">
+                    <span class="brain-chip {{ 'on' if pick.brains.stats else 'off' }}">
+                        <span class="brain-icon">📊</span> Stats
+                    </span>
+                    <span class="brain-chip {{ 'on' if pick.brains.trends else 'off' }}">
+                        <span class="brain-icon">📈</span> Trends
+                    </span>
+                    <span class="brain-chip {{ 'on' if pick.brains.value else 'off' }}">
+                        <span class="brain-icon">💎</span> Value
+                    </span>
+                    <span class="brain-chip {{ 'on' if pick.brains.matchup else 'off' }}">
+                        <span class="brain-icon">⚔️</span> Matchup
+                    </span>
+                </div>
+                {% if pick.brains.metrics %}
+                {% set m = pick.brains.metrics %}
+                {% set is_wta = m.tour == 'WTA' %}
+                {% set opp = pick.get('opponent', {}) if pick.get('opponent') else {} %}
+                {% set om = opp.get('metrics') if opp else None %}
+                <div class="metrics-toggle" onclick="toggleMetrics(this)">
+                    <i class="bi bi-chevron-down"></i>
+                    {% if om %}
+                    <span>Matchup Comparison</span>
+                    {% else %}
+                    <span>Key Metrics</span>
+                    {% endif %}
+                    <span class="adv-badge">ADVANCED STATS</span>
+                </div>
+                <div class="metrics-content">
+                    {% if om %}
+                    {# --- SIDE-BY-SIDE MATCHUP COMPARISON --- #}
+                    {% set metrics = [
+                        ('Net Rating', 'net_rating', 100, '%', true),
+                        ('Hold %', 'hold_pct', 100, '%', true),
+                        ('Break %', 'break_pct', 100, '%', true),
+                        ('1st Serve Won', 'first_serve_won', 100, '%', true),
+                        ('Return Pts Won', 'rpw', 100, '%', true),
+                        ('2nd Serve Won', 'second_serve_won', 100, '%', true),
+                        ('DF Rate', 'df_rate', 100, '%', false),
+                        ('BP Created/M', 'bp_per_match', 1, '', true),
+                        ('Surface Elo', 'elo', 1, '', true),
+                        ('Dominance', 'dominance_ratio', 1, '', true)
+                    ] %}
+                    <div class="matchup-header">
+                        <span class="matchup-player-label picked">{{ pick.player }}</span>
+                        <span class="matchup-vs">VS</span>
+                        <span class="matchup-player-label opponent">{{ opp.name }}</span>
+                    </div>
+                    <table class="metrics-table matchup">
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th style="color:var(--emerald);">Pick</th>
+                                <th style="color:var(--crimson);">Opp</th>
+                                <th>Edge</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% set ns = namespace(player_edges=0, opp_edges=0) %}
+                            {% for label, key, mult, suffix, higher_better in metrics %}
+                            {% set pv = m.get(key) %}
+                            {% set ov = om.get(key) %}
+                            <tr>
+                                <td>{{ label }}</td>
+                                {% if pv is not none and ov is not none %}
+                                    {% set pval = pv * mult %}
+                                    {% set oval = ov * mult %}
+                                    {% if higher_better %}
+                                        {% set player_wins = pval > oval %}
+                                    {% else %}
+                                        {% set player_wins = pval < oval %}
+                                    {% endif %}
+                                    {% set tied = pval == oval %}
+                                    {% if not tied and player_wins %}
+                                        {% set ns.player_edges = ns.player_edges + 1 %}
+                                    {% elif not tied %}
+                                        {% set ns.opp_edges = ns.opp_edges + 1 %}
+                                    {% endif %}
+                                    <td class="metric-value {{ 'edge-win' if (not tied and player_wins) else 'edge-lose' if not tied else '' }}">
+                                        {% if mult == 100 %}{{ pval|round(1) }}{{ suffix }}{% elif mult == 1 and suffix == '' %}{% if key == 'elo' %}{{ pval|round(0)|int }}{% else %}{{ pval|round(2) }}{% endif %}{% else %}{{ pval }}{{ suffix }}{% endif %}
+                                    </td>
+                                    <td class="metric-value {{ 'edge-win' if (not tied and not player_wins) else 'edge-lose' if not tied else '' }}">
+                                        {% if mult == 100 %}{{ oval|round(1) }}{{ suffix }}{% elif mult == 1 and suffix == '' %}{% if key == 'elo' %}{{ oval|round(0)|int }}{% else %}{{ oval|round(2) }}{% endif %}{% else %}{{ oval }}{{ suffix }}{% endif %}
+                                    </td>
+                                    <td>
+                                        {% if tied %}<span class="edge-tie">—</span>
+                                        {% elif player_wins %}<span class="edge-win edge-icon">▲</span>
+                                        {% else %}<span class="edge-lose edge-icon">▼</span>{% endif %}
+                                    </td>
+                                {% elif pv is not none %}
+                                    <td class="metric-value">
+                                        {% if mult == 100 %}{{ (pv * mult)|round(1) }}{{ suffix }}{% elif key == 'elo' %}{{ pv|round(0)|int }}{% else %}{{ pv }}{% endif %}
+                                    </td>
+                                    <td class="metric-value" style="color:var(--text-muted);">—</td>
+                                    <td><span class="edge-tie">—</span></td>
+                                {% else %}
+                                    <td class="metric-value" style="color:var(--text-muted);">—</td>
+                                    <td class="metric-value" style="color:var(--text-muted);">—</td>
+                                    <td><span class="edge-tie">—</span></td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <div class="edge-summary">
+                        <span class="edge-score edge-win">{{ ns.player_edges }}</span>
+                        <span class="edge-label">Edge Count</span>
+                        <span class="edge-score edge-lose">{{ ns.opp_edges }}</span>
+                    </div>
+                    <div class="metrics-matches">
+                        {{ m.tour }} · {{ m.matches }} matches (pick) · {{ om.matches }} matches (opp)
+                    </div>
+                    {% else %}
+                    {# --- SINGLE PLAYER FALLBACK --- #}
+                    <table class="metrics-table">
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th>Value</th>
+                                <th>Rating</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="3" class="metrics-section-label">📊 Stats Brain</td></tr>
+                            <tr>
+                                <td>Net Rating</td>
+                                <td class="metric-value {% if (is_wta and m.net_rating > 0.40) or (not is_wta and m.net_rating > 0.60) %}metric-elite{% elif (is_wta and m.net_rating > 0.30) or (not is_wta and m.net_rating > 0.55) %}metric-pass{% else %}metric-fail{% endif %}">
+                                    {{ (m.net_rating * 100)|round(1) }}%
+                                </td>
+                                <td>{% if (is_wta and m.net_rating > 0.40) or (not is_wta and m.net_rating > 0.60) %}<span class="metric-elite">Elite</span>{% elif (is_wta and m.net_rating > 0.30) or (not is_wta and m.net_rating > 0.55) %}<span class="metric-pass">Strong</span>{% else %}<span class="metric-fail">Below</span>{% endif %}</td>
+                            </tr>
+                            <tr>
+                                <td>Hold %</td>
+                                <td class="metric-value {% if (is_wta and m.hold_pct > 0.75) or (not is_wta and m.hold_pct > 0.85) %}metric-elite{% elif (is_wta and m.hold_pct > 0.68) or (not is_wta and m.hold_pct > 0.80) %}metric-pass{% else %}metric-fail{% endif %}">
+                                    {{ (m.hold_pct * 100)|round(1) }}%
+                                </td>
+                                <td>{% if (is_wta and m.hold_pct > 0.75) or (not is_wta and m.hold_pct > 0.85) %}<span class="metric-elite">Elite</span>{% elif (is_wta and m.hold_pct > 0.68) or (not is_wta and m.hold_pct > 0.80) %}<span class="metric-pass">Strong</span>{% else %}<span class="metric-fail">Below</span>{% endif %}</td>
+                            </tr>
+                            <tr>
+                                <td>Break %</td>
+                                <td class="metric-value {% if (is_wta and m.break_pct > 0.40) or (not is_wta and m.break_pct > 0.25) %}metric-elite{% elif (is_wta and m.break_pct > 0.33) or (not is_wta and m.break_pct > 0.20) %}metric-pass{% else %}metric-fail{% endif %}">
+                                    {{ (m.break_pct * 100)|round(1) }}%
+                                </td>
+                                <td>{% if (is_wta and m.break_pct > 0.40) or (not is_wta and m.break_pct > 0.25) %}<span class="metric-elite">Elite</span>{% elif (is_wta and m.break_pct > 0.33) or (not is_wta and m.break_pct > 0.20) %}<span class="metric-pass">Strong</span>{% else %}<span class="metric-fail">Below</span>{% endif %}</td>
+                            </tr>
+                            <tr>
+                                <td>1st Serve Won</td>
+                                <td class="metric-value {% if (is_wta and m.first_serve_won > 0.68) or (not is_wta and m.first_serve_won > 0.75) %}metric-elite{% elif (is_wta and m.first_serve_won > 0.62) or (not is_wta and m.first_serve_won > 0.70) %}metric-pass{% else %}metric-fail{% endif %}">
+                                    {{ (m.first_serve_won * 100)|round(1) }}%
+                                </td>
+                                <td>{% if (is_wta and m.first_serve_won > 0.68) or (not is_wta and m.first_serve_won > 0.75) %}<span class="metric-elite">Elite</span>{% elif (is_wta and m.first_serve_won > 0.62) or (not is_wta and m.first_serve_won > 0.70) %}<span class="metric-pass">Strong</span>{% else %}<span class="metric-fail">Below</span>{% endif %}</td>
+                            </tr>
+                            <tr><td colspan="3" class="metrics-section-label">📈 Trends Brain</td></tr>
+                            <tr>
+                                <td>Return Pts Won</td>
+                                <td class="metric-value {% if (is_wta and m.rpw > 0.45) or (not is_wta and m.rpw > 0.40) %}metric-elite{% elif (is_wta and m.rpw > 0.42) or (not is_wta and m.rpw > 0.38) %}metric-pass{% else %}metric-fail{% endif %}">
+                                    {{ (m.rpw * 100)|round(1) }}%
+                                </td>
+                                <td>{% if (is_wta and m.rpw > 0.45) or (not is_wta and m.rpw > 0.40) %}<span class="metric-elite">Elite</span>{% elif (is_wta and m.rpw > 0.42) or (not is_wta and m.rpw > 0.38) %}<span class="metric-pass">Strong</span>{% else %}<span class="metric-fail">Below</span>{% endif %}</td>
+                            </tr>
+                            <tr>
+                                <td>2nd Serve Won</td>
+                                <td class="metric-value {% if (is_wta and m.second_serve_won > 0.50) or (not is_wta and m.second_serve_won > 0.55) %}metric-elite{% elif (is_wta and m.second_serve_won > 0.46) or (not is_wta and m.second_serve_won > 0.52) %}metric-pass{% else %}metric-fail{% endif %}">
+                                    {{ (m.second_serve_won * 100)|round(1) }}%
+                                </td>
+                                <td>{% if (is_wta and m.second_serve_won > 0.50) or (not is_wta and m.second_serve_won > 0.55) %}<span class="metric-elite">Elite</span>{% elif (is_wta and m.second_serve_won > 0.46) or (not is_wta and m.second_serve_won > 0.52) %}<span class="metric-pass">Strong</span>{% else %}<span class="metric-fail">Below</span>{% endif %}</td>
+                            </tr>
+                            <tr><td colspan="3" class="metrics-section-label">💎 Value Brain</td></tr>
+                            <tr>
+                                <td>DF Rate</td>
+                                <td class="metric-value {% if m.df_rate < 0.03 %}metric-elite{% elif m.df_rate < 0.04 %}metric-pass{% else %}metric-fail{% endif %}">
+                                    {{ (m.df_rate * 100)|round(1) }}%
+                                </td>
+                                <td>{% if m.df_rate < 0.03 %}<span class="metric-elite">Elite</span>{% elif m.df_rate < 0.04 %}<span class="metric-pass">Low</span>{% else %}<span class="metric-fail">High</span>{% endif %}</td>
+                            </tr>
+                            <tr>
+                                <td>BP Created/M</td>
+                                <td class="metric-value {% if (is_wta and m.bp_per_match >= 9.0) or (not is_wta and m.bp_per_match >= 8.0) %}metric-elite{% elif (is_wta and m.bp_per_match >= 8.0) or (not is_wta and m.bp_per_match >= 7.0) %}metric-pass{% else %}metric-fail{% endif %}">
+                                    {{ m.bp_per_match }}
+                                </td>
+                                <td>{% if (is_wta and m.bp_per_match >= 9.0) or (not is_wta and m.bp_per_match >= 8.0) %}<span class="metric-elite">Elite</span>{% elif (is_wta and m.bp_per_match >= 8.0) or (not is_wta and m.bp_per_match >= 7.0) %}<span class="metric-pass">Strong</span>{% else %}<span class="metric-fail">Below</span>{% endif %}</td>
+                            </tr>
+                            <tr><td colspan="3" class="metrics-section-label">⚔️ Matchup Brain</td></tr>
+                            <tr>
+                                <td>Surface Elo</td>
+                                <td class="metric-value {% if (is_wta and m.elo > 1900) or (not is_wta and m.elo > 2000) %}metric-elite{% elif (is_wta and m.elo > 1800) or (not is_wta and m.elo > 1900) %}metric-pass{% else %}metric-fail{% endif %}">
+                                    {{ m.elo|round(0)|int }}
+                                </td>
+                                <td>{% if (is_wta and m.elo > 1900) or (not is_wta and m.elo > 2000) %}<span class="metric-elite">Elite</span>{% elif (is_wta and m.elo > 1800) or (not is_wta and m.elo > 1900) %}<span class="metric-pass">Strong</span>{% else %}<span class="metric-fail">Below</span>{% endif %}</td>
+                            </tr>
+                            <tr>
+                                <td>Dominance</td>
+                                <td class="metric-value {% if m.dominance_ratio > 1.15 %}metric-elite{% elif m.dominance_ratio > 1.10 %}metric-pass{% else %}metric-fail{% endif %}">
+                                    {{ m.dominance_ratio }}
+                                </td>
+                                <td>{% if m.dominance_ratio > 1.15 %}<span class="metric-elite">Elite</span>{% elif m.dominance_ratio > 1.10 %}<span class="metric-pass">Strong</span>{% else %}<span class="metric-fail">Below</span>{% endif %}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="metrics-matches">
+                        {{ m.tour }} · {{ m.matches }} career matches
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {# --- TOURNAMENT ANALYSIS SECTION --- #}
+        {% if tournaments %}
+        <div class="tournament-section">
+            <div class="section-label">Tournament Analysis</div>
+            {% for tourn in tournaments %}
+            {% set upcoming = tourn.matchups|selectattr('status', 'equalto', 'upcoming')|list %}
+            {% set four_brain_matches = [] %}
+            {% for match in upcoming %}
+                {% if (match.player1_brains and match.player1_brains.count == 4) or (match.player2_brains and match.player2_brains.count == 4) %}
+                    {% if four_brain_matches.append(match) %}{% endif %}
+                {% endif %}
+            {% endfor %}
+            {% if four_brain_matches %}
+            <div class="tournament-header" onclick="toggleTournament(this)">
+                <span class="tour-badge {{ tourn.tour|lower }}">{{ tourn.tour }}</span>
+                <span class="tour-name">{{ tourn.name }}</span>
+                <span class="tour-count">{{ four_brain_matches|length }} matches</span>
+                <i class="bi bi-chevron-down"></i>
+            </div>
+            <div class="tournament-body">
+                {% for match in four_brain_matches %}
+                <div class="matchup-card">
+                    <div class="matchup-card-body">
+                        <div class="mc-player">
+                            <div class="mc-player-name">{{ match.player1 }}</div>
+                            {% if match.player1_brains %}
+                            <div class="mc-brains">
+                                <span class="mc-brain-dot {{ 'on' if match.player1_brains.stats else 'off' }}" title="Stats"></span>
+                                <span class="mc-brain-dot {{ 'on' if match.player1_brains.trends else 'off' }}" title="Trends"></span>
+                                <span class="mc-brain-dot {{ 'on' if match.player1_brains.value else 'off' }}" title="Value"></span>
+                                <span class="mc-brain-dot {{ 'on' if match.player1_brains.matchup else 'off' }}" title="Matchup"></span>
+                            </div>
+                            <div class="mc-brain-count brain-count-badge b{{ match.player1_brains.count }}">{{ match.player1_brains.count }}/4</div>
+                            {% endif %}
+                        </div>
+                        <div class="mc-vs">
+                            <span class="round-badge">{{ match.round }}</span>
+                            <span class="vs-text">VS</span>
+                        </div>
+                        <div class="mc-player">
+                            <div class="mc-player-name">{{ match.player2 }}</div>
+                            {% if match.player2_brains %}
+                            <div class="mc-brains">
+                                <span class="mc-brain-dot {{ 'on' if match.player2_brains.stats else 'off' }}" title="Stats"></span>
+                                <span class="mc-brain-dot {{ 'on' if match.player2_brains.trends else 'off' }}" title="Trends"></span>
+                                <span class="mc-brain-dot {{ 'on' if match.player2_brains.value else 'off' }}" title="Value"></span>
+                                <span class="mc-brain-dot {{ 'on' if match.player2_brains.matchup else 'off' }}" title="Matchup"></span>
+                            </div>
+                            <div class="mc-brain-count brain-count-badge b{{ match.player2_brains.count }}">{{ match.player2_brains.count }}/4</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if match.p1_edges is defined and match.p2_edges is defined %}
+                    {% set total_edges = match.p1_edges + match.p2_edges %}
+                    {% set p1_pct = (match.p1_edges / total_edges * 100) if total_edges > 0 else 50 %}
+                    {% set p2_pct = (match.p2_edges / total_edges * 100) if total_edges > 0 else 50 %}
+                    <div class="mc-edge-bar">
+                        <span class="edge-num edge-win">{{ match.p1_edges }}</span>
+                        <div class="edge-bar-track">
+                            <div class="edge-bar-p1" style="width:{{ p1_pct }}%"></div>
+                            <div class="edge-bar-p2" style="width:{{ p2_pct }}%"></div>
+                        </div>
+                        <span class="edge-num edge-lose">{{ match.p2_edges }}</span>
+                    </div>
+                    {# Expandable matchup detail #}
+                    {% set m1 = match.player1_metrics %}
+                    {% set m2 = match.player2_metrics %}
+                    {% if m1 and m2 %}
+                    <div class="metrics-toggle" onclick="toggleMetrics(this)">
+                        <i class="bi bi-chevron-down"></i>
+                        <span>Full Comparison</span>
+                    </div>
+                    <div class="metrics-content">
+                        {% set comp_metrics = [
+                            ('Net Rating', 'net_rating', 100, '%', true),
+                            ('Hold %', 'hold_pct', 100, '%', true),
+                            ('Break %', 'break_pct', 100, '%', true),
+                            ('1st Serve Won', 'first_serve_won', 100, '%', true),
+                            ('Return Pts Won', 'rpw', 100, '%', true),
+                            ('2nd Serve Won', 'second_serve_won', 100, '%', true),
+                            ('DF Rate', 'df_rate', 100, '%', false),
+                            ('BP Created/M', 'bp_per_match', 1, '', true),
+                            ('Surface Elo', 'elo', 1, '', true),
+                            ('Dominance', 'dominance_ratio', 1, '', true)
+                        ] %}
+                        <table class="metrics-table matchup">
+                            <thead>
+                                <tr>
+                                    <th>Metric</th>
+                                    <th style="color:var(--emerald); font-size:0.5rem;">P1</th>
+                                    <th style="color:var(--crimson); font-size:0.5rem;">P2</th>
+                                    <th>Edge</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for label, key, mult, suffix, higher_better in comp_metrics %}
+                                {% set pv = m1.get(key) %}
+                                {% set ov = m2.get(key) %}
+                                <tr>
+                                    <td>{{ label }}</td>
+                                    {% if pv is not none and ov is not none %}
+                                        {% set pval = pv * mult %}
+                                        {% set oval = ov * mult %}
+                                        {% if higher_better %}
+                                            {% set p1_wins = pval > oval %}
+                                        {% else %}
+                                            {% set p1_wins = pval < oval %}
+                                        {% endif %}
+                                        {% set tied = pval == oval %}
+                                        <td class="metric-value {{ 'edge-win' if (not tied and p1_wins) else 'edge-lose' if not tied else '' }}">
+                                            {% if mult == 100 %}{{ pval|round(1) }}{{ suffix }}{% elif key == 'elo' %}{{ pval|round(0)|int }}{% else %}{{ pval|round(2) }}{% endif %}
+                                        </td>
+                                        <td class="metric-value {{ 'edge-win' if (not tied and not p1_wins) else 'edge-lose' if not tied else '' }}">
+                                            {% if mult == 100 %}{{ oval|round(1) }}{{ suffix }}{% elif key == 'elo' %}{{ oval|round(0)|int }}{% else %}{{ oval|round(2) }}{% endif %}
+                                        </td>
+                                        <td>
+                                            {% if tied %}<span class="edge-tie">—</span>
+                                            {% elif p1_wins %}<span class="edge-win edge-icon">▲</span>
+                                            {% else %}<span class="edge-lose edge-icon">▼</span>{% endif %}
+                                        </td>
+                                    {% else %}
+                                        <td class="metric-value" style="color:var(--text-muted);">—</td>
+                                        <td class="metric-value" style="color:var(--text-muted);">—</td>
+                                        <td><span class="edge-tie">—</span></td>
+                                    {% endif %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% endif %}
+                    {% elif not match.player1_metrics and not match.player2_metrics %}
+                    <div class="mc-no-data">Stats loading on first view</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <nav class="mobile-bottom-nav">
+        <ul>
+            <li><a href="/"><i class="bi bi-house-fill"></i>Home</a></li>
+            <li><a href="/spreads"><i class="bi bi-bar-chart-fill"></i>Spreads</a></li>
+            <li><a href="/tennis" class="active"><i class="bi bi-trophy-fill"></i>Tennis</a></li>
+            <li><a href="/bankroll"><i class="bi bi-piggy-bank-fill"></i>Bankroll</a></li>
+            <li><a href="/history"><i class="bi bi-clock-history"></i>History</a></li>
+        </ul>
+    </nav>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(() => {});
+        }
+        setTimeout(function(){ location.reload(); }, 120000);
+
+        function toggleMetrics(el) {
+            if ('vibrate' in navigator) navigator.vibrate(10);
+            el.classList.toggle('expanded');
+            var content = el.nextElementSibling;
+            content.classList.toggle('show');
+        }
+
+        function toggleTournament(el) {
+            if ('vibrate' in navigator) navigator.vibrate(10);
+            el.classList.toggle('expanded');
+            var body = el.nextElementSibling;
+            body.classList.toggle('show');
+        }
+
+        function filterBrains(level) {
+            document.querySelectorAll('.filter-tab').forEach(function(t) { t.classList.remove('active'); });
+            document.querySelector('.filter-tab[data-filter="' + level + '"]').classList.add('active');
+            var cards = document.querySelectorAll('.pick-card');
+            var visible = 0;
+            cards.forEach(function(card) {
+                var brains = parseInt(card.getAttribute('data-brains'));
+                var show = level === 'all' || brains >= parseInt(level);
+                card.style.display = show ? '' : 'none';
+                if (show) visible++;
+            });
+            document.getElementById('visibleCount').textContent = visible;
+        }
+        filterBrains('4');
+    </script>
+</body>
+</html>

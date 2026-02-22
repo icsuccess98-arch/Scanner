@@ -11117,6 +11117,25 @@ def history():
                           wins=wins, losses=losses)
 
 
+@app.route('/tennis')
+def tennis():
+    """Tennis Game Spreads from Discord picks channel."""
+    from discord_scraper import get_tennis_game_spreads, analyze_tournament_matchups
+    from tennis_abstract_scraper import get_tennis_abstract_stats, get_tournament_draws
+    data = get_tennis_game_spreads()
+    try:
+        player_stats = get_tennis_abstract_stats()
+    except Exception as e:
+        logger.error(f"Tennis Abstract stats error: {e}")
+        player_stats = {}
+    tournament_draws = []
+    try:
+        tournament_draws = get_tournament_draws()
+        tournament_draws = analyze_tournament_matchups(tournament_draws, player_stats)
+    except Exception as e:
+        logger.error(f"Tournament analysis error: {e}")
+    return render_template('tennis.html', data=data, player_stats=player_stats, tournaments=tournament_draws)
+
 @app.route('/bankroll')
 def bankroll():
     """52 Week Bankroll Builder tracker."""
