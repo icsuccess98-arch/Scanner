@@ -142,9 +142,10 @@ Universal team name matching for KenPom and Covers.com:
 - Supports ~70+ matches per day across ATP, WTA, and ITF tournaments
 - **Opening Lines via Modal** (Feb 2026): Game IDs extracted from `data-param2` modal trigger attributes
   - `fetch_tennis_opening_lines()` concurrently fetches opening odds from `/modal/loadmodal.php?modalpage=dksplitsgame&gameid=X`
-  - `detect_tennis_rlm()` compares opening vs current odds for true RLM detection:
-    - Line shortened (more favorable) despite minority money = RLM
-    - Fallback to handle-based detection (≥60% money threshold) when opening lines unavailable
+  - `detect_tennis_rlm()` uses same Favorite/Underdog Decision Table as NBA/CBB:
+    - RLM = line shortens for player with MINORITY handle (money), requires actual line movement
+    - Uses money (handle %) not bets (tickets %) - consistent with NBA/CBB sharp money theory
+    - Handle-based divergence without line movement = sharp money (sharp_side), NOT RLM
   - Template shows "Open → Current" line movement with color-coded arrows (green=shortened, red=lengthened)
 
 -   **Stocks Data**:
