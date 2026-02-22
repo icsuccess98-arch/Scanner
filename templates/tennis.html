@@ -1189,7 +1189,7 @@
                 <span class="vsin-count">{{ all_vsin|length }} matches</span>
                 <i class="bi bi-chevron-down" id="vsin-chevron"></i>
             </div>
-            <div id="vsin-tennis-body" style="display:none;">
+            <div id="vsin-tennis-body" style="display:block;">
                 {% if sharp_matches|length > 0 or rlm_matches|length > 0 %}
                 <div class="section-label" style="margin-bottom:8px;font-size:0.65rem;">Sharp Money & RLM Alerts</div>
                 {% set alert_matches = [] %}
@@ -1240,8 +1240,12 @@
                 {% endfor %}
                 {% endif %}
 
-                <div class="section-label" style="margin:12px 0 8px;font-size:0.65rem;">All Matches ({{ all_vsin|length }})</div>
+                {% set dates_seen = [] %}
                 {% for m in all_vsin %}
+                {% if m.date and m.date not in dates_seen %}
+                    {% if dates_seen.append(m.date) %}{% endif %}
+                    <div class="section-label" style="margin:12px 0 8px;font-size:0.65rem;">{{ m.date }}</div>
+                {% endif %}
                 {% if not m.sharp_side and not m.p1_rlm and not m.p2_rlm %}
                 <div class="vsin-match-card">
                     <div class="vsin-match-tourn">{{ m.tournament }}</div>
