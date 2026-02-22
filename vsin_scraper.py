@@ -189,8 +189,13 @@ def parse_vsin_splits(html: str, sport: str) -> dict:
     return splits
 
 
-def parse_tennis_splits(html: str) -> dict:
-    """Parse tennis betting splits from VSIN HTML - tennis uses player names instead of team names"""
+def parse_tennis_splits(html: str, filter_dates=None) -> dict:
+    """Parse tennis betting splits from VSIN HTML - tennis uses player names instead of team names
+    
+    Args:
+        html: Raw HTML from VSIN tennis betting-splits page
+        filter_dates: Optional set of date strings like {'Feb 22', 'Feb 23'} to filter matches
+    """
     splits = {}
     
     try:
@@ -199,21 +204,39 @@ def parse_tennis_splits(html: str) -> dict:
         logger.info(f"VSIN Tennis splits: Found {len(tables)} tables")
         
         current_tournament = 'Tennis'
+        current_date_str = ''
+        current_date_short = ''
         
         for table in tables:
-            cells = table.find_all('td')
+            cells = table.find_all(['td', 'th'])
             
             i = 0
             while i < len(cells):
                 cell = cells[i]
                 cls = cell.get('class', [])
-                text = cell.get_text(separator='|', strip=True)
+                text = cell.get_text(strip=True)
                 
                 if 'text-center' in cls and ('ATP' in text or 'WTA' in text or 'ITF' in text):
-                    parts = text.split('|')
-                    current_tournament = parts[0].strip() if parts else text
+                    date_match = re.search(r'((?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),\s*\w+\s+\d+)', text)
+                    if date_match:
+                        current_date_str = date_match.group(1)
+                        month_day = re.search(r'(\w+\s+\d+)$', current_date_str)
+                        current_date_short = month_day.group(1) if month_day else current_date_str
+                    
+                    tourn_match = re.match(r'((?:ATP|WTA|ITF)\s*-\s*.*?)(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)', text)
+                    if tourn_match:
+                        current_tournament = tourn_match.group(1).strip().rstrip('-').strip()
+                    else:
+                        current_tournament = text[:30]
+                    
                     i += 1
                     continue
+                
+                if 'div_dark' in cls:
+                    i += 1
+                    continue
+                
+                text = cell.get_text(separator='|', strip=True)
                 
                 if 'font-12' in cls and '|' in text:
                     parts = text.split('|')
@@ -253,10 +276,16 @@ def parse_tennis_splits(html: str) -> dict:
                         
                         game_key = f"{player1} vs {player2}"
                         
+                        if filter_dates and current_date_short:
+                            if not any(d in current_date_short for d in filter_dates):
+                                i += 1
+                                continue
+                        
                         entry = {
                             'player1': player1,
                             'player2': player2,
                             'tournament': current_tournament,
+                            'date': current_date_str,
                             'p1_odds': p1_odds,
                             'p2_odds': p2_odds,
                         }
@@ -296,7 +325,10 @@ def parse_tennis_splits(html: str) -> dict:
 
 
 def get_vsin_tennis_data() -> dict:
-    """Fetch and combine VSIN tennis splits data with RLM detection"""
+    """Fetch and combine VSIN tennis splits data with RLM detection.
+    Only returns matches for today and tomorrow since tennis spans late/early hours."""
+    from datetime import datetime, timedelta
+    
     cookies = load_cookies()
     if not cookies:
         return {'success': False, 'message': 'No cookies found.', 'matches': {}}
@@ -307,13 +339,18 @@ def get_vsin_tennis_data() -> dict:
         'Referer': 'https://vsin.com/',
     }
     
+    today = datetime.now()
+    tomorrow = today + timedelta(days=1)
+    filter_dates = {today.strftime('%b %-d'), tomorrow.strftime('%b %-d')}
+    logger.info(f"VSIN Tennis date filter: {filter_dates}")
+    
     try:
         resp = requests.get('https://data.vsin.com/tennis/betting-splits/', 
                           cookies=cookies, headers=headers, timeout=30)
         if resp.status_code != 200:
             return {'success': False, 'message': f'Failed: {resp.status_code}', 'matches': {}}
         
-        matches = parse_tennis_splits(resp.text)
+        matches = parse_tennis_splits(resp.text, filter_dates=filter_dates)
         
         for key, match in matches.items():
             p1_handle = match.get('p1_handle_pct', 50)
