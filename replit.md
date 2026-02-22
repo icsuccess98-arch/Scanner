@@ -136,10 +136,16 @@ Universal team name matching for KenPom and Covers.com:
 - `parse_tennis_splits()` in vsin_scraper.py parses VSIN tennis-specific HTML format
 - Pipe-separated player names, moneyline odds, handle %, and bets % per match
 - Tournament detection via ATP/WTA/ITF text-center cells
-- `get_vsin_tennis_data()` fetches splits, applies RLM detection (≥60% money threshold) and sharp money analysis (15%+ divergence)
+- `get_vsin_tennis_data()` fetches splits, applies RLM detection and sharp money analysis (15%+ divergence)
 - Tennis route loads VSIN data in parallel with Discord picks and Tennis Abstract stats
 - VSIN Betting Action section on tennis page: collapsible, shows sharp/RLM alerts first, split bars for handle/bets
 - Supports ~70+ matches per day across ATP, WTA, and ITF tournaments
+- **Opening Lines via Modal** (Feb 2026): Game IDs extracted from `data-param2` modal trigger attributes
+  - `fetch_tennis_opening_lines()` concurrently fetches opening odds from `/modal/loadmodal.php?modalpage=dksplitsgame&gameid=X`
+  - `detect_tennis_rlm()` compares opening vs current odds for true RLM detection:
+    - Line shortened (more favorable) despite minority money = RLM
+    - Fallback to handle-based detection (≥60% money threshold) when opening lines unavailable
+  - Template shows "Open → Current" line movement with color-coded arrows (green=shortened, red=lengthened)
 
 -   **Stocks Data**:
     -   yfinance (Yahoo Finance)
