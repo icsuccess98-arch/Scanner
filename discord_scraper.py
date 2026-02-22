@@ -369,7 +369,6 @@ def get_tennis_game_spreads():
     if not messages:
         return {'success': False, 'error': 'No messages fetched', 'picks': [], 'top_plays': []}
 
-    # Try to load real player stats for four brains analysis
     player_stats = None
     try:
         from tennis_abstract_scraper import get_tennis_abstract_stats
@@ -377,7 +376,6 @@ def get_tennis_game_spreads():
     except Exception as e:
         logger.warning(f"Could not load Tennis Abstract stats: {e}")
 
-    # Try to load current matchups for opponent comparison
     current_matchups = {}
     try:
         from tennis_abstract_scraper import get_current_matchups
@@ -387,6 +385,24 @@ def get_tennis_game_spreads():
 
     cards = parse_all_spreads(messages)
 
+    if cards:
+        latest_card = cards[0]
+        has_pending = any(p.get('result') is None for p in latest_card['picks'] if p.get('confidence', 0) >= 52)
+        if has_pending:
+            cards = [latest_card]
+        else:
+            now = datetime.now(timezone.utc)
+            latest_ts = latest_card.get('timestamp', '')
+            try:
+                latest_time = datetime.fromisoformat(latest_ts)
+                hours_ago = (now - latest_time).total_seconds() / 3600
+            except:
+                hours_ago = 999
+            if hours_ago <= 18:
+                cards = [latest_card]
+            else:
+                cards = []
+
     all_picks = []
     top_plays = []
     for card in cards:
@@ -395,7 +411,6 @@ def get_tennis_game_spreads():
                 continue
             pick['brains'] = analyze_four_brains(pick, player_stats=player_stats)
 
-            # Find opponent and attach their stats
             if current_matchups and player_stats and pick.get('player'):
                 from tennis_abstract_scraper import fuzzy_lookup, _build_name_index, _normalize
                 opp_name = _find_opponent(pick['player'], current_matchups)

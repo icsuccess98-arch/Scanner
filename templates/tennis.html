@@ -434,13 +434,13 @@
             align-items: center;
             gap: 8px;
             padding: 12px 14px;
-            background: linear-gradient(135deg, rgba(123, 44, 191, 0.15), rgba(46, 139, 87, 0.1));
-            border: 1px solid var(--border);
+            background: linear-gradient(135deg, rgba(255, 107, 107, 0.1), rgba(123, 44, 191, 0.08));
+            border: 1px solid rgba(255, 107, 107, 0.2);
             border-radius: 10px;
             margin-bottom: 10px;
             cursor: pointer;
         }
-        .vsin-tennis-header:hover { border-color: var(--accent); }
+        .vsin-tennis-header:hover { border-color: #ff6b6b; }
         .vsin-badge-inline {
             font-size: 0.5rem;
             font-weight: 800;
@@ -455,62 +455,63 @@
             font-size: 0.85rem;
             flex: 1;
         }
-        .vsin-tennis-header .vsin-count {
-            font-size: 0.7rem;
-            color: var(--text-muted);
-            background: rgba(255,255,255,0.06);
-            padding: 2px 8px;
-            border-radius: 10px;
-        }
         .vsin-match-card {
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 10px 12px;
-            margin-bottom: 6px;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 8px;
             transition: all 0.2s;
         }
         .vsin-match-card:hover { border-color: var(--tennis-light); }
-        .vsin-match-card.has-rlm { border-left: 3px solid #ff6b6b; }
-        .vsin-match-card.has-sharp { border-left: 3px solid #50C878; }
+        .vsin-match-card.has-rlm {
+            border-left: 3px solid #ff6b6b;
+            background: linear-gradient(135deg, var(--bg-card), rgba(255,107,107,0.03));
+        }
         .vsin-match-tourn {
             font-size: 0.6rem;
             color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            margin-bottom: 4px;
+            margin-bottom: 6px;
         }
         .vsin-match-players {
             display: flex;
             flex-direction: column;
-            gap: 2px;
-            margin-bottom: 6px;
+            gap: 0;
+            margin-bottom: 8px;
         }
         .vsin-player-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 4px;
+            padding: 4px 0;
         }
         .vsin-player-name {
-            font-size: 0.8rem;
+            font-size: 0.82rem;
             font-weight: 600;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            max-width: 55%;
+            min-width: 0;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 4px;
         }
         .vsin-player-name.sharp { color: #50C878; }
         .vsin-player-right {
             display: flex;
             align-items: center;
-            gap: 4px;
+            gap: 6px;
             flex-shrink: 0;
         }
         .vsin-player-odds {
-            font-size: 0.7rem;
+            font-size: 0.75rem;
             font-weight: 700;
             color: var(--text);
+            font-variant-numeric: tabular-nums;
         }
         .vsin-player-elo {
             font-size: 0.6rem;
@@ -518,18 +519,28 @@
             background: rgba(255,255,255,0.05);
             padding: 1px 5px;
             border-radius: 3px;
+            font-variant-numeric: tabular-nums;
         }
         .vsin-player-elo.higher { color: #50C878; background: rgba(80,200,120,0.1); }
         .vsin-line-move {
             display: flex;
             align-items: center;
-            gap: 3px;
-            font-size: 0.6rem;
-            margin-bottom: 6px;
-            padding: 3px 6px;
-            border-radius: 4px;
+            gap: 4px;
+            font-size: 0.65rem;
+            margin-bottom: 8px;
+            padding: 5px 8px;
+            border-radius: 6px;
             background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.04);
             flex-wrap: wrap;
+        }
+        .vsin-line-move .lm-label {
+            font-size: 0.55rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            margin-right: 2px;
         }
         .vsin-line-move .open-line { color: var(--text-muted); white-space: nowrap; }
         .vsin-line-move .arrow { font-size: 0.7rem; }
@@ -538,38 +549,37 @@
         .vsin-line-move .curr-line { font-weight: 700; }
         .vsin-line-move .curr-line.shortened { color: #50C878; }
         .vsin-line-move .curr-line.lengthened { color: #ff6b6b; }
+        .vsin-line-move .lm-sep { color: rgba(255,255,255,0.15); margin: 0 2px; }
         .vsin-vs-divider {
-            font-size: 0.55rem;
-            color: var(--text-muted);
+            font-size: 0.5rem;
+            color: rgba(255,255,255,0.15);
             text-align: center;
             letter-spacing: 1px;
             margin: 0;
+            padding: 0;
         }
         .vsin-splits-row {
             display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
+            flex-direction: column;
+            gap: 4px;
         }
         .vsin-split-item {
             display: flex;
             align-items: center;
-            gap: 4px;
+            gap: 6px;
             font-size: 0.65rem;
-            flex: 1;
-            min-width: 0;
         }
         .vsin-split-label {
             color: var(--text-muted);
             text-transform: uppercase;
             font-size: 0.55rem;
-            font-weight: 600;
+            font-weight: 700;
             flex-shrink: 0;
+            width: 42px;
         }
         .vsin-split-bar {
             display: flex;
             flex: 1;
-            min-width: 40px;
-            max-width: 100px;
             height: 6px;
             border-radius: 3px;
             overflow: hidden;
@@ -583,7 +593,15 @@
             background: var(--accent);
             transition: width 0.3s;
         }
-        .vsin-pct { font-weight: 600; font-size: 0.6rem; flex-shrink: 0; }
+        .vsin-pct {
+            font-weight: 600;
+            font-size: 0.6rem;
+            flex-shrink: 0;
+            width: 28px;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+        .vsin-pct:last-child { text-align: left; }
         .vsin-pct.majority { color: #daa520; }
         .vsin-matchup-stats {
             margin-top: 6px;
@@ -593,7 +611,7 @@
         .vsin-matchup-stats table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.6rem;
+            font-size: 0.62rem;
         }
         .vsin-matchup-stats th {
             color: var(--text-muted);
@@ -601,15 +619,16 @@
             text-transform: uppercase;
             font-size: 0.5rem;
             letter-spacing: 0.3px;
-            padding: 2px 3px;
+            padding: 3px 4px;
             text-align: center;
             white-space: nowrap;
         }
         .vsin-matchup-stats th:first-child { text-align: left; }
         .vsin-matchup-stats td {
-            padding: 2px 3px;
+            padding: 3px 4px;
             text-align: center;
             white-space: nowrap;
+            font-variant-numeric: tabular-nums;
         }
         .vsin-matchup-stats td:first-child {
             text-align: left;
@@ -622,12 +641,12 @@
             display: flex;
             align-items: center;
             gap: 4px;
-            font-size: 0.55rem;
+            font-size: 0.6rem;
             color: var(--text-muted);
             cursor: pointer;
-            padding: 4px 0 0;
+            padding: 6px 0 0;
             border-top: 1px solid rgba(255,255,255,0.06);
-            margin-top: 4px;
+            margin-top: 6px;
         }
         .vsin-matchup-toggle:hover { color: var(--tennis-light); }
         .vsin-matchup-toggle i { font-size: 0.6rem; transition: transform 0.2s; }
@@ -637,12 +656,12 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
             font-size: 0.6rem;
-            margin-top: 4px;
-            padding: 3px 0;
+            margin-top: 6px;
+            padding: 4px 0;
         }
-        .vsin-edge-score { font-weight: 800; font-size: 0.7rem; }
+        .vsin-edge-score { font-weight: 800; font-size: 0.75rem; }
         .vsin-edge-score.win { color: #50C878; }
         .vsin-edge-score.lose { color: #ff6b6b; }
         .vsin-edge-label { color: var(--text-muted); font-size: 0.5rem; text-transform: uppercase; }
@@ -650,11 +669,12 @@
             display: inline-flex;
             align-items: center;
             gap: 3px;
-            font-size: 0.55rem;
+            font-size: 0.5rem;
             font-weight: 700;
-            padding: 1px 6px;
+            padding: 1px 5px;
             border-radius: 4px;
-            margin-left: 6px;
+            white-space: nowrap;
+            flex-shrink: 0;
         }
         .vsin-alert-badge.rlm {
             background: rgba(255, 107, 107, 0.15);
@@ -667,6 +687,12 @@
         .vsin-player-name.rlm-player {
             color: #ff6b6b;
             text-shadow: 0 0 8px rgba(255, 107, 107, 0.3);
+        }
+        .vsin-pname-text {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
         }
 
         /* Tournament section */
@@ -967,6 +993,33 @@
         @media (max-width: 768px) {
             .mobile-bottom-nav { display: block; }
             body { padding-bottom: 80px; }
+            .container-main { padding: 10px 10px; }
+            .header { padding: 12px 14px; padding-top: calc(12px + env(safe-area-inset-top, 0px)); }
+            .header-brand .logo-text { font-size: 1.2rem; }
+            .stats-row { gap: 0; }
+            .stat-box { padding: 8px 4px; }
+            .stat-value { font-size: 1.1rem; }
+            .stat-label { font-size: 0.55rem; }
+            .pick-card-body { padding: 10px 10px 8px; gap: 8px; }
+            .pick-player-name { font-size: 0.88rem; }
+            .spread-badge { font-size: 0.72rem; padding: 2px 6px; }
+            .pick-result { width: 36px; height: 36px; font-size: 0.65rem; }
+            .pick-result .result-icon { font-size: 1.1rem; }
+            .metrics-toggle { font-size: 0.55rem; }
+            .tab-btn { font-size: 0.7rem; padding: 6px 10px; }
+            .section-label { font-size: 0.6rem; }
+            .vsin-match-card { padding: 10px; }
+            .vsin-player-name { font-size: 0.75rem; }
+            .vsin-player-odds { font-size: 0.7rem; }
+            .vsin-line-move { font-size: 0.6rem; padding: 4px 6px; }
+            .vsin-split-label { font-size: 0.5rem; width: 38px; }
+            .vsin-pct { font-size: 0.55rem; }
+            .vsin-matchup-stats table { font-size: 0.58rem; }
+            .vsin-matchup-stats th { font-size: 0.48rem; }
+            .tournament-header { padding: 8px 10px; }
+            .tourn-name { font-size: 0.7rem; }
+            .matchup-card { padding: 8px 10px; }
+            .matchup-player .player-name { font-size: 0.75rem; }
         }
 
         @keyframes fadeInUp {
@@ -1307,14 +1360,13 @@
                 {% set p1_elo = p1s.get('elo', 0) if p1s else 0 %}
                 {% set p2_elo = p2s.get('elo', 0) if p2s else 0 %}
                 {% set card_id = m.player1|replace(' ','')|truncate(6,True,'') ~ m.player2|replace(' ','')|truncate(6,True,'') %}
-                <div class="vsin-match-card {{ 'has-rlm' if (m.p1_rlm or m.p2_rlm) else ('has-sharp' if m.sharp_side else '') }}">
+                <div class="vsin-match-card {{ 'has-rlm' if (m.p1_rlm or m.p2_rlm) else '' }}">
                     <div class="vsin-match-tourn">{{ m.tournament }}</div>
                     <div class="vsin-match-players">
                         <div class="vsin-player-row">
-                            <span class="vsin-player-name {{ 'rlm-player' if m.p1_rlm else '' }} {{ 'sharp' if show_badges and m.sharp_side == m.player1 else '' }}">
-                                {{ m.player1 }}
-                                {% if m.p1_rlm %}<span class="vsin-alert-badge rlm" style="margin-left:3px;"><i class="bi bi-arrow-left-right"></i> RLM</span>{% endif %}
-                                {% if show_badges and m.sharp_side == m.player1 %}<span class="vsin-alert-badge sharp-money" style="margin-left:3px;"><i class="bi bi-lightning-fill"></i></span>{% endif %}
+                            <span class="vsin-player-name {{ 'rlm-player' if m.p1_rlm else '' }}">
+                                <span class="vsin-pname-text">{{ m.player1 }}</span>
+                                {% if m.p1_rlm %}<span class="vsin-alert-badge rlm"><i class="bi bi-arrow-left-right"></i> RLM</span>{% endif %}
                             </span>
                             <span class="vsin-player-right">
                                 {% if p1_elo %}<span class="vsin-player-elo {{ 'higher' if p1_elo > p2_elo else '' }}">{{ p1_elo|round(0)|int }}</span>{% endif %}
@@ -1323,10 +1375,9 @@
                         </div>
                         <div class="vsin-vs-divider">vs</div>
                         <div class="vsin-player-row">
-                            <span class="vsin-player-name {{ 'rlm-player' if m.p2_rlm else '' }} {{ 'sharp' if show_badges and m.sharp_side == m.player2 else '' }}">
-                                {{ m.player2 }}
-                                {% if m.p2_rlm %}<span class="vsin-alert-badge rlm" style="margin-left:3px;"><i class="bi bi-arrow-left-right"></i> RLM</span>{% endif %}
-                                {% if show_badges and m.sharp_side == m.player2 %}<span class="vsin-alert-badge sharp-money" style="margin-left:3px;"><i class="bi bi-lightning-fill"></i></span>{% endif %}
+                            <span class="vsin-player-name {{ 'rlm-player' if m.p2_rlm else '' }}">
+                                <span class="vsin-pname-text">{{ m.player2 }}</span>
+                                {% if m.p2_rlm %}<span class="vsin-alert-badge rlm"><i class="bi bi-arrow-left-right"></i> RLM</span>{% endif %}
                             </span>
                             <span class="vsin-player-right">
                                 {% if p2_elo %}<span class="vsin-player-elo {{ 'higher' if p2_elo > p1_elo else '' }}">{{ p2_elo|round(0)|int }}</span>{% endif %}
@@ -1336,12 +1387,13 @@
                     </div>
                     {% if m.p1_open_odds or m.p2_open_odds %}
                     <div class="vsin-line-move">
+                        <span class="lm-label">Lines</span>
                         <span class="open-line">{{ m.p1_open_odds }}</span>
                         {% if m.p1_line_move %}
                         <i class="bi bi-arrow-right arrow {{ m.p1_line_move }}"></i>
                         <span class="curr-line {{ m.p1_line_move }}">{{ m.p1_odds }}</span>
                         {% endif %}
-                        <span style="margin:0 4px;color:var(--text-muted);">|</span>
+                        <span class="lm-sep">|</span>
                         <span class="open-line">{{ m.p2_open_odds }}</span>
                         {% if m.p2_line_move %}
                         <i class="bi bi-arrow-right arrow {{ m.p2_line_move }}"></i>
