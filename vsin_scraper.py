@@ -396,17 +396,18 @@ def fetch_tennis_opening_lines(game_ids: list, cookies: dict, headers: dict) -> 
 def detect_tennis_rlm(match: dict) -> None:
     """Detect Reverse Line Movement for a tennis match using opening vs current odds.
     
-    Uses the same Favorite/Underdog Decision Table as NBA/CBB:
-    - Money (handle) on Favorite + Line moves toward Underdog = RLM on underdog
-    - Money (handle) on Underdog + Line moves toward Favorite = RLM on favorite
+    RLM = line moves toward a player who has MINORITY public bets (tickets).
+    Sharp money (high handle %) from a small number of bets drives the line
+    against the public consensus.
     
-    In tennis moneyline terms:
-    - Favorite = player with lower (more negative) opening odds
-    - Line moving toward a player = their odds shortening (becoming more favorable)
-    - RLM = line shortens for a player who has MINORITY handle (money)
+    Detection criteria:
+    - Line shortened for a player (odds became more favorable)
+    - That player has < 50% of public bets (tickets)
+    - Sharp money (handle %) is pushing the line against public action
     
-    Requires actual line movement. Handle-based divergence without line movement
-    is flagged as sharp money (sharp_side), not RLM.
+    This catches cases like:
+    - Player opens +109, moves to -126 with only 32% bets but 82% handle
+    - The line flipped favorites AGAINST where 68% of public bets are = RLM
     """
     p1_handle = match.get('p1_handle_pct', 50)
     p2_handle = match.get('p2_handle_pct', 50)
@@ -447,14 +448,14 @@ def detect_tennis_rlm(match: dict) -> None:
             match['p2_line_move'] = 'lengthened'
     
     if p1_open_val is not None and p1_curr_val is not None and p1_curr_val < p1_open_val:
-        if p1_handle < 50:
+        if p1_bets < 50:
             match['p1_rlm'] = True
-            logger.info(f"RLM detected on {match['player1']}: opened {p1_open} → {p1_curr}, only {p1_handle}% money")
+            logger.info(f"RLM detected on {match['player1']}: opened {p1_open} → {p1_curr}, only {p1_bets}% bets but {p1_handle}% handle")
     
     if p2_open_val is not None and p2_curr_val is not None and p2_curr_val < p2_open_val:
-        if p2_handle < 50:
+        if p2_bets < 50:
             match['p2_rlm'] = True
-            logger.info(f"RLM detected on {match['player2']}: opened {p2_open} → {p2_curr}, only {p2_handle}% money")
+            logger.info(f"RLM detected on {match['player2']}: opened {p2_open} → {p2_curr}, only {p2_bets}% bets but {p2_handle}% handle")
 
 
 def get_vsin_tennis_data() -> dict:
