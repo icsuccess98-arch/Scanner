@@ -664,6 +664,10 @@
             background: rgba(80, 200, 120, 0.15);
             color: #50C878;
         }
+        .vsin-player-name.rlm-player {
+            color: #ff6b6b;
+            text-shadow: 0 0 8px rgba(255, 107, 107, 0.3);
+        }
 
         /* Tournament section */
         .tournament-section {
@@ -1322,9 +1326,9 @@
                     <div class="vsin-match-tourn">{{ m.tournament }}</div>
                     <div class="vsin-match-players">
                         <div class="vsin-player-row">
-                            <span class="vsin-player-name {{ 'sharp' if show_badges and m.sharp_side == m.player1 else '' }}">
+                            <span class="vsin-player-name {{ 'rlm-player' if m.p1_rlm else '' }} {{ 'sharp' if show_badges and m.sharp_side == m.player1 else '' }}">
                                 {{ m.player1 }}
-                                {% if show_badges and m.p1_rlm %}<span class="vsin-alert-badge rlm" style="margin-left:3px;"><i class="bi bi-arrow-left-right"></i> RLM</span>{% endif %}
+                                {% if m.p1_rlm %}<span class="vsin-alert-badge rlm" style="margin-left:3px;"><i class="bi bi-arrow-left-right"></i> RLM</span>{% endif %}
                                 {% if show_badges and m.sharp_side == m.player1 %}<span class="vsin-alert-badge sharp-money" style="margin-left:3px;"><i class="bi bi-lightning-fill"></i></span>{% endif %}
                             </span>
                             <span class="vsin-player-right">
@@ -1334,9 +1338,9 @@
                         </div>
                         <div class="vsin-vs-divider">vs</div>
                         <div class="vsin-player-row">
-                            <span class="vsin-player-name {{ 'sharp' if show_badges and m.sharp_side == m.player2 else '' }}">
+                            <span class="vsin-player-name {{ 'rlm-player' if m.p2_rlm else '' }} {{ 'sharp' if show_badges and m.sharp_side == m.player2 else '' }}">
                                 {{ m.player2 }}
-                                {% if show_badges and m.p2_rlm %}<span class="vsin-alert-badge rlm" style="margin-left:3px;"><i class="bi bi-arrow-left-right"></i> RLM</span>{% endif %}
+                                {% if m.p2_rlm %}<span class="vsin-alert-badge rlm" style="margin-left:3px;"><i class="bi bi-arrow-left-right"></i> RLM</span>{% endif %}
                                 {% if show_badges and m.sharp_side == m.player2 %}<span class="vsin-alert-badge sharp-money" style="margin-left:3px;"><i class="bi bi-lightning-fill"></i></span>{% endif %}
                             </span>
                             <span class="vsin-player-right">
@@ -1465,9 +1469,7 @@
                     {% if dates_seen.append(m.date) %}{% endif %}
                     <div class="section-label" style="margin:12px 0 8px;font-size:0.65rem;">{{ m.date }}</div>
                 {% endif %}
-                {% if not m.sharp_side and not m.p1_rlm and not m.p2_rlm %}
                 {{ render_vsin_card(m) }}
-                {% endif %}
                 {% endfor %}
             </div>
         </div>
