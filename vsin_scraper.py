@@ -244,6 +244,11 @@ def parse_tennis_splits(html: str, filter_dates=None) -> dict:
                         player1 = parts[0].strip()
                         player2 = parts[1].strip()
                         
+                        game_id = ''
+                        modal_triggers = cell.find_all(attrs={'data-param2': True})
+                        if modal_triggers:
+                            game_id = modal_triggers[0].get('data-param2', '')
+                        
                         odds_text = ''
                         pct_cells = []
                         
@@ -288,6 +293,7 @@ def parse_tennis_splits(html: str, filter_dates=None) -> dict:
                             'date': current_date_str,
                             'p1_odds': p1_odds,
                             'p2_odds': p2_odds,
+                            'game_id': game_id,
                         }
                         
                         if len(handle_pcts) >= 2:
@@ -324,6 +330,139 @@ def parse_tennis_splits(html: str, filter_dates=None) -> dict:
     return splits
 
 
+def _fetch_single_opening_line(game_id: str, cookies: dict, headers: dict) -> tuple:
+    """Fetch opening line for a single game from VSIN modal endpoint."""
+    try:
+        resp = requests.get('https://data.vsin.com/modal/loadmodal.php',
+                          params={'modalpage': 'dksplitsgame', 'gameid': game_id},
+                          cookies=cookies, headers=headers, timeout=10)
+        if resp.status_code != 200:
+            return (game_id, None)
+        
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        
+        rows = soup.find_all('tr')
+        for row in rows:
+            tds = row.find_all('td')
+            if len(tds) < 3:
+                continue
+            
+            for td in tds:
+                divs = td.find_all('div', class_='game_highlight_dark')
+                if len(divs) == 2:
+                    texts = [d.get_text(strip=True) for d in divs]
+                    if any(re.match(r'^[+-]?\d', t) for t in texts if t and t != '-'):
+                        return (game_id, {
+                            'p1_open': texts[0] if texts[0] != '-' else '',
+                            'p2_open': texts[1] if texts[1] != '-' else ''
+                        })
+        
+        return (game_id, None)
+    except Exception as e:
+        logger.debug(f"Error fetching opening line for {game_id}: {e}")
+        return (game_id, None)
+
+
+def fetch_tennis_opening_lines(game_ids: list, cookies: dict, headers: dict) -> dict:
+    """Fetch opening lines from VSIN modal endpoint for tennis matches (concurrent).
+    
+    Args:
+        game_ids: List of VSIN game IDs (e.g., ['TEN33688117', ...])
+        cookies: VSIN authentication cookies
+        headers: Request headers
+    
+    Returns:
+        Dict mapping game_id -> {'p1_open': str, 'p2_open': str}
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    
+    opening_lines = {}
+    valid_ids = [gid for gid in game_ids if gid]
+    
+    if not valid_ids:
+        return opening_lines
+    
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {executor.submit(_fetch_single_opening_line, gid, cookies, headers): gid for gid in valid_ids}
+        for future in as_completed(futures):
+            game_id, result = future.result()
+            if result:
+                opening_lines[game_id] = result
+    
+    logger.info(f"VSIN Tennis: Fetched opening lines for {len(opening_lines)}/{len(valid_ids)} games")
+    return opening_lines
+
+
+def detect_tennis_rlm(match: dict) -> None:
+    """Detect Reverse Line Movement for a tennis match using opening vs current odds.
+    
+    RLM occurs when:
+    1. A player's line moves in their favor despite minority money
+    2. Opening underdog becomes favorite or line shortens significantly against money flow
+    
+    Also detects handle-based RLM (60%+ money threshold) as fallback.
+    """
+    p1_handle = match.get('p1_handle_pct', 50)
+    p2_handle = match.get('p2_handle_pct', 50)
+    p1_bets = match.get('p1_bets_pct', 50)
+    p2_bets = match.get('p2_bets_pct', 50)
+    
+    match['p1_rlm'] = False
+    match['p2_rlm'] = False
+    match['p1_line_move'] = ''
+    match['p2_line_move'] = ''
+    
+    p1_open = match.get('p1_open_odds', '')
+    p2_open = match.get('p2_open_odds', '')
+    p1_curr = match.get('p1_odds', '')
+    p2_curr = match.get('p2_odds', '')
+    
+    def parse_odds(odds_str):
+        try:
+            return int(odds_str.replace('+', ''))
+        except (ValueError, AttributeError):
+            return None
+    
+    p1_open_val = parse_odds(p1_open)
+    p2_open_val = parse_odds(p2_open)
+    p1_curr_val = parse_odds(p1_curr)
+    p2_curr_val = parse_odds(p2_curr)
+    
+    if p1_open_val is not None and p1_curr_val is not None:
+        if p1_curr_val < p1_open_val:
+            match['p1_line_move'] = 'shortened'
+        elif p1_curr_val > p1_open_val:
+            match['p1_line_move'] = 'lengthened'
+    
+    if p2_open_val is not None and p2_curr_val is not None:
+        if p2_curr_val < p2_open_val:
+            match['p2_line_move'] = 'shortened'
+        elif p2_curr_val > p2_open_val:
+            match['p2_line_move'] = 'lengthened'
+    
+    if p1_open_val is not None and p1_curr_val is not None:
+        if p1_curr_val < p1_open_val and p1_handle < 50:
+            match['p1_rlm'] = True
+            logger.info(f"RLM detected on {match['player1']}: opened {p1_open} → {p1_curr}, only {p1_handle}% money")
+        elif p1_curr_val < p1_open_val and p2_bets >= 55:
+            match['p1_rlm'] = True
+            logger.info(f"RLM detected on {match['player1']}: line shortened despite {p2_bets}% bets on opponent")
+    
+    if p2_open_val is not None and p2_curr_val is not None:
+        if p2_curr_val < p2_open_val and p2_handle < 50:
+            match['p2_rlm'] = True
+            logger.info(f"RLM detected on {match['player2']}: opened {p2_open} → {p2_curr}, only {p2_handle}% money")
+        elif p2_curr_val < p2_open_val and p1_bets >= 55:
+            match['p2_rlm'] = True
+            logger.info(f"RLM detected on {match['player2']}: line shortened despite {p1_bets}% bets on opponent")
+    
+    if not match['p1_rlm'] and not match['p2_rlm']:
+        if p1_bets >= 60 and p1_handle < p2_handle:
+            match['p2_rlm'] = True
+        if p2_bets >= 60 and p2_handle < p1_handle:
+            match['p1_rlm'] = True
+
+
 def get_vsin_tennis_data() -> dict:
     """Fetch and combine VSIN tennis splits data with RLM detection.
     Only returns matches for today and tomorrow since tennis spans late/early hours."""
@@ -336,7 +475,7 @@ def get_vsin_tennis_data() -> dict:
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Accept': 'text/html,*/*',
-        'Referer': 'https://vsin.com/',
+        'Referer': 'https://data.vsin.com/tennis/betting-splits/',
     }
     
     today = datetime.now()
@@ -352,20 +491,26 @@ def get_vsin_tennis_data() -> dict:
         
         matches = parse_tennis_splits(resp.text, filter_dates=filter_dates)
         
+        game_ids = [m.get('game_id', '') for m in matches.values() if m.get('game_id')]
+        opening_lines = {}
+        if game_ids:
+            opening_lines = fetch_tennis_opening_lines(game_ids, cookies, headers)
+        
         for key, match in matches.items():
+            game_id = match.get('game_id', '')
+            if game_id and game_id in opening_lines:
+                match['p1_open_odds'] = opening_lines[game_id].get('p1_open', '')
+                match['p2_open_odds'] = opening_lines[game_id].get('p2_open', '')
+            else:
+                match['p1_open_odds'] = ''
+                match['p2_open_odds'] = ''
+            
+            detect_tennis_rlm(match)
+            
             p1_handle = match.get('p1_handle_pct', 50)
             p2_handle = match.get('p2_handle_pct', 50)
             p1_bets = match.get('p1_bets_pct', 50)
             p2_bets = match.get('p2_bets_pct', 50)
-            
-            match['p1_rlm'] = False
-            match['p2_rlm'] = False
-            
-            if p1_bets >= 60 and p1_handle < p2_handle:
-                match['p2_rlm'] = True
-            if p2_bets >= 60 and p2_handle < p1_handle:
-                match['p1_rlm'] = True
-            
             p1_divergence = abs(p1_handle - p1_bets)
             p2_divergence = abs(p2_handle - p2_bets)
             match['p1_divergence'] = p1_divergence

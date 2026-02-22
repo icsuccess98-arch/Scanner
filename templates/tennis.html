@@ -496,6 +496,23 @@
             color: var(--text-muted);
             margin-left: 4px;
         }
+        .vsin-line-move {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 0.6rem;
+            margin-bottom: 6px;
+            padding: 3px 6px;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.03);
+        }
+        .vsin-line-move .open-line { color: var(--text-muted); }
+        .vsin-line-move .arrow { font-size: 0.7rem; }
+        .vsin-line-move .arrow.shortened { color: #50C878; }
+        .vsin-line-move .arrow.lengthened { color: #ff6b6b; }
+        .vsin-line-move .curr-line { font-weight: 700; }
+        .vsin-line-move .curr-line.shortened { color: #50C878; }
+        .vsin-line-move .curr-line.lengthened { color: #ff6b6b; }
         .vsin-vs { font-size: 0.65rem; color: var(--text-muted); }
         .vsin-splits-row {
             display: flex;
@@ -1216,6 +1233,21 @@
                             {% if m.sharp_side == m.player2 %}<span class="vsin-alert-badge sharp-money"><i class="bi bi-lightning-fill"></i> Sharp</span>{% endif %}
                         </span>
                     </div>
+                    {% if m.p1_open_odds or m.p2_open_odds %}
+                    <div class="vsin-line-move">
+                        <span class="open-line">{{ m.player1|truncate(12, True, '..') }}: {{ m.p1_open_odds }}</span>
+                        {% if m.p1_line_move %}
+                        <i class="bi bi-arrow-right arrow {{ m.p1_line_move }}"></i>
+                        <span class="curr-line {{ m.p1_line_move }}">{{ m.p1_odds }}</span>
+                        {% endif %}
+                        <span style="margin:0 6px;color:var(--text-muted);">|</span>
+                        <span class="open-line">{{ m.player2|truncate(12, True, '..') }}: {{ m.p2_open_odds }}</span>
+                        {% if m.p2_line_move %}
+                        <i class="bi bi-arrow-right arrow {{ m.p2_line_move }}"></i>
+                        <span class="curr-line {{ m.p2_line_move }}">{{ m.p2_odds }}</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
                     <div class="vsin-splits-row">
                         <div class="vsin-split-item">
                             <span class="vsin-split-label">Handle</span>
@@ -1254,6 +1286,21 @@
                         <span class="vsin-vs">vs</span>
                         <span class="vsin-player">{{ m.player2 }} <span class="vsin-player-odds">{{ m.p2_odds }}</span></span>
                     </div>
+                    {% if m.p1_open_odds or m.p2_open_odds %}
+                    <div class="vsin-line-move">
+                        <span class="open-line">{{ m.player1|truncate(12, True, '..') }}: {{ m.p1_open_odds }}</span>
+                        {% if m.p1_line_move %}
+                        <i class="bi bi-arrow-right arrow {{ m.p1_line_move }}"></i>
+                        <span class="curr-line {{ m.p1_line_move }}">{{ m.p1_odds }}</span>
+                        {% endif %}
+                        <span style="margin:0 6px;color:var(--text-muted);">|</span>
+                        <span class="open-line">{{ m.player2|truncate(12, True, '..') }}: {{ m.p2_open_odds }}</span>
+                        {% if m.p2_line_move %}
+                        <i class="bi bi-arrow-right arrow {{ m.p2_line_move }}"></i>
+                        <span class="curr-line {{ m.p2_line_move }}">{{ m.p2_odds }}</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
                     <div class="vsin-splits-row">
                         <div class="vsin-split-item">
                             <span class="vsin-split-label">Handle</span>
