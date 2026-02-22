@@ -2618,7 +2618,7 @@ class MatchupIntelligence:
         if cache_key in MatchupIntelligence._rlm_cache:
             cached_time = MatchupIntelligence._rlm_cache_time.get(cache_key, now)
             cache_age_minutes = (now - cached_time).total_seconds() / 60
-            should_refresh = cache_age_minutes > 2  # Refresh every 2 mins for live line movement
+            should_refresh = cache_age_minutes > 10  # Refresh every 10 mins (was 2 — killed page load speed)
             
             if game_time and not should_refresh:
                 try:
@@ -7168,6 +7168,21 @@ def api_errors():
         'counts': dict(_error_counts),
         'recent': _recent_errors[-20:]
     })
+
+@app.route('/api/clear_cache', methods=['POST'])
+@cooldown(30)
+def api_clear_cache():
+    """Clear all scraped data caches to force fresh fetches on next page load."""
+    try:
+        # Clear VSIN caches
+        MatchupIntelligence._rlm_cache.clear()
+        MatchupIntelligence._rlm_cache_time.clear()
+        # Clear ESPN cache
+        global _espn_standings_cache
+        _espn_standings_cache = {'data': None, 'timestamp': 0}
+        return jsonify({'status': 'ok', 'message': 'All caches cleared. Next page load will fetch fresh data.'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/api/status')
 def api_status():

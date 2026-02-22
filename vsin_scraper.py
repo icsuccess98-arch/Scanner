@@ -56,7 +56,7 @@ def get_vsin_splits(sport: str = 'CBB') -> dict:
     }
 
     try:
-        response = requests.get(url, cookies=cookies, headers=headers, timeout=30)
+        response = requests.get(url, cookies=cookies, headers=headers, timeout=12)
 
         if response.status_code != 200:
             return {'success': False, 'message': f'Failed to fetch: {response.status_code}', 'data': {}}
@@ -458,9 +458,20 @@ def detect_tennis_rlm(match: dict) -> None:
             logger.info(f"RLM detected on {match['player2']}: opened {p2_open} → {p2_curr}, only {p2_bets}% bets but {p2_handle}% handle")
 
 
+_vsin_tennis_cache = {}
+_vsin_tennis_cache_time = 0
+
 def get_vsin_tennis_data() -> dict:
     """Fetch and combine VSIN tennis splits data with RLM detection.
-    Only returns matches for today and tomorrow since tennis spans late/early hours."""
+    Only returns matches for today and tomorrow since tennis spans late/early hours.
+    Cached for 10 minutes."""
+    import time as _time
+    global _vsin_tennis_cache, _vsin_tennis_cache_time
+    now = _time.time()
+    if _vsin_tennis_cache and (now - _vsin_tennis_cache_time) < 600:
+        logger.info(f"Using cached VSIN tennis data ({int(now - _vsin_tennis_cache_time)}s old)")
+        return _vsin_tennis_cache
+
     from datetime import datetime, timedelta
     
     cookies = load_cookies()
@@ -479,7 +490,7 @@ def get_vsin_tennis_data() -> dict:
     
     try:
         resp = requests.get('https://data.vsin.com/tennis/betting-splits/', 
-                          cookies=cookies, headers=headers, timeout=30)
+                          cookies=cookies, headers=headers, timeout=12)
         if resp.status_code != 200:
             return {'success': False, 'message': f'Failed: {resp.status_code}', 'matches': {}}
         
@@ -516,7 +527,10 @@ def get_vsin_tennis_data() -> dict:
             elif p2_handle > p2_bets and p2_divergence >= 15:
                 match['sharp_side'] = match['player2']
         
-        return {'success': True, 'matches': matches, 'count': len(matches)}
+        result = {'success': True, 'matches': matches, 'count': len(matches)}
+        _vsin_tennis_cache.update(result)
+        _vsin_tennis_cache_time = _time.time()
+        return result
     
     except Exception as e:
         logger.error(f"Error fetching VSIN tennis: {e}")
@@ -586,7 +600,7 @@ def get_vsin_lines(sport: str = 'CBB') -> dict:
     }
 
     try:
-        response = requests.get(url, cookies=cookies, headers=headers, timeout=30)
+        response = requests.get(url, cookies=cookies, headers=headers, timeout=12)
 
         if response.status_code != 200:
             return {'success': False, 'message': f'Failed: {response.status_code}', 'data': {}}
@@ -944,11 +958,22 @@ def parse_spread_line(cell_text: str) -> dict:
     return result
 
 
+_vsin_data_cache = {}
+_vsin_data_cache_time = {}
+VSIN_CACHE_TTL = 600  # 10 minutes — VSIN scraping is the #1 bottleneck for page load speed
+
 def get_all_vsin_data(sport: str = 'CBB') -> dict:
     """
     Get combined VSIN data: splits + lines
-    Returns unified game data dict
+    Returns unified game data dict. Cached for 10 minutes.
     """
+    import time as _time
+    cache_key = f"{sport}_{datetime.now().strftime('%Y%m%d')}"
+    now = _time.time()
+    if cache_key in _vsin_data_cache and (now - _vsin_data_cache_time.get(cache_key, 0)) < VSIN_CACHE_TTL:
+        logger.info(f"Using cached VSIN data for {sport} ({int(now - _vsin_data_cache_time[cache_key])}s old)")
+        return _vsin_data_cache[cache_key]
+
     splits_result = get_vsin_splits(sport)
     lines_result = get_vsin_lines(sport)
 
@@ -1021,13 +1046,18 @@ def get_all_vsin_data(sport: str = 'CBB') -> dict:
 
     logger.info(f"VSIN combined data for {sport}: {len(combined)} games (lines: {lines_result.get('count', 0)}, splits: {splits_result.get('count', 0)})")
 
-    return {
+    result = {
         'success': True,
         'data': combined,
         'count': len(combined),
         'splits_count': splits_result.get('count', 0),
         'lines_count': lines_result.get('count', 0)
     }
+    # Cache the result
+    _vsin_data_cache[cache_key] = result
+    _vsin_data_cache_time[cache_key] = _time.time()
+    logger.info(f"Cached VSIN data for {sport}: {len(combined)} games")
+    return result
 
 
 def test_vsin_connection():
