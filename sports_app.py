@@ -11120,20 +11120,36 @@ def history():
 @app.route('/tennis')
 def tennis():
     """Tennis Game Spreads from Discord picks channel."""
+    import concurrent.futures
     from discord_scraper import get_tennis_game_spreads, analyze_tournament_matchups
-    from tennis_abstract_scraper import get_tennis_abstract_stats, get_tournament_draws
-    data = get_tennis_game_spreads()
-    try:
-        player_stats = get_tennis_abstract_stats()
-    except Exception as e:
-        logger.error(f"Tennis Abstract stats error: {e}")
-        player_stats = {}
+    from tennis_abstract_scraper import get_tennis_abstract_stats, get_tournament_draws, reset_upgrade_count
+
+    reset_upgrade_count()
+    data = {'success': False, 'error': 'Loading...', 'picks': [], 'top_plays': []}
+    player_stats = {}
     tournament_draws = []
+
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            future_data = executor.submit(get_tennis_game_spreads)
+            future_stats = executor.submit(get_tennis_abstract_stats)
+            try:
+                data = future_data.result(timeout=20)
+            except Exception as e:
+                logger.error(f"Tennis game spreads timeout/error: {e}")
+            try:
+                player_stats = future_stats.result(timeout=10)
+            except Exception as e:
+                logger.error(f"Tennis Abstract stats timeout/error: {e}")
+    except Exception as e:
+        logger.error(f"Tennis data fetch error: {e}")
+
     try:
         tournament_draws = get_tournament_draws()
         tournament_draws = analyze_tournament_matchups(tournament_draws, player_stats)
     except Exception as e:
         logger.error(f"Tournament analysis error: {e}")
+
     return render_template('tennis.html', data=data, player_stats=player_stats, tournaments=tournament_draws)
 
 @app.route('/bankroll')

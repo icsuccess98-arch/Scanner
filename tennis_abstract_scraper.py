@@ -79,7 +79,15 @@ def _build_name_index(stats):
     return index
 
 
-def fuzzy_lookup(pick_name, stats, _index_cache={}):
+_upgrade_count = 0
+_MAX_UPGRADES_PER_REQUEST = 5
+
+def reset_upgrade_count():
+    global _upgrade_count
+    _upgrade_count = 0
+
+def fuzzy_lookup(pick_name, stats, _index_cache={}, skip_upgrade=False):
+    global _upgrade_count
     if not pick_name or not stats:
         return None
 
@@ -120,9 +128,10 @@ def fuzzy_lookup(pick_name, stats, _index_cache={}):
                     if result:
                         break
 
-    # Auto-fetch stats from player page if we only have Elo
-    if result and result.get('elo_only') and matched_name:
-        result = _upgrade_player(matched_name, stats)
+    if result and result.get('elo_only') and matched_name and not skip_upgrade:
+        if _upgrade_count < _MAX_UPGRADES_PER_REQUEST:
+            _upgrade_count += 1
+            result = _upgrade_player(matched_name, stats)
 
     return result
 
@@ -233,11 +242,11 @@ def _fetch_player_stats(full_name, tour=None):
     for url in urls:
         try:
             if 'cgi-bin' in url:
-                time.sleep(0.5)
-            for attempt in range(4):
-                resp = requests.get(url, timeout=15)
+                time.sleep(0.2)
+            for attempt in range(2):
+                resp = requests.get(url, timeout=8)
                 if resp.status_code == 429:
-                    wait = 2 * (attempt + 1)
+                    wait = 1 * (attempt + 1)
                     logger.debug(f"Rate limited on {url}, waiting {wait}s")
                     time.sleep(wait)
                     continue
