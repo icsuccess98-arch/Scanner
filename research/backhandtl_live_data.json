@@ -1,0 +1,117 @@
+{
+  "timestamp": "2026-02-28T10:15:06.752772",
+  "api_config": {
+    "supabase_url": "https://suoaznisiowoolxilaju.supabase.co",
+    "anon_key_found": true,
+    "anon_key_prefix": "eyJpc3MiOiJzdXBhYmFz..."
+  },
+  "table_access": {
+    "players": {
+      "accessible": false,
+      "status_code": 401,
+      "error": "{\"message\":\"Invalid API key\",\"hint\":\"Double check your Supabase `anon` or `service_role` API key.\"}"
+    },
+    "market_odds": {
+      "accessible": false,
+      "status_code": 401,
+      "error": "{\"message\":\"Invalid API key\",\"hint\":\"Double check your Supabase `anon` or `service_role` API key.\"}"
+    },
+    "odds_history": {
+      "accessible": false,
+      "status_code": 401,
+      "error": "{\"message\":\"Invalid API key\",\"hint\":\"Double check your Supabase `anon` or `service_role` API key.\"}"
+    },
+    "scouting_reports": {
+      "accessible": false,
+      "status_code": 401,
+      "error": "{\"message\":\"Invalid API key\",\"hint\":\"Double check your Supabase `anon` or `service_role` API key.\"}"
+    },
+    "player_skills": {
+      "accessible": false,
+      "status_code": 401,
+      "error": "{\"message\":\"Invalid API key\",\"hint\":\"Double check your Supabase `anon` or `service_role` API key.\"}"
+    },
+    "player_achievements": {
+      "accessible": false,
+      "status_code": 401,
+      "error": "{\"message\":\"Invalid API key\",\"hint\":\"Double check your Supabase `anon` or `service_role` API key.\"}"
+    },
+    "tournaments": {
+      "accessible": false,
+      "status_code": 401,
+      "error": "{\"message\":\"Invalid API key\",\"hint\":\"Double check your Supabase `anon` or `service_role` API key.\"}"
+    },
+    "profiles": {
+      "accessible": false,
+      "status_code": 401,
+      "error": "{\"message\":\"Invalid API key\",\"hint\":\"Double check your Supabase `anon` or `service_role` API key.\"}"
+    },
+    "favorites": {
+      "accessible": false,
+      "status_code": 401,
+      "error": "{\"message\":\"Invalid API key\",\"hint\":\"Double check your Supabase `anon` or `service_role` API key.\"}"
+    },
+    "support_tickets": {
+      "accessible": false,
+      "status_code": 401,
+      "error": "{\"message\":\"Invalid API key\",\"hint\":\"Double check your Supabase `anon` or `service_role` API key.\"}"
+    },
+    "user_events": {
+      "accessible": false,
+      "status_code": 401,
+      "error": "{\"message\":\"Invalid API key\",\"hint\":\"Double check your Supabase `anon` or `service_role` API key.\"}"
+    },
+    "upvotes": {
+      "accessible": false,
+      "status_code": 401,
+      "error": "{\"message\":\"Invalid API key\",\"hint\":\"Double check your Supabase `anon` or `service_role` API key.\"}"
+    },
+    "promo_codes": {
+      "accessible": false,
+      "status_code": 401,
+      "error": "{\"message\":\"Invalid API key\",\"hint\":\"Double check your Supabase `anon` or `service_role` API key.\"}"
+    },
+    "feedback_posts": {
+      "accessible": false,
+      "status_code": 401,
+      "error": "{\"message\":\"Invalid API key\",\"hint\":\"Double check your Supabase `anon` or `service_role` API key.\"}"
+    },
+    "fantasy_lineups": {
+      "accessible": false,
+      "status_code": 401,
+      "error": "{\"message\":\"Invalid API key\",\"hint\":\"Double check your Supabase `anon` or `service_role` API key.\"}"
+    },
+    "fantasy_gameweeks": {
+      "accessible": false,
+      "status_code": 401,
+      "error": "{\"message\":\"Invalid API key\",\"hint\":\"Double check your Supabase `anon` or `service_role` API key.\"}"
+    },
+    "articles": {
+      "accessible": false,
+      "status_code": 401,
+      "error": "{\"message\":\"Invalid API key\",\"hint\":\"Double check your Supabase `anon` or `service_role` API key.\"}"
+    }
+  },
+  "rpc_access": {
+    "check_and_reset_credits": {
+      "status_code": 401,
+      "accessible": true,
+      "response": "{\"message\":\"Invalid API key\",\"hint\":\"Double check your Supabase `anon` or `service_role` API key.\"}"
+    },
+    "delete_my_account": {
+      "status_code": 401,
+      "accessible": true,
+      "response": "{\"message\":\"Invalid API key\",\"hint\":\"Double check your Supabase `anon` or `service_role` API key.\"}"
+    },
+    "redeem_promo_code": {
+      "status_code": 401,
+      "accessible": true,
+      "response": "{\"message\":\"Invalid API key\",\"hint\":\"Double check your Supabase `anon` or `service_role` API key.\"}"
+    },
+    "use_matchup_analyzer": {
+      "status_code": 401,
+      "accessible": true,
+      "response": "{\"message\":\"Invalid API key\",\"hint\":\"Double check your Supabase `anon` or `service_role` API key.\"}"
+    }
+  }
+}
